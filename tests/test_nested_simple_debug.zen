@@ -1,0 +1,21 @@
+// Simple nested generics test
+{ io, Result } = @std
+
+main = () void {
+    io.println("Testing nested Result")
+    
+    // Create nested Result directly
+    nested = Result.Ok(Result.Ok(42))
+    
+    io.println("Created nested result")
+    
+    // Try to extract the inner Result
+    inner_result = nested.raise()
+    
+    io.println("Got inner result")
+    
+    // Extract the final value
+    value = inner_result.raise()
+    
+    io.println("Final value: ${value}")
+}

@@ -1,0 +1,43 @@
+// Simple nested generics test
+{ io, Result, Option } = @std
+
+main = () void {
+    io.println("=== Simple Nested Generics Test ===")
+    
+    // Test 1: Option<Result> from function
+    io.println("\n1. Option<Result> from function:")
+    get_opt_result = () Option<Result<i32, string>> {
+        Option.Some(Result.Ok(42))
+    }
+    
+    opt = get_opt_result()
+    opt ?
+        | Option.Some(res) {
+            val = res.raise()
+            io.println("   Success: got ${val}")
+        }
+        | Option.None { io.println("   Got None") }
+    
+    // Test 2: Result<Result> from function
+    io.println("\n2. Result<Result> from function:")
+    get_double_result = () Result<Result<i32, string>, string> {
+        Result.Ok(Result.Ok(100))
+    }
+    
+    outer = get_double_result()
+    inner = outer.raise()
+    val2 = inner.raise()
+    io.println("   Success: got ${val2}")
+    
+    // Test 3: Inline Option<Result>
+    io.println("\n3. Inline Option<Result>:")
+    inline_opt = Option.Some(Result.Ok(200))
+    inline_opt ?
+        | Option.Some(r) {
+            val3 = r.raise()
+            io.println("   Success: got ${val3}")
+        }
+        | Option.None { io.println("   Got None") }
+    
+    io.println("\n=== All tests passed ===")
+}

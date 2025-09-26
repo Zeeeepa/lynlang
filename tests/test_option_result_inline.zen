@@ -1,0 +1,18 @@
+// Test Option<Result> with inline creation
+{ io, Result, Option } = @std
+
+main = () void {
+    io.println("Test: Option<Result> inline")
+    
+    // Create inline
+    opt = Option.Some(Result.Ok(400))
+    
+    opt ?
+        | Option.Some(result) {
+            val = result.raise()
+            io.println("  Got: ${val}")
+        }
+        | Option.None { 
+            io.println("  Got None") 
+        }
+}

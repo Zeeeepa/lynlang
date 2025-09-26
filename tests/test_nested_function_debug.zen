@@ -1,0 +1,22 @@
+// Function returning nested Result
+{ io, Result } = @std
+
+get_nested = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(100))
+}
+
+main = () void {
+    io.println("Testing function returning nested Result")
+    
+    // Call function that returns nested result
+    outer = get_nested()
+    io.println("Got outer result from function")
+    
+    // Extract inner Result
+    inner = outer.raise()
+    io.println("Got inner result")
+    
+    // Extract final value
+    value = inner.raise()
+    io.println("Final value: ${value}")
+}

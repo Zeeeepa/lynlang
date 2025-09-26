@@ -1,0 +1,21 @@
+// Test Option<Result> in void function
+{ io, Result, Option } = @std
+
+main = () void {
+    io.println("Test: Option<Result> in void")
+    
+    get_option_result = () Option<Result<i32, string>> {
+        Option.Some(Result.Ok(400))
+    }
+    
+    opt = get_option_result()
+    
+    opt ?
+        | Option.Some(result) {
+            val = result.raise()
+            io.println("  Got: ${val}")
+        }
+        | Option.None { 
+            io.println("  Got None") 
+        }
+}

@@ -1,0 +1,22 @@
+// Test triple nested Result only
+{ io, Result } = @std
+
+main = () void {
+    io.println("Test: Triple nested Result")
+    
+    get_triple_nested = () Result<Result<Result<i32, string>, string>, string> {
+        Result.Ok(Result.Ok(Result.Ok(200)))
+    }
+    
+    level1 = get_triple_nested()
+    io.println("Got level 1")
+    
+    level2 = level1.raise()
+    io.println("Got level 2")
+    
+    level3 = level2.raise()
+    io.println("Got level 3")
+    
+    value = level3.raise()
+    io.println("Got value: ${value}")
+}

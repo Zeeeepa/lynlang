@@ -1,0 +1,15 @@
+// Test variable type inference
+{ io, Result } = @std
+
+main = () void {
+    io.println("Test: Variable type inference")
+    
+    // Store nested result in variable
+    nested_result = Result.Ok(Result.Ok(600))
+    
+    // Extract through variable
+    inner_result = nested_result.raise()
+    value = inner_result.raise()
+    
+    io.println("Got value: ${value}")
+}

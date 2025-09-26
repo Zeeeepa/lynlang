@@ -1,8 +1,0 @@
-{ io, Option, Array } = @std
-
-main = () void {
-    // Test Array.set
-    arr: Array<Option<i32>> = Array.new(5, Option.None)
-    arr.set(0, Option.Some(100))
-    io.println("Test passed")
-}

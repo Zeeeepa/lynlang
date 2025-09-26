@@ -1,8 +1,8 @@
-// Test chained raise calls
+// Test method chaining on nested results
 { io, Result } = @std
 
 main = () void {
-    io.println("Testing chained raises...")
+    io.println("Test: Method chaining")
     
     get_chained = () Result<Result<i32, string>, string> {
         Result.Ok(Result.Ok(500))
@@ -11,5 +11,5 @@ main = () void {
     // Chain multiple raise() calls
     value = get_chained().raise().raise()
     
-    io.println("Value: ${value}")
+    io.println("Got value: ${value}")
 }

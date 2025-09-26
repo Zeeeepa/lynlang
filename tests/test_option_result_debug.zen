@@ -1,0 +1,18 @@
+// Debug Option<Result<T, E>>
+{ io, Result, Option } = @std
+
+main = () void {
+    io.println("Test: Option<Result<T, E>>")
+    
+    // Directly create and match without intermediate variable
+    Option.Some(Result.Ok(400)) ?
+        | Option.Some(inner_result) {
+            io.println("Extracted Result from Option")
+            // Try to raise the inner result
+            val = inner_result.raise()
+            io.println("Got value: ${val}")
+        }
+        | Option.None { 
+            io.println("Got None") 
+        }
+}

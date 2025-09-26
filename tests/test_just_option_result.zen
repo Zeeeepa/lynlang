@@ -1,0 +1,27 @@
+// Just test Option<Result>
+{ io, Result, Option } = @std
+
+test_option_result = () i32 {
+    io.println("Test: Option<Result>")
+    
+    get_option_result = () Option<Result<i32, string>> {
+        Option.Some(Result.Ok(400))
+    }
+    
+    opt = get_option_result()
+    
+    opt ?
+        | Option.Some(result) {
+            val = result.raise()
+            io.println("  Got: ${val}")
+        }
+        | Option.None { 
+            io.println("  Got None") 
+        }
+    
+    return 0
+}
+
+main = () void {
+    test_option_result()
+}

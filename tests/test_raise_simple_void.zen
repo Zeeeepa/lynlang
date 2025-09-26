@@ -1,0 +1,10 @@
+// Test simple raise in void function
+{ io, Result } = @std
+
+main = () void {
+    result = Result.Ok(42)
+    io.println("Created result")
+    
+    value = result.raise()
+    io.println("Raised value: ${value}")
+}

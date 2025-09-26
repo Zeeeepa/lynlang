@@ -351,7 +351,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         None
                                     }
                                 } else {
-                                    None
+                                    // For custom enums, look up the payload type from enum definition
+                                    enum_info.variants.iter()
+                                        .find(|v| v.name == *variant)
+                                        .and_then(|v| v.payload.clone())
                                 };
                                 
 
@@ -1000,7 +1003,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     .get("Result_Err_Type")
                                                     .cloned()
                                             } else {
-                                                None
+                                                // For custom enums, look up the payload type from enum_info
+                                                enum_info.as_ref()
+                                                    .and_then(|info| info.variants.iter()
+                                                        .find(|v| v.name == *variant)
+                                                        .and_then(|v| v.payload.clone()))
                                             };
 
                                             // Try to load with the tracked type information
@@ -1190,7 +1197,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 .cloned()
                                                 .or_else(|| self.generic_type_context.get("Result_Err_Type").cloned())
                                         } else {
-                                            None
+                                            // For custom enums, try to find the payload type from enum info
+                                            // We need to search through all enums to find which one has this variant
+                                            let mut found_payload_type = None;
+                                            for (_enum_name, symbol) in self.symbols.iter() {
+                                                if let symbols::Symbol::EnumType(info) = symbol {
+                                                    if let Some(var) = info.variants.iter().find(|v| v.name == *variant) {
+                                                        found_payload_type = var.payload.clone();
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            found_payload_type
                                         };
 
                                         // Try to load with the tracked type information
@@ -1555,15 +1573,31 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let struct_val = value.into_struct_value();
                 if struct_val.get_type().count_fields() == 2 {
                     // This is likely an enum struct (Option or Result)
-                    // Try to determine which based on the generic type context
+                    // We need to be careful: if we extracted a payload from Option.Some where the
+                    // payload itself is an enum (like Result), then the struct we're looking at
+                    // IS that inner enum, not the outer Option
                     let ast_type = if let Some(option_type) = self.generic_tracker.get("Option_Some_Type") {
-                        // It's an Option
-                        crate::ast::AstType::Generic {
-                            name: "Option".to_string(),
-                            type_args: vec![option_type.clone()],
+                        // Check if Option_Some_Type is itself a generic enum
+                        if let crate::ast::AstType::Generic { name, .. } = option_type {
+                            if name == "Result" || name == "Option" {
+                                // The struct we're binding IS the inner enum type
+                                option_type.clone()
+                            } else {
+                                // Regular Option with non-enum payload
+                                crate::ast::AstType::Generic {
+                                    name: "Option".to_string(),
+                                    type_args: vec![option_type.clone()],
+                                }
+                            }
+                        } else {
+                            // Regular Option with primitive payload
+                            crate::ast::AstType::Generic {
+                                name: "Option".to_string(),
+                                type_args: vec![option_type.clone()],
+                            }
                         }
                     } else if let Some(ok_type) = self.generic_tracker.get("Result_Ok_Type") {
-                        // It's a Result
+                        // We have Result type information - the struct IS a Result
                         let err_type = self.generic_tracker.get("Result_Err_Type")
                             .cloned()
                             .unwrap_or(crate::ast::AstType::String);

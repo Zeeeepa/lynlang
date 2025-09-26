@@ -1,0 +1,22 @@
+// Minimal test for Option<Result<T, E>>
+{ io, Result, Option } = @std
+
+main = () void {
+    // Create Option<Result<i32, string>>
+    opt_result = Option.Some(Result.Ok(100))
+    
+    // Pattern match to extract Result
+    opt_result ?
+        | Option.Some(inner) {
+            // At this point, inner should be Result<i32, string> struct
+            // But it seems to be extracted as i64 instead
+            io.println("Got inner value")
+            
+            // This should work if inner is Result struct
+            val = inner.raise()
+            io.println("Value: ${val}")
+        }
+        | Option.None { 
+            io.println("None") 
+        }
+}

@@ -1,0 +1,19 @@
+// Test Result with string payloads
+{ io, Result } = @std
+
+main = () void {
+    io.println("Test: Result<Result<string, i32>, f64>")
+    
+    get_string_nested = () Result<Result<string, i32>, f64> {
+        Result.Ok(Result.Ok("Hello"))
+    }
+    
+    outer = get_string_nested()
+    io.println("Got outer")
+    
+    inner = outer.raise()
+    io.println("Got inner")
+    
+    value = inner.raise()
+    io.println("Got value: '${value}'")
+}

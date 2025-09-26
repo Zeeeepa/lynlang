@@ -1,9 +1,0 @@
-{ io, Option, Array } = @std
-
-main = () void {
-    // Test Array.push and get
-    arr: Array<i32> = Array.new(10, 0)
-    arr.push(42)
-    len = arr.len()
-    io.println("Length: ${len}")
-}

@@ -1,9 +1,0 @@
-{ io, Option, Array } = @std
-
-main = () void {
-    // Test Array.set
-    arr: Array<i32> = Array.new(10, 0)
-    arr.set(0, 100)
-    val = arr.get(0)
-    io.println("Value at 0: ${val}")
-}

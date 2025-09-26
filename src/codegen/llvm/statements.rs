@@ -124,8 +124,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Store the proper function pointer type
                                 let func_type = AstType::FunctionPointer {
                                     param_types: param_types.clone(),
-                                    return_type: Box::new(return_type),
+                                    return_type: Box::new(return_type.clone()),
                                 };
+                                
+                                // Also track the function's return type for later use when called
+                                self.function_types.insert(name.clone(), return_type);
 
                                 // Save this for later when we insert the variable
                                 inferred_ast_type = Some(func_type);
@@ -157,9 +160,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         if type_name == "Result" && type_args.len() == 2 {
                                             self.track_generic_type(format!("{}_Result_Ok_Type", name), type_args[0].clone());
                                             self.track_generic_type(format!("{}_Result_Err_Type", name), type_args[1].clone());
+                                            // Also track without variable name prefix for pattern matching
+                                            self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                                            self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
                                             self.generic_tracker.track_generic_type(&ast_type, name);
                                         } else if type_name == "Option" && type_args.len() == 1 {
                                             self.track_generic_type(format!("{}_Option_Some_Type", name), type_args[0].clone());
+                                            // Also track without variable name prefix for pattern matching
+                                            self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
                                             self.generic_tracker.track_generic_type(&ast_type, name);
                                         } else if type_name == "Array" && type_args.len() == 1 {
                                             self.track_generic_type(format!("{}_Array_Element_Type", name), type_args[0].clone());
@@ -1374,8 +1382,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                             let func_type = AstType::FunctionPointer {
                                 param_types,
-                                return_type: ret_type,
+                                return_type: ret_type.clone(),
                             };
+                            
+                            // Also track the function's return type for later use when called
+                            self.function_types.insert(name.clone(), *ret_type.clone());
 
                             // Now compile the closure
                             let closure_value = self.compile_expression(value)?;

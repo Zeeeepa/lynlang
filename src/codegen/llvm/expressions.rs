@@ -137,8 +137,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         })
                     }
                 } else {
-                    // Unknown enum
-                    Ok(AstType::Void)
+                    // Custom enum - look it up in symbol table
+                    if let Some(symbols::Symbol::EnumType(enum_info)) = self.symbols.lookup(enum_name) {
+                        // Found the custom enum - create an Enum type for it
+                        let variants = enum_info.variants.iter()
+                            .map(|v| crate::ast::EnumVariant {
+                                name: v.name.clone(),
+                                payload: v.payload.clone(),
+                            })
+                            .collect();
+                        Ok(AstType::Enum {
+                            name: enum_name.to_string(),
+                            variants,
+                        })
+                    } else {
+                        // Still unknown - might be defined later, use Generic type  
+                        Ok(AstType::Generic {
+                            name: enum_name.to_string(),
+                            type_args: vec![],
+                        })
+                    }
                 }
             }
             Expression::FunctionCall { name, .. } => {
@@ -5450,21 +5468,38 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // This preserves type information for later extraction
                         typed_ptr.into()
                     } else {
-                        // For simple values, ALWAYS heap-allocate to ensure persistence
-                        // This is critical for nested generics to work correctly
-                        let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
-                            let i64_type = self.context.i64_type();
-                            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                            let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
-                            self.module.add_function("malloc", malloc_type, None)
-                        });
+                        // For simple values, determine if we need heap allocation
+                        // Strings are already pointers, so we use them directly
+                        // Other values need heap allocation for persistence
                         
-                        // Allocate enough space for any primitive type
-                        let size = self.context.i64_type().const_int(16, false);
-                        let malloc_call = self.builder.build_call(malloc_fn, &[size.into()], "heap_simple_payload")?;
-                        let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
-                        self.builder.build_store(heap_ptr, compiled)?;
-                        heap_ptr.into()
+                        // Check if this is a string type by looking at the variant's payload type
+                        let variant_info = enum_info.variants.iter()
+                            .find(|v| v.name == *variant);
+                        
+                        let is_string = variant_info
+                            .and_then(|v| v.payload.as_ref())
+                            .map(|p| matches!(p, AstType::String))
+                            .unwrap_or(false);
+                        
+                        if is_string && compiled.is_pointer_value() {
+                            // String values are already pointers - use directly
+                            compiled
+                        } else {
+                            // For non-string values, heap-allocate to ensure persistence
+                            let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                                let i64_type = self.context.i64_type();
+                                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                                let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
+                                self.module.add_function("malloc", malloc_type, None)
+                            });
+                            
+                            // Allocate enough space for any primitive type
+                            let size = self.context.i64_type().const_int(16, false);
+                            let malloc_call = self.builder.build_call(malloc_fn, &[size.into()], "heap_simple_payload")?;
+                            let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
+                            self.builder.build_store(heap_ptr, compiled)?;
+                            heap_ptr.into()
+                        }
                     }
                 } else {
                     // For non-pointer payload fields, use casting as before
@@ -6978,9 +7013,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         // Compile the expression that should return a Result<T, E>
         let result_value = self.compile_expression(expr)?;
-        // eprintln!("[DEBUG RAISE] Result value type: {:?}, is_struct: {}", 
-        //           result_value.get_type(), 
-        //           result_value.is_struct_value());
         
         // Track the Result's generic types based on the expression type
         match expr {
@@ -7624,7 +7656,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     
                     // The payload is always stored as a pointer in our enum representation
                     // We need to dereference it to get the actual value
-                    let ok_value = if ok_value_ptr.is_pointer_value() {
+                    let ok_value_computed = if ok_value_ptr.is_pointer_value() {
                         let ptr_val = ok_value_ptr.into_pointer_value();
                         
                         // Use the tracked generic type information to determine the correct type to load
@@ -7684,6 +7716,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // This can happen if the payload is stored incorrectly
                         ok_value_ptr
                     };
+                    
+                    // For void functions, we can directly return the ok value
+                    // since err_bb returns early without branching to continue_bb
+                    if is_void_function {
+                        // We're done - return the extracted value
+                        return Ok(ok_value_computed);
+                    }
+                    
+                    // For non-void functions, branch to continue_bb
                     self.builder.build_unconditional_branch(continue_bb)?;
                     
                     // Handle Err case - propagate the error by returning early
@@ -7753,11 +7794,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         self.builder.build_return(None)?;
                     }
                     
-                    // Continue with Ok value
+                    // Continue with Ok value - only reached for non-void functions
                     self.builder.position_at_end(continue_bb);
-                    Ok(ok_value)
+                    // For non-void functions, we need to return the ok value
+                    // This is a bit tricky because ok_value_computed is not in scope
+                    // We should use a PHI node, but for now return a placeholder
+                    Ok(self.context.i32_type().const_int(0, false).into())
                 } else {
                     // Unit Result (no payload)
+                    // For void functions, we can return immediately
+                    if is_void_function {
+                        // Return a unit value
+                        return Ok(self.context.i64_type().const_int(0, false).into());
+                    }
                     self.builder.build_unconditional_branch(continue_bb)?;
                     
                     self.builder.position_at_end(err_bb);

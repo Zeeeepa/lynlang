@@ -1,7 +1,7 @@
-// Minimal test to reproduce exact issue
+// Simple double nested test
 { io, Result } = @std
 
-test_double_nested_result = () void {
+test_double_nested_result = () i32 {
     io.println("Test 1: Double nested Result<Result<T,E>,E>")
     
     // Function that returns nested result
@@ -17,6 +17,8 @@ test_double_nested_result = () void {
     value == 100 ? 
         | true { io.println("  ✓ Double nesting works") }
         | false { io.println("  ✗ Double nesting failed") }
+    
+    return 0
 }
 
 main = () void {

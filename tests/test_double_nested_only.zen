@@ -1,0 +1,19 @@
+// Test double nested Result only
+{ io, Result } = @std
+
+main = () void {
+    io.println("Test: Double nested Result<Result<T,E>,E>")
+    
+    get_double_nested = () Result<Result<i32, string>, string> {
+        Result.Ok(Result.Ok(100))
+    }
+    
+    outer_result = get_double_nested()
+    io.println("Got outer result")
+    
+    inner_result = outer_result.raise()
+    io.println("Got inner result")
+    
+    value = inner_result.raise()
+    io.println("Got value: ${value}")
+}

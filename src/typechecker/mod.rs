@@ -1420,7 +1420,6 @@ impl TypeChecker {
                 // .raise() unwraps a Result type and returns the Ok variant
                 // If it's an Err, it propagates the error
                 let result_type = self.infer_expression_type(expr)?;
-                // eprintln!("[DEBUG TYPECHECKER] Raise expression type: {:?}", result_type);
                 match result_type {
                     // Handle modern generic Result<T, E> type
                     AstType::Generic { name, type_args }
