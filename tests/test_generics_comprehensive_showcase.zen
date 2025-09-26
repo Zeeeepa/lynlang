@@ -1,0 +1,162 @@
+// Comprehensive showcase of working generic features in Zen
+{ io, Option, Result, Array, HashMap } = @std
+
+// Hash function for string keys
+string_hash = (s: string) i64 {
+    hash ::= 5381 as i64
+    i ::= 0 as i64
+    loop {
+        i >= s.len() ? { break }
+        char_val = s.char_at(i as i32)
+        temp ::= hash * 32
+        char_int = char_val as i64
+        hash = temp + hash + char_int
+        i = i + 1
+    }
+    return hash
+}
+
+// Equality function for strings
+string_eq = (a: string, b: string) i64 {
+    a == b ? 
+        | true { return 1 as i64 }
+        | false { return 0 as i64 }
+}
+
+// Function taking Option<i32> as parameter
+process_option = (opt: Option<i32>) void {
+    opt ?
+        | Option.Some(v) { io.println("    Processing value: ${v}") }
+        | Option.None { io.println("    Processing None") }
+}
+
+// Function taking Result<i32, string> as parameter  
+process_result = (res: Result<i32, string>) void {
+    res ?
+        | Result.Ok(v) { io.println("    Result Ok: ${v}") }
+        | Result.Err(e) { io.println("    Result Err: ${e}") }
+}
+
+// Function returning Option<i32> (with workaround for closure bug)
+create_option = (val: i32) Option<i32> {
+    // Workaround: store in variable first
+    result = val > 0 ?
+        | true { Option.Some(val) }
+        | false { Option.None }
+    return result
+}
+
+// Function returning Result<i32, string> (with workaround)
+safe_divide = (a: i32, b: i32) Result<i32, string> {
+    // Workaround: store in variable first
+    result = b == 0 ?
+        | true { Result.Err("Division by zero") }
+        | false { Result.Ok(a / b) }
+    return result
+}
+
+main = () void {
+    io.println("========================================")
+    io.println("Zen Generic Type System Showcase")
+    io.println("========================================")
+    
+    // 1. Basic generic instantiation
+    io.println("\n1. Basic Generic Instantiation:")
+    opt1: Option<i32> = Option.Some(42)
+    opt2: Option<i64> = Option.Some(9999999999)
+    opt3: Option<f64> = Option.Some(3.14159)
+    opt4: Option<string> = Option.Some("Hello Zen!")
+    
+    opt1 ? | Option.Some(v) { io.println("  Option<i32>: ${v}") } | Option.None { }
+    opt2 ? | Option.Some(v) { io.println("  Option<i64>: ${v}") } | Option.None { }
+    opt3 ? | Option.Some(v) { io.println("  Option<f64>: ${v}") } | Option.None { }
+    opt4 ? | Option.Some(v) { io.println("  Option<string>: ${v}") } | Option.None { }
+    
+    // 2. Result type with different combinations
+    io.println("\n2. Result<T,E> Types:")
+    res1: Result<i32, string> = Result.Ok(100)
+    res2: Result<f64, string> = Result.Err("Math error")
+    res3: Result<string, i32> = Result.Ok("Success!")
+    
+    res1 ? | Result.Ok(v) { io.println("  Result<i32,string> Ok: ${v}") } | Result.Err(e) { io.println("  Result<i32,string> Err: ${e}") }
+    res2 ? | Result.Ok(v) { io.println("  Result<f64,string> Ok: ${v}") } | Result.Err(e) { io.println("  Result<f64,string> Err: ${e}") }
+    res3 ? | Result.Ok(v) { io.println("  Result<string,i32> Ok: ${v}") } | Result.Err(e) { io.println("  Result<string,i32> Err: ${e}") }
+    
+    // 3. Functions with generic parameters
+    io.println("\n3. Functions with Generic Parameters:")
+    process_option(Option.Some(123))
+    process_option(Option.None)
+    process_result(Result.Ok(456))
+    process_result(Result.Err("Error message"))
+    
+    // 4. Functions returning generics
+    io.println("\n4. Functions Returning Generics:")
+    opt_pos = create_option(10)
+    opt_neg = create_option(-5)
+    opt_pos ? | Option.Some(v) { io.println("  create_option(10): Some(${v})") } | Option.None { io.println("  create_option(10): None") }
+    opt_neg ? | Option.Some(v) { io.println("  create_option(-5): Some(${v})") } | Option.None { io.println("  create_option(-5): None") }
+    
+    div1 = safe_divide(100, 5)
+    div2 = safe_divide(100, 0)
+    div1 ? | Result.Ok(v) { io.println("  100 / 5 = ${v}") } | Result.Err(e) { io.println("  Error: ${e}") }
+    div2 ? | Result.Ok(v) { io.println("  100 / 0 = ${v}") } | Result.Err(e) { io.println("  Error: ${e}") }
+    
+    // 5. Generic collections - Array<T>
+    io.println("\n5. Generic Collections - Array<T>:")
+    arr: Array<i32> = Array.new(10, 0)
+    arr.push(10)
+    arr.push(20)
+    arr.push(30)
+    io.println("  Array<i32> length: ${arr.len()}")
+    io.println("  arr[0] = ${arr.get(0)}")
+    io.println("  arr[1] = ${arr.get(1)}")
+    io.println("  arr[2] = ${arr.get(2)}")
+    
+    // 6. Generic collections - HashMap<K,V>
+    io.println("\n6. Generic Collections - HashMap<K,V>:")
+    map: HashMap<string, i32> = HashMap<string, i32>.new()
+    map.insert("one", 1, string_hash, string_eq)
+    map.insert("two", 2, string_hash, string_eq)
+    map.insert("three", 3, string_hash, string_eq)
+    
+    val1 = map.get("one", string_hash, string_eq)
+    val2 = map.get("two", string_hash, string_eq)
+    val3 = map.get("three", string_hash, string_eq)
+    
+    val1 ? | Option.Some(v) { io.println("  map['one'] = ${v}") } | Option.None { io.println("  'one' not found") }
+    val2 ? | Option.Some(v) { io.println("  map['two'] = ${v}") } | Option.None { io.println("  'two' not found") }
+    val3 ? | Option.Some(v) { io.println("  map['three'] = ${v}") } | Option.None { io.println("  'three' not found") }
+    
+    // 7. Pattern matching with generics
+    io.println("\n7. Pattern Matching with Generics:")
+    test_val: Option<i32> = Option.Some(999)
+    result_str = test_val ?
+        | Option.Some(v) { "Value is ${v}" }
+        | Option.None { "No value" }
+    io.println("  Pattern match result: ${result_str}")
+    
+    // 8. Chained operations
+    io.println("\n8. Chained Generic Operations:")
+    chain_start: Option<i32> = Option.Some(10)
+    
+    // Process through multiple steps
+    step1 = chain_start ?
+        | Option.Some(v) { Option.Some(v * 2) }
+        | Option.None { Option.None }
+    
+    step2 = step1 ?
+        | Option.Some(v) { Option.Some(v + 5) }
+        | Option.None { Option.None }
+    
+    step3 = step2 ?
+        | Option.Some(v) { Option.Some(v / 5) }
+        | Option.None { Option.None }
+    
+    step3 ?
+        | Option.Some(v) { io.println("  Chain result: 10 * 2 + 5 / 5 = ${v}") }
+        | Option.None { io.println("  Chain result: None") }
+    
+    io.println("\n========================================")
+    io.println("All generic features demonstrated!")
+    io.println("========================================")
+}
