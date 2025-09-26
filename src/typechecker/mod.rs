@@ -833,7 +833,9 @@ impl TypeChecker {
                 } else {
                     // Check if it's a variable holding a function pointer
                     match self.get_variable_type(name) {
-                        Ok(AstType::FunctionPointer { return_type, .. }) => Ok(*return_type),
+                        Ok(AstType::FunctionPointer { return_type, .. }) => {
+                            Ok(*return_type)
+                        }
                         Ok(_) => Err(CompileError::TypeError(
                             format!("'{}' is not a function", name),
                             None,
@@ -1150,14 +1152,10 @@ impl TypeChecker {
                                 type_args: vec![],
                             }
                         };
-                        // We don't know the error type yet, use generic placeholder
-                        eprintln!("DEBUG: Result.Ok with payload, creating Result<{:?}, E>", ok_type);
+                        // We don't know the error type yet, default to String like codegen does
                         Ok(AstType::Generic {
                             name: "Result".to_string(),
-                            type_args: vec![ok_type, AstType::Generic {
-                                name: "E".to_string(),
-                                type_args: vec![],
-                            }],
+                            type_args: vec![ok_type, AstType::String],
                         })
                     } else if variant == "Err" {
                         let err_type = if let Some(p) = payload {
@@ -1169,13 +1167,10 @@ impl TypeChecker {
                                 type_args: vec![],
                             }
                         };
-                        // We don't know the ok type yet, use generic placeholder
+                        // We don't know the ok type yet, default to I32 like codegen does
                         Ok(AstType::Generic {
                             name: "Result".to_string(),
-                            type_args: vec![AstType::Generic {
-                                name: "T".to_string(),
-                                type_args: vec![],
-                            }, err_type],
+                            type_args: vec![AstType::I32, err_type],
                         })
                     } else {
                         // Unknown variant, default
@@ -1416,7 +1411,6 @@ impl TypeChecker {
 
                 // Special handling for Result.raise()
                 if method == "raise" {
-                    // eprintln!("[DEBUG TYPECHECKER] MethodCall raise() on object type: {:?}", object_type);
                     match object_type {
                         AstType::Generic { name, type_args }
                             if name == "Result" && !type_args.is_empty() =>
@@ -1446,6 +1440,13 @@ impl TypeChecker {
                     .map(|(_, opt_type)| opt_type.clone().unwrap_or(AstType::I32))
                     .collect();
 
+                // Temporarily add closure parameters to scope for return type inference
+                self.enter_scope();
+                for (_i, (param_name, opt_type)) in params.iter().enumerate() {
+                    let param_type = opt_type.clone().unwrap_or(AstType::I32);
+                    self.declare_variable(param_name, param_type.clone(), false)?;
+                }
+
                 // TODO: Properly infer return type from body
                 // For now, try to infer from the body if it's a simple return
                 let return_type = match body.as_ref() {
@@ -1454,10 +1455,13 @@ impl TypeChecker {
                         for stmt in stmts {
                             if let crate::ast::Statement::Return(ret_expr) = stmt {
                                 if let Ok(ret_type) = self.infer_expression_type(ret_expr) {
+                                    self.exit_scope();
                                     return Ok(AstType::FunctionPointer {
                                         param_types,
                                         return_type: Box::new(ret_type),
                                     });
+                                } else {
+                                    eprintln!("[DEBUG TYPECHECKER] Failed to infer closure return type");
                                 }
                             }
                         }
@@ -1481,6 +1485,9 @@ impl TypeChecker {
                         }
                     }
                 };
+
+                // Pop the temporary scope
+                self.exit_scope();
 
                 Ok(AstType::FunctionPointer {
                     param_types,

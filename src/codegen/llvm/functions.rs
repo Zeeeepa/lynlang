@@ -3548,6 +3548,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 &args_metadata,
                 "indirect_call",
             )?;
+            
+            // Update generic_type_context based on the return type of the function pointer
+            match &var_type {
+                AstType::Function { return_type, .. } | AstType::FunctionPointer { return_type, .. } => {
+                    if let AstType::Generic { name: type_name, type_args } = return_type.as_ref() {
+                        if type_name == "Result" && type_args.len() == 2 {
+                            self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                            self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                        } else if type_name == "Option" && type_args.len() == 1 {
+                            self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
+                        }
+                    }
+                }
+                _ => {}
+            }
+            
             // Check if the function returns void
             if function_type.get_return_type().is_none() {
                 // Return a dummy value for void functions

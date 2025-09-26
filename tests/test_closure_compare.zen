@@ -1,0 +1,17 @@
+// Debug comparison issue
+{ io, Result } = @std
+
+main = () i32 {
+    add = (a: i32, b: i32) {
+        return Result.Ok(a + b)
+    }
+    
+    val = add(10, 5).raise()
+    io.println("Value: ${val}")
+    
+    // Try assignment first
+    comp = val == 15
+    io.println("Comparison result: ${comp}")
+    
+    return 0
+}

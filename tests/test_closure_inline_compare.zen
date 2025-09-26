@@ -1,0 +1,14 @@
+// Test inline closure comparison
+{ io, Result } = @std
+
+main = () i32 {
+    // Don't store closure in variable - call directly
+    val = ((a: i32, b: i32) { return Result.Ok(a + b) })(10, 5).raise()
+    io.println("Value: ${val}")
+    
+    // Now compare
+    x = val == 15
+    io.println("Comparison: ${x}")
+    
+    return 0
+}

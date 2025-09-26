@@ -1,0 +1,21 @@
+// Test closure with ternary comparison
+{ io, Result } = @std
+
+main = () i32 {
+    // Test simple comparison
+    val1 = 42
+    
+    // Use ternary operator
+    val1 == 42 ? {
+        io.println("Value is 42")
+    }
+    
+    // Try with negative condition
+    val1 != 42 ? {
+        io.println("Value is not 42")
+        return 1
+    }
+    
+    io.println("Test passed")
+    return 0
+}

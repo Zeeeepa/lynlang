@@ -1,0 +1,18 @@
+// Test exactly like failing test
+{ io, Result } = @std
+
+main = () i32 {
+    // Closure WITH PARAMS - this is the key difference
+    multiply = (a: i32, b: i32) {
+        return Result.Ok(a * b)
+    }
+    
+    val3 = multiply(3, 7).raise()
+    
+    // This exact pattern from the failing test
+    val3 == 21 ? {
+        io.println("✓ Test 3: Closure with params works")
+    }
+    
+    return 0
+}

@@ -1,0 +1,19 @@
+// Test ternary return types
+{ io } = @std
+
+main = () i32 {
+    val = 21
+    
+    // Assigning ternary result - this should work
+    x = val == 21 ? { 42 } | { 0 }
+    io.println("x = ${x}")
+    
+    // Just using ternary for side effects - this should also work
+    val == 21 ? {
+        io.println("Value is 21")
+    } | {
+        io.println("Value is not 21")
+    }
+    
+    return 0
+}

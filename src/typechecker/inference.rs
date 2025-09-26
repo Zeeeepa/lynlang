@@ -13,13 +13,6 @@ pub fn infer_binary_op_type(
 ) -> Result<AstType> {
     let mut left_type = checker.infer_expression_type(left)?;
     let mut right_type = checker.infer_expression_type(right)?;
-    
-    // Debug comparison types
-    if matches!(left_type, AstType::Void) || matches!(right_type, AstType::Void) {
-        eprintln!("DEBUG: Comparing types: left={:?}, right={:?}", left_type, right_type);
-        eprintln!("       Left expr: {:?}", left);
-        eprintln!("       Right expr: {:?}", right);
-    }
 
     // Handle unresolved generic types by defaulting to appropriate concrete types
     // This happens when Option.None creates Option<T> or Result.Ok/Err creates Result<T,E>

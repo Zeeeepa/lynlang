@@ -1,0 +1,21 @@
+// Test exact issue from failing test
+{ io, Result } = @std
+
+main = () i32 {
+    // Closure with params
+    multiply = (a: i32, b: i32) {
+        return Result.Ok(a * b)
+    }
+    
+    val = multiply(3, 7).raise()
+    io.println("Value: ${val}")
+    
+    // This is the exact pattern from the failing test
+    val == 21 ? {
+        io.println("✓ Value is correct")
+    }
+    
+    // Without the second comparison
+    io.println("Done")
+    return 0
+}

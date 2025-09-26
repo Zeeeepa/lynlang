@@ -1,0 +1,19 @@
+// Test closure with params and raise
+{ io, Result } = @std
+
+main = () i32 {
+    // Simple closure with params
+    add = (a: i32, b: i32) {
+        return Result.Ok(a + b)
+    }
+    
+    // Use raise
+    val = add(10, 5).raise()
+    io.println("Raised value: ${val}")
+    
+    // Simple comparison without ternary
+    x = val == 15
+    io.println("Comparison result: ${x}")
+    
+    return 0
+}

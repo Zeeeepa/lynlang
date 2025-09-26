@@ -1,0 +1,22 @@
+// Test ternary with void branches
+{ io } = @std
+
+main = () i32 {
+    x = 10
+    
+    // Branch that returns void (just prints)
+    result1 = x == 10 ? {
+        io.println("x is 10")  // This returns void
+    }
+    
+    io.println("After first ternary")
+    
+    // Try opposite case
+    result2 = x != 10 ? {
+        io.println("x is not 10")  // This also returns void
+    }
+    
+    io.println("After second ternary")
+    
+    return 0
+}

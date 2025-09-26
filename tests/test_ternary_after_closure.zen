@@ -1,0 +1,19 @@
+// Test ternary after closure call
+{ io, Result } = @std
+
+main = () i32 {
+    // Simple closure 
+    get_val = () {
+        return Result.Ok(21)
+    }
+    
+    val = get_val().raise()
+    io.println("Got value: ${val}")
+    
+    // Now use ternary
+    val == 21 ? {
+        io.println("Yes, value is 21")
+    }
+    
+    return 0
+}

@@ -1,0 +1,23 @@
+// Test to debug type inference with closure params
+{ io, Result } = @std
+
+main = () i32 {
+    // Closure with params returning Result<i32, string>
+    add = (a: i32, b: i32) {
+        return Result.Ok(a + b)
+    }
+    
+    // Call and raise
+    val = add(10, 5).raise()
+    io.println("Value: ${val}")
+    
+    // Store in another variable
+    val2 = val
+    io.println("Value2: ${val2}")
+    
+    // Simple arithmetic to test type
+    val3 = val + 1
+    io.println("Value3: ${val3}")
+    
+    return 0
+}

@@ -1,0 +1,21 @@
+// Test what type a closure call returns
+{ io, Result } = @std
+
+main = () i32 {
+    // Closure with params
+    add = (a: i32, b: i32) {
+        io.println("In closure")
+        return Result.Ok(a + b)
+    }
+    
+    // Call it without raise
+    result = add(10, 5)
+    io.println("Got result from closure")
+    
+    // Pattern match to verify it's a Result
+    result ?
+        | Result.Ok(v) { io.println("Ok value: ${v}") }
+        | Result.Err(e) { io.println("Err value: ${e}") }
+    
+    return 0
+}

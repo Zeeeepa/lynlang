@@ -1,0 +1,24 @@
+// Simple test to debug type issues
+{ io, Result } = @std
+
+main = () i32 {
+    // Closure without params - this works
+    get_value = () {
+        return Result.Ok(42)
+    }
+    
+    val1 = get_value().raise()
+    x = val1 == 42  // This works
+    io.println("No-param closure comparison: ${x}")
+    
+    // Now with params
+    add = (a: i32, b: i32) {
+        return Result.Ok(a + b)
+    }
+    
+    val2 = add(10, 5).raise()
+    // Don't compare, just print
+    io.println("Param closure value: ${val2}")
+    
+    return 0
+}

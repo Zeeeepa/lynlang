@@ -1,0 +1,18 @@
+// Test simple closure return type
+{ io, Result } = @std
+
+main = () i32 {
+    // Closure with params returning plain integer
+    add = (a: i32, b: i32) {
+        return a + b
+    }
+    
+    val = add(10, 5)
+    io.println("Value: ${val}")
+    
+    // Try comparison
+    x = val == 15
+    io.println("Result: ${x}")
+    
+    return 0
+}

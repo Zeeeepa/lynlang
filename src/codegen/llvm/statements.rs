@@ -114,7 +114,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     .collect();
 
                                 // Use the explicit return type if provided, otherwise infer from body
-                                let return_type = if let Some(rt) = return_type {
+                                let inferred_return_type = if let Some(rt) = return_type {
                                     rt.clone()
                                 } else {
                                     // Try to infer the return type from the closure body
@@ -124,11 +124,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Store the proper function pointer type
                                 let func_type = AstType::FunctionPointer {
                                     param_types: param_types.clone(),
-                                    return_type: Box::new(return_type.clone()),
+                                    return_type: Box::new(inferred_return_type.clone()),
                                 };
                                 
-                                // Also track the function's return type for later use when called
-                                self.function_types.insert(name.clone(), return_type);
+                                // DON'T insert into function_types here with just the return type - that's wrong!
 
                                 // Save this for later when we insert the variable
                                 inferred_ast_type = Some(func_type);
@@ -1362,24 +1361,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Use the explicit return type if provided, otherwise infer
                             let ret_type = if let Some(explicit_type) = return_type {
                                 Box::new(explicit_type.clone())
-                            } else if let Expression::Block(stmts) = body.as_ref() {
-                                // Look for a return statement to infer type
-                                let mut ret_type = AstType::I32;
-                                for stmt in stmts {
-                                    if let crate::ast::Statement::Return(ret_expr) = stmt {
-                                        // Try to infer the return type from the return expression
-                                        match ret_expr {
-                                            Expression::Integer32(_) => ret_type = AstType::I32,
-                                            Expression::String(_) => ret_type = AstType::String,
-                                            Expression::Boolean(_) => ret_type = AstType::Bool,
-                                            _ => {} // Keep default
-                                        }
-                                        break;
-                                    }
-                                }
-                                Box::new(ret_type)
                             } else {
-                                Box::new(AstType::I32)
+                                // Use the more sophisticated type inference that handles Result<T,E> and other generics
+                                let inferred_type = self.infer_closure_return_type(body)?;
+                                Box::new(inferred_type)
                             };
 
                             let func_type = AstType::FunctionPointer {

@@ -183,6 +183,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Check if we know the function's return type
                 if let Some(return_type) = self.function_types.get(name) {
                     Ok(return_type.clone())
+                } else if let Ok((_alloca, var_type)) = self.get_variable(name) {
+                    // It's a function pointer variable - get the return type
+                    match var_type {
+                        AstType::Function { return_type, .. } | 
+                        AstType::FunctionPointer { return_type, .. } => {
+                            Ok(return_type.as_ref().clone())
+                        }
+                        _ => {
+                            Ok(AstType::I32) // Default for non-function variables
+                        }
+                    }
                 } else {
                     // Default to I32 for unknown functions
                     Ok(AstType::I32)
@@ -207,7 +218,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Get the type of the object being raised
                     let object_type = self.infer_expression_type(object)?;
                     // If it's Result<T,E>, return T
-                    if let AstType::Generic { name, type_args } = object_type {
+                    if let AstType::Generic { name, type_args } = &object_type {
                         if name == "Result" && type_args.len() == 2 {
                             // The raise() method returns the Ok type (T) from Result<T,E>
                             return Ok(type_args[0].clone());
@@ -8444,13 +8455,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Look for the last expression or a return statement
                 for stmt in statements {
                     if let crate::ast::Statement::Return(ret_expr) = stmt {
+                        // Recursively infer the return type, especially for closures that just return a Result
                         return self.infer_expression_type(ret_expr);
                     }
                 }
                 // Check if the last statement is an expression
                 if let Some(last_stmt) = statements.last() {
-                    if let crate::ast::Statement::Expression(expr) = last_stmt {
-                        return self.infer_expression_type(expr);
+                    match last_stmt {
+                        crate::ast::Statement::Expression(expr) => {
+                            return self.infer_expression_type(expr);
+                        }
+                        crate::ast::Statement::Return(expr) => {
+                            return self.infer_expression_type(expr);
+                        }
+                        _ => {}
                     }
                 }
                 Ok(AstType::Void)
