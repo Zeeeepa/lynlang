@@ -148,9 +148,43 @@ impl TypeChecker {
             },
         );
 
+        let mut functions = HashMap::new();
+
+        // Register builtin math functions
+        functions.insert(
+            "min".to_string(),
+            FunctionSignature {
+                params: vec![
+                    ("a".to_string(), AstType::I32),
+                    ("b".to_string(), AstType::I32),
+                ],
+                return_type: AstType::I32,
+                is_external: false,
+            },
+        );
+        functions.insert(
+            "max".to_string(),
+            FunctionSignature {
+                params: vec![
+                    ("a".to_string(), AstType::I32),
+                    ("b".to_string(), AstType::I32),
+                ],
+                return_type: AstType::I32,
+                is_external: false,
+            },
+        );
+        functions.insert(
+            "abs".to_string(),
+            FunctionSignature {
+                params: vec![("x".to_string(), AstType::I32)],
+                return_type: AstType::I32,
+                is_external: false,
+            },
+        );
+
         Self {
             scopes: vec![HashMap::new()],
-            functions: HashMap::new(),
+            functions,
             structs: HashMap::new(),
             enums,
             behavior_resolver: BehaviorResolver::new(),

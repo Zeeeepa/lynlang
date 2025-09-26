@@ -3353,6 +3353,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
 
+        // Check if this is a direct call to math functions (available from @std)
+        if name == "min" || name == "max" || name == "abs" {
+            return self.compile_math_function(name, args);
+        }
+
         // First check if this is a direct function call
         if let Some(function) = self.module.get_function(name) {
             // Direct function call

@@ -1,0 +1,20 @@
+// Test closure type with f64 
+{ io, Result } = @std
+
+main = () i32 {
+    // Test with f64 parameters
+    get_float = () Result<f64, string> {
+        return Result.Ok(3.14)
+    }
+    
+    v1 = get_float().raise()
+    io.print_float(v1)
+    io.println("")
+    
+    // This comparison should work
+    v1 == 3.14 ?
+        | true { io.println("v1 == 3.14: OK") }
+        | false { io.println("v1 == 3.14: FAILED") }
+    
+    return 0
+}

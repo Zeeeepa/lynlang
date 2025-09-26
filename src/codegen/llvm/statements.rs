@@ -1050,7 +1050,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             extracted
                                         }
                                         _ => {
-                                            // eprintln!("[DEBUG] Not a Result type, defaulting to I32");
+                                            // eprintln!("[DEBUG] Not a Result type (was {:?}), defaulting to I32", object_type);
                                             AstType::I32
                                         }
                                     }
@@ -1986,42 +1986,109 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                 // For each name, create a module reference
                 for name in names {
-                    // Special handling for known stdlib modules
-                    // Create a marker variable to indicate this is a module reference
-                    let alloca = self
-                        .builder
-                        .build_alloca(self.context.i64_type(), name)
-                        .map_err(|e| CompileError::from(e))?;
+                    // Check if this is a stdlib function or module
+                    match name.as_str() {
+                        // Stdlib modules
+                        "io" | "math" | "core" | "GPA" | "AsyncPool" | "Allocator" => {
+                            // Create a marker variable to indicate this is a module reference
+                            let alloca = self
+                                .builder
+                                .build_alloca(self.context.i64_type(), name)
+                                .map_err(|e| CompileError::from(e))?;
 
-                    // Store a special marker value for stdlib modules
-                    // We use different values to distinguish different modules
-                    let module_marker = match name.as_str() {
-                        "io" => 1,
-                        "math" => 2,
-                        "core" => 3,
-                        "GPA" => 4,
-                        "AsyncPool" => 5,
-                        "Allocator" => 6,
-                        _ => 0,
-                    };
+                            let module_marker = match name.as_str() {
+                                "io" => 1,
+                                "math" => 2,
+                                "core" => 3,
+                                "GPA" => 4,
+                                "AsyncPool" => 5,
+                                "Allocator" => 6,
+                                _ => 0,
+                            };
 
-                    self.builder
-                        .build_store(
-                            alloca,
-                            self.context.i64_type().const_int(module_marker, false),
-                        )
-                        .map_err(|e| CompileError::from(e))?;
+                            self.builder
+                                .build_store(
+                                    alloca,
+                                    self.context.i64_type().const_int(module_marker, false),
+                                )
+                                .map_err(|e| CompileError::from(e))?;
 
-                    // Register the variable as a module reference
-                    self.variables.insert(
-                        name.clone(),
-                        super::VariableInfo {
-                            pointer: alloca,
-                            ast_type: AstType::StdModule, // Mark as stdlib module reference
-                            is_mutable: false,            // Module references are immutable
-                            is_initialized: true,
-                        },
-                    );
+                            // Register the variable as a module reference
+                            self.variables.insert(
+                                name.clone(),
+                                super::VariableInfo {
+                                    pointer: alloca,
+                                    ast_type: AstType::StdModule, // Mark as stdlib module reference
+                                    is_mutable: false,            // Module references are immutable
+                                    is_initialized: true,
+                                },
+                            );
+                        }
+                        // Math functions available directly from @std
+                        "min" | "max" | "abs" => {
+                            // Register as a function pointer type
+                            let func_type = match name.as_str() {
+                                "min" | "max" => AstType::FunctionPointer {
+                                    param_types: vec![AstType::I32, AstType::I32],
+                                    return_type: Box::new(AstType::I32),
+                                },
+                                "abs" => AstType::FunctionPointer {
+                                    param_types: vec![AstType::I32],
+                                    return_type: Box::new(AstType::I32),
+                                },
+                                _ => unreachable!(),
+                            };
+
+                            // Create a dummy alloca for the function reference
+                            let alloca = self
+                                .builder
+                                .build_alloca(self.context.i64_type(), name)
+                                .map_err(|e| CompileError::from(e))?;
+
+                            // Store a special marker for builtin functions
+                            self.builder
+                                .build_store(
+                                    alloca,
+                                    self.context.i64_type().const_int(1000, false), // Special marker for builtins
+                                )
+                                .map_err(|e| CompileError::from(e))?;
+
+                            self.variables.insert(
+                                name.clone(),
+                                super::VariableInfo {
+                                    pointer: alloca,
+                                    ast_type: func_type,
+                                    is_mutable: false,
+                                    is_initialized: true,
+                                },
+                            );
+                        }
+                        // Other stdlib entities (types, etc.)
+                        _ => {
+                            // For now, create a generic marker
+                            let alloca = self
+                                .builder
+                                .build_alloca(self.context.i64_type(), name)
+                                .map_err(|e| CompileError::from(e))?;
+
+                            self.builder
+                                .build_store(
+                                    alloca,
+                                    self.context.i64_type().const_int(0, false),
+                                )
+                                .map_err(|e| CompileError::from(e))?;
+
+                            self.variables.insert(
+                                name.clone(),
+                                super::VariableInfo {
+                                    pointer: alloca,
+                                    ast_type: AstType::StdModule,
+                                    is_mutable: false,
+                                    is_initialized: true,
+                                },
+                            );
+                        }
+                    }
                 }
 
                 Ok(())

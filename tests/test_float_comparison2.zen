@@ -1,0 +1,10 @@
+// Test float comparison in ternary
+{ io } = @std
+
+main = () i32 {
+    b = 2.0
+    b == 0.0 ?
+        | true { io.println("Zero") }
+        | false { io.println("Not zero") }
+    return 0
+}

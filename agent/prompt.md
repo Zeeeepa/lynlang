@@ -1,6 +1,12 @@
 # TASK
 
 1. keep going and implmenting things
+2. the rust should only be compiler and then stdlib should be being used so we can start to build this out
+
+
+also our type system and variable mapping is key to our language, we need to make sure we have this mature af.
+
+I need an LSP to work please make the lsp work after we have done nesting generics, allocator, imports and build.
 
 
 # PROJECT STATUS (2025-09-26)

@@ -1,0 +1,17 @@
+// Test float comparison inside a closure
+{ io, Result } = @std
+
+main = () i32 {
+    divide = (a: f64, b: f64) Result<f64, string> {
+        b == 0.0 ?
+            | true { return Result.Err("Division by zero") }
+            | false { return Result.Ok(a / b) }
+    }
+    
+    result = divide(10.0, 2.0)
+    result ?
+        | Ok(val) { io.print("Result: "); io.print_float(val); io.println("") }
+        | Err(msg) { io.print("Error: "); io.println(msg) }
+    
+    return 0
+}

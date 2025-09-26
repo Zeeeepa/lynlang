@@ -1,0 +1,19 @@
+// Test exact pattern from failing test
+{ io, Result } = @std
+
+main = () i32 {
+    divide = (a: f64, b: f64) Result<f64, string> {
+        b == 0.0 ?
+            | true { return Result.Err("Division by zero") }
+            | false { return Result.Ok(a / b) }
+    }
+    
+    val2 = divide(10.0, 2.0).raise()
+    val2 == 5.0 ?
+        | true { io.println("✓ Test 2: Closure with params returning Result<f64, string>") }
+        | false {
+            io.println("✗ Test 2 failed: Expected 5.0")
+        }
+    
+    return 0
+}
