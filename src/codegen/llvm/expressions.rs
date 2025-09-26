@@ -381,6 +381,36 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Type cast returns the target type
                 Ok(target_type.clone())
             }
+            Expression::Closure { return_type, body, .. } => {
+                // Closure returns its declared return type, or infer from body
+                if let Some(ret_type) = return_type {
+                    Ok(ret_type.clone())
+                } else {
+                    // Try to infer from the closure body
+                    self.infer_closure_return_type(body)
+                }
+            }
+            Expression::Loop { .. } | Expression::CollectionLoop { .. } => {
+                // Loops typically return void, unless they have explicit break with value
+                // For now, assume void return
+                Ok(AstType::Void)
+            }
+            Expression::Return(expr) => {
+                // Return expression returns the type of its inner expression
+                self.infer_expression_type(expr)
+            }
+            Expression::Break { value, .. } => {
+                // Break can return a value or void
+                if let Some(val) = value {
+                    self.infer_expression_type(val)
+                } else {
+                    Ok(AstType::Void)
+                }
+            }
+            Expression::Continue { .. } => {
+                // Continue always returns void
+                Ok(AstType::Void)
+            }
             _ => Ok(AstType::Void),
         }
     }
