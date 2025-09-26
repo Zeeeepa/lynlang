@@ -178,6 +178,41 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 } else if method == "new" || method == "init" {
                     // Collection constructors and init methods return the type
                     if let Expression::Identifier(name) = &**object {
+                        // Check if this is a generic type constructor (e.g., HashMap<K,V>.new())
+                        if name.contains('<') {
+                            // Parse the generic type from the name
+                            if let Some(angle_pos) = name.find('<') {
+                                let base_type = &name[..angle_pos];
+                                
+                                // Simple parser for generic type arguments
+                                let args_str = &name[angle_pos + 1..name.len() - 1]; // Remove < and >
+                                let type_args: Vec<AstType> = args_str
+                                    .split(',')
+                                    .map(|s| {
+                                        let trimmed = s.trim();
+                                        match trimmed {
+                                            "i32" | "I32" => AstType::I32,
+                                            "i64" | "I64" => AstType::I64,
+                                            "f32" | "F32" => AstType::F32,
+                                            "f64" | "F64" => AstType::F64,
+                                            "bool" | "Bool" => AstType::Bool,
+                                            "string" | "String" => AstType::String,
+                                            _ => AstType::Generic {
+                                                name: trimmed.to_string(),
+                                                type_args: vec![],
+                                            }
+                                        }
+                                    })
+                                    .collect();
+                                
+                                return Ok(AstType::Generic {
+                                    name: base_type.to_string(),
+                                    type_args,
+                                });
+                            }
+                        }
+                        
+                        // Non-generic collection constructors
                         match name.as_str() {
                             "Array" => Ok(AstType::Generic { 
                                 name: "Array".to_string(), 
@@ -237,20 +272,53 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             type_args: vec![AstType::String]
                         }),
                         "char_at" => Ok(AstType::I32),
-                        "get" => {
+                        "get" | "remove" | "insert" => {
                             // Try to infer from object type
                             if let Ok(object_type) = self.infer_expression_type(object) {
                                 if let AstType::Generic { name, type_args } = object_type {
-                                    if (name == "HashMap" || name == "Array" || name == "Vec") && !type_args.is_empty() {
-                                        // Return Option<element_type>
+                                    if name == "HashMap" && type_args.len() >= 2 {
+                                        // HashMap methods return Option<V>
                                         return Ok(AstType::Generic { 
                                             name: "Option".to_string(), 
-                                            type_args: vec![type_args[type_args.len()-1].clone()]
+                                            type_args: vec![type_args[1].clone()]
+                                        });
+                                    } else if name == "HashSet" && !type_args.is_empty() {
+                                        // HashSet.remove returns bool
+                                        if method == "remove" {
+                                            return Ok(AstType::Bool);
+                                        }
+                                    } else if (name == "Array" || name == "Vec") && !type_args.is_empty() {
+                                        // Array/Vec.get returns Option<element_type>
+                                        return Ok(AstType::Generic { 
+                                            name: "Option".to_string(), 
+                                            type_args: vec![type_args[0].clone()]
                                         });
                                     }
                                 }
                             }
                             Ok(AstType::Void)
+                        }
+                        "add" => {
+                            // HashSet.add returns bool (whether the element was actually added)
+                            Ok(AstType::Bool)
+                        }
+                        "union" | "intersection" | "difference" | "symmetric_difference" => {
+                            // HashSet operations return a new HashSet
+                            if let Ok(object_type) = self.infer_expression_type(object) {
+                                if let AstType::Generic { name, type_args } = object_type {
+                                    if name == "HashSet" {
+                                        return Ok(AstType::Generic { 
+                                            name: "HashSet".to_string(), 
+                                            type_args: type_args
+                                        });
+                                    }
+                                }
+                            }
+                            Ok(AstType::Void)
+                        }
+                        "is_subset" | "is_superset" | "is_disjoint" => {
+                            // HashSet comparison methods return bool
+                            Ok(AstType::Bool)
                         }
                         _ => Ok(AstType::Void)
                     }
