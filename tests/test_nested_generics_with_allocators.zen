@@ -1,0 +1,56 @@
+// Test nested generics with allocator requirements
+{ io, Allocator, get_default_allocator } = @std
+
+main = () i32 {
+    // Get default allocator
+    alloc = get_default_allocator()
+    
+    // Test HashMap<String, Option<i32>>
+    map1 = HashMap<String, Option<i32>>.new(alloc)
+    map1.insert("key1", Option.Some(42))
+    map1.insert("key2", Option.None)
+    
+    val1 = map1.get("key1")
+    val1 ?
+        | Some(opt) {
+            opt ?
+                | Some(v) { io.print_int(v) }  // Should print 42
+                | None { io.println("Unexpected None") }
+        }
+        | None { io.println("Key not found") }
+    
+    // Test DynVec<Result<i32, String>>
+    vec = DynVec<Result<i32, String>>.new(alloc)
+    vec.push(Result.Ok(100))
+    vec.push(Result.Err("error"))
+    
+    item1 = vec.get(0)
+    item1 ?
+        | Some(res) {
+            res ?
+                | Ok(v) { io.print_int(v) }  // Should print 100
+                | Err(e) { io.println(e) }
+        }
+        | None { io.println("Index out of bounds") }
+    
+    // Test HashMap<i32, DynVec<String>>
+    map2 = HashMap<i32, DynVec<String>>.new(alloc)
+    
+    strings = DynVec<String>.new(alloc)
+    strings.push("hello")
+    strings.push("world")
+    
+    map2.insert(1, strings)
+    
+    list = map2.get(1)
+    list ?
+        | Some(vec_ref) {
+            first = vec_ref.get(0)
+            first ?
+                | Some(s) { io.println(s) }  // Should print "hello"
+                | None { io.println("Empty vec") }
+        }
+        | None { io.println("Key not found") }
+    
+    return 0
+}

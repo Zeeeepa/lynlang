@@ -1,0 +1,66 @@
+// Test HashMap with proper allocator usage
+{ io, get_default_allocator, HashMap } = @std
+
+// Simple hash function for testing
+hash_string = (s: String) u64 {
+    hash ::= 0
+    i ::= 0
+    loop {
+        i >= s.len() ? { break }
+        hash = hash * 31 + s.char_at(i)
+        i = i + 1
+    }
+    return hash
+}
+
+// String equality function
+eq_string = (a: String, b: String) bool {
+    return a == b
+}
+
+main = () i32 {
+    // Get default allocator
+    alloc = get_default_allocator()
+    
+    // Create HashMap with allocator
+    map = HashMap<String, i32>.new(alloc)
+    
+    // Insert some values
+    map.insert("hello", 42, hash_string, eq_string)
+    map.insert("world", 100, hash_string, eq_string)
+    map.insert("zen", 999, hash_string, eq_string)
+    
+    // Get values
+    val1 = map.get("hello", hash_string, eq_string)
+    val1 ?
+        | Some(v) { io.print_int(v) }  // Should print 42
+        | None { io.println("Key not found") }
+    
+    io.println("")
+    
+    val2 = map.get("world", hash_string, eq_string)
+    val2 ?
+        | Some(v) { io.print_int(v) }  // Should print 100
+        | None { io.println("Key not found") }
+    
+    io.println("")
+    
+    val3 = map.get("zen", hash_string, eq_string)
+    val3 ?
+        | Some(v) { io.print_int(v) }  // Should print 999
+        | None { io.println("Key not found") }
+    
+    io.println("")
+    
+    // Test non-existent key
+    val4 = map.get("missing", hash_string, eq_string)
+    val4 ?
+        | Some(v) { io.print_int(v) }
+        | None { io.println("Key not found") }  // Should print this
+    
+    // Test length
+    io.print_int(map.len())  // Should print 3
+    io.println("")
+    
+    return 0
+}

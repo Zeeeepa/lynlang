@@ -9,42 +9,68 @@ use inkwell::{
 };
 
 impl<'ctx> LLVMCompiler<'ctx> {
+    /// Helper to check if an expression is an allocator type
+    fn is_allocator_type(&self, expr: &ast::Expression) -> bool {
+        // Check if expression type is Allocator
+        // For now, return false - this needs proper type checking
+        false
+    }
+    
     /// Compile Array.new(capacity, default_value) - creates a new array
     pub fn compile_array_new(
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Array struct: { ptr, length, capacity, allocator }
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let array_struct_type = self.context.struct_type(
+            &[
+                ptr_type.into(),                 // data pointer
+                self.context.i64_type().into(),  // length
+                self.context.i64_type().into(),  // capacity
+                ptr_type.into(),                 // allocator pointer
+            ],
+            false,
+        );
+        
+        // Extract allocator from args or use default
+        let (allocator_ptr, remaining_args) = if !args.is_empty() && self.is_allocator_type(&args[0]) {
+            // First arg is allocator
+            (self.compile_expression(&args[0])?, &args[1..])
+        } else {
+            // No allocator provided, use default
+            let get_default_fn = self.module.get_function("get_default_allocator")
+                .and_then(|f| self.builder.build_call(f, &[], "default_alloc").ok())
+                .and_then(|call| call.try_as_basic_value().left())
+                .unwrap_or_else(|| ptr_type.const_null().into());
+            (get_default_fn, &args[..])
+        };
+        
         // Allow Array.new() with no arguments for generic arrays - use default capacity of 10
-        if args.is_empty() {
+        if remaining_args.is_empty() {
             // Create empty array with default capacity of 10
             let default_capacity = self.context.i64_type().const_int(10, false);
-            
-            // Create the Array<T> struct: { ptr, length, capacity }
-            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-            let array_struct_type = self.context.struct_type(
-                &[
-                    ptr_type.into(),                 // data pointer
-                    self.context.i64_type().into(),  // length
-                    self.context.i64_type().into(),  // capacity
-                ],
-                false,
-            );
             
             // Allocate memory for 10 elements (80 bytes for i64 elements)
             let element_size = self.context.i64_type().const_int(8, false);
             let total_size = self.builder.build_int_mul(default_capacity, element_size, "total_size")?;
             
-            // Call malloc to allocate memory
-            let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
-                let i64_type = self.context.i64_type();
-                let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
-                self.module.add_function("malloc", fn_type, Some(Linkage::External))
-            });
-            
-            let data_ptr = self.builder.build_call(malloc_fn, &[total_size.into()], "array_data")?
-                .try_as_basic_value()
-                .left()
-                .ok_or_else(|| CompileError::InternalError("malloc returned void".to_string(), None))?;
+            // Use allocator if provided, otherwise use malloc
+            let data_ptr = if !allocator_ptr.is_pointer_value() || allocator_ptr.into_pointer_value().is_null() {
+                // Fallback to malloc
+                let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                    let i64_type = self.context.i64_type();
+                    let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+                    self.module.add_function("malloc", fn_type, Some(Linkage::External))
+                });
+                self.builder.build_call(malloc_fn, &[total_size.into()], "array_data")?
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| CompileError::InternalError("malloc returned void".to_string(), None))?
+            } else {
+                // TODO: Use allocator's alloc method
+                allocator_ptr
+            };
             
             // Create the array struct
             let array_val = self.builder.build_alloca(array_struct_type, "array")?;
@@ -61,19 +87,29 @@ impl<'ctx> LLVMCompiler<'ctx> {
             let capacity_field_ptr = self.builder.build_struct_gep(array_struct_type, array_val, 2, "capacity_ptr")?;
             self.builder.build_store(capacity_field_ptr, default_capacity)?;
             
+            // Store allocator pointer
+            let allocator_field = self.builder.build_struct_gep(
+                array_struct_type,
+                array_val,
+                3,
+                "allocator_field",
+            )?;
+            self.builder.build_store(allocator_field, allocator_ptr)?;
+            
             // Return the array struct
             return Ok(self.builder.build_load(array_struct_type, array_val, "array_loaded")?.into());
         }
         
-        if args.len() != 2 {
+        // remaining_args contains capacity and default value (if provided)
+        if remaining_args.len() != 2 {
             return Err(CompileError::TypeError(
-                format!("Array.new expects 0 or 2 arguments, got {}", args.len()),
+                format!("Array.new expects allocator (optional), capacity, and default value. Got {} args", args.len()),
                 None,
             ));
         }
         
         // Compile the capacity argument
-        let capacity_val = self.compile_expression(&args[0])?;
+        let capacity_val = self.compile_expression(&remaining_args[0])?;
         let capacity_raw = capacity_val.into_int_value();
         
         // Cast capacity to i64 if needed
@@ -84,38 +120,35 @@ impl<'ctx> LLVMCompiler<'ctx> {
         };
         
         // Compile the default value (could be Option.None)
-        let _default_val = self.compile_expression(&args[1])?;
+        let _default_val = self.compile_expression(&remaining_args[1])?;
         
-        // Create the Array<T> struct: { ptr, length, capacity }
-        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-        let array_struct_type = self.context.struct_type(
-            &[
-                ptr_type.into(),                 // data pointer
-                self.context.i64_type().into(),  // length
-                self.context.i64_type().into(),  // capacity
-            ],
-            false,
-        );
+        // Array struct already created above, reuse the same structure
+        // (Already defined above with allocator field)
         
         // Allocate memory for the array data
         // For now, allocate as i64 array (8 bytes per element)
         let element_size = self.context.i64_type().const_int(8, false);
         let total_size = self.builder.build_int_mul(capacity, element_size, "total_size")?;
         
-        // Call malloc to allocate memory
-        let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
-            let i64_type = self.context.i64_type();
-            let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
-            self.module.add_function("malloc", fn_type, Some(Linkage::External))
-        });
-        
-        let data_ptr = self.builder.build_call(malloc_fn, &[total_size.into()], "array_data")?
-            .try_as_basic_value()
-            .left()
-            .ok_or_else(|| CompileError::InternalError(
-                "malloc should return a pointer".to_string(),
-                None,
-            ))?;
+        // Use allocator if provided, otherwise use malloc
+        let data_ptr = if !allocator_ptr.is_pointer_value() || allocator_ptr.into_pointer_value().is_null() {
+            // Fallback to malloc
+            let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                let i64_type = self.context.i64_type();
+                let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+                self.module.add_function("malloc", fn_type, Some(Linkage::External))
+            });
+            self.builder.build_call(malloc_fn, &[total_size.into()], "array_data")?
+                .try_as_basic_value()
+                .left()
+                .ok_or_else(|| CompileError::InternalError(
+                    "malloc should return a pointer".to_string(),
+                    None,
+                ))?
+        } else {
+            // TODO: Use allocator's alloc method
+            allocator_ptr
+        };
         
         // Initialize the array to zeros
         let memset_fn = self.module.get_function("memset").unwrap_or_else(|| {
@@ -166,6 +199,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
         )?;
         self.builder.build_store(capacity_field, capacity)?;
         
+        // Store allocator pointer
+        let allocator_field = self.builder.build_struct_gep(
+            array_struct_type,
+            array_alloca,
+            3,
+            "allocator_field",
+        )?;
+        self.builder.build_store(allocator_field, allocator_ptr)?;
+        
         // Load and return the array struct
         let result = self.builder.build_load(array_struct_type, array_alloca, "array_value")?;
         Ok(result)
@@ -177,12 +219,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
         array_ptr: PointerValue<'ctx>,
         value: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // Array struct type: { ptr, length, capacity }
+        // Array struct type: { ptr, length, capacity, allocator }
         let array_struct_type = self.context.struct_type(
             &[
                 self.context.ptr_type(inkwell::AddressSpace::default()).into(),
                 self.context.i64_type().into(),
                 self.context.i64_type().into(),
+                self.context.ptr_type(inkwell::AddressSpace::default()).into(),
             ],
             false,
         );
@@ -315,12 +358,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
         array_val: BasicValueEnum<'ctx>,
         value: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // Array struct type: { ptr, length, capacity }
+        // Array struct type: { ptr, length, capacity, allocator }
         let array_struct_type = self.context.struct_type(
             &[
                 self.context.ptr_type(inkwell::AddressSpace::default()).into(),
                 self.context.i64_type().into(),
                 self.context.i64_type().into(),
+                self.context.ptr_type(inkwell::AddressSpace::default()).into(),
             ],
             false,
         );
@@ -472,12 +516,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Set the generic type context for pattern matching
         self.track_generic_type("Option_Some_Type".to_string(), crate::ast::AstType::I32);
         
-        // Array struct type: { ptr, length, capacity }
+        // Array struct type: { ptr, length, capacity, allocator }
         let array_struct_type = self.context.struct_type(
             &[
                 self.context.ptr_type(inkwell::AddressSpace::default()).into(),
                 self.context.i64_type().into(),
                 self.context.i64_type().into(),
+                self.context.ptr_type(inkwell::AddressSpace::default()).into(),
             ],
             false,
         );
@@ -623,12 +668,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
         &mut self,
         array_val: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // Array struct type: { ptr, length, capacity }
+        // Array struct type: { ptr, length, capacity, allocator }
         let array_struct_type = self.context.struct_type(
             &[
                 self.context.ptr_type(inkwell::AddressSpace::default()).into(),
                 self.context.i64_type().into(),
                 self.context.i64_type().into(),
+                self.context.ptr_type(inkwell::AddressSpace::default()).into(),
             ],
             false,
         );
@@ -665,12 +711,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
         index_val: BasicValueEnum<'ctx>,
         value: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // Array struct type: { ptr, length, capacity }
+        // Array struct type: { ptr, length, capacity, allocator }
         let array_struct_type = self.context.struct_type(
             &[
                 self.context.ptr_type(inkwell::AddressSpace::default()).into(),
                 self.context.i64_type().into(),
                 self.context.i64_type().into(),
+                self.context.ptr_type(inkwell::AddressSpace::default()).into(),
             ],
             false,
         );
@@ -742,12 +789,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         // Set the generic type context so pattern matching knows this is Option<i32>
         self.track_generic_type("Option_Some_Type".to_string(), crate::ast::AstType::I32);
-        // Array struct type: { ptr, length, capacity }
+        // Array struct type: { ptr, length, capacity, allocator }
         let array_struct_type = self.context.struct_type(
             &[
                 self.context.ptr_type(inkwell::AddressSpace::default()).into(),
                 self.context.i64_type().into(),
                 self.context.i64_type().into(),
+                self.context.ptr_type(inkwell::AddressSpace::default()).into(),
             ],
             false,
         );
@@ -888,12 +936,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
         &mut self,
         array_val: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // Array struct type: { ptr, length, capacity }
+        // Array struct type: { ptr, length, capacity, allocator }
         let array_struct_type = self.context.struct_type(
             &[
                 self.context.ptr_type(inkwell::AddressSpace::default()).into(),
                 self.context.i64_type().into(),
                 self.context.i64_type().into(),
+                self.context.ptr_type(inkwell::AddressSpace::default()).into(),
             ],
             false,
         );
@@ -4912,21 +4961,37 @@ impl<'ctx> LLVMCompiler<'ctx> {
         Ok(result.into())
     }
     
-    /// Compile HashMap.new() - creates a new HashMap
+    /// Compile HashMap.new() - creates a new HashMap with allocator
     pub fn compile_hashmap_new(
         &mut self,
-        _args: &[ast::Expression],
+        args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // HashMap struct: { buckets_ptr, size, capacity }
+        // HashMap struct: { buckets_ptr, size, capacity, allocator_ptr }
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let hashmap_struct_type = self.context.struct_type(
             &[
                 ptr_type.into(),                 // buckets pointer
                 self.context.i64_type().into(),  // size
                 self.context.i64_type().into(),  // capacity
+                ptr_type.into(),                 // allocator pointer
             ],
             false,
         );
+        
+        // Get allocator from args or use default
+        let allocator_ptr = if args.is_empty() {
+            // Call get_default_allocator() 
+            self.module.get_function("get_default_allocator")
+                .and_then(|f| self.builder.build_call(f, &[], "default_alloc").ok())
+                .and_then(|call| call.try_as_basic_value().left())
+                .unwrap_or_else(|| {
+                    // Fallback: create null pointer for allocator
+                    ptr_type.const_null().into()
+                })
+        } else {
+            // Use provided allocator
+            self.compile_expression(&args[0])?
+        };
         
         // Initial capacity
         let initial_capacity = self.context.i64_type().const_int(16, false);
@@ -4935,20 +5000,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let bucket_size = self.context.i64_type().const_int(32, false); // Each bucket is 32 bytes (for chaining)
         let total_size = self.builder.build_int_mul(initial_capacity, bucket_size, "total_size")?;
         
-        // Call malloc
-        let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
-            let i64_type = self.context.i64_type();
-            let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
-            self.module.add_function("malloc", fn_type, Some(Linkage::External))
-        });
-        
-        let buckets_ptr = self.builder.build_call(malloc_fn, &[total_size.into()], "buckets")?
-            .try_as_basic_value()
-            .left()
-            .ok_or_else(|| CompileError::InternalError(
-                "malloc should return a pointer".to_string(),
-                None,
-            ))?;
+        // Use allocator if provided, otherwise use malloc
+        let buckets_ptr = if !allocator_ptr.is_pointer_value() || allocator_ptr.into_pointer_value().is_null() {
+            // Fallback to malloc
+            let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                let i64_type = self.context.i64_type();
+                let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+                self.module.add_function("malloc", fn_type, Some(Linkage::External))
+            });
+            self.builder.build_call(malloc_fn, &[total_size.into()], "buckets")?
+                .try_as_basic_value()
+                .left()
+                .ok_or_else(|| CompileError::InternalError(
+                    "malloc should return a pointer".to_string(),
+                    None,
+                ))?
+        } else {
+            // TODO: Use allocator's alloc method
+            allocator_ptr
+        };
         
         // Initialize buckets to zero
         let memset_fn = self.module.get_function("memset").unwrap_or_else(|| {
@@ -4999,6 +5069,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.builder.build_store(capacity_field, initial_capacity)?;
         
         // Load and return the hashmap struct
+        // Store allocator pointer
+        let allocator_field = self.builder.build_struct_gep(
+            hashmap_struct_type,
+            hashmap_alloca,
+            3,
+            "allocator_field",
+        )?;
+        self.builder.build_store(allocator_field, allocator_ptr)?;
+        
         let result = self.builder.build_load(hashmap_struct_type, hashmap_alloca, "hashmap_value")?;
         Ok(result)
     }
@@ -5095,21 +5174,37 @@ impl<'ctx> LLVMCompiler<'ctx> {
         Ok(result)
     }
     
-    /// Compile DynVec.new() - creates a new DynVec
+    /// Compile DynVec.new() - creates a new DynVec with allocator
     pub fn compile_dynvec_new(
         &mut self,
-        _args: &[ast::Expression],
+        args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // DynVec struct: { ptr, length, capacity }
+        // DynVec struct: { ptr, length, capacity, allocator }
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let dynvec_struct_type = self.context.struct_type(
             &[
                 ptr_type.into(),                 // data pointer
                 self.context.i64_type().into(),  // length
                 self.context.i64_type().into(),  // capacity
+                ptr_type.into(),                 // allocator pointer
             ],
             false,
         );
+        
+        // Get allocator from args or use default
+        let allocator_ptr = if args.is_empty() {
+            // Call get_default_allocator() 
+            self.module.get_function("get_default_allocator")
+                .and_then(|f| self.builder.build_call(f, &[], "default_alloc").ok())
+                .and_then(|call| call.try_as_basic_value().left())
+                .unwrap_or_else(|| {
+                    // Fallback: create null pointer for allocator
+                    ptr_type.const_null().into()
+                })
+        } else {
+            // Use provided allocator
+            self.compile_expression(&args[0])?
+        };
         
         // Initial capacity
         let initial_capacity = self.context.i64_type().const_int(10, false);
@@ -5118,20 +5213,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let element_size = self.context.i64_type().const_int(8, false);
         let total_size = self.builder.build_int_mul(initial_capacity, element_size, "total_size")?;
         
-        // Call malloc
-        let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
-            let i64_type = self.context.i64_type();
-            let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
-            self.module.add_function("malloc", fn_type, Some(Linkage::External))
-        });
-        
-        let data_ptr = self.builder.build_call(malloc_fn, &[total_size.into()], "dynvec_data")?
-            .try_as_basic_value()
-            .left()
-            .ok_or_else(|| CompileError::InternalError(
-                "malloc should return a pointer".to_string(),
-                None,
-            ))?;
+        // Use allocator if provided, otherwise use malloc
+        let data_ptr = if !allocator_ptr.is_pointer_value() || allocator_ptr.into_pointer_value().is_null() {
+            // Fallback to malloc
+            let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                let i64_type = self.context.i64_type();
+                let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+                self.module.add_function("malloc", fn_type, Some(Linkage::External))
+            });
+            self.builder.build_call(malloc_fn, &[total_size.into()], "dynvec_data")?
+                .try_as_basic_value()
+                .left()
+                .ok_or_else(|| CompileError::InternalError(
+                    "malloc should return a pointer".to_string(),
+                    None,
+                ))?
+        } else {
+            // TODO: Use allocator's alloc method
+            allocator_ptr
+        };
         
         // Create the DynVec struct
         let dynvec_alloca = self.builder.build_alloca(dynvec_struct_type, "dynvec")?;
@@ -5162,6 +5262,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
             "capacity_field",
         )?;
         self.builder.build_store(capacity_field, initial_capacity)?;
+        
+        // Store allocator pointer
+        let allocator_field = self.builder.build_struct_gep(
+            dynvec_struct_type,
+            dynvec_alloca,
+            3,
+            "allocator_field",
+        )?;
+        self.builder.build_store(allocator_field, allocator_ptr)?;
         
         // Load and return the dynvec struct
         let result = self.builder.build_load(dynvec_struct_type, dynvec_alloca, "dynvec_value")?;

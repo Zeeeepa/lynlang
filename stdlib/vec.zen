@@ -236,14 +236,19 @@ DynVec<T> = {
     allocator: Allocator
 }
 
-// Initialize with allocator
-DynVec<T>.init = (alloc: Allocator) DynVec<T> {
+// Create new DynVec with allocator
+DynVec<T>.new = (alloc: Allocator) DynVec<T> {
     return DynVec<T> {
         data: alloc.null_ptr(),
         len: 0,
         capacity: 0,
         allocator: alloc,
     }
+}
+
+// Initialize with allocator (alias for compatibility)
+DynVec<T>.init = (alloc: Allocator) DynVec<T> {
+    return DynVec<T>.new(alloc)
 }
 
 // Initialize with capacity

@@ -1,3 +1,13 @@
+## Task
+WE SHOULD HAVE NO GC!
+
+1. allocators are a must andthing with dynamic memory heap or stack should be using allocators, hashmaps, dynamic strings arrays need to be updated to have allocators!
+2. WE NEED TO CHECK AND SUPPORT NESTED GENERICS! they need to be a mature system
+3. hy do we have arrays when we have vec and dyn vec?
+
+you can change agents/prompt.md if needed
+
+
 # PROJECT STATUS (2025-09-26)
 
 ## Test Suite Health
