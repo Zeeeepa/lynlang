@@ -1318,6 +1318,28 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         Err(_) => extracted,
                                                     }
                                                 }
+                                                AstType::EnumType { ref name } | AstType::Enum { ref name, .. } => {
+                                                    // For custom enums inside generics, load as enum struct
+                                                    let enum_struct_type = self.context.struct_type(
+                                                        &[
+                                                            self.context.i64_type().into(),
+                                                            self.context.ptr_type(AddressSpace::default()).into(),
+                                                        ],
+                                                        false,
+                                                    );
+                                                    
+                                                    // Track the custom enum type for nested extraction
+                                                    self.track_generic_type(format!("Nested_{}_Type", name), ast_type.clone());
+                                                    
+                                                    match self.builder.build_load(
+                                                        enum_struct_type,
+                                                        ptr_val,
+                                                        &format!("nested_{}", name),
+                                                    ) {
+                                                        Ok(loaded) => loaded,
+                                                        Err(_) => extracted,
+                                                    }
+                                                }
                                                 _ => {
                                                     // Try default loading
                                                     match self.builder.build_load(

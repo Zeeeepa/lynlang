@@ -151,10 +151,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             variants,
                         })
                     } else {
-                        // Still unknown - might be defined later, use Generic type  
-                        Ok(AstType::Generic {
+                        // For unknown custom enums, use EnumType
+                        Ok(AstType::EnumType {
                             name: enum_name.to_string(),
-                            type_args: vec![],
                         })
                     }
                 }
@@ -4883,6 +4882,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // Use the generic tracker for better nested type handling
                         self.generic_tracker.track_generic_type(&t, prefix);
                     }
+                    // Track custom enum types too
+                    if matches!(t, AstType::EnumType { .. }) {
+                        let prefix = if variant == "Ok" { "Result_Ok" } else { "Result_Err" };
+                        self.generic_tracker.track_generic_type(&t, prefix);
+                    }
                 }
             }
         }
@@ -4896,6 +4900,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Also track nested generics recursively
                     if matches!(t, AstType::Generic { .. }) {
                         self.track_complex_generic(&t, "Option_Some");
+                    }
+                    // Track custom enum types too
+                    if matches!(t, AstType::EnumType { .. }) {
+                        self.generic_tracker.track_generic_type(&t, "Option_Some");
                     }
                 }
             }
@@ -5261,10 +5269,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         // Use the enum's LLVM type
         let enum_struct_type = enum_info.llvm_type;
-        // CRITICAL FIX: Always heap-allocate Result and Option enum structs to ensure
-        // they work correctly when used as payloads in other enums (nested generics)
-        let alloca = if enum_name == "Result" || enum_name == "Option" {
-            // Heap-allocate for Result and Option to support nested generics
+        // CRITICAL FIX: Always heap-allocate ALL enum structs to ensure
+        // they work correctly when used as payloads in other enums (nested generics).
+        // This includes custom enums, not just Result and Option.
+        let alloca = if true {  // Always heap-allocate for proper nesting support
+            // Heap-allocate all enums to support nested generics and custom enum payloads
             let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
                 let i64_type = self.context.i64_type();
                 let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());

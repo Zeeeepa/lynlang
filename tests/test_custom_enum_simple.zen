@@ -1,0 +1,25 @@
+// Simple test to isolate custom enum in Option issue
+{ io, Option } = @std
+
+// Very simple custom enum
+Simple : .HasValue(v: i32) | .NoValue
+
+main = () void {
+    io.println("Testing simple custom enum in Option")
+    
+    // Direct enum - should work
+    direct = Simple.HasValue(42)
+    direct ? | Simple.HasValue(n) => io.println("Direct: ${n}")
+            | Simple.NoValue => io.println("Direct: no value")
+    
+    // Same enum wrapped in Option
+    wrapped = Option.Some(Simple.HasValue(42))
+    
+    // Extract from Option
+    wrapped ? | Option.Some(inner) => {
+        io.println("Extracted inner enum from Option")
+        // Now pattern match on the inner enum
+        inner ? | Simple.HasValue(n) => io.println("Wrapped: ${n}")
+               | Simple.NoValue => io.println("Wrapped: no value")
+    } | Option.None => io.println("Was None")
+}

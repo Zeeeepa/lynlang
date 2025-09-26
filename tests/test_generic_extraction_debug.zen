@@ -1,0 +1,67 @@
+// Debug generic extraction issues
+{ io, Option } = @std
+
+main = () void {
+    io.println("=== Debugging Generic Extraction ===")
+    
+    // Test 1: Simple Option
+    io.println("\nTest 1: Simple Option")
+    opt1 = Option.Some(42)
+    opt1 ? | Option.Some(v) => io.println("  Value: ${v}")
+           | Option.None => io.println("  None")
+    
+    // Test 2: Double nested - inline construction
+    io.println("\nTest 2: Double nested inline")
+    opt2 = Option.Some(Option.Some(84))
+    opt2 ? | Option.Some(inner) => {
+        io.println("  Got inner option")
+        inner ? | Option.Some(v) => io.println("  Inner value: ${v}")
+               | Option.None => io.println("  Inner None")
+    } | Option.None => io.println("  Outer None")
+    
+    // Test 3: Double nested - step by step
+    io.println("\nTest 3: Double nested step-by-step")
+    inner_opt = Option.Some(126)
+    outer_opt = Option.Some(inner_opt)
+    outer_opt ? | Option.Some(extracted) => {
+        io.println("  Extracted inner")
+        extracted ? | Option.Some(val) => io.println("  Value: ${val}")
+                   | Option.None => io.println("  Inner was None")
+    } | Option.None => io.println("  Outer was None")
+    
+    // Test 4: Triple nested - step by step
+    io.println("\nTest 4: Triple nested step-by-step")
+    level3 = Option.Some(168)
+    level2 = Option.Some(level3)
+    level1 = Option.Some(level2)
+    
+    io.println("  Starting extraction...")
+    level1 ? | Option.Some(l2) => {
+        io.println("  Got level 2")
+        l2 ? | Option.Some(l3) => {
+            io.println("  Got level 3")
+            l3 ? | Option.Some(final_val) => io.println("  Final value: ${final_val}")
+                 | Option.None => io.println("  L3 was None")
+        } | Option.None => io.println("  L2 was None")
+    } | Option.None => io.println("  L1 was None")
+    
+    // Test 5: Function returning nested
+    io.println("\nTest 5: Function returning triple nested")
+    create_triple = () Option<Option<Option<i32>>> {
+        innermost = Option.Some(210)
+        mid_level = Option.Some(innermost)
+        return Option.Some(mid_level)
+    }
+    
+    triple = create_triple()
+    triple ? | Option.Some(middle) => {
+        io.println("  Extracted middle")
+        middle ? | Option.Some(inner_val) => {
+            io.println("  Extracted inner")
+            inner_val ? | Option.Some(v) => io.println("  Value: ${v}")
+                        | Option.None => io.println("  Inner None")
+        } | Option.None => io.println("  Middle None")
+    } | Option.None => io.println("  Outer None")
+    
+    io.println("\n=== Debug Complete ===")
+}
