@@ -663,10 +663,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
         right_val: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         if left_val.is_int_value() && right_val.is_int_value() {
+            let left_int = left_val.into_int_value();
+            let right_int = right_val.into_int_value();
+            
+            // Normalize types
+            let (left_final, right_final) = self.normalize_int_types(left_int, right_int)?;
+            
             let result = self.builder.build_int_compare(
                 IntPredicate::SGT,
-                left_val.into_int_value(),
-                right_val.into_int_value(),
+                left_final,
+                right_final,
                 "gttmp",
             )?;
             Ok(result.into())
@@ -693,10 +699,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
         right_val: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         if left_val.is_int_value() && right_val.is_int_value() {
+            let left_int = left_val.into_int_value();
+            let right_int = right_val.into_int_value();
+            
+            // Normalize types
+            let (left_final, right_final) = self.normalize_int_types(left_int, right_int)?;
+            
             let result = self.builder.build_int_compare(
                 IntPredicate::SLE,
-                left_val.into_int_value(),
-                right_val.into_int_value(),
+                left_final,
+                right_final,
                 "letmp",
             )?;
             Ok(result.into())
@@ -723,10 +735,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
         right_val: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         if left_val.is_int_value() && right_val.is_int_value() {
+            let left_int = left_val.into_int_value();
+            let right_int = right_val.into_int_value();
+            
+            // Normalize types
+            let (left_final, right_final) = self.normalize_int_types(left_int, right_int)?;
+            
             let result = self.builder.build_int_compare(
                 IntPredicate::SGE,
-                left_val.into_int_value(),
-                right_val.into_int_value(),
+                left_final,
+                right_final,
                 "getmp",
             )?;
             Ok(result.into())
