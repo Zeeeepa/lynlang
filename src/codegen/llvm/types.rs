@@ -293,8 +293,21 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         );
                         Ok(Type::Struct(vec_struct))
                     }
+                    Type::Struct(struct_type) => {
+                        // Handle struct element types properly
+                        let array_type = struct_type.array_type(*size as u32);
+                        let len_type = self.context.i64_type(); // Use i64 for length
+                        let vec_struct = self.context.struct_type(
+                            &[
+                                array_type.into(), // data: [T; size] where T is a struct
+                                len_type.into(),   // len: usize (current length)
+                            ],
+                            false,
+                        );
+                        Ok(Type::Struct(vec_struct))
+                    }
                     _ => {
-                        // Fallback to array of bytes
+                        // Fallback for other types (should not normally reach here)
                         let array_type = self.context.i8_type().array_type(*size as u32);
                         let len_type = self.context.i64_type();
                         let vec_struct = self
