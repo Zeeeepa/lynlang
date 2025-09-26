@@ -1,0 +1,210 @@
+// Consolidated HashMap tests
+// Combines functionality from multiple test_hashmap_*.zen files
+
+{ io, Option, HashMap } = @std
+
+// Test 1: Basic HashMap operations
+test_basic_hashmap = () void {
+    io.println("=== Test 1: Basic HashMap ===")
+    
+    // Create a HashMap with i32 keys and values
+    map = HashMap<i32, i32>()
+    
+    io.println("HashMap created")
+    
+    // Try to insert a value
+    map.insert(1, 100)
+    
+    io.println("Value inserted")
+    
+    // Try to get the value
+    result = map.get(1)
+    
+    result ?
+        | Some(val) { io.println("Got value: ${val}") }
+        | None { io.println("Key not found") }
+}
+
+// Test 2: HashMap with string keys
+test_string_key_hashmap = () void {
+    io.println("=== Test 2: String Key HashMap ===")
+    
+    map = HashMap<string, i32>()
+    
+    map.insert("apple", 5)
+    map.insert("banana", 3)
+    map.insert("cherry", 8)
+    
+    io.println("Inserted string keys")
+    
+    // Get values
+    apple_count = map.get("apple")
+    apple_count ?
+        | Some(count) { io.println("Apple count: ${count}") }
+        | None { io.println("Apple not found") }
+    
+    banana_count = map.get("banana")
+    banana_count ?
+        | Some(count) { io.println("Banana count: ${count}") }
+        | None { io.println("Banana not found") }
+}
+
+// Test 3: HashMap with string values
+test_string_value_hashmap = () void {
+    io.println("=== Test 3: String Value HashMap ===")
+    
+    map = HashMap<i32, string>()
+    
+    map.insert(1, "one")
+    map.insert(2, "two")
+    map.insert(3, "three")
+    
+    io.println("Inserted string values")
+    
+    // Get values
+    for i in 1..4 {
+        result = map.get(i)
+        result ?
+            | Some(word) { io.println("${i} = ${word}") }
+            | None { io.println("${i} not found") }
+    }
+}
+
+// Test 4: HashMap remove operations
+test_hashmap_remove = () void {
+    io.println("=== Test 4: HashMap Remove ===")
+    
+    map = HashMap<i32, string>()
+    
+    map.insert(1, "first")
+    map.insert(2, "second")
+    map.insert(3, "third")
+    
+    io.println("Inserted 3 items")
+    
+    // Remove middle item
+    removed = map.remove(2)
+    removed ?
+        | Some(val) { io.println("Removed: ${val}") }
+        | None { io.println("Nothing to remove") }
+    
+    // Check remaining items
+    for i in 1..4 {
+        result = map.get(i)
+        result ?
+            | Some(val) { io.println("Key ${i}: ${val}") }
+            | None { io.println("Key ${i}: not found") }
+    }
+}
+
+// Test 5: HashMap with Option values
+test_option_value_hashmap = () void {
+    io.println("=== Test 5: Option Value HashMap ===")
+    
+    map = HashMap<string, Option<i32>>()
+    
+    map.insert("valid", Some(42))
+    map.insert("invalid", None)
+    map.insert("another", Some(84))
+    
+    io.println("Inserted Option values")
+    
+    // Get and process values
+    valid_result = map.get("valid")
+    valid_result ?
+        | Some(opt) {
+            opt ?
+                | Some(val) { io.println("Valid value: ${val}") }
+                | None { io.println("Valid key but None value") }
+        }
+        | None { io.println("Valid key not found") }
+    
+    invalid_result = map.get("invalid")
+    invalid_result ?
+        | Some(opt) {
+            opt ?
+                | Some(val) { io.println("Invalid value: ${val}") }
+                | None { io.println("Invalid key with None value (correct)") }
+        }
+        | None { io.println("Invalid key not found") }
+}
+
+// Test 6: HashMap size and clear
+test_hashmap_size_clear = () void {
+    io.println("=== Test 6: HashMap Size and Clear ===")
+    
+    map = HashMap<i32, string>()
+    
+    io.println("Initial size: ${map.size()}")
+    
+    map.insert(1, "a")
+    map.insert(2, "b")
+    map.insert(3, "c")
+    
+    io.println("After insert - size: ${map.size()}")
+    
+    // Clear the map
+    map.clear()
+    io.println("After clear - size: ${map.size()}")
+    
+    // Try to get from cleared map
+    result = map.get(1)
+    result ?
+        | Some(val) { io.println("Found after clear: ${val}") }
+        | None { io.println("Not found after clear (correct)") }
+}
+
+// Test 7: Nested HashMap
+test_nested_hashmap = () void {
+    io.println("=== Test 7: Nested HashMap ===")
+    
+    map = HashMap<string, HashMap<i32, string>>()
+    
+    // Create inner map
+    inner = HashMap<i32, string>()
+    inner.insert(1, "inner_one")
+    inner.insert(2, "inner_two")
+    
+    map.insert("outer", inner)
+    
+    io.println("Created nested HashMap")
+    
+    // Access nested value
+    outer_result = map.get("outer")
+    outer_result ?
+        | Some(inner_map) {
+            inner_result = inner_map.get(1)
+            inner_result ?
+                | Some(val) { io.println("Nested value: ${val}") }
+                | None { io.println("Inner key not found") }
+        }
+        | None { io.println("Outer key not found") }
+}
+
+main = () void {
+    io.println("=== HashMap Type Tests ===")
+    io.println("")
+    
+    test_basic_hashmap()
+    io.println("")
+    
+    test_string_key_hashmap()
+    io.println("")
+    
+    test_string_value_hashmap()
+    io.println("")
+    
+    test_hashmap_remove()
+    io.println("")
+    
+    test_option_value_hashmap()
+    io.println("")
+    
+    test_hashmap_size_clear()
+    io.println("")
+    
+    test_nested_hashmap()
+    io.println("")
+    
+    io.println("=== HashMap Tests Complete ===")
+}

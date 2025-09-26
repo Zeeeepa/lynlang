@@ -1,11 +1,13 @@
 // LSP Test File - Demonstrates proper position tracking and features
 
-// Standard library imports
-io {  } = @std;
-math {  } = @std;
 
 // Import Result and Option from stdlib
-{ Result, Option } = @std
+{ 
+    maths,
+    io
+    Result, 
+    Option
+ } = @std
 
 // Type definitions
 Point = {
@@ -15,8 +17,8 @@ Point = {
 
 // Function definitions
 distance = (p1: Point, p2: Point) f64   {
-    dx ::= p2.x - p1.x;
-    dy ::= p2.y - p1.y;
+    dx = p2.x - p1.x;
+    dy = p2.y - p1.y;
     return math.sqrt(dx * dx + dy * dy);
 }
 

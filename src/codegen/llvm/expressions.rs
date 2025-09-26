@@ -187,28 +187,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         let base_type = &name[..angle_pos];
                         let type_params_str = &name[angle_pos+1..name.len()-1];
                         
-                        // Parse type parameters (simple parsing for now)
-                        let type_args: Vec<AstType> = type_params_str
-                            .split(',')
-                            .map(|s| {
-                                let trimmed = s.trim();
-                                match trimmed {
-                                    "i8" => AstType::I8,
-                                    "i16" => AstType::I16,
-                                    "i32" => AstType::I32,
-                                    "i64" => AstType::I64,
-                                    "u8" => AstType::U8,
-                                    "u16" => AstType::U16,
-                                    "u32" => AstType::U32,
-                                    "u64" => AstType::U64,
-                                    "f32" => AstType::F32,
-                                    "f64" => AstType::F64,
-                                    "bool" => AstType::Bool,
-                                    "string" => AstType::String,
-                                    _ => AstType::I32, // Default
-                                }
-                            })
-                            .collect();
+                        // Parse type parameters - need to handle nested generics
+                        let type_args = self.parse_type_args_string(type_params_str)?;
                         
                         return Ok(AstType::Generic {
                             name: base_type.to_string(),
@@ -272,26 +252,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             if let Some(angle_pos) = name.find('<') {
                                 let base_type = &name[..angle_pos];
                                 
-                                // Simple parser for generic type arguments
+                                // Parse type arguments - handle nested generics
                                 let args_str = &name[angle_pos + 1..name.len() - 1]; // Remove < and >
-                                let type_args: Vec<AstType> = args_str
-                                    .split(',')
-                                    .map(|s| {
-                                        let trimmed = s.trim();
-                                        match trimmed {
-                                            "i32" | "I32" => AstType::I32,
-                                            "i64" | "I64" => AstType::I64,
-                                            "f32" | "F32" => AstType::F32,
-                                            "f64" | "F64" => AstType::F64,
-                                            "bool" | "Bool" => AstType::Bool,
-                                            "string" | "String" => AstType::String,
-                                            _ => AstType::Generic {
-                                                name: trimmed.to_string(),
-                                                type_args: vec![],
-                                            }
-                                        }
-                                    })
-                                    .collect();
+                                let type_args = self.parse_type_args_string(args_str)?;
                                 
                                 return Ok(AstType::Generic {
                                     name: base_type.to_string(),
@@ -2825,7 +2788,38 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 };
                                 
                                 // Store the value (allocate memory and copy)
-                                if value.get_type() == self.context.i32_type().into() {
+                                if value.is_struct_value() {
+                                    // Value is a struct (like Option<i32>), allocate memory for the struct
+                                    let struct_val = value.into_struct_value();
+                                    let struct_type = struct_val.get_type();
+                                    
+                                    // Calculate struct size (conservative estimate)
+                                    let field_count = struct_type.count_fields();
+                                    let struct_size = self.context.i64_type().const_int((field_count as u64) * 8 + 8, false);
+                                    
+                                    let malloc_fn = self.module.get_function("malloc").unwrap();
+                                    let value_mem = self.builder.build_call(
+                                        malloc_fn,
+                                        &[struct_size.into()],
+                                        "struct_value_mem"
+                                    )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                                    
+                                    // Cast to struct type and store the value
+                                    let value_mem_typed = self.builder.build_pointer_cast(
+                                        value_mem,
+                                        struct_type.ptr_type(AddressSpace::default()),
+                                        "value_mem_typed"
+                                    )?;
+                                    self.builder.build_store(value_mem_typed, struct_val)?;
+                                    
+                                    // Store the pointer in the bucket
+                                    let value_ptr_as_i64 = self.builder.build_ptr_to_int(
+                                        value_mem,
+                                        self.context.i64_type(),
+                                        "value_ptr_as_i64"
+                                    )?;
+                                    self.builder.build_store(value_storage_ptr, value_ptr_as_i64)?;
+                                } else if value.get_type() == self.context.i32_type().into() {
                                     // Value is i32, allocate 4 bytes
                                     let malloc_fn = self.module.get_function("malloc").unwrap();
                                     let value_mem = self.builder.build_call(
@@ -3360,6 +3354,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     if let AstType::Generic { type_args, .. } = &var_info.ast_type {
                                         if type_args.len() >= 2 {
                                             match &type_args[1] {
+                                                AstType::Generic { name, .. } if name == "Option" || name == "Result" => {
+                                                    // Value is an enum struct (Option<T> or Result<T,E>), stored as pointer
+                                                    let value_ptr = self.builder.build_int_to_ptr(
+                                                        stored_value_or_ptr,
+                                                        self.context.ptr_type(AddressSpace::default()),
+                                                        "value_ptr"
+                                                    )?;
+                                                    
+                                                    // Load the enum struct
+                                                    // Option/Result structs have format: { i64 discriminant, ptr payload }
+                                                    let enum_struct_type = self.context.struct_type(
+                                                        &[
+                                                            self.context.i64_type().into(),
+                                                            self.context.ptr_type(AddressSpace::default()).into(),
+                                                        ],
+                                                        false,
+                                                    );
+                                                    
+                                                    let loaded_struct = self.builder.build_load(
+                                                        enum_struct_type,
+                                                        value_ptr,
+                                                        "loaded_enum_struct"
+                                                    )?;
+                                                    
+                                                    (loaded_struct, type_args[1].clone())
+                                                }
                                                 AstType::I32 => {
                                                     // Value was stored as a pointer to i32, dereference it
                                                     
@@ -3416,6 +3436,51 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 
                                 // Create the Option::Some variant with the actual value
                                 let some_value = match value_type {
+                                    AstType::Generic { name, .. } if name == "Option" || name == "Result" => {
+                                        // Value is already an enum struct, need to wrap it in outer Option
+                                        // actual_value is the inner Option<i32> or Result<T,E>
+                                        // We need to heap-allocate it and wrap in Some
+                                        
+                                        // Allocate memory for the inner enum struct
+                                        let inner_struct_val = actual_value.into_struct_value();
+                                        let inner_struct_type = inner_struct_val.get_type();
+                                        let struct_size = self.context.i64_type().const_int(24, false); // Conservative size
+                                        
+                                        let malloc_fn = self.module.get_function("malloc").unwrap();
+                                        let inner_mem = self.builder.build_call(
+                                            malloc_fn,
+                                            &[struct_size.into()],
+                                            "inner_enum_mem"
+                                        )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                                        
+                                        // Cast to correct type and store
+                                        let inner_mem_typed = self.builder.build_pointer_cast(
+                                            inner_mem,
+                                            inner_struct_type.ptr_type(AddressSpace::default()),
+                                            "inner_enum_typed"
+                                        )?;
+                                        self.builder.build_store(inner_mem_typed, inner_struct_val)?;
+                                        
+                                        // Create the outer Option::Some with pointer to inner enum
+                                        let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
+                                        let some_value_alloca = self.builder.build_alloca(option_llvm_type, "some_value")?;
+                                        let disc_ptr = self.builder.build_struct_gep(
+                                            option_llvm_type,
+                                            some_value_alloca,
+                                            0,
+                                            "disc_ptr"
+                                        )?;
+                                        self.builder.build_store(disc_ptr, some_discriminant)?;
+                                        let payload_ptr = self.builder.build_struct_gep(
+                                            option_llvm_type,
+                                            some_value_alloca,
+                                            1,
+                                            "payload_ptr"
+                                        )?;
+                                        self.builder.build_store(payload_ptr, inner_mem)?;
+                                        let loaded_option = self.builder.build_load(option_llvm_type, some_value_alloca, "some_value")?;
+                                        loaded_option
+                                    }
                                     AstType::I32 => {
                                         // actual_value is an i32, but Option payload field expects a pointer
                                         // Allocate space for the i32 and store pointer to it
@@ -3474,14 +3539,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     if let AstType::Generic { type_args, .. } = &var_info.ast_type {
                                         if type_args.len() >= 2 {
                                             // Set Option_Some_Type based on the HashMap value type
-                                            match &type_args[1] {
-                                                AstType::I32 => {
-                                                    self.generic_type_context.insert("Option_Some_Type".to_string(), AstType::I32);
+                                            // This is the outer Option's Some type, which is the HashMap value type
+                                            self.generic_type_context.insert("Option_Some_Type".to_string(), type_args[1].clone());
+                                            
+                                            // If the value type itself is an Option or Result, also track the inner types
+                                            if let AstType::Generic { name: inner_name, type_args: inner_args } = &type_args[1] {
+                                                if inner_name == "Option" && inner_args.len() >= 1 {
+                                                    self.generic_type_context.insert("Inner_Option_Some_Type".to_string(), inner_args[0].clone());
+                                                } else if inner_name == "Result" && inner_args.len() >= 2 {
+                                                    self.generic_type_context.insert("Inner_Result_Ok_Type".to_string(), inner_args[0].clone());
+                                                    self.generic_type_context.insert("Inner_Result_Err_Type".to_string(), inner_args[1].clone());
                                                 }
-                                                AstType::I64 => {
-                                                    self.generic_type_context.insert("Option_Some_Type".to_string(), AstType::I64);
-                                                }
-                                                _ => {}
                                             }
                                         }
                                     }
@@ -8873,6 +8941,81 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // These will be executed in LIFO order at scope exit
         self.defer_stack.push(expr.clone());
         Ok(())
+    }
+
+    /// Parse a type arguments string like "string, Option<i32>" into Vec<AstType>
+    fn parse_type_args_string(&self, type_params_str: &str) -> Result<Vec<AstType>, CompileError> {
+        let mut type_args = Vec::new();
+        let mut current = String::new();
+        let mut angle_depth = 0;
+        
+        for ch in type_params_str.chars() {
+            if ch == '<' {
+                angle_depth += 1;
+                current.push(ch);
+            } else if ch == '>' {
+                angle_depth -= 1;
+                current.push(ch);
+            } else if ch == ',' && angle_depth == 0 {
+                // This comma separates type arguments
+                if !current.is_empty() {
+                    type_args.push(self.parse_single_type_string(current.trim())?);
+                    current.clear();
+                }
+            } else {
+                current.push(ch);
+            }
+        }
+        
+        // Don't forget the last type argument
+        if !current.is_empty() {
+            type_args.push(self.parse_single_type_string(current.trim())?);
+        }
+        
+        Ok(type_args)
+    }
+    
+    /// Parse a single type string like "i32" or "Option<i32>" into AstType
+    fn parse_single_type_string(&self, type_str: &str) -> Result<AstType, CompileError> {
+        let trimmed = type_str.trim();
+        
+        // Check for basic types first
+        match trimmed {
+            "i8" => Ok(AstType::I8),
+            "i16" => Ok(AstType::I16),
+            "i32" => Ok(AstType::I32),
+            "i64" => Ok(AstType::I64),
+            "u8" => Ok(AstType::U8),
+            "u16" => Ok(AstType::U16),
+            "u32" => Ok(AstType::U32),
+            "u64" => Ok(AstType::U64),
+            "f32" => Ok(AstType::F32),
+            "f64" => Ok(AstType::F64),
+            "bool" => Ok(AstType::Bool),
+            "string" => Ok(AstType::String),
+            "void" => Ok(AstType::Void),
+            _ => {
+                // Check if it's a generic type like "Option<i32>"
+                if let Some(angle_pos) = trimmed.find('<') {
+                    if trimmed.ends_with('>') {
+                        let base_type = &trimmed[..angle_pos];
+                        let inner_types_str = &trimmed[angle_pos + 1..trimmed.len() - 1];
+                        let inner_types = self.parse_type_args_string(inner_types_str)?;
+                        
+                        Ok(AstType::Generic {
+                            name: base_type.to_string(),
+                            type_args: inner_types,
+                        })
+                    } else {
+                        // Invalid generic type syntax
+                        Ok(AstType::I32) // Default fallback
+                    }
+                } else {
+                    // Unknown type, default to I32
+                    Ok(AstType::I32)
+                }
+            }
+        }
     }
 
     /// Infer the return type of a closure from its body

@@ -1,14 +1,118 @@
-{ io } = @std
+// Consolidated Option type tests
+// Combines functionality from multiple test_option_*.zen files
+
+{ io, Option } = @std
+
+// Test 1: Basic Some and None
+test_basic_option = () void {
+    io.println("=== Test 1: Basic Option ===")
+    
+    val = Some(42)
+    val ?
+        | Some(x) { io.println("Got value: ${x}") }
+        | None { io.println("Empty") }
+    
+    empty = None
+    empty ?
+        | Some(y) { io.println("Got: ${y}") }
+        | None { io.println("Empty value") }
+}
+
+// Test 2: String Option
+test_string_option = () void {
+    io.println("=== Test 2: String Option ===")
+    
+    str_opt = Some("hello")
+    str_opt ?
+        | Some(s) { io.println("String: ${s}") }
+        | None { io.println("No string") }
+}
+
+// Test 3: Multiple Options
+test_multiple_options = () void {
+    io.println("=== Test 3: Multiple Options ===")
+    
+    opt1 = Some(10)
+    opt2 = Some(20)
+    
+    opt1 ?
+        | Some(a) { io.println("First: ${a}") }
+        | None { io.println("First empty") }
+    
+    opt2 ?
+        | Some(b) { io.println("Second: ${b}") }
+        | None { io.println("Second empty") }
+}
+
+// Test 4: Option with arithmetic
+test_option_arithmetic = () i32 {
+    io.println("=== Test 4: Option Arithmetic ===")
+    
+    opt1 = Some(42)
+    result = opt1 ?
+        | Some(v) => v
+        | None => 0
+    
+    io.println("Result: ${result}")
+    result
+}
+
+// Test 5: Option with function calls
+get_optional_value = (x: i32) Option<i32> {
+    x > 0 ?
+        | true { Some(x * 2) }
+        | false { None }
+}
+
+test_option_from_function = () void {
+    io.println("=== Test 5: Option from Function ===")
+    
+    result = get_optional_value(5)
+    result ?
+        | Some(val) { io.println("Function returned: ${val}") }
+        | None { io.println("Function returned None") }
+    
+    result2 = get_optional_value(-1)
+    result2 ?
+        | Some(val) { io.println("Negative input returned: ${val}") }
+        | None { io.println("Negative input returned None (correct)") }
+}
+
+// Test 6: Nested Options
+test_nested_option = () void {
+    io.println("=== Test 6: Nested Option ===")
+    
+    outer = Some(Some(42))
+    outer ?
+        | Some(inner) {
+            inner ?
+                | Some(value) { io.println("Nested value: ${value}") }
+                | None { io.println("Inner is None") }
+        }
+        | None { io.println("Outer is None") }
+}
 
 main = () void {
-    // Test Option with Some and None
-    opt1 = Some(42)
-    opt1 ?
-        | Some(v) { io.println("Got value: ${v}") }
-        | None { io.println("Got None") }
+    io.println("=== Option Type Tests ===")
+    io.println("")
     
-    opt2 = None
-    opt2 ?
-        | Some(v) { io.println("Got value: ${v}") }
-        | None { io.println("Got None") }
+    test_basic_option()
+    io.println("")
+    
+    test_string_option()
+    io.println("")
+    
+    test_multiple_options()
+    io.println("")
+    
+    test_option_arithmetic()
+    io.println("")
+    
+    test_option_from_function()
+    io.println("")
+    
+    test_nested_option()
+    io.println("")
+    
+    io.println("=== Option Tests Complete ===")
 }

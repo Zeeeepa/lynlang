@@ -6,30 +6,11 @@ A revolutionary programming language with **ZERO KEYWORDS**. All control flow th
 
 > *"No keywords. Pure expression. Allocator-driven concurrency."*
 
-## 🎉 Project Status (2025-09-26)
+## 🎯 Project Status
 
-- **Test Suite**: **87.0% PASS RATE** - 260/299 tests passing (up from 82.6%)
-- **Segfaults**: 2 (test_collections.zen, test_hashmap_remove.zen)  
-- **Compiler Health**: Builds successfully with 12 warnings
-- **Core Features**: All working - showcase.zen runs perfectly
-- **Rust Unit Tests**: 19 tests passing (module system, type checker, FFI, behaviors)
-- **Recent Achievements**: 
-  - 🎉 **Generic Type Inference IMPROVED!** HashMap<K,V>.new() and HashSet<T>.new() now properly inferred
-  - ✅ Collection method type inference - insert/get/remove/pop/union/intersection all properly typed
-  - ✅ String case conversion - to_upper(), to_lower() 
-  - ✅ String search methods - contains(), starts_with(), ends_with(), index_of()
-  - ✅ String manipulation - len(), substr(), char_at(), split(), trim()
-  - ✅ String parsing - to_i32(), to_i64(), to_f64() returning Option<T>
-  - ✅ Numeric methods for integers - abs(), min(), max()
-  - ✅ Array<T> type with push/get/set/len/pop methods
-  - ✅ Automatic int-to-float type coercion in operations  
-  - ✅ Modulo operator (%) fully working
-  - ✅ Allocator-based async system (GPA/AsyncPool) foundation
-  - ✅ Behaviors (traits) system without keywords
-  - ✅ Error propagation with `.raise()` fully functional
-  - ✅ Collections: DynVec, HashMap, HashSet (partially working with stubs)
-  - ✅ Range loops with both exclusive and inclusive syntax
-  - ✅ Pattern matching with enums (qualified and shorthand)
+**For the latest development status, see [STATUS.md](./STATUS.md).**
+
+The Zen language has achieved significant progress with core language features working well. The project maintains a strong test suite and continues to evolve toward a complete implementation of the zero-keywords design philosophy.
 
 ## Core Design Principles
 

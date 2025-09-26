@@ -1,0 +1,202 @@
+// Consolidated closure tests
+// Combines functionality from multiple test_closure_*.zen files
+
+{ io, Result } = @std
+
+// Test 1: Basic closure with parameters
+test_basic_closure = () void {
+    io.println("=== Test 1: Basic Closure ===")
+    
+    add = (a: i32, b: i32) {
+        return a + b
+    }
+    
+    val = add(10, 5)
+    io.println("Closure result: ${val}")
+    
+    // Try comparison
+    x = val == 15
+    io.println("Result correct: ${x}")
+}
+
+// Test 2: Closure with return type
+test_closure_return = () void {
+    io.println("=== Test 2: Closure with Return Type ===")
+    
+    multiply = (x: i32, y: i32) i32 {
+        return x * y
+    }
+    
+    result = multiply(6, 7)
+    io.println("Multiplication result: ${result}")
+}
+
+// Test 3: Closure with Result return
+test_closure_result = () void {
+    io.println("=== Test 3: Closure with Result ===")
+    
+    divide = (a: i32, b: i32) Result<i32, string> {
+        b == 0 ?
+            | true { Result.Err("Division by zero") }
+            | false { Result.Ok(a / b) }
+    }
+    
+    result1 = divide(10, 2)
+    result1 ?
+        | .Ok(val) { io.println("Division success: ${val}") }
+        | .Err(err) { io.println("Division error: ${err}") }
+    
+    result2 = divide(10, 0)
+    result2 ?
+        | .Ok(val) { io.println("Division success: ${val}") }
+        | .Err(err) { io.println("Division error: ${err}") }
+}
+
+// Test 4: Closure with .raise()
+test_closure_raise = () void {
+    io.println("=== Test 4: Closure with Raise ===")
+    
+    safe_divide = (a: i32, b: i32) Result<i32, string> {
+        b == 0 ?
+            | true { Result.Err("Division by zero") }
+            | false { Result.Ok(a / b) }
+    }
+    
+    compute = (x: i32, y: i32) i32 {
+        result = safe_divide(x, y).raise()
+        result * 2
+    }
+    
+    val = compute(20, 4)  // Should be 10
+    io.println("Computed value: ${val}")
+}
+
+// Test 5: Closure with Option
+test_closure_option = () void {
+    io.println("=== Test 5: Closure with Option ===")
+    
+    safe_sqrt = (x: i32) Option<i32> {
+        x >= 0 ?
+            | true { Some(x * x) }
+            | false { None }
+    }
+    
+    result = safe_sqrt(5)
+    result ?
+        | Some(val) { io.println("Square result: ${val}") }
+        | None { io.println("Invalid input") }
+    
+    result2 = safe_sqrt(-3)
+    result2 ?
+        | Some(val) { io.println("Square result: ${val}") }
+        | None { io.println("Invalid input (correct)") }
+}
+
+// Test 6: Closure with ternary operator
+test_closure_ternary = () void {
+    io.println("=== Test 6: Closure with Ternary ===")
+    
+    max = (a: i32, b: i32) i32 {
+        a > b ?
+            | true { a }
+            | false { b }
+    }
+    
+    result = max(15, 25)
+    io.println("Maximum: ${result}")
+}
+
+// Test 7: Closure with string operations
+test_closure_string = () void {
+    io.println("=== Test 7: Closure with String ===")
+    
+    greet = (name: string) string {
+        "Hello, " + name + "!"
+    }
+    
+    message = greet("Zen")
+    io.println("Greeting: ${message}")
+}
+
+// Test 8: Nested closures
+test_nested_closures = () void {
+    io.println("=== Test 8: Nested Closures ===")
+    
+    outer = (x: i32) {
+        inner = (y: i32) {
+            return x + y
+        }
+        inner(10)
+    }
+    
+    result = outer(5)
+    io.println("Nested closure result: ${result}")
+}
+
+// Test 9: Closure with loop
+test_closure_loop = () void {
+    io.println("=== Test 9: Closure with Loop ===")
+    
+    sum_range = (start: i32, end: i32) i32 {
+        total = 0
+        for i in start..end {
+            total = total + i
+        }
+        total
+    }
+    
+    result = sum_range(1, 6)  // Should be 1+2+3+4+5 = 15
+    io.println("Sum of range: ${result}")
+}
+
+// Test 10: Closure with comparison
+test_closure_compare = () void {
+    io.println("=== Test 10: Closure Comparison ===")
+    
+    compare = (a: i32, b: i32) bool {
+        a == b
+    }
+    
+    result1 = compare(5, 5)
+    result2 = compare(5, 6)
+    
+    io.println("5 == 5: ${result1}")
+    io.println("5 == 6: ${result2}")
+}
+
+main = () void {
+    io.println("=== Closure Tests ===")
+    io.println("")
+    
+    test_basic_closure()
+    io.println("")
+    
+    test_closure_return()
+    io.println("")
+    
+    test_closure_result()
+    io.println("")
+    
+    test_closure_raise()
+    io.println("")
+    
+    test_closure_option()
+    io.println("")
+    
+    test_closure_ternary()
+    io.println("")
+    
+    test_closure_string()
+    io.println("")
+    
+    test_nested_closures()
+    io.println("")
+    
+    test_closure_loop()
+    io.println("")
+    
+    test_closure_compare()
+    io.println("")
+    
+    io.println("=== Closure Tests Complete ===")
+}

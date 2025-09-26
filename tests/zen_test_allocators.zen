@@ -1,0 +1,214 @@
+// Consolidated allocator tests
+// Combines functionality from multiple test_allocator_*.zen files
+
+{ io } = @std
+
+// Test 1: Basic allocator functionality
+test_basic_allocator = () void {
+    io.println("=== Test 1: Basic Allocator ===")
+    
+    // Test basic memory allocation
+    ptr = @alloc(i32)
+    io.println("Allocated i32 pointer")
+    
+    // Test memory deallocation
+    @dealloc(ptr)
+    io.println("Deallocated i32 pointer")
+}
+
+// Test 2: Allocator with arrays
+test_allocator_array = () void {
+    io.println("=== Test 2: Allocator with Arrays ===")
+    
+    // Allocate array
+    arr_ptr = @alloc_array(i32, 10)
+    io.println("Allocated array of 10 i32")
+    
+    // Use the array (simulated)
+    io.println("Array allocated successfully")
+    
+    // Deallocate array
+    @dealloc_array(arr_ptr, 10)
+    io.println("Deallocated array")
+}
+
+// Test 3: Allocator with structs
+Point = struct {
+    x: i32,
+    y: i32
+}
+
+test_allocator_struct = () void {
+    io.println("=== Test 3: Allocator with Structs ===")
+    
+    // Allocate struct
+    point_ptr = @alloc(Point)
+    io.println("Allocated Point struct")
+    
+    // Use the struct (simulated)
+    io.println("Struct allocated successfully")
+    
+    // Deallocate struct
+    @dealloc(point_ptr)
+    io.println("Deallocated Point struct")
+}
+
+// Test 4: Allocator with strings
+test_allocator_string = () void {
+    io.println("=== Test 4: Allocator with Strings ===")
+    
+    // Allocate string
+    str_ptr = @alloc_array(u8, 100)
+    io.println("Allocated string buffer of 100 bytes")
+    
+    // Use the string buffer (simulated)
+    io.println("String buffer allocated successfully")
+    
+    // Deallocate string
+    @dealloc_array(str_ptr, 100)
+    io.println("Deallocated string buffer")
+}
+
+// Test 5: Allocator with generic types
+test_allocator_generic = () void {
+    io.println("=== Test 5: Allocator with Generic Types ===")
+    
+    // Allocate generic type
+    generic_ptr = @alloc(Option<i32>)
+    io.println("Allocated generic Option<i32>")
+    
+    // Use the generic type (simulated)
+    io.println("Generic type allocated successfully")
+    
+    // Deallocate generic type
+    @dealloc(generic_ptr)
+    io.println("Deallocated generic type")
+}
+
+// Test 6: Allocator with nested types
+test_allocator_nested = () void {
+    io.println("=== Test 6: Allocator with Nested Types ===")
+    
+    // Allocate nested type
+    nested_ptr = @alloc(Array<Point>)
+    io.println("Allocated Array<Point>")
+    
+    // Use the nested type (simulated)
+    io.println("Nested type allocated successfully")
+    
+    // Deallocate nested type
+    @dealloc(nested_ptr)
+    io.println("Deallocated nested type")
+}
+
+// Test 7: Allocator with Result types
+test_allocator_result = () void {
+    io.println("=== Test 7: Allocator with Result Types ===")
+    
+    // Allocate Result type
+    result_ptr = @alloc(Result<i32, string>)
+    io.println("Allocated Result<i32, string>")
+    
+    // Use the Result type (simulated)
+    io.println("Result type allocated successfully")
+    
+    // Deallocate Result type
+    @dealloc(result_ptr)
+    io.println("Deallocated Result type")
+}
+
+// Test 8: Allocator with large allocations
+test_allocator_large = () void {
+    io.println("=== Test 8: Allocator with Large Allocations ===")
+    
+    // Allocate large array
+    large_ptr = @alloc_array(i32, 1000)
+    io.println("Allocated large array of 1000 i32")
+    
+    // Use the large array (simulated)
+    io.println("Large array allocated successfully")
+    
+    // Deallocate large array
+    @dealloc_array(large_ptr, 1000)
+    io.println("Deallocated large array")
+}
+
+// Test 9: Allocator with multiple allocations
+test_allocator_multiple = () void {
+    io.println("=== Test 9: Allocator with Multiple Allocations ===")
+    
+    // Allocate multiple items
+    ptr1 = @alloc(i32)
+    ptr2 = @alloc(f64)
+    ptr3 = @alloc(bool)
+    
+    io.println("Allocated multiple types")
+    
+    // Use the allocations (simulated)
+    io.println("Multiple allocations successful")
+    
+    // Deallocate all
+    @dealloc(ptr1)
+    @dealloc(ptr2)
+    @dealloc(ptr3)
+    
+    io.println("Deallocated all items")
+}
+
+// Test 10: Allocator with custom types
+CustomType = struct {
+    data: i32,
+    flag: bool
+}
+
+test_allocator_custom = () void {
+    io.println("=== Test 10: Allocator with Custom Types ===")
+    
+    // Allocate custom type
+    custom_ptr = @alloc(CustomType)
+    io.println("Allocated CustomType")
+    
+    // Use the custom type (simulated)
+    io.println("Custom type allocated successfully")
+    
+    // Deallocate custom type
+    @dealloc(custom_ptr)
+    io.println("Deallocated CustomType")
+}
+
+main = () void {
+    io.println("=== Allocator Tests ===")
+    io.println("")
+    
+    test_basic_allocator()
+    io.println("")
+    
+    test_allocator_array()
+    io.println("")
+    
+    test_allocator_struct()
+    io.println("")
+    
+    test_allocator_string()
+    io.println("")
+    
+    test_allocator_generic()
+    io.println("")
+    
+    test_allocator_nested()
+    io.println("")
+    
+    test_allocator_result()
+    io.println("")
+    
+    test_allocator_large()
+    io.println("")
+    
+    test_allocator_multiple()
+    io.println("")
+    
+    test_allocator_custom()
+    io.println("")
+    
+    io.println("=== Allocator Tests Complete ===")
+}

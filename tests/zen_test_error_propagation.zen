@@ -1,0 +1,179 @@
+// Consolidated error propagation tests (.raise() operator)
+// Combines functionality from multiple test_raise_*.zen files
+
+{ io, Result } = @std
+
+// Test 1: Basic .raise() with arithmetic
+test_basic_arithmetic = () Result<i32, string> {
+    io.println("=== Test 1: Basic Arithmetic ===")
+    a = Result.Ok(10).raise()
+    b = Result.Ok(20).raise()
+    c = a + b  // Should be 30
+    Result.Ok(c)
+}
+
+// Test 2: .raise() from function call
+get_value = () Result<i32, string> {
+    Result.Ok(42)
+}
+
+test_from_call = () Result<i32, string> {
+    io.println("=== Test 2: From Function Call ===")
+    val = get_value().raise()
+    Result.Ok(val)
+}
+
+// Test 3: Multiple .raise() in sequence
+test_multiple_raise = () Result<i32, string> {
+    io.println("=== Test 3: Multiple Raises ===")
+    x = Result.Ok(5).raise()
+    y = Result.Ok(10).raise()
+    z = Result.Ok(15).raise()
+    result = x + y + z  // Should be 30
+    Result.Ok(result)
+}
+
+// Test 4: .raise() with error propagation
+test_error_propagation = () Result<i32, string> {
+    io.println("=== Test 4: Error Propagation ===")
+    // This should propagate the error
+    err_val = Result.Err("Something went wrong").raise()
+    // This line should not execute
+    Result.Ok(err_val)
+}
+
+// Test 5: UFC with .raise()
+compute = (x: i32) Result<i32, string> {
+    x > 0 ?
+        | true { Result.Ok(x * 2) }
+        | false { Result.Err("Negative value") }
+}
+
+test_ufc_raise = () Result<i32, string> {
+    io.println("=== Test 5: UFC with Raise ===")
+    ufc_val = compute(5).raise()
+    Result.Ok(ufc_val)
+}
+
+// Test 6: .raise() in closure
+test_closure_raise = () Result<i32, string> {
+    io.println("=== Test 6: Closure with Raise ===")
+    closure = (x: i32) {
+        Result.Ok(x * 3).raise()
+    }
+    result = closure(7)
+    Result.Ok(result)
+}
+
+// Test 7: Nested .raise() calls
+nested_function = (x: i32) Result<i32, string> {
+    Result.Ok(x + 10)
+}
+
+test_nested_raise = () Result<i32, string> {
+    io.println("=== Test 7: Nested Raises ===")
+    val = nested_function(5).raise()
+    Result.Ok(val)
+}
+
+// Test 8: .raise() with different error types
+test_different_errors = () Result<i32, string> {
+    io.println("=== Test 8: Different Error Types ===")
+    // This should work
+    ok_val = Result.Ok(100).raise()
+    Result.Ok(ok_val)
+}
+
+// Test 9: .raise() with arithmetic operations
+test_raise_arithmetic = () Result<i32, string> {
+    io.println("=== Test 9: Raise with Arithmetic ===")
+    a = Result.Ok(20).raise()
+    b = Result.Ok(30).raise()
+    result = a * b  // Should be 600
+    Result.Ok(result)
+}
+
+// Test 10: .raise() with comparison
+test_raise_comparison = () Result<bool, string> {
+    io.println("=== Test 10: Raise with Comparison ===")
+    a = Result.Ok(10).raise()
+    b = Result.Ok(20).raise()
+    result = a < b  // Should be true
+    Result.Ok(result)
+}
+
+main = () void {
+    io.println("=== Error Propagation Tests (.raise() operator) ===")
+    io.println("")
+    
+    // Test 1: Basic arithmetic
+    test_basic_arithmetic() ?
+        | .Ok(v1) { io.println("Test 1 PASS: Basic arithmetic = ${v1}") }
+        | .Err(e1) { io.println("Test 1 FAIL: ${e1}") }
+    
+    io.println("")
+    
+    // Test 2: From function call
+    test_from_call() ?
+        | .Ok(v2) { io.println("Test 2 PASS: From call = ${v2}") }
+        | .Err(e2) { io.println("Test 2 FAIL: ${e2}") }
+    
+    io.println("")
+    
+    // Test 3: Multiple raises
+    test_multiple_raise() ?
+        | .Ok(v3) { io.println("Test 3 PASS: Multiple raises = ${v3}") }
+        | .Err(e3) { io.println("Test 3 FAIL: ${e3}") }
+    
+    io.println("")
+    
+    // Test 4: Error propagation
+    test_error_propagation() ?
+        | .Ok(v4) { io.println("Test 4 FAIL: Should have propagated error") }
+        | .Err(e4) { io.println("Test 4 PASS: Error propagated - ${e4}") }
+    
+    io.println("")
+    
+    // Test 5: UFC with raise
+    test_ufc_raise() ?
+        | .Ok(v5) { io.println("Test 5 PASS: UFC raise = ${v5}") }
+        | .Err(e5) { io.println("Test 5 FAIL: ${e5}") }
+    
+    io.println("")
+    
+    // Test 6: Closure with raise
+    test_closure_raise() ?
+        | .Ok(v6) { io.println("Test 6 PASS: Closure raise = ${v6}") }
+        | .Err(e6) { io.println("Test 6 FAIL: ${e6}") }
+    
+    io.println("")
+    
+    // Test 7: Nested raises
+    test_nested_raise() ?
+        | .Ok(v7) { io.println("Test 7 PASS: Nested raises = ${v7}") }
+        | .Err(e7) { io.println("Test 7 FAIL: ${e7}") }
+    
+    io.println("")
+    
+    // Test 8: Different error types
+    test_different_errors() ?
+        | .Ok(v8) { io.println("Test 8 PASS: Different errors = ${v8}") }
+        | .Err(e8) { io.println("Test 8 FAIL: ${e8}") }
+    
+    io.println("")
+    
+    // Test 9: Raise with arithmetic
+    test_raise_arithmetic() ?
+        | .Ok(v9) { io.println("Test 9 PASS: Raise arithmetic = ${v9}") }
+        | .Err(e9) { io.println("Test 9 FAIL: ${e9}") }
+    
+    io.println("")
+    
+    // Test 10: Raise with comparison
+    test_raise_comparison() ?
+        | .Ok(v10) { io.println("Test 10 PASS: Raise comparison = ${v10}") }
+        | .Err(e10) { io.println("Test 10 FAIL: ${e10}") }
+    
+    io.println("")
+    io.println("=== Error Propagation Tests Complete ===")
+}
