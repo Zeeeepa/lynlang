@@ -1341,6 +1341,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         } else if then_val.is_float_value() {
                                             let float_type = then_val.into_float_value().get_type();
                                             float_type.const_float(0.0).into()
+                                        } else if then_val.is_struct_value() {
+                                            // For structs (like nested enums), create a zero-initialized struct
+                                            let struct_type = then_val.into_struct_value().get_type();
+                                            struct_type.const_zero().into()
                                         } else {
                                             // For pointers, use null pointer
                                             let ptr_type = then_val.into_pointer_value().get_type();

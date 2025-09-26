@@ -1,0 +1,15 @@
+// Test chained raise calls
+{ io, Result } = @std
+
+main = () void {
+    io.println("Testing chained raises...")
+    
+    get_chained = () Result<Result<i32, string>, string> {
+        Result.Ok(Result.Ok(500))
+    }
+    
+    // Chain multiple raise() calls
+    value = get_chained().raise().raise()
+    
+    io.println("Value: ${value}")
+}

@@ -1,0 +1,47 @@
+// Test with two functions
+{ io, Result, Option } = @std
+
+// Test 1: Double nested Result<Result<T,E>,E>
+test_double_nested_result = () i32 {
+    io.println("Test 1: Double nested Result<Result<T,E>,E>")
+    
+    // Function that returns nested result
+    get_double_nested = () Result<Result<i32, string>, string> {
+        Result.Ok(Result.Ok(100))
+    }
+    
+    outer_result = get_double_nested()
+    inner_result = outer_result.raise()
+    value = inner_result.raise()
+    
+    io.println("  Expected: 100, Got: ${value}")
+    value == 100 ? 
+        | true { io.println("  ✓ Double nesting works") }
+        | false { io.println("  ✗ Double nesting failed") }
+    
+    return 0
+}
+
+// Test 2: Triple nested Result<Result<Result<T,E>,E>,E>
+test_triple_nested_result = () void {
+    io.println("\nTest 2: Triple nested Result<Result<Result<T,E>,E>,E>")
+    
+    get_triple_nested = () Result<Result<Result<i32, string>, string>, string> {
+        Result.Ok(Result.Ok(Result.Ok(200)))
+    }
+    
+    level1 = get_triple_nested()
+    level2 = level1.raise()
+    level3 = level2.raise()
+    value = level3.raise()
+    
+    io.println("  Expected: 200, Got: ${value}")
+    value == 200 ? 
+        | true { io.println("  ✓ Triple nesting works") }
+        | false { io.println("  ✗ Triple nesting failed: got ${value}") }
+}
+
+main = () void {
+    test_double_nested_result()
+    test_triple_nested_result()
+}

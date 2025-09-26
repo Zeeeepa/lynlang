@@ -1,0 +1,29 @@
+// Test for scope pollution between functions
+{ io, Result } = @std
+
+func1 = () void {
+    io.println("Func 1")
+    get_result = () Result<i32, string> {
+        Result.Ok(42)
+    }
+    result = get_result()
+    value = result.raise()
+    io.println("Value: ${value}")
+}
+
+func2 = () void {
+    io.println("Func 2")
+    // This function doesn't define 'result' but might be affected
+    get_other = () Result<i32, string> {
+        Result.Ok(100)
+    }
+    // If scope pollution exists, this might fail
+    other = get_other()
+    val = other.raise()
+    io.println("Value: ${val}")
+}
+
+main = () void {
+    func1()
+    func2()
+}

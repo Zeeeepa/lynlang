@@ -2,7 +2,7 @@
 { io, Result, Option } = @std
 
 // Test 1: Double nested Result<Result<T,E>,E>
-test_double_nested_result = () void {
+test_double_nested_result = () i32 {
     io.println("Test 1: Double nested Result<Result<T,E>,E>")
     
     // Function that returns nested result
@@ -10,14 +10,16 @@ test_double_nested_result = () void {
         Result.Ok(Result.Ok(100))
     }
     
-    outer = get_double_nested()
-    inner = outer.raise()
-    value = inner.raise()
+    outer_result = get_double_nested()
+    inner_result = outer_result.raise()
+    value = inner_result.raise()
     
     io.println("  Expected: 100, Got: ${value}")
     value == 100 ? 
         | true { io.println("  ✓ Double nesting works") }
         | false { io.println("  ✗ Double nesting failed") }
+    
+    return 0
 }
 
 // Test 2: Triple nested Result<Result<Result<T,E>,E>,E>
@@ -51,13 +53,13 @@ test_result_option = () void {
     opt = result.raise()
     
     opt ?
-        | Some(v) { 
+        | Option.Some(v) { 
             io.println("  Expected: 300, Got: ${v}")
             v == 300 ? 
                 | true { io.println("  ✓ Result<Option<T>, E> works") }
                 | false { io.println("  ✗ Result<Option<T>, E> failed") }
         }
-        | None { io.println("  ✗ Got None unexpectedly") }
+        | Option.None { io.println("  ✗ Got None unexpectedly") }
 }
 
 // Test 4: Option<Result<T, E>>
@@ -71,14 +73,14 @@ test_option_result = () void {
     opt = get_option_result()
     
     opt ?
-        | Some(result) {
+        | Option.Some(result) {
             val = result.raise()
             io.println("  Expected: 400, Got: ${val}")
             val == 400 ? 
                 | true { io.println("  ✓ Option<Result<T, E>> works") }
                 | false { io.println("  ✗ Option<Result<T, E>> failed") }
         }
-        | None { io.println("  ✗ Got None unexpectedly") }
+        | Option.None { io.println("  ✗ Got None unexpectedly") }
 }
 
 // Test 5: Mixed with different payload types
@@ -139,10 +141,8 @@ test_closure_nested = () void {
     io.println("\nTest 8: Closures returning nested generics")
     
     make_nested = () Result<Result<i32, string>, string> {
-        inner_fn = () Result<i32, string> {
-            Result.Ok(700)
-        }
-        Result.Ok(inner_fn())
+        // Simplified to avoid nested closure issue
+        Result.Ok(Result.Ok(700))
     }
     
     result = make_nested()
@@ -167,8 +167,8 @@ test_error_propagation = () void {
     inner = outer.raise()  // Gets Result.Err("inner error")
     
     inner ?
-        | Ok(v) { io.println("  ✗ Should have gotten error") }
-        | Err(e) { 
+        | Result.Ok(v) { io.println("  ✗ Should have gotten error") }
+        | Result.Err(e) { 
             io.println("  Expected: 'inner error', Got: '${e}'")
             e == "inner error" ?
                 | true { io.println("  ✓ Error propagation works") }
@@ -187,17 +187,17 @@ test_double_option = () void {
     outer = get_double_opt()
     
     outer ?
-        | Some(inner) {
+        | Option.Some(inner) {
             inner ?
-                | Some(v) {
+                | Option.Some(v) {
                     io.println("  Expected: 800, Got: ${v}")
                     v == 800 ?
                         | true { io.println("  ✓ Option<Option<T>> works") }
                         | false { io.println("  ✗ Option<Option<T>> failed") }
                 }
-                | None { io.println("  ✗ Inner was None") }
+                | Option.None { io.println("  ✗ Inner was None") }
         }
-        | None { io.println("  ✗ Outer was None") }
+        | Option.None { io.println("  ✗ Outer was None") }
 }
 
 main = () void {

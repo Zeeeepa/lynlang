@@ -3,9 +3,9 @@
 
 // Define a custom enum with payload - using correct syntax
 Message:
-    Text(string),
-    Number(i32),
-    Empty
+    Text(string)
+    | Number(i32)
+    | Empty
 
 main = () i32 {
     io.println("Testing enum payload extraction...")

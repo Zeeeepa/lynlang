@@ -1,0 +1,23 @@
+// Test only the closure nested function
+{ io, Result } = @std
+
+test_closure_nested = () void {
+    io.println("Test 8: Closures returning nested generics")
+    
+    make_nested = () Result<Result<i32, string>, string> {
+        inner_fn = () Result<i32, string> {
+            Result.Ok(700)
+        }
+        Result.Ok(inner_fn())
+    }
+    
+    result = make_nested()
+    inner = result.raise()
+    value = inner.raise()
+    
+    io.println("  Expected: 700, Got: ${value}")
+}
+
+main = () void {
+    test_closure_nested()
+}

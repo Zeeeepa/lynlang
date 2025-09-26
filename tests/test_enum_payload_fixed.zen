@@ -1,0 +1,20 @@
+// Test enum payload extraction - currently only Option/Result support payloads
+{ io, Option } = @std
+
+main = () i32 {
+    io.println("Testing enum payload extraction...")
+    
+    // Test Option enum with string
+    opt = Option.Some("Testing Option")
+    opt ?
+        | Some(val) { io.println("Option value: ${val}") }
+        | None { io.println("No value") }
+    
+    // Test Option with number
+    opt2 = Option.Some(123) 
+    opt2 ?
+        | Some(val) { io.println("Option number: ${val}") }
+        | None { io.println("None") }
+    
+    return 0
+}

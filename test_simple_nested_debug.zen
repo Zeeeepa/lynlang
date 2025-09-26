@@ -1,0 +1,31 @@
+// Simple nested generic test to debug issue
+{ io, Result } = @std
+
+main = () void {
+    // Single level - this should work
+    single = Result.Ok(42)
+    single ?
+        | Ok(v) {
+            io.println("Single level Ok: ${v}")
+        }
+        | Err(e) {
+            io.println("Single level Err")
+        }
+    
+    // Double level - test this
+    double = Result.Ok(Result.Ok(100))
+    double ?
+        | Ok(inner) {
+            io.println("Outer is Ok")
+            inner ?
+                | Ok(v) {
+                    io.println("Inner value: ${v}")
+                }
+                | Err(e) {
+                    io.println("Inner error")
+                }
+        }
+        | Err(e) {
+            io.println("Outer error")
+        }
+}

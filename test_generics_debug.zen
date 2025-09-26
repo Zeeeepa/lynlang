@@ -1,0 +1,26 @@
+// Debug generic type tracking
+{ io, Result } = @std
+
+test_tracking = () void {
+    io.println("Testing generic tracking...")
+    
+    // Test 1: Function stored in variable
+    get_nested = () Result<Result<i32, string>, string> {
+        Result.Ok(Result.Ok(42))
+    }
+    
+    result = get_nested()
+    io.println("Got result from function call")
+    
+    // This should extract the inner Result<i32, string>
+    inner = result.raise()
+    io.println("Extracted inner result")
+    
+    // This should extract the i32
+    value = inner.raise()
+    io.println("Value: ${value}")
+}
+
+main = () void {
+    test_tracking()
+}

@@ -1,0 +1,25 @@
+// Exact copy from comprehensive test
+{ io, Result, Option } = @std
+
+// Test 1: Double nested Result<Result<T,E>,E>
+test_double_nested_result = () void {
+    io.println("Test 1: Double nested Result<Result<T,E>,E>")
+    
+    // Function that returns nested result
+    get_double_nested = () Result<Result<i32, string>, string> {
+        Result.Ok(Result.Ok(100))
+    }
+    
+    outer = get_double_nested()
+    inner = outer.raise()
+    value = inner.raise()
+    
+    io.println("  Expected: 100, Got: ${value}")
+    value == 100 ? 
+        | true { io.println("  ✓ Double nesting works") }
+        | false { io.println("  ✗ Double nesting failed") }
+}
+
+main = () void {
+    test_double_nested_result()
+}

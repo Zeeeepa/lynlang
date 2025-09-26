@@ -1,0 +1,22 @@
+// Test error propagation in nested
+{ io, Result } = @std
+
+main = () void {
+    io.println("Test: Error propagation in nested")
+    
+    get_nested_err = () Result<Result<i32, string>, string> {
+        Result.Ok(Result.Err("inner error"))
+    }
+    
+    outer = get_nested_err()
+    inner = outer.raise()  // Gets Result.Err("inner error")
+    
+    inner ?
+        | Ok(v) { io.println("✗ Should have gotten error") }
+        | Err(e) { 
+            io.println("Expected: 'inner error', Got: '${e}'")
+            e == "inner error" ?
+                | true { io.println("✓ Error propagation works") }
+                | false { io.println("✗ Wrong error message") }
+        }
+}
