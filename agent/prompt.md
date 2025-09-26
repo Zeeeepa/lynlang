@@ -87,10 +87,7 @@
    - Closure return type inference needs improvement
    - UFC type inference failures
 
-you can update the #Tasks in `agent/prompt.md`
-always inspect the tree project structure first 
-
-follow or improve the structure of this project.
+---
 
 ## 📁 Project Organization Guidelines
 
