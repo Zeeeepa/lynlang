@@ -1,0 +1,44 @@
+// Debug test for triple nested generics
+{ io, Result } = @std
+
+main = () void {
+    io.println("=== Debug Triple Nesting ===")
+    
+    // Level 1: simple Result
+    level1 = Result.Ok(42)
+    level1 ?
+        | Result.Ok(v) { io.println("Level 1: ${v}") }
+        | Result.Err(e) { io.println("Error") }
+    
+    // Level 2: Result<Result<i32,E>,E>  
+    level2 = Result.Ok(Result.Ok(42))
+    level2 ?
+        | Result.Ok(inner) {
+            io.println("Level 2 outer: extracted")
+            inner ?
+                | Result.Ok(v) { io.println("Level 2 inner: ${v}") }
+                | Result.Err(e) { io.println("Error") }
+        }
+        | Result.Err(e) { io.println("Error") }
+    
+    // Level 3: Result<Result<Result<i32,E>,E>,E>
+    level3 = Result.Ok(Result.Ok(Result.Ok(42)))
+    level3 ?
+        | Result.Ok(middle) {
+            io.println("Level 3 outer: extracted")
+            middle ?
+                | Result.Ok(innermost) {
+                    io.println("Level 3 middle: extracted")
+                    innermost ?
+                        | Result.Ok(v) { 
+                            io.println("Level 3 inner: ${v}")
+                            v == 0 ?
+                                | true { io.println("BUG: Got 0") }
+                                | false { io.println("SUCCESS: Got ${v}") }
+                        }
+                        | Result.Err(e) { io.println("Error") }
+                }
+                | Result.Err(e) { io.println("Error") }
+        }
+        | Result.Err(e) { io.println("Error") }
+}

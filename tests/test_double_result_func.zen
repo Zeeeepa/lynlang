@@ -1,0 +1,20 @@
+// Test with function returning nested Result
+{ io, Result } = @std
+
+// Function that returns nested Result without explicit annotation
+get_nested = () {
+    Result.Ok(Result.Ok(999))
+}
+
+main = () void {
+    io.println("=== Function Return Test ===")
+    
+    nested = get_nested()
+    nested ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(val) { io.println("Value: ${val}") }
+                | Result.Err(e) { io.println("Error") }
+        }
+        | Result.Err(e) { io.println("Error") }
+}

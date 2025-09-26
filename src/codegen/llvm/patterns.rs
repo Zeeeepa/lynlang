@@ -330,40 +330,83 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Default integers are i32, so try that first
 
                                 // Check if we have type information for this enum
+                                // Try multiple keys for nested generic support
                                 let load_type = if enum_name == "Option" && variant == "Some" {
-                                    let t = self.generic_type_context.get("Option_Some_Type").cloned();
-                                    t
+                                    // Try nested keys first, then regular keys
+                                    self.generic_type_context.get("Nested_Option_Some_Type").cloned()
+                                        .or_else(|| self.generic_type_context.get("Option_Some_Type").cloned())
+                                        .or_else(|| self.generic_tracker.get("Option_Some_Type").cloned())
                                 } else if enum_name == "Result" {
                                     if variant == "Ok" {
-                                        self.generic_type_context.get("Result_Ok_Type").cloned()
+                                        // For deeply nested Results, check multiple keys
+                                        self.generic_type_context.get("Nested_Result_Ok_Result_Ok_Type").cloned()
+                                            .or_else(|| self.generic_type_context.get("Nested_Result_Ok_Type").cloned())
+                                            .or_else(|| self.generic_type_context.get("Result_Ok_Type").cloned())
+                                            .or_else(|| self.generic_tracker.get("Result_Ok_Type").cloned())
                                     } else if variant == "Err" {
-                                        self.generic_type_context.get("Result_Err_Type").cloned()
+                                        self.generic_type_context.get("Nested_Result_Err_Type").cloned()
+                                            .or_else(|| self.generic_type_context.get("Result_Err_Type").cloned())
+                                            .or_else(|| self.generic_tracker.get("Result_Err_Type").cloned())
                                     } else {
                                         None
                                     }
                                 } else {
                                     None
                                 };
+                                
 
                                 if let Some(ast_type) = load_type {
                                     use crate::ast::AstType;
+                                    
+                                    
                                     match &ast_type {
                                         AstType::Generic { name, type_args } if name == "Option" || name == "Result" => {
                                             // For nested generics, the payload is a pointer to the nested enum struct
                                             // We need to track the nested type information for proper extraction later
                                             
-                                            
-                                            // Track nested generic types for further extraction
+                                            // Enhanced tracking for deeply nested generics
+                                            // Track both the immediate type and recursively track inner types
                                             if name == "Option" && !type_args.is_empty() {
-                                                // Result<Option<T>, E> case - track Option<T> inner type
+                                                // For Result<Option<T>, E> or deeper nesting
                                                 self.track_generic_type("Nested_Option_Some_Type".to_string(), type_args[0].clone());
                                                 self.generic_tracker.track_generic_type(&type_args[0], "Nested_Option_Some");
+                                                
+                                                // Also track for immediate context (critical for triple+ nesting)
+                                                self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
+                                                
+                                                // Recursively track if the inner type is also generic
+                                                if let AstType::Generic { name: inner_name, type_args: inner_args } = &type_args[0] {
+                                                    if inner_name == "Result" && inner_args.len() == 2 {
+                                                        self.track_generic_type("Nested_Option_Some_Result_Ok_Type".to_string(), inner_args[0].clone());
+                                                        self.track_generic_type("Nested_Option_Some_Result_Err_Type".to_string(), inner_args[1].clone());
+                                                    }
+                                                }
                                             } else if name == "Result" && type_args.len() == 2 {
-                                                // Option<Result<T,E>> case - track Result<T,E> inner types
+                                                // For Option<Result<T,E>> or deeper nesting
                                                 self.track_generic_type("Nested_Result_Ok_Type".to_string(), type_args[0].clone());
                                                 self.track_generic_type("Nested_Result_Err_Type".to_string(), type_args[1].clone());
                                                 self.generic_tracker.track_generic_type(&type_args[0], "Nested_Result_Ok");
                                                 self.generic_tracker.track_generic_type(&type_args[1], "Nested_Result_Err");
+                                                
+                                                // Also track for immediate context (critical for triple+ nesting)
+                                                self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                                                self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                                                
+                                                // Recursively track if the Ok type is also generic
+                                                if let AstType::Generic { name: inner_name, type_args: inner_args } = &type_args[0] {
+                                                    if inner_name == "Result" && inner_args.len() == 2 {
+                                                        // Triple nesting: Result<Result<Result<T,E>,E>,E>
+                                                        self.track_generic_type("Nested_Result_Ok_Result_Ok_Type".to_string(), inner_args[0].clone());
+                                                        self.track_generic_type("Nested_Result_Ok_Result_Err_Type".to_string(), inner_args[1].clone());
+                                                        
+                                                        // Check for quadruple nesting
+                                                        if let AstType::Generic { type_args: innermost_args, .. } = &inner_args[0] {
+                                                            if !innermost_args.is_empty() {
+                                                                self.track_generic_type("Nested_Result_Ok_Result_Ok_Result_Type".to_string(), innermost_args[0].clone());
+                                                            }
+                                                        }
+                                                    }
+                                                }
                                             }
                                             
                                             // The payload is a pointer to the nested enum struct
@@ -379,7 +422,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     self.context.ptr_type(inkwell::AddressSpace::default()).into(),
                                                 ], false);
                                                 
-                                                
                                                 // Load the nested enum struct value
                                                 match self.builder.build_load(
                                                     nested_enum_type,
@@ -387,7 +429,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     &format!("nested_{}_struct", name.to_lowercase()),
                                                 ) {
                                                     Ok(loaded_struct) => {
-                                                        // CRITICAL: Update the type context so we know this is a struct for next pattern match
+                                                        // CRITICAL: Update the type context for next pattern match iteration
+                                                        // This ensures the type info is available for the next level
                                                         if name == "Option" && !type_args.is_empty() {
                                                             self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
                                                         } else if name == "Result" && type_args.len() == 2 {

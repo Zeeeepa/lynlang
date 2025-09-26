@@ -1,0 +1,22 @@
+// Simplified double raise test
+{ io, Result } = @std
+
+// First test without complex return type annotation
+simple_double_result = () void {
+    // Create nested Result directly
+    outer = Result.Ok(Result.Ok(789))
+    
+    // Manual extraction
+    outer ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(val) { io.println("Value: ${val}") }
+                | Result.Err(e) { io.println("Error") }
+        }
+        | Result.Err(e) { io.println("Error") }
+}
+
+main = () void {
+    io.println("=== Simplified Test ===")
+    simple_double_result()
+}
