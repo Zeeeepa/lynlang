@@ -1,0 +1,29 @@
+// Test triple nested generics: Result<Option<Result<T, E>>, E>
+{ io, Result, Option } = @std
+
+test_function = () Result<Option<Result<i32, string>>, string> {
+    // Triple nesting!
+    inner_result = Result.Ok(42)
+    middle_option = Option.Some(inner_result)
+    return Result.Ok(middle_option)
+}
+
+main = () void {
+    io.println("Testing Result<Option<Result<i32, string>>, string>")
+    
+    result = test_function()
+    
+    result ?
+        | Ok(opt) {
+            opt ?
+                | Some(inner_res) {
+                    inner_res ?
+                        | Ok(val) { io.println("Got value: ${val}") }
+                        | Err(msg) { io.println("Inner error: ${msg}") }
+                }
+                | None { io.println("Got None") }
+        }
+        | Err(msg) {
+            io.println("Outer error: ${msg}")
+        }
+}

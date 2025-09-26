@@ -1,0 +1,23 @@
+// Test nested generics: Result<Option<T>, E>
+{ io, Result, Option } = @std
+
+test_function = () Result<Option<i32>, string> {
+    // Return Ok with Some value
+    return Result.Ok(Option.Some(42))
+}
+
+main = () void {
+    io.println("Testing Result<Option<i32>, string>")
+    
+    result = test_function()
+    
+    result ?
+        | Ok(opt) {
+            opt ?
+                | Some(val) { io.println("Got value: ${val}") }
+                | None { io.println("Got None") }
+        }
+        | Err(msg) {
+            io.println("Error: ${msg}")
+        }
+}

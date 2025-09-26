@@ -1,0 +1,27 @@
+// Test Array with Option generics
+{ io, Option } = @std
+
+main = () void {
+    io.println("Testing Array<Option<i32>>")
+    
+    // Create array of Option<i32>
+    arr = Array.new()
+    
+    // Push Some and None values
+    arr.push(Option.Some(10))
+    arr.push(Option.None)
+    arr.push(Option.Some(20))
+    arr.push(Option.None)
+    arr.push(Option.Some(30))
+    
+    length = arr.len()
+    io.println("Array length: ${length}")
+    
+    // Pattern match on each element
+    (0..length).loop((i) {
+        opt = arr.get(i)
+        opt ?
+            | Some(val) { io.println("arr[${i}] = Some(${val})") }
+            | None { io.println("arr[${i}] = None") }
+    })
+}

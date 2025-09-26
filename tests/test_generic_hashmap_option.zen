@@ -1,0 +1,33 @@
+// Test HashMap with Option values
+{ io, Option, HashMap, HashSet } = @std
+
+main = () void {
+    io.println("Testing HashMap<string, Option<i32>>")
+    
+    // Create HashMap with Option values
+    map = HashMap<string, Option<i32>>.new()
+    
+    // Insert Some and None values
+    map.insert("key1", Option.Some(100))
+    map.insert("key2", Option.None)
+    map.insert("key3", Option.Some(200))
+    
+    // Get and pattern match
+    opt1 = map.get("key1")
+    opt1 ?
+        | Some(inner) {
+            inner ?
+                | Some(val) { io.println("key1 = Some(${val})") }
+                | None { io.println("key1 = None") }
+        }
+        | None { io.println("key1 not found") }
+    
+    opt2 = map.get("key2")
+    opt2 ?
+        | Some(inner) {
+            inner ?
+                | Some(val) { io.println("key2 = Some(${val})") }
+                | None { io.println("key2 = None") }
+        }
+        | None { io.println("key2 not found") }
+}
