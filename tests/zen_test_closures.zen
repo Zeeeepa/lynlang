@@ -1,7 +1,7 @@
 // Consolidated closure tests
 // Combines functionality from multiple test_closure_*.zen files
 
-{ io, Result , get_default_allocator} = @std
+{ io, Result, get_default_allocator } = @std
 
 // Test 1: Basic closure with parameters
 test_basic_closure = () void {
@@ -139,7 +139,8 @@ test_closure_loop = () void {
     
     sum_range = (start: i32, end: i32) i32 {
         total ::= 0
-        (start..end).loop((i: i32) {
+        r = start..end
+        r.loop((i) {
             total = total + i
         })
         return total

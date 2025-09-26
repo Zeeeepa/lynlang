@@ -3,7 +3,7 @@
 
 // Simple hash function for testing
 hash_string = (s: string) i64 {
-    hash ::= 0
+    hash ::= 0 as i64
     i ::= 0
     loop {
         i >= s.len() ? { break }

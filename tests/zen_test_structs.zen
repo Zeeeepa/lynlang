@@ -1,7 +1,7 @@
 // Consolidated struct tests
 // Combines functionality from multiple test_struct_*.zen files
 
-{ io, Array, get_default_allocator, Result } = @std
+{ io, DynVec, get_default_allocator, Result } = @std
 
 // Test 1: Basic struct definition and instantiation
 Point : {
@@ -29,7 +29,7 @@ Person : {
 
 // Method for Person struct
 get_info = (self: Person) string {
-    "Name: " + self.name + ", Age: " + self.age
+    return "Name: ${self.name}, Age: ${self.age}"
 }
 
 test_struct_methods = () void {
@@ -119,17 +119,17 @@ test_nested_structs = () void {
     io.println("Salary: ${employee.salary}")
 }
 
-// Test 7: Struct with array field
+// Test 7: Struct with DynVec field
 ArrayStruct: {
-    numbers: Array<i32>,
+    numbers: DynVec<i32>,
     name: string
 }
 
 test_array_struct = () void {
-    io.println("=== Test 7: Struct with Array ===")
+    io.println("=== Test 7: Struct with DynVec ===")
     
     alloc = get_default_allocator()
-    arr = Array<i32>(alloc)
+    arr = DynVec<i32>(alloc)
     arr.push(1)
     arr.push(2)
     arr.push(3)
@@ -145,7 +145,7 @@ test_array_struct = () void {
 }
 
 // Test 8: Struct with methods using self
-Rectangle = struct {
+Rectangle : {
     width: i32,
     height: i32
 }

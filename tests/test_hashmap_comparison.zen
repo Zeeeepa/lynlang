@@ -1,5 +1,5 @@
 // Test both HashMap constructors
-{ io, HashMap , get_default_allocator } = @std
+{ io, HashMap, get_default_allocator } = @std
 
 main = () void {
     alloc = get_default_allocator()
@@ -9,7 +9,6 @@ main = () void {
     map1 = HashMap<i32, i32>(alloc)
     io.println("map1 created with .new()")
     
-    alloc = get_default_allocator()
     // Test 2: HashMap<i32, i32>(alloc)
     map2 = HashMap<i32, i32>(alloc)
     io.println("map2 created with ()")

@@ -1,5 +1,5 @@
 // Test to inspect HashMap internals
-{ io, HashMap, Option , get_default_allocator } = @std
+{ io, HashMap, Option, get_default_allocator } = @std
 
 main = () i32 {
     alloc = get_default_allocator()
@@ -30,8 +30,12 @@ main = () i32 {
             value == 12345 ?
                 | true { io.println("SUCCESS!") }
                 | false { io.println("FAIL: Expected 12345") }
+            void
         }
-        | Option.None { io.println("FAIL: Not found") }
+        | Option.None { 
+            io.println("FAIL: Not found")
+            void
+        }
     
     return 0
 }
