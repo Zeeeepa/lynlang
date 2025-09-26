@@ -1,0 +1,9 @@
+// Simple test to debug method call parsing
+{ io } = @std
+
+main = () void {
+    io.println("Testing method call")
+    obj = 42
+    obj.somemethod()
+    io.println("Done")
+}

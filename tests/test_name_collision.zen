@@ -1,0 +1,12 @@
+// Test potential name collision
+{ io } = @std
+
+main = () void {
+    // First declare without type
+    a = 1
+    io.println("a = ${a}")
+    
+    // Then declare with type - different var
+    b: i64 = 2
+    io.println("b = ${b}")
+}

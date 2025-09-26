@@ -1,0 +1,12 @@
+// Debug test for HashMap method recognition
+{ io, HashMap } = @std
+
+main = () void {
+    // Create a HashMap with the () syntax
+    map = HashMap<i32, i32>()
+    io.println("HashMap created")
+    
+    // This should work but currently fails
+    map.insert(1, 100)
+    io.println("Insert called")
+}

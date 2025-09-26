@@ -1,0 +1,9 @@
+// Test pre-casting to i64 in assignment
+{ io } = @std
+
+main = () void {
+    x ::= 3   // Make it mutable first
+    x = x as i64  // Cast to i64
+    range = 0..x
+    io.println("Created range")
+}

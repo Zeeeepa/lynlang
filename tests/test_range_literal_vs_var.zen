@@ -1,0 +1,13 @@
+// Test range with literal vs variable
+{ io } = @std
+
+main = () void {
+    // This should work
+    r1 = 0..3
+    io.println("Created literal range")
+    
+    // This is the problematic case
+    end_val = 3
+    r2 = 0..end_val
+    io.println("Created variable range")
+}

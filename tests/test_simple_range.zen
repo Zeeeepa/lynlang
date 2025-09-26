@@ -1,0 +1,9 @@
+// Simplest test for range issue
+{ io } = @std
+
+main = () void {
+    x = 3
+    y = 5  
+    range = x..y
+    io.println("Range created")
+}

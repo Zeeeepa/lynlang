@@ -1,0 +1,8 @@
+// Test parsing
+{ io } = @std
+
+main = () void {
+    x = 42
+    // This should be parsed as MethodCall
+    x.foo()
+}

@@ -1248,10 +1248,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             } else if type_name == "Option" && type_args.len() == 1 {
                                 // Track Option<T> types with variable-specific keys
                                 self.track_generic_type(format!("{}_Option_Some_Type", name), type_args[0].clone());
+                            } else if type_name == "HashMap" && type_args.len() == 2 {
+                                // Track HashMap<K,V> types with variable-specific keys
+                                self.track_generic_type(format!("{}_HashMap_Key_Type", name), type_args[0].clone());
+                                self.track_generic_type(format!("{}_HashMap_Value_Type", name), type_args[1].clone());
                             }
                         }
-                        
-                        // eprintln!("[DEBUG VAR INSERT] Variable '{}' with type: {:?}", name, inferred_type);
                         self.variables.insert(
                             name.clone(),
                             super::VariableInfo {

@@ -1,0 +1,8 @@
+// Test declaring as i64 from the start
+{ io } = @std
+
+main = () void {
+    x = 3i64  // Use i64 literal
+    range = 0..x
+    io.println("Created range")
+}

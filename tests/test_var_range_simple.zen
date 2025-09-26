@@ -1,0 +1,8 @@
+// Minimal test for range with variable
+{ io } = @std
+
+main = () void {
+    x = 3
+    range = 0..x
+    io.println("Created range")
+}

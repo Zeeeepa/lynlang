@@ -1,0 +1,7 @@
+// Test simple i64
+{ io } = @std
+
+main = () void {
+    x: i64 = 3
+    io.println("x = ${x}")
+}

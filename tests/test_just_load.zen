@@ -1,0 +1,8 @@
+// Just load a variable
+{ io } = @std
+
+main = () void {
+    x = 3
+    y = x  // This should load x
+    io.println("y = ${y}")
+}

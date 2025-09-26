@@ -1,0 +1,6 @@
+// Test simple function call
+{ io } = @std
+
+main = () void {
+    io.println("Test")
+}

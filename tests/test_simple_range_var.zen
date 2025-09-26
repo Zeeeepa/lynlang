@@ -1,0 +1,12 @@
+// Simple test for range with variable
+{ io } = @std
+
+main = () void {
+    length = 5
+    io.println("Length: ${length}")
+    
+    range_var = 0..length
+    range_var.loop((i) {
+        io.println("i = ${i}")
+    })
+}

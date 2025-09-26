@@ -1,0 +1,8 @@
+// Test range with explicit i64
+{ io } = @std
+
+main = () void {
+    x = 3 as i64
+    range = 0..x
+    io.println("Created range")
+}

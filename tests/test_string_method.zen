@@ -1,0 +1,8 @@
+// Test string method call
+{ io } = @std
+
+main = () void {
+    s = "hello"
+    len = s.len()
+    io.println("Length: ${len}")
+}

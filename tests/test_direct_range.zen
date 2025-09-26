@@ -1,0 +1,10 @@
+// Test using range directly without storing
+{ io } = @std
+
+main = () void {
+    x = 3
+    // Use range directly in loop
+    (0..x).loop((i) {
+        io.println("i = ${i}")
+    })
+}

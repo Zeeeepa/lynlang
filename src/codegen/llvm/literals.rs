@@ -65,45 +65,53 @@ impl<'ctx> LLVMCompiler<'ctx> {
             let loaded: BasicValueEnum = match &ast_type {
                 AstType::Bool => {
                     // Booleans - load as bool_type (i1)
-                    match self.builder.build_load(self.context.bool_type(), ptr, name) {
+                    // Use empty string to let LLVM auto-generate unique names
+                    match self.builder.build_load(self.context.bool_type(), ptr, "") {
                         Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
                 AstType::I32 => {
                     // Load as i32
-                    match self.builder.build_load(self.context.i32_type(), ptr, name) {
+                    // Use a descriptive name for debugging
+                    let load_name = format!("{}_load", name);
+                    match self.builder.build_load(self.context.i32_type(), ptr, &load_name) {
                         Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
                 AstType::I64 => {
                     // Load as i64
-                    match self.builder.build_load(self.context.i64_type(), ptr, name) {
+                    // Use a descriptive name for debugging
+                    let load_name = format!("{}_load", name);
+                    match self.builder.build_load(self.context.i64_type(), ptr, &load_name) {
                         Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
                 AstType::F32 => {
                     // Load as f32
-                    match self.builder.build_load(self.context.f32_type(), ptr, name) {
+                    // Use empty string to let LLVM auto-generate unique names
+                    match self.builder.build_load(self.context.f32_type(), ptr, "") {
                         Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
                 AstType::F64 => {
                     // Load as f64
-                    match self.builder.build_load(self.context.f64_type(), ptr, name) {
+                    // Use empty string to let LLVM auto-generate unique names
+                    match self.builder.build_load(self.context.f64_type(), ptr, "") {
                         Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
                 AstType::String => {
                     // Strings are stored as pointers
+                    // Use empty string to let LLVM auto-generate unique names
                     match self.builder.build_load(
                         self.context.ptr_type(inkwell::AddressSpace::default()),
                         ptr,
-                        name,
+                        "",
                     ) {
                         Ok(val) => val.into(),
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
@@ -114,29 +122,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // We need to load the pointer value from the alloca
                     if matches!(**inner, AstType::I8) {
                         // This is likely a string (char pointer)
+                        // Use empty string to let LLVM auto-generate unique names
                         match self.builder.build_load(
                             self.context.ptr_type(inkwell::AddressSpace::default()),
                             ptr,
-                            name,
+                            "",
                         ) {
                             Ok(val) => val.into(),
                             Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                         }
                     } else if matches!(**inner, AstType::Function { .. }) {
+                        // Use empty string to let LLVM auto-generate unique names
                         match self.builder.build_load(
                             self.context.ptr_type(inkwell::AddressSpace::default()),
                             ptr,
-                            name,
+                            "",
                         ) {
                             Ok(val) => val.into(),
                             Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                         }
                     } else {
                         // Other pointer types - load the pointer value from the alloca
+                        // Use empty string to let LLVM auto-generate unique names
                         match self.builder.build_load(
                             self.context.ptr_type(inkwell::AddressSpace::default()),
                             ptr,
-                            name,
+                            "",
                         ) {
                             Ok(val) => val.into(),
                             Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
@@ -144,10 +155,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     }
                 }
                 AstType::Function { .. } => {
+                    // Use empty string to let LLVM auto-generate unique names
                     match self.builder.build_load(
                         self.context.ptr_type(inkwell::AddressSpace::default()),
                         ptr,
-                        name,
+                        "",
                     ) {
                         Ok(val) => val.into(),
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
@@ -163,7 +175,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         ],
                         false,
                     );
-                    match self.builder.build_load(enum_struct_type, ptr, name) {
+                    // Use empty string to let LLVM auto-generate unique names
+                    match self.builder.build_load(enum_struct_type, ptr, "") {
                         Ok(val) => val.into(),
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
@@ -171,7 +184,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 AstType::StdModule => {
                     // For stdlib module references, return the module marker value
                     // This value is used to identify which module is being referenced
-                    match self.builder.build_load(self.context.i64_type(), ptr, name) {
+                    // Use empty string to let LLVM auto-generate unique names
+                    match self.builder.build_load(self.context.i64_type(), ptr, "") {
                         Ok(val) => val.into(),
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
@@ -185,7 +199,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         ],
                         false,
                     );
-                    let loaded: BasicValueEnum = match self.builder.build_load(enum_struct_type, ptr, name) {
+                    // Use empty string to let LLVM auto-generate unique names
+                    let loaded: BasicValueEnum = match self.builder.build_load(enum_struct_type, ptr, "") {
                         Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     };
@@ -194,7 +209,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 _ => {
                     let elem_type = self.to_llvm_type(&ast_type)?;
                     let basic_type = self.expect_basic_type(elem_type)?;
-                    match self.builder.build_load(basic_type, ptr, name) {
+                    // Use empty string to let LLVM auto-generate unique names
+                    match self.builder.build_load(basic_type, ptr, "") {
                         Ok(val) => val.into(),
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }

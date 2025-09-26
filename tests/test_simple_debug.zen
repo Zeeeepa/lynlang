@@ -1,0 +1,11 @@
+// Simple test to debug parsing
+{ io } = @std
+
+main = () void {
+    io.println("Before hashmap")
+    map = 42
+    io.println("map created: ${map}")
+    // Just try to call insert as a function first
+    insert(map, 1, 100)
+    io.println("Done")
+}

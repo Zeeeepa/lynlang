@@ -42,6 +42,11 @@ impl<'ctx> Compiler<'ctx> {
         let mut llvm_compiler = LLVMCompiler::new(self.context);
         llvm_compiler.compile_program(&monomorphized_program)?;
 
+        // Debug: Print LLVM IR before verification for debugging
+        if std::env::var("DEBUG_LLVM").is_ok() {
+            eprintln!("LLVM IR:\n{}", llvm_compiler.module.print_to_string());
+        }
+
         if let Err(e) = llvm_compiler.module.verify() {
             return Err(CompileError::InternalError(
                 format!("LLVM verification error: {}", e.to_string()),
@@ -70,6 +75,11 @@ impl<'ctx> Compiler<'ctx> {
 
         let mut llvm_compiler = LLVMCompiler::new(self.context);
         llvm_compiler.compile_program(&monomorphized_program)?;
+
+        // Debug: Print LLVM IR before verification for debugging
+        if std::env::var("DEBUG_LLVM").is_ok() {
+            eprintln!("LLVM IR:\n{}", llvm_compiler.module.print_to_string());
+        }
 
         if let Err(e) = llvm_compiler.module.verify() {
             return Err(CompileError::InternalError(

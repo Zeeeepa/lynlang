@@ -4342,6 +4342,33 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     return Ok(result);
                 }
 
+                // Check for HashMap methods before falling back to UFC
+                if let Expression::Identifier(obj_name) = object.as_ref() {
+                    // Check if this is actually a HashMap type
+                    let is_hashmap = if let Some(var_info) = self.variables.get(obj_name) {
+                        eprintln!("[DEBUG] Checking var '{}' type: {:?}", obj_name, var_info.ast_type);
+                        matches!(&var_info.ast_type, 
+                            AstType::Generic { name, .. } if name == "HashMap")
+                    } else {
+                        eprintln!("[DEBUG] Variable '{}' not found", obj_name);
+                        false
+                    };
+                    
+                    eprintln!("[DEBUG] is_hashmap = {}, method = '{}'", is_hashmap, method);
+                    if is_hashmap {
+                        // Compile HashMap method by prepending object to args and calling as function
+                        // This works because HashMap methods are implemented as functions that take the HashMap as first arg
+                        let mut ufc_args = vec![*object.clone()];
+                        ufc_args.extend(args.clone());
+                        
+                        // Map method names to their internal function names
+                        let internal_name = format!("HashMap_{}", method);
+                        
+                        // For now, just use UFC which will work if methods are properly registered
+                        return self.compile_function_call(method, &ufc_args);
+                    }
+                }
+
                 // For regular UFC calls, prepend object to arguments
                 let mut ufc_args = vec![*object.clone()];
                 ufc_args.extend(args.clone());
@@ -6079,14 +6106,30 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Always cast to i64 to ensure consistent types
         let start_val = self.compile_expression(start)?;
         let end_val = self.compile_expression(end)?;
+        
+        // Debug: Check if values are valid
+        if !start_val.is_int_value() && !start_val.is_float_value() && !start_val.is_pointer_value() {
+            eprintln!("WARNING: start_val is not a valid basic value");
+        }
+        if !end_val.is_int_value() && !end_val.is_float_value() && !end_val.is_pointer_value() {
+            eprintln!("WARNING: end_val is not a valid basic value");
+        }
 
         // Cast to i64 if needed
         let start_i64 = if start_val.is_int_value() {
             let int_val = start_val.into_int_value();
             if int_val.get_type() != self.context.i64_type() {
-                self.builder
-                    .build_int_cast(int_val, self.context.i64_type(), "start_cast")?
-                    .into()
+                // Use build_int_s_extend for sign extension from smaller types
+                if int_val.get_type().get_bit_width() < 64 {
+                    self.builder
+                        .build_int_s_extend(int_val, self.context.i64_type(), "range_start_ext")?
+                        .into()
+                } else {
+                    // Use truncate for larger types
+                    self.builder
+                        .build_int_truncate(int_val, self.context.i64_type(), "range_start_trunc")?
+                        .into()
+                }
             } else {
                 start_val
             }
@@ -6097,9 +6140,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let end_i64 = if end_val.is_int_value() {
             let int_val = end_val.into_int_value();
             if int_val.get_type() != self.context.i64_type() {
-                self.builder
-                    .build_int_cast(int_val, self.context.i64_type(), "end_cast")?
-                    .into()
+                // Use build_int_s_extend for sign extension from smaller types
+                if int_val.get_type().get_bit_width() < 64 {
+                    self.builder
+                        .build_int_s_extend(int_val, self.context.i64_type(), "range_end_ext")?
+                        .into()
+                } else {
+                    // Use truncate for larger types
+                    self.builder
+                        .build_int_truncate(int_val, self.context.i64_type(), "range_end_trunc")?
+                        .into()
+                }
             } else {
                 end_val
             }
@@ -6108,7 +6159,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         };
 
         // Create a simple struct type for the range - always use i64 for consistency
-        let _range_struct_type = self.context.struct_type(
+        let range_struct_type = self.context.struct_type(
             &[
                 self.context.i64_type().into(),
                 self.context.i64_type().into(),
@@ -6118,17 +6169,27 @@ impl<'ctx> LLVMCompiler<'ctx> {
         );
 
         // Create the range struct value
-        let range_struct = self.context.const_struct(
-            &[
-                start_i64,
-                end_i64,
-                self.context
-                    .bool_type()
-                    .const_int(inclusive as u64, false)
-                    .into(),
-            ],
-            false,
-        );
+        // We can't use const_struct if start_i64 or end_i64 are runtime values
+        // Instead, we need to build the struct using insertvalue instructions
+        let mut range_struct = range_struct_type.get_undef();
+        
+        // Insert start value at index 0
+        range_struct = self.builder
+            .build_insert_value(range_struct, start_i64, 0, "range_start_insert")?
+            .into_struct_value();
+        
+        // Insert end value at index 1
+        range_struct = self.builder
+            .build_insert_value(range_struct, end_i64, 1, "range_end_insert")?
+            .into_struct_value();
+        
+        // Insert inclusive flag at index 2
+        let inclusive_val = self.context
+            .bool_type()
+            .const_int(inclusive as u64, false);
+        range_struct = self.builder
+            .build_insert_value(range_struct, inclusive_val, 2, "range_inclusive_insert")?
+            .into_struct_value();
 
         Ok(range_struct.as_basic_value_enum())
     }

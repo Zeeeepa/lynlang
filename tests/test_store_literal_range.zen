@@ -1,0 +1,7 @@
+// Test storing a literal range
+{ io } = @std
+
+main = () void {
+    range = 0..3
+    io.println("Created literal range")
+}

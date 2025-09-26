@@ -82,6 +82,7 @@ pub struct LLVMCompiler<'ctx> {
     pub behavior_codegen: Option<behaviors::BehaviorCodegen<'ctx>>,
     pub current_impl_type: Option<String>, // Track implementing type for trait methods
     pub inline_counter: usize,             // Counter for unique inline function names
+    pub load_counter: usize,                // Counter for unique load instruction names
     pub generic_type_context: HashMap<String, AstType>, // Track instantiated generic types (legacy, kept for compatibility)
     pub generic_tracker: generics::GenericTypeTracker, // New improved generic type tracking
     pub module_imports: HashMap<String, u64>, // Track module imports (name -> marker value)
@@ -150,6 +151,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             behavior_codegen: Some(behaviors::BehaviorCodegen::new()),
             current_impl_type: None,
             inline_counter: 0,
+            load_counter: 0,
             generic_type_context: HashMap::new(),
             generic_tracker: generics::GenericTypeTracker::new(),
             module_imports: HashMap::new(),
