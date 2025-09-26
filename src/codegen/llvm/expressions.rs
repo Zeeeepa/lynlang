@@ -7259,7 +7259,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // When we store a nested Result/Option, we heap-allocate the struct and store the pointer
                                 // So ptr_val IS the pointer to the heap-allocated Result struct
                                 
-                                
                                 // DON'T update context here - it will overwrite the current extraction type!
                                 // The nested Result's types will be handled when IT gets raised
                                 // self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
@@ -7301,9 +7300,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 Ok(loaded)
                             }
                             AstType::String => {
-                                // String is represented as a pointer
-                                let ptr_type: inkwell::types::BasicTypeEnum = self.context.ptr_type(AddressSpace::default()).into();
-                                Ok(self.builder.build_load(ptr_type, ptr_val, "ok_string")?)
+                                // String is already a pointer value, just return it directly
+                                // The ptr_val is already pointing to the string data
+                                Ok(ptr_val.into())
                             }
                             _ => {
                                 // Default fallback to i32
