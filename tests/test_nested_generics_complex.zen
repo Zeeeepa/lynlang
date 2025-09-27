@@ -1,15 +1,15 @@
 // Test complex nested generic types
 { io, Result, Option, DynVec , get_default_allocator} = @std
 
-// Function that returns Result<Option<i32>, string>
-get_result_option = (val: i32) Result<Option<i32>, string> {
+// Function that returns Result<Option<i32>, StaticString>
+get_result_option = (val: i32) Result<Option<i32>, StaticString> {
     val > 0 ?
         | true { Result.Ok(Option.Some(val)) }
         | false { Result.Err("Value must be positive") }
 }
 
-// Function that returns Option<Result<i32, string>>
-get_option_result = (val: i32) Option<Result<i32, string>> {
+// Function that returns Option<Result<i32, StaticString>>
+get_option_result = (val: i32) Option<Result<i32, StaticString>> {
     val == 0 ?
         | true { Option.None }
         | false { 
@@ -19,8 +19,8 @@ get_option_result = (val: i32) Option<Result<i32, string>> {
         }
 }
 
-// Function that returns Result<Result<i32, string>, string>
-get_nested_result = (val: i32) Result<Result<i32, string>, string> {
+// Function that returns Result<Result<i32, StaticString>, StaticString>
+get_nested_result = (val: i32) Result<Result<i32, StaticString>, StaticString> {
     val == 0 ?
         | true { Result.Err("Zero not allowed") }
         | false {
@@ -34,8 +34,8 @@ main = () void {
     alloc = get_default_allocator()
     io.println("Testing complex nested generics")
     
-    // Test Result<Option<i32>, string>
-    io.println("\n1. Result<Option<i32>, string>")
+    // Test Result<Option<i32>, StaticString>
+    io.println("\n1. Result<Option<i32>, StaticString>")
     r1 = get_result_option(42)
     r1 ?
         | Result.Ok(opt) {
@@ -50,8 +50,8 @@ main = () void {
         | Result.Ok(opt) { io.println("  Unexpected Ok") }
         | Result.Err(e) { io.println("  Error: ${e}") }
     
-    // Test Option<Result<i32, string>>
-    io.println("\n2. Option<Result<i32, string>>")
+    // Test Option<Result<i32, StaticString>>
+    io.println("\n2. Option<Result<i32, StaticString>>")
     o1 = get_option_result(10)
     o1 ?
         | Option.Some(res) {
@@ -75,8 +75,8 @@ main = () void {
         }
         | Option.None { io.println("  Got None") }
     
-    // Test Result<Result<i32, string>, string>
-    io.println("\n3. Result<Result<i32, string>, string>")
+    // Test Result<Result<i32, StaticString>, StaticString>
+    io.println("\n3. Result<Result<i32, StaticString>, StaticString>")
     n1 = get_nested_result(5)
     n1 ?
         | Result.Ok(inner) {

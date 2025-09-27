@@ -2,7 +2,7 @@
 { io, Result , get_default_allocator} = @std
 
 // Simple Result operations
-divide = (a: i32, b: i32) Result<i32, string> {
+divide = (a: i32, b: i32) Result<i32, StaticString> {
     return b == 0 ? 
         | true { Result.Err("Division by zero") }
         | false { Result.Ok(a / b) }
@@ -26,7 +26,7 @@ test_result_matching = () i32 {
 }
 
 // Chain operations manually
-safe_calculation = (x: i32) Result<i32, string> {
+safe_calculation = (x: i32) Result<i32, StaticString> {
     io.println("Performing safe calculation on ${x}:")
     
     // First operation: divide by 2

@@ -3,7 +3,7 @@
 
 main = () void {
     alloc = get_default_allocator()
-    io.println("=== Testing Option<Result<i32,string>> ===")
+    io.println("=== Testing Option<Result<i32,StaticString>> ===")
     
     // Create Option containing Result
     result_ok = Result.Ok(123)

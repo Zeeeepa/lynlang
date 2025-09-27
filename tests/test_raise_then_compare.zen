@@ -3,7 +3,7 @@
 
 main = () i32 {
     alloc = get_default_allocator()
-    get_five = () Result<f64, string> {
+    get_five = () Result<f64, StaticString> {
         return Result.Ok(5.0)
     }
     

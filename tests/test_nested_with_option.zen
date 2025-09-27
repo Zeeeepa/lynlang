@@ -4,7 +4,7 @@
 test_double_nested_result = () i32 {
     io.println("Test 1: Double nested Result<Result<T,E>,E>")
     
-    get_double_nested = () Result<Result<i32, string>, string> {
+    get_double_nested = () Result<Result<i32, StaticString>, StaticString> {
         Result.Ok(Result.Ok(100))
     }
     

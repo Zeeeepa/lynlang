@@ -3,7 +3,7 @@
 
 main = () i32 {
     alloc = get_default_allocator()
-    test = (x: f64) Result<f64, string> {
+    test = (x: f64) Result<f64, StaticString> {
         return Result.Ok(x)
     }
     

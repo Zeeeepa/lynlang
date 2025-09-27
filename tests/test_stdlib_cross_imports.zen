@@ -30,21 +30,21 @@ process_data = () void   {
     print("\n")
 }
 
-// Test string manipulation across modules
+// Test StaticString manipulation across modules
 test_string_ops = () void   {
     // Create strings
     s1 = "Hello"
     s2 = "World"
     
-    // Use string concatenation
+    // Use StaticString concatenation
     combined = s1 + " " + s2
     
     // Print result
-    print("Combined string: ")
+    print("Combined StaticString: ")
     print(combined)
     print("\n")
     
-    // Test string length
+    // Test StaticString length
     len = combined.len()
     print("String length: ")
     print(len)

@@ -2,7 +2,7 @@
 { io, HashMap, HashSet, Option, get_default_allocator } = @std
 
 // Simple hash function for strings
-string_hash = (s: string) i64 {
+string_hash = (s: StaticString) i64 {
     hash ::= 5381 as i64
     i ::= 0 as i64
     loop {
@@ -23,7 +23,7 @@ i32_hash = (n: i32) i64 {
 }
 
 // Equality function for strings (returns i64: 1 for true, 0 for false)
-string_eq = (a: string, b: string) i64 {
+string_eq = (a: StaticString, b: StaticString) i64 {
     a == b ? 
         | true { return 1 as i64 }
         | false { return 0 as i64 }
@@ -42,8 +42,8 @@ test_hashmap = () void {
     io.println("         Testing HashMap<K, V>         ")
     io.println("═══════════════════════════════════════")
     
-    // Create HashMap<string, i32>
-    map ::= HashMap<string, i32>(alloc)
+    // Create HashMap<StaticString, i32>
+    map ::= HashMap<StaticString, i32>(alloc)
     
     // Insert key-value pairs
     io.println("\n▸ Inserting key-value pairs:")
@@ -176,11 +176,11 @@ test_hashset = () void {
 test_string_set = () void {
     alloc = get_default_allocator()
     io.println("\n═══════════════════════════════════════")
-    io.println("      Testing HashSet<string>          ")
+    io.println("      Testing HashSet<StaticString>          ")
     io.println("═══════════════════════════════════════")
     
     // Create HashSet for strings
-    languages ::= HashSet<string>(alloc)
+    languages ::= HashSet<StaticString>(alloc)
     
     io.println("\n▸ Adding programming languages:")
     languages.add("Zen")
@@ -201,7 +201,7 @@ test_string_set = () void {
     io.println("  Has 'Rust': ${languages.contains("Rust")}")
     
     // Create another set
-    functional ::= HashSet<string>(alloc)
+    functional ::= HashSet<StaticString>(alloc)
     functional.add("Haskell")
     functional.add("OCaml")
     functional.add("Zen")

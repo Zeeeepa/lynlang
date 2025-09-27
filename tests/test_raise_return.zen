@@ -1,7 +1,7 @@
 // Debug test for .raise() return value
 { io, Result , get_default_allocator} = @std
 
-test_direct = () Result<i32, string> {
+test_direct = () Result<i32, StaticString> {
     result = Result.Ok(42)
     value = result.raise()
     return Result.Ok(value)

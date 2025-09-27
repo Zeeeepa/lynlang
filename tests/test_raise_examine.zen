@@ -1,13 +1,13 @@
 // Test what .raise() returns for nested Result
 { io, Result , get_default_allocator} = @std
 
-// Function that returns Result<Result<i32, string>, string>
-get_nested = () Result<Result<i32, string>, string> {
+// Function that returns Result<Result<i32, StaticString>, StaticString>
+get_nested = () Result<Result<i32, StaticString>, StaticString> {
     Result.Ok(Result.Ok(42))
 }
 
 // Function to process the raised value
-test_raise = () Result<i32, string> {
+test_raise = () Result<i32, StaticString> {
     inner = get_nested().raise()
     
     // Try to use inner as Result

@@ -5,7 +5,7 @@ main = () void {
     alloc = get_default_allocator()
     io.println("Test: Double nested Result<Result<T,E>,E>")
     
-    get_double_nested = () Result<Result<i32, string>, string> {
+    get_double_nested = () Result<Result<i32, StaticString>, StaticString> {
         Result.Ok(Result.Ok(100))
     }
     

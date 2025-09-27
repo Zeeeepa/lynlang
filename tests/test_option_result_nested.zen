@@ -1,9 +1,9 @@
-// Test Option<Result<i32, string>> nesting
+// Test Option<Result<i32, StaticString>> nesting
 { io, Result, Option , get_default_allocator} = @std
 
 main = () void {
     alloc = get_default_allocator()
-    io.println("=== Testing Option<Result<i32, string>> ===")
+    io.println("=== Testing Option<Result<i32, StaticString>> ===")
     
     // Test Option.Some with Result.Ok
     opt1 = Option.Some(Result.Ok(42))
@@ -16,7 +16,7 @@ main = () void {
                 | Result.Ok(val) {
                     io.println("Value: ${val}")
                     val == 42 ?
-                        | true { io.println("✓ Option<Result<i32, string>> works!") }
+                        | true { io.println("✓ Option<Result<i32, StaticString>> works!") }
                         | false { io.println("✗ Wrong value: ${val}") }
                 }
                 | Result.Err(e) { io.println("✗ Got Err(${e}) but expected Ok") }
@@ -35,7 +35,7 @@ main = () void {
                 | Result.Err(e) { 
                     io.println("Error: ${e}")
                     e == "error msg" ?
-                        | true { io.println("✓ Option<Result<_, string>> with Err works!") }
+                        | true { io.println("✓ Option<Result<_, StaticString>> with Err works!") }
                         | false { io.println("✗ Wrong error: ${e}") }
                 }
         }

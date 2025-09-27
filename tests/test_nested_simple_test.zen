@@ -1,0 +1,14 @@
+// Simple test for nested generics without StaticString interpolation
+{ io, Result, Option } = @std
+
+main = () i32 {
+    // Test Result<Result<i32, StaticString>, StaticString>
+    outer = Result.Ok(Result.Ok(42))
+    inner = outer.raise()
+    value = inner.raise()
+
+    io.println("Got value from nested Result")
+    value == 42 ?
+        | true { return 0 }
+        | false { return 1 }
+}

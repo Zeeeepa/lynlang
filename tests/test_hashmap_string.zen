@@ -1,10 +1,10 @@
-// Test HashMap with string keys
+// Test HashMap with StaticString keys
 {io, Option, HashMap, get_default_allocator} = @std
 
 main = () void {
-    // Create a HashMap with string keys and i32 values
+    // Create a HashMap with StaticString keys and i32 values
     alloc = get_default_allocator()
-    map = HashMap<string, i32>(alloc)
+    map = HashMap<StaticString, i32>(alloc)
     
     io.println("HashMap created")
     

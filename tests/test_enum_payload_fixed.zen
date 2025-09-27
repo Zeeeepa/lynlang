@@ -5,7 +5,7 @@ main = () i32 {
     alloc = get_default_allocator()
     io.println("Testing enum payload extraction...")
     
-    // Test Option enum with string
+    // Test Option enum with StaticString
     opt = Option.Some("Testing Option")
     opt ?
         | Some(val) { io.println("Option value: ${val}") }

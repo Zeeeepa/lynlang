@@ -2,7 +2,7 @@
 { io, Result, Option , get_default_allocator} = @std
 
 // Test inline creation of triple nested Results
-test_triple_inline = () Result<Result<Result<i32, string>, string>, string> {
+test_triple_inline = () Result<Result<Result<i32, StaticString>, StaticString>, StaticString> {
     // Create the innermost Result first
     inner = Result.Ok(999)
     
@@ -16,17 +16,17 @@ test_triple_inline = () Result<Result<Result<i32, string>, string>, string> {
 }
 
 // Test direct inline creation (all at once)
-test_inline_direct = () Result<Result<Result<i32, string>, string>, string> {
+test_inline_direct = () Result<Result<Result<i32, StaticString>, StaticString>, StaticString> {
     Result.Ok(Result.Ok(Result.Ok(777)))
 }
 
 // Test mixed nesting Result/Option
-test_mixed_nesting = () Result<Option<Result<i32, string>>, string> {
+test_mixed_nesting = () Result<Option<Result<i32, StaticString>>, StaticString> {
     Result.Ok(Option.Some(Result.Ok(555)))
 }
 
 // Test with variables
-test_with_vars = () Result<Result<i32, string>, string> {
+test_with_vars = () Result<Result<i32, StaticString>, StaticString> {
     value = 123
     inner_result = Result.Ok(value)
     Result.Ok(inner_result)

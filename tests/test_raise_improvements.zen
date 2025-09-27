@@ -2,10 +2,10 @@
 { io, Result , get_default_allocator} = @std
 
 // Test with nested closures that return Result
-chain_raises = () Result<i32, string> {
-    first = () Result<i32, string> { Result.Ok(10) }
-    second = (x: i32) Result<i32, string> { Result.Ok(x * 2) }
-    third = (x: i32) Result<i32, string> { Result.Ok(x + 5) }
+chain_raises = () Result<i32, StaticString> {
+    first = () Result<i32, StaticString> { Result.Ok(10) }
+    second = (x: i32) Result<i32, StaticString> { Result.Ok(x * 2) }
+    third = (x: i32) Result<i32, StaticString> { Result.Ok(x + 5) }
     
     // Chain: 10 -> 20 -> 25
     val1 = first().raise()
@@ -16,8 +16,8 @@ chain_raises = () Result<i32, string> {
 }
 
 // Test early error return
-early_error_return = (input: i32) Result<i32, string> {
-    validate = (x: i32) Result<i32, string> {
+early_error_return = (input: i32) Result<i32, StaticString> {
+    validate = (x: i32) Result<i32, StaticString> {
         x < 0 ?
             | true { Result.Err("Negative not allowed") }
             | false { Result.Ok(x) }

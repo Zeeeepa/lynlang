@@ -23,7 +23,7 @@ main = () void {
         }
         | Option.None { io.println("Test 2 FAIL: Could not parse '${s2}'") }
     
-    // Test 3: Integer string (should work)
+    // Test 3: Integer StaticString (should work)
     s3 = "100"
     r3 = s3.to_f64()
     r3 ?
@@ -33,19 +33,19 @@ main = () void {
         }
         | Option.None { io.println("Test 3 FAIL: Could not parse '${s3}'") }
     
-    // Test 4: Invalid string (should return None)
+    // Test 4: Invalid StaticString (should return None)
     s4 = "not_a_number"
     r4 = s4.to_f64()
     r4 ?
         | Option.Some(v) { io.println("Test 4 FAIL: Should not have parsed '${s4}' as ${v}") }
         | Option.None { io.println("Test 4 PASS: Correctly rejected '${s4}'") }
     
-    // Test 5: Empty string (should return None)
+    // Test 5: Empty StaticString (should return None)
     s5 = ""
     r5 = s5.to_f64()
     r5 ?
-        | Option.Some(v) { io.println("Test 5 FAIL: Should not have parsed empty string as ${v}") }
-        | Option.None { io.println("Test 5 PASS: Correctly rejected empty string") }
+        | Option.Some(v) { io.println("Test 5 FAIL: Should not have parsed empty StaticString as ${v}") }
+        | Option.None { io.println("Test 5 PASS: Correctly rejected empty StaticString") }
     
     // Test 6: Scientific notation
     s6 = "1.5e2"

@@ -5,7 +5,7 @@ main = () void {
     alloc = get_default_allocator()
     io.println("Test: Option<Result> in void")
     
-    get_option_result = () Option<Result<i32, string>> {
+    get_option_result = () Option<Result<i32, StaticString>> {
         Option.Some(Result.Ok(400))
     }
     

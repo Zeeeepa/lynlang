@@ -1,8 +1,8 @@
 // Test deeply nested Result types to identify the issue
 { io, Result , get_default_allocator} = @std
 
-// Simple nested Result<Result<i32, string>, string>
-get_nested = () Result<Result<i32, string>, string> {
+// Simple nested Result<Result<i32, StaticString>, StaticString>
+get_nested = () Result<Result<i32, StaticString>, StaticString> {
     Result.Ok(Result.Ok(42))
 }
 

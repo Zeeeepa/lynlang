@@ -1,21 +1,21 @@
 // Comprehensive test for .raise() with function call results
 { io, Result, Option , get_default_allocator} = @std
 
-// Test 1: Basic function returning Result<i32, string>
-get_number = () Result<i32, string> {
+// Test 1: Basic function returning Result<i32, StaticString>
+get_number = () Result<i32, StaticString> {
     return Result.Ok(42)
 }
 
-// Test 2: Function with parameters returning Result<i32, string>
-multiply = (a: i32, b: i32) Result<i32, string> {
+// Test 2: Function with parameters returning Result<i32, StaticString>
+multiply = (a: i32, b: i32) Result<i32, StaticString> {
     a < 0 ? {
         return Result.Err("Negative number not allowed")
     }
     return Result.Ok(a * b)
 }
 
-// Test 3: Function returning Result<f64, string>
-divide = (a: f64, b: f64) Result<f64, string> {
+// Test 3: Function returning Result<f64, StaticString>
+divide = (a: f64, b: f64) Result<f64, StaticString> {
     b == 0.0 ? {
         return Result.Err("Division by zero")
     }
@@ -23,7 +23,7 @@ divide = (a: f64, b: f64) Result<f64, string> {
 }
 
 // Test 4: Nested function calls with raise
-calculate_complex = () Result<i32, string> {
+calculate_complex = () Result<i32, StaticString> {
     // Chain multiple function calls with raise
     base = get_number().raise()  // Should get 42
     multiplied = multiply(base, 3).raise()  // Should get 126
@@ -34,15 +34,15 @@ calculate_complex = () Result<i32, string> {
 }
 
 // Test 5: Function returning Result with different types
-process_string = (s: string) Result<i32, string> {
+process_string = (s: StaticString) Result<i32, StaticString> {
     s == "test" ? {
         return Result.Ok(100)
     }
-    return Result.Err("Invalid string")
+    return Result.Err("Invalid StaticString")
 }
 
 // Test 6: Multiple raises in sequence
-test_multiple_raises = () Result<i32, string> {
+test_multiple_raises = () Result<i32, StaticString> {
     val1 = get_number().raise()           // 42
     val2 = multiply(2, 5).raise()         // 10
     val3 = process_string("test").raise() // 100
@@ -52,14 +52,14 @@ test_multiple_raises = () Result<i32, string> {
 }
 
 // Test 7: Function with raise in expression
-test_raise_in_expression = () Result<i32, string> {
+test_raise_in_expression = () Result<i32, StaticString> {
     // Use raise directly in arithmetic
     result = get_number().raise() * 2 + multiply(3, 4).raise()  // 42 * 2 + 12 = 96
     return Result.Ok(result)
 }
 
 // Test 8: Test with float operations
-test_float_raise = () Result<f64, string> {
+test_float_raise = () Result<f64, StaticString> {
     quotient = divide(10.0, 2.0).raise()  // 5.0
     doubled = quotient * 2.0  // 10.0
     return Result.Ok(doubled)

@@ -26,18 +26,18 @@ test_basic_hashmap = () void {
         | None { io.println("Key not found") }
 }
 
-// Test 2: HashMap with string keys
+// Test 2: HashMap with StaticString keys
 test_string_key_hashmap = () void {
     io.println("=== Test 2: String Key HashMap ===")
     
     alloc = get_default_allocator()
-    map = HashMap<string, i32>(alloc)
+    map = HashMap<StaticString, i32>(alloc)
     
     map.insert("apple", 5)
     map.insert("banana", 3)
     map.insert("cherry", 8)
     
-    io.println("Inserted string keys")
+    io.println("Inserted StaticString keys")
     
     // Get values
     apple_count = map.get("apple")
@@ -51,18 +51,18 @@ test_string_key_hashmap = () void {
         | None { io.println("Banana not found") }
 }
 
-// Test 3: HashMap with string values
+// Test 3: HashMap with StaticString values
 test_string_value_hashmap = () void {
     io.println("=== Test 3: String Value HashMap ===")
     
     alloc = get_default_allocator()
-    map = HashMap<i32, string>(alloc)
+    map = HashMap<i32, StaticString>(alloc)
     
     map.insert(1, "one")
     map.insert(2, "two")
     map.insert(3, "three")
     
-    io.println("Inserted string values")
+    io.println("Inserted StaticString values")
     
     // Get values
     (1..4).loop((i) {
@@ -78,7 +78,7 @@ test_hashmap_remove = () void {
     io.println("=== Test 4: HashMap Remove ===")
     
     alloc = get_default_allocator()
-    map = HashMap<i32, string>(alloc)
+    map = HashMap<i32, StaticString>(alloc)
     
     map.insert(1, "first")
     map.insert(2, "second")
@@ -106,7 +106,7 @@ test_option_value_hashmap = () void {
     io.println("=== Test 5: Option Value HashMap ===")
     
     alloc = get_default_allocator()
-    map = HashMap<string, Option<i32>>(alloc)
+    map = HashMap<StaticString, Option<i32>>(alloc)
     
     map.insert("valid", Some(42))
     map.insert("invalid", None)
@@ -139,7 +139,7 @@ test_hashmap_size_clear = () void {
     io.println("=== Test 6: HashMap Size and Clear ===")
     
     alloc = get_default_allocator()
-    map = HashMap<i32, string>(alloc)
+    map = HashMap<i32, StaticString>(alloc)
     
     io.println("Initial size: ${map.size()}")
     
@@ -165,10 +165,10 @@ test_nested_hashmap = () void {
     io.println("=== Test 7: Nested HashMap ===")
     
     alloc = get_default_allocator()
-    map = HashMap<string, HashMap<i32, string>>(alloc)
+    map = HashMap<StaticString, HashMap<i32, StaticString>>(alloc)
     
     // Create inner map
-    inner = HashMap<i32, string>(alloc)
+    inner = HashMap<i32, StaticString>(alloc)
     inner.insert(1, "inner_one")
     inner.insert(2, "inner_two")
     

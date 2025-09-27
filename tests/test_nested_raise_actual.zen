@@ -1,7 +1,7 @@
 // Test actual raise with nested Result
 { io, Result , get_default_allocator} = @std
 
-get_nested = () Result<Result<i32, string>, string> {
+get_nested = () Result<Result<i32, StaticString>, StaticString> {
     Result.Ok(Result.Ok(42))
 }
 
@@ -9,14 +9,14 @@ main = () void {
     alloc = get_default_allocator()
     io.println("Testing nested raise...")
     
-    // This should work - outer.raise() should return Result<i32, string>
+    // This should work - outer.raise() should return Result<i32, StaticString>
     outer = get_nested()
     io.println("Got outer result")
     
     // Try pattern match first to verify type
     outer ?
         | Result.Ok(inner) {
-            io.println("Inner has type Result<i32, string>")
+            io.println("Inner has type Result<i32, StaticString>")
             // Now try raise on inner
             inner ?
                 | Result.Ok(val) {

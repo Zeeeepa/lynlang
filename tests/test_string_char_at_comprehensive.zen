@@ -1,9 +1,9 @@
-// Comprehensive test for string.char_at() method
+// Comprehensive test for StaticString.char_at() method
 { io , get_default_allocator} = @std
 
 main = () i32 {
     alloc = get_default_allocator()
-    // Test with ASCII string
+    // Test with ASCII StaticString
     hello ::= "Hello, World!"
     
     // Test first character
@@ -34,7 +34,7 @@ main = () i32 {
         | true { }
         | false { return 4 }
     
-    // Test with string literal directly
+    // Test with StaticString literal directly
     a_char ::= "ABC".char_at(0)
     io.println("'ABC'[0] 'A': ${a_char}")  // Should be 65
     a_char == 65 ?
@@ -47,7 +47,7 @@ main = () i32 {
         | true { }
         | false { return 6 }
     
-    // Test with numbers in string
+    // Test with numbers in StaticString
     nums ::= "0123456789"
     zero ::= nums.char_at(0)
     io.println("'0': ${zero}")  // Should be 48
@@ -77,7 +77,7 @@ main = () i32 {
         | true { }
         | false { return 10 }
     
-    // Test with single character string
+    // Test with single character StaticString
     single ::= "Z"
     z_char ::= single.char_at(0)
     io.println("'Z': ${z_char}")  // Should be 90
@@ -102,6 +102,6 @@ main = () i32 {
         | true { }
         | false { return 13 }
     
-    io.println("All string.char_at() tests passed!")
+    io.println("All StaticString.char_at() tests passed!")
     return 0
 }

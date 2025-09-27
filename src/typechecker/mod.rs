@@ -1482,7 +1482,7 @@ impl TypeChecker {
                 }
 
                 // Special handling for string methods (both StaticString and String)
-                if object_type == AstType::String || object_type == AstType::StaticString || object_type == AstType::StringLiteral {
+                if object_type == AstType::String || object_type == AstType::StaticString || object_type == AstType::StaticLiteral {
                     // Common string methods with hardcoded return types for now
                     match method.as_str() {
                         "len" => return Ok(AstType::I64),

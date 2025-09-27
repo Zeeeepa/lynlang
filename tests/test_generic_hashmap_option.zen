@@ -3,7 +3,7 @@
 
 main = () void {
     alloc = get_default_allocator()
-    io.println("Testing HashMap<string, Option<i32>>")
+    io.println("Testing HashMap<StaticString, Option<i32>>")
     
     // Create HashMap with Option values
     map = HashMap<String, Option<i32>>.new(alloc)

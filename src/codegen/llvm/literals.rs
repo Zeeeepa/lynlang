@@ -105,7 +105,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
-                AstType::StringLiteral | AstType::StaticString | AstType::String => {
+                AstType::StaticLiteral | AstType::StaticString | AstType::String => {
                     // Strings are stored as pointers
                     // Use empty string to let LLVM auto-generate unique names
                     match self.builder.build_load(

@@ -6,7 +6,7 @@ test_double_nested_result = () i32 {
     io.println("Test 1: Double nested Result<Result<T,E>,E>")
     
     // Function that returns nested result
-    get_double_nested = () Result<Result<i32, string>, string> {
+    get_double_nested = () Result<Result<i32, StaticString>, StaticString> {
         Result.Ok(Result.Ok(100))
     }
     
@@ -26,7 +26,7 @@ test_double_nested_result = () i32 {
 test_triple_nested_result = () void {
     io.println("\nTest 2: Triple nested Result<Result<Result<T,E>,E>,E>")
     
-    get_triple_nested = () Result<Result<Result<i32, string>, string>, string> {
+    get_triple_nested = () Result<Result<Result<i32, StaticString>, StaticString>, StaticString> {
         Result.Ok(Result.Ok(Result.Ok(200)))
     }
     
@@ -45,7 +45,7 @@ test_triple_nested_result = () void {
 test_result_option = () void {
     io.println("\nTest 3: Result<Option<T>, E>")
     
-    get_result_option = () Result<Option<i32>, string> {
+    get_result_option = () Result<Option<i32>, StaticString> {
         Result.Ok(Option.Some(300))
     }
     
@@ -66,7 +66,7 @@ test_result_option = () void {
 test_option_result = () void {
     io.println("\nTest 4: Option<Result<T, E>>")
     
-    get_option_result = () Option<Result<i32, string>> {
+    get_option_result = () Option<Result<i32, StaticString>> {
         Option.Some(Result.Ok(400))
     }
     
@@ -87,8 +87,8 @@ test_option_result = () void {
 test_mixed_payloads = () void {
     io.println("\nTest 5: Mixed payload types")
     
-    // Result<Result<string, i32>, f64>
-    get_string_nested = () Result<Result<string, i32>, f64> {
+    // Result<Result<StaticString, i32>, f64>
+    get_string_nested = () Result<Result<StaticString, i32>, f64> {
         Result.Ok(Result.Ok("Hello"))
     }
     
@@ -106,7 +106,7 @@ test_mixed_payloads = () void {
 test_method_chaining = () void {
     io.println("\nTest 6: Method chaining")
     
-    get_chained = () Result<Result<i32, string>, string> {
+    get_chained = () Result<Result<i32, StaticString>, StaticString> {
         Result.Ok(Result.Ok(500))
     }
     
@@ -140,7 +140,7 @@ test_variable_type_inference = () void {
 test_closure_nested = () void {
     io.println("\nTest 8: Closures returning nested generics")
     
-    make_nested = () Result<Result<i32, string>, string> {
+    make_nested = () Result<Result<i32, StaticString>, StaticString> {
         // Simplified to avoid nested closure issue
         Result.Ok(Result.Ok(700))
     }
@@ -159,7 +159,7 @@ test_closure_nested = () void {
 test_error_propagation = () void {
     io.println("\nTest 9: Error propagation in nested")
     
-    get_nested_err = () Result<Result<i32, string>, string> {
+    get_nested_err = () Result<Result<i32, StaticString>, StaticString> {
         Result.Ok(Result.Err("inner error"))
     }
     

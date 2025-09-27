@@ -19,14 +19,14 @@ test_option_int = (opt: Option<i32>) void {
         | Option.None { io.println("  Option is None") }
 }
 
-test_option_string = (opt: Option<string>) void {
+test_option_string = (opt: Option<StaticString>) void {
     opt ?
         | Option.Some(s) { io.println("  String option: ${s}") }
-        | Option.None { io.println("  No string value") }
+        | Option.None { io.println("  No StaticString value") }
 }
 
 // Test Result pattern matching
-test_result = (res: Result<i32, string>) void {
+test_result = (res: Result<i32, StaticString>) void {
     res ?
         | Result.Ok(val) { io.println("  Result OK: ${val}") }
         | Result.Err(err) { io.println("  Result Error: ${err}") }
@@ -49,14 +49,14 @@ main = () void {
     test_option_int(some_int)
     test_option_int(none_int)
     
-    // Test Option<string>
-    io.println("\n3. Option<string> patterns:")
+    // Test Option<StaticString>
+    io.println("\n3. Option<StaticString> patterns:")
     some_str = Option.Some("Hello Zen")
-    none_str: Option<string> = Option.None
+    none_str: Option<StaticString> = Option.None
     test_option_string(some_str)
     test_option_string(none_str)
     
-    // Test Result<i32, string>
+    // Test Result<i32, StaticString>
     io.println("\n4. Result patterns:")
     ok_result = Result.Ok(100)
     err_result = Result.Err("Something failed")

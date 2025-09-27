@@ -30,7 +30,7 @@ main = () void {
     
     // Test 3: Function return
     io.println("\nTest 3: Function")
-    get_double = () Result<Result<i32, string>, string> {
+    get_double = () Result<Result<i32, StaticString>, StaticString> {
         return Result.Ok(Result.Ok(99))
     }
     

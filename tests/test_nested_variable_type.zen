@@ -6,7 +6,7 @@ main = () void {
     io.println("Testing variable type inference for nested Result")
     
     // Direct construction - this should work
-    direct_nested: Result<Result<i32, string>, string> = Result.Ok(Result.Ok(42))
+    direct_nested: Result<Result<i32, StaticString>, StaticString> = Result.Ok(Result.Ok(42))
     
     // Try to extract
     inner = direct_nested.raise()

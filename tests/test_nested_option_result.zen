@@ -1,8 +1,8 @@
-// Test Option<Result<Option<i32>, string>> - triple nested
+// Test Option<Result<Option<i32>, StaticString>> - triple nested
 { io, Result, Option , get_default_allocator} = @std
 
-// Triple nested: Option<Result<Option<i32>, string>>
-get_triple_nested = () Option<Result<Option<i32>, string>> {
+// Triple nested: Option<Result<Option<i32>, StaticString>>
+get_triple_nested = () Option<Result<Option<i32>, StaticString>> {
     Option.Some(Result.Ok(Option.Some(999)))
 }
 

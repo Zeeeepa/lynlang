@@ -4,7 +4,7 @@
 main = () i32 {
     alloc = get_default_allocator()
     // This should work - conditional returns Result value
-    test1 = (x: i32) Result<i32, string> {
+    test1 = (x: i32) Result<i32, StaticString> {
         result = x > 0 ?
             | true { Result.Ok(x) }
             | false { Result.Err("negative") }
@@ -17,7 +17,7 @@ main = () i32 {
         | Result.Err(e) { io.println("test1(42) = Err(${e})") }
     
     // This might have issues - direct conditional with return statements
-    test2 = (x: i32) Result<i32, string> {
+    test2 = (x: i32) Result<i32, StaticString> {
         return x > 0 ?
             | true { Result.Ok(x) }
             | false { Result.Err("negative") }

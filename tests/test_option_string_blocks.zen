@@ -3,15 +3,15 @@
 
 main = () i32 {
     alloc = get_default_allocator()
-    // Test with string payload - use blocks instead of arrow functions
+    // Test with StaticString payload - use blocks instead of arrow functions
     msg = Some("hello")
     
     msg_result = msg ?
         | .Some(s) {
-            s  // Return the string
+            s  // Return the StaticString
         }
         | .None {
-            "nothing"  // Return a default string
+            "nothing"  // Return a default StaticString
         }
     
     io.println("Message result: ${msg_result}")

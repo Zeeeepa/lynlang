@@ -3,7 +3,7 @@
 
 main = () i32 {
     alloc = get_default_allocator()
-    // Test 1: Basic closure returning Result<i32, string>
+    // Test 1: Basic closure returning Result<i32, StaticString>
     get_int = () {
         return Result.Ok(42)
     }
@@ -12,7 +12,7 @@ main = () i32 {
     io.println("val1 assigned successfully")
     
     val1 == 42 ? {
-        io.println("✓ Test 1: Result<i32,string> from closure works")
+        io.println("✓ Test 1: Result<i32,StaticString> from closure works")
     }
     
     0

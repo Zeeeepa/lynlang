@@ -11,7 +11,7 @@ main = () void {
     
     // 1.1: Quadruple nested Results - fixed!
     io.println("  • Quadruple nested: Result<Result<Result<Result<i32,E>,E>,E>,E>")
-    quad_nested = () Result<Result<Result<Result<i32, string>, string>, string>, string> {
+    quad_nested = () Result<Result<Result<Result<i32, StaticString>, StaticString>, StaticString>, StaticString> {
         Result.Ok(Result.Ok(Result.Ok(Result.Ok(42))))
     }
     q = quad_nested()
@@ -23,7 +23,7 @@ main = () void {
     
     // 1.2: Mixed Option and Result nesting
     io.println("  • Mixed nesting: Option<Result<Option<Result<i32,E>>,E>>")
-    mixed_nested = () Option<Result<Option<Result<i32, string>>, string>> {
+    mixed_nested = () Option<Result<Option<Result<i32, StaticString>>, StaticString>> {
         Option.Some(Result.Ok(Option.Some(Result.Ok(100))))
     }
     m = mixed_nested()
@@ -42,9 +42,9 @@ main = () void {
     // ========== SECTION 2: Generic Type Inference ==========
     io.println("\n▸ GENERIC TYPE INFERENCE:")
     
-    // 2.1: HashMap with i32 keys (easier than string)
-    io.println("  • HashMap<i32, string> operations:")
-    map = HashMap<i32, string>(alloc)
+    // 2.1: HashMap with i32 keys (easier than StaticString)
+    io.println("  • HashMap<i32, StaticString> operations:")
+    map = HashMap<i32, StaticString>(alloc)
     map.insert(1, "one")
     map.insert(2, "two")
     
@@ -91,7 +91,7 @@ main = () void {
     
     // 4.1: Chain of Result operations
     io.println("  • Chained Result operations:")
-    chain_results = () Result<i32, string> {
+    chain_results = () Result<i32, StaticString> {
         v1 = Result.Ok(10).raise()
         v2 = Result.Ok(20).raise()
         v3 = Result.Ok(30).raise()
@@ -107,8 +107,8 @@ main = () void {
     io.println("\n▸ COMPLEX GENERIC PATTERNS:")
     
     // 5.1: Result with complex error type
-    io.println("  • Result<i32, Option<string>>:")
-    complex_error = () Result<i32, Option<string>> {
+    io.println("  • Result<i32, Option<StaticString>>:")
+    complex_error = () Result<i32, Option<StaticString>> {
         Result.Err(Option.Some("Complex error message"))
     }
     

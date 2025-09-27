@@ -6,7 +6,7 @@
 // Import Result and Option from stdlib  
 
 // Parse function that returns Result (lines 198-203)
-parse_radius = (s: string) Result<f64, string> {
+parse_radius = (s: StaticString) Result<f64, StaticString> {
     s.to_f64() ?
         | .Some(v) { return Result.Ok(v) }
         | .None { return Result.Err("Invalid radius") }
@@ -14,7 +14,7 @@ parse_radius = (s: string) Result<f64, string> {
 
 // Error propagation with .raise() (lines 205-211)
 // Commented out - Config, File, json not implemented
-// load_config = (path: string) Result<Config, string> {
+// load_config = (path: StaticString) Result<Config, StaticString> {
 //     file = File.open(path).raise()      // If Err, returns early
 //     contents = file.read_all().raise()  // If Err, returns early
 //     config = json.parse(contents).raise() // If Err, returns early
@@ -22,14 +22,14 @@ parse_radius = (s: string) Result<f64, string> {
 // }
 
 // Helper function that may fail
-divide = (a: f64, b: f64) Result<f64, string> {
+divide = (a: f64, b: f64) Result<f64, StaticString> {
     b == 0 ?
         | true { return Result.Err("Division by zero") }
         | false { return Result.Ok(a / b) }
 }
 
 // Chain of operations with error handling
-calculate = (x: f64, y: f64) Result<f64, string> {
+calculate = (x: f64, y: f64) Result<f64, StaticString> {
     // Each .raise() will return early if error
     step1 = divide(x, y).raise()
     step2 = divide(step1, 2.0).raise()

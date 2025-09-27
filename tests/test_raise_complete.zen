@@ -1,7 +1,7 @@
 // Complete test for .raise() functionality
 { io, Result , get_default_allocator} = @std
 
-process_result = () Result<i32, string> {
+process_result = () Result<i32, StaticString> {
     // Create an Ok Result  
     data = Result.Ok(100)
     
@@ -14,7 +14,7 @@ process_result = () Result<i32, string> {
     return Result.Ok(processed)
 }
 
-test_error_propagation = () Result<i32, string> {
+test_error_propagation = () Result<i32, StaticString> {
     // Create an Err Result
     err_data = Result.Err("Something went wrong")
     

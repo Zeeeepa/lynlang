@@ -2,8 +2,8 @@
 // Issue: Inline construction of nested Results loses inner payload values
 { io, Result , get_default_allocator} = @std
 
-// Helper function that returns Result<Result<i32, string>, string>
-get_nested_result = () Result<Result<i32, string>, string> {
+// Helper function that returns Result<Result<i32, StaticString>, StaticString>
+get_nested_result = () Result<Result<i32, StaticString>, StaticString> {
     Result.Ok(Result.Ok(42))
 }
 
@@ -13,7 +13,7 @@ main = () void {
     
     // This should work but returns 0 instead of 42
     result = get_nested_result()
-    inner = result.raise()  // Should extract Result<i32, string>
+    inner = result.raise()  // Should extract Result<i32, StaticString>
     value = inner.raise()    // Should extract 42
     
     io.println("Expected: 42")

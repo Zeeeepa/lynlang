@@ -7,7 +7,7 @@ main = () i32 {
     arr.push(42)
     io.println("Pushed 42")
     
-    // Don't use string interpolation
+    // Don't use StaticString interpolation
     val = arr.get(0)
     io.print_int(val)
     io.println("")

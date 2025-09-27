@@ -1,11 +1,11 @@
-// Test Result with string payloads
+// Test Result with StaticString payloads
 { io, Result , get_default_allocator} = @std
 
 main = () void {
     alloc = get_default_allocator()
-    io.println("Test: Result<Result<string, i32>, f64>")
+    io.println("Test: Result<Result<StaticString, i32>, f64>")
     
-    get_string_nested = () Result<Result<string, i32>, f64> {
+    get_string_nested = () Result<Result<StaticString, i32>, f64> {
         Result.Ok(Result.Ok("Hello"))
     }
     

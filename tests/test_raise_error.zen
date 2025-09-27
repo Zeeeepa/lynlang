@@ -1,14 +1,14 @@
 // Test .raise() with error case
 { io, Result , get_default_allocator} = @std
 
-maybe_fail = (fail: bool) Result<i32, string> {
+maybe_fail = (fail: bool) Result<i32, StaticString> {
     fail ? {
         return Result.Err("Failed as expected")
     }
     return Result.Ok(42)
 }
 
-process_value = () Result<i32, string> {
+process_value = () Result<i32, StaticString> {
     // This should propagate the error
     value = maybe_fail(true).raise()
     io.println("This should not print: ${value}")

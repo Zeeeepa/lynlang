@@ -3,7 +3,7 @@
 
 main = () i32 {
     alloc = get_default_allocator()
-    // Simple closure returning Result<i32, string>
+    // Simple closure returning Result<i32, StaticString>
     get_int = () {
         return Result.Ok(42)
     }

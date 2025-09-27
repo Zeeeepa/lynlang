@@ -3,7 +3,7 @@
 
 // Define a custom enum with payload - using correct syntax
 Message:
-    Text(string)
+    Text(StaticString)
     | Number(i32)
     | Empty
 
@@ -11,7 +11,7 @@ main = () i32 {
     alloc = get_default_allocator()
     io.println("Testing enum payload extraction...")
     
-    // Test with string payload
+    // Test with StaticString payload
     msg1 = Message.Text("Hello World")
     msg1 ?
         | Text(s) { io.println("Text message: ${s}") }
@@ -25,7 +25,7 @@ main = () i32 {
         | Number(n) { io.println("Number message: ${n}") }
         | Empty { io.println("Empty") }
     
-    // Test Option enum with string
+    // Test Option enum with StaticString
     opt = Option.Some("Testing Option")
     opt ?
         | Some(val) { io.println("Option value: ${val}") }

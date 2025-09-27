@@ -1,7 +1,7 @@
-// Test .raise() with Result<f64, string>
+// Test .raise() with Result<f64, StaticString>
 { io, Result , get_default_allocator} = @std
 
-calculate_pi = () Result<f64, string> {
+calculate_pi = () Result<f64, StaticString> {
     pi_result = Result.Ok(3.14159)
     val = pi_result.raise()
     

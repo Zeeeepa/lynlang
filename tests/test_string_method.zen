@@ -1,4 +1,4 @@
-// Test string method call
+// Test StaticString method call
 { io , get_default_allocator} = @std
 
 main = () void {

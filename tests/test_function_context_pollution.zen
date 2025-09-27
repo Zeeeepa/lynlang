@@ -4,13 +4,13 @@
 test_mixed = () void {
     io.println("Testing mixed types in one function:")
     
-    // First: string payload
+    // First: StaticString payload
     str_result = Result.Ok("hello")
     str_result ?
         | Result.Ok(s) { io.println("  String: ${s}") }
         | Result.Err(e) { io.println("  Error: ${e}") }
     
-    // Second: integer payload (might be affected by previous string)
+    // Second: integer payload (might be affected by previous StaticString)
     int_result = Result.Ok(314159)
     int_result ?
         | Result.Ok(i) { io.println("  Integer: ${i}") }

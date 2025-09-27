@@ -1,7 +1,7 @@
 // Test UFC with .raise()
 { io, Result , get_default_allocator} = @std
 
-maybe_fail = (fail: bool) Result<i32, string> {
+maybe_fail = (fail: bool) Result<i32, StaticString> {
     fail ? {
         return Result.Err("Failed")
     }

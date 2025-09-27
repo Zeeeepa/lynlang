@@ -7,7 +7,7 @@ main = () void {
     
     // Test 1: Option<Result> from function
     io.println("\n1. Option<Result> from function:")
-    get_opt_result = () Option<Result<i32, string>> {
+    get_opt_result = () Option<Result<i32, StaticString>> {
         Option.Some(Result.Ok(42))
     }
     
@@ -21,7 +21,7 @@ main = () void {
     
     // Test 2: Result<Result> from function
     io.println("\n2. Result<Result> from function:")
-    get_double_result = () Result<Result<i32, string>, string> {
+    get_double_result = () Result<Result<i32, StaticString>, StaticString> {
         Result.Ok(Result.Ok(100))
     }
     

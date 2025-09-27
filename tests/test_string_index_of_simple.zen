@@ -1,4 +1,4 @@
-// Simple test for string.index_of() method
+// Simple test for StaticString.index_of() method
 { get_default_allocator } = @std
 
 main = () i32 {

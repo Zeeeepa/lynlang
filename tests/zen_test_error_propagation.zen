@@ -4,7 +4,7 @@
 { io, Result , get_default_allocator} = @std
 
 // Test 1: Basic .raise() with arithmetic
-test_basic_arithmetic = () Result<i32, string> {
+test_basic_arithmetic = () Result<i32, StaticString> {
     io.println("=== Test 1: Basic Arithmetic ===")
     a = Result.Ok(10).raise()
     b = Result.Ok(20).raise()
@@ -13,18 +13,18 @@ test_basic_arithmetic = () Result<i32, string> {
 }
 
 // Test 2: .raise() from function call
-get_value = () Result<i32, string> {
+get_value = () Result<i32, StaticString> {
     Result.Ok(42)
 }
 
-test_from_call = () Result<i32, string> {
+test_from_call = () Result<i32, StaticString> {
     io.println("=== Test 2: From Function Call ===")
     val = get_value().raise()
     Result.Ok(val)
 }
 
 // Test 3: Multiple .raise() in sequence
-test_multiple_raise = () Result<i32, string> {
+test_multiple_raise = () Result<i32, StaticString> {
     io.println("=== Test 3: Multiple Raises ===")
     x = Result.Ok(5).raise()
     y = Result.Ok(10).raise()
@@ -34,7 +34,7 @@ test_multiple_raise = () Result<i32, string> {
 }
 
 // Test 4: .raise() with error propagation
-test_error_propagation = () Result<i32, string> {
+test_error_propagation = () Result<i32, StaticString> {
     io.println("=== Test 4: Error Propagation ===")
     // This should propagate the error
     err_val = Result.Err("Something went wrong").raise()
@@ -43,20 +43,20 @@ test_error_propagation = () Result<i32, string> {
 }
 
 // Test 5: UFC with .raise()
-compute = (x: i32) Result<i32, string> {
+compute = (x: i32) Result<i32, StaticString> {
     x > 0 ?
         | true { Result.Ok(x * 2) }
         | false { Result.Err("Negative value") }
 }
 
-test_ufc_raise = () Result<i32, string> {
+test_ufc_raise = () Result<i32, StaticString> {
     io.println("=== Test 5: UFC with Raise ===")
     ufc_val = compute(5).raise()
     Result.Ok(ufc_val)
 }
 
 // Test 6: .raise() in closure
-test_closure_raise = () Result<i32, string> {
+test_closure_raise = () Result<i32, StaticString> {
     io.println("=== Test 6: Closure with Raise ===")
     closure = (x: i32) {
         Result.Ok(x * 3).raise()
@@ -66,18 +66,18 @@ test_closure_raise = () Result<i32, string> {
 }
 
 // Test 7: Nested .raise() calls
-nested_function = (x: i32) Result<i32, string> {
+nested_function = (x: i32) Result<i32, StaticString> {
     Result.Ok(x + 10)
 }
 
-test_nested_raise = () Result<i32, string> {
+test_nested_raise = () Result<i32, StaticString> {
     io.println("=== Test 7: Nested Raises ===")
     val = nested_function(5).raise()
     Result.Ok(val)
 }
 
 // Test 8: .raise() with different error types
-test_different_errors = () Result<i32, string> {
+test_different_errors = () Result<i32, StaticString> {
     io.println("=== Test 8: Different Error Types ===")
     // This should work
     ok_val = Result.Ok(100).raise()
@@ -85,7 +85,7 @@ test_different_errors = () Result<i32, string> {
 }
 
 // Test 9: .raise() with arithmetic operations
-test_raise_arithmetic = () Result<i32, string> {
+test_raise_arithmetic = () Result<i32, StaticString> {
     io.println("=== Test 9: Raise with Arithmetic ===")
     a = Result.Ok(20).raise()
     b = Result.Ok(30).raise()
@@ -94,7 +94,7 @@ test_raise_arithmetic = () Result<i32, string> {
 }
 
 // Test 10: .raise() with comparison
-test_raise_comparison = () Result<bool, string> {
+test_raise_comparison = () Result<bool, StaticString> {
     io.println("=== Test 10: Raise with Comparison ===")
     a = Result.Ok(10).raise()
     b = Result.Ok(20).raise()

@@ -4,7 +4,7 @@
 test_double_nested = () void {
     io.println("Test 1: Double nested Result<Result<T,E>,E>")
     
-    get_double_nested = () Result<Result<i32, string>, string> {
+    get_double_nested = () Result<Result<i32, StaticString>, StaticString> {
         Result.Ok(Result.Ok(100))
     }
     
@@ -18,7 +18,7 @@ test_double_nested = () void {
 test_triple_nested = () void {
     io.println("\nTest 2: Triple nested Result")
     
-    get_triple_nested = () Result<Result<Result<i32, string>, string>, string> {
+    get_triple_nested = () Result<Result<Result<i32, StaticString>, StaticString>, StaticString> {
         Result.Ok(Result.Ok(Result.Ok(200)))
     }
     
@@ -33,7 +33,7 @@ test_triple_nested = () void {
 test_option_result = () void {
     io.println("\nTest 3: Option<Result<T, E>>")
     
-    get_option_result = () Option<Result<i32, string>> {
+    get_option_result = () Option<Result<i32, StaticString>> {
         Option.Some(Result.Ok(400))
     }
     

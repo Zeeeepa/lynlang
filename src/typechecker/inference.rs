@@ -86,8 +86,8 @@ pub fn infer_binary_op_type(
         BinaryOperator::StringConcat => {
             // String concatenation
             // All string types can be concatenated
-            if matches!(left_type, AstType::StringLiteral | AstType::StaticString | AstType::String) && 
-               matches!(right_type, AstType::StringLiteral | AstType::StaticString | AstType::String) {
+            if matches!(left_type, AstType::StaticLiteral | AstType::StaticString | AstType::String) &&
+               matches!(right_type, AstType::StaticLiteral | AstType::StaticString | AstType::String) {
                 // Result is always String (dynamic) when concatenating
                 Ok(AstType::String)
             } else {
@@ -285,8 +285,8 @@ fn types_comparable(left: &AstType, right: &AstType) -> bool {
     }
 
     // All string types can be compared with each other
-    if matches!(left, AstType::String | AstType::StaticString | AstType::StringLiteral)
-       && matches!(right, AstType::String | AstType::StaticString | AstType::StringLiteral) {
+    if matches!(left, AstType::String | AstType::StaticString | AstType::StaticLiteral)
+       && matches!(right, AstType::String | AstType::StaticString | AstType::StaticLiteral) {
         return true;
     }
 

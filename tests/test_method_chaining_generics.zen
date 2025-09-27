@@ -1,7 +1,7 @@
 // Test method chaining on generic function results
 { io, Result , get_default_allocator} = @std
 
-get_chained = () Result<Result<i32, string>, string> {
+get_chained = () Result<Result<i32, StaticString>, StaticString> {
     Result.Ok(Result.Ok(500))
 }
 

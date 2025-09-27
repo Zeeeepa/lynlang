@@ -1,12 +1,12 @@
 {io, Result, get_default_allocator} = @std
 
-divide = (a: i32, b: i32) Result<i32, string> {
+divide = (a: i32, b: i32) Result<i32, StaticString> {
     b == 0 ?
         | true { Result.Err("Division by zero") }
         | false { Result.Ok(a / b) }
 }
 
-safe_add = (a: i32, b: i32) Result<i32, string> {
+safe_add = (a: i32, b: i32) Result<i32, StaticString> {
     sum = a + b
     Result.Ok(sum)
 }
@@ -15,7 +15,7 @@ main = () void {
     alloc = get_default_allocator()
     io.println("Testing multiple .raise() in closure")
     
-    chain_test = () Result<i32, string> {
+    chain_test = () Result<i32, StaticString> {
         a = divide(100, 2).raise()
         b = divide(50, 5).raise()
         c = safe_add(a, b).raise()

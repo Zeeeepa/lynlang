@@ -1,33 +1,33 @@
-// Test string.len() method
+// Test StaticString.len() method
 { io , get_default_allocator} = @std
 
 main = () i32 {
     alloc = get_default_allocator()
-    io.println("Testing string.len() method...")
+    io.println("Testing StaticString.len() method...")
     
-    // Test 1: Empty string
+    // Test 1: Empty StaticString
     empty = ""
     len1: i64 = empty.len()
-    io.println("Empty string length: ${len1}")
+    io.println("Empty StaticString length: ${len1}")
     expected1: i64 = 0
     len1 == expected1 ? {
-        io.println("✓ Empty string test passed")
+        io.println("✓ Empty StaticString test passed")
     }
     len1 != expected1 ? {
-        io.println("✗ Empty string test failed: expected 0, got ${len1}")
+        io.println("✗ Empty StaticString test failed: expected 0, got ${len1}")
         return 1
     }
     
-    // Test 2: Simple string
+    // Test 2: Simple StaticString
     hello = "Hello"
     len2: i64 = hello.len()
     io.println("'Hello' length: ${len2}")
     expected2: i64 = 5
     len2 == expected2 ? {
-        io.println("✓ Simple string test passed")
+        io.println("✓ Simple StaticString test passed")
     }
     len2 != expected2 ? {
-        io.println("✗ Simple string test failed: expected 5, got ${len2}")
+        io.println("✗ Simple StaticString test failed: expected 5, got ${len2}")
         return 1
     }
     
@@ -56,6 +56,6 @@ main = () i32 {
         return 1
     }
     
-    io.println("\n✓ All string.len() tests passed!")
+    io.println("\n✓ All StaticString.len() tests passed!")
     return 0
 }

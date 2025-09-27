@@ -1,11 +1,11 @@
-// Test string.split() method - returns Array<string> but array methods not yet fully implemented
+// Test StaticString.split() method - returns Array<StaticString> but array methods not yet fully implemented
 {io, Array, get_default_allocator} = @std
 
 main = () i32 {
     alloc = get_default_allocator()
-    // Test basic split - returns memory address of Array<string>
+    // Test basic split - returns memory address of Array<StaticString>
     s ::= "hello,world,test"
-    parts ::= s.split(",")  // Returns Array<string> with 3 elements
+    parts ::= s.split(",")  // Returns Array<StaticString> with 3 elements
     
     // The split works but we can't access individual elements yet
     // without proper array indexing methods
@@ -13,10 +13,10 @@ main = () i32 {
     
     // More split tests
     s2 ::= "one two three"
-    words ::= s2.split(" ")  // Returns Array<string> with 3 elements
+    words ::= s2.split(" ")  // Returns Array<StaticString> with 3 elements
     
     s3 ::= "path/to/file"
-    path_parts ::= s3.split("/")  // Returns Array<string> with 3 elements
+    path_parts ::= s3.split("/")  // Returns Array<StaticString> with 3 elements
     
     io.println("All splits executed successfully")
     

@@ -1,9 +1,9 @@
-// Test more complex string interpolation cases
+// Test more complex StaticString interpolation cases
 { io, Option, Result , get_default_allocator} = @std
 
 CustomEnum:
     Value(i32)
-    | Message(string)
+    | Message(StaticString)
     | Empty
 
 main = () i32 {

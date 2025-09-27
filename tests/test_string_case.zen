@@ -1,4 +1,4 @@
-// Test string case conversion methods: to_upper() and to_lower()
+// Test StaticString case conversion methods: to_upper() and to_lower()
 { io } = @std
 
 main = () i32 {
@@ -19,7 +19,7 @@ main = () i32 {
     io.println(mixed_upper)
     io.println(mixed_lower)
     
-    // Test 4: Empty string
+    // Test 4: Empty StaticString
     empty = ""
     empty_upper = empty.to_upper()
     empty_lower = empty.to_lower()

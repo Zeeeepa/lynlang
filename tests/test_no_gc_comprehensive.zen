@@ -10,7 +10,7 @@ main = () i32 {
     
     // Test HashMap with allocator
     io.println("\n--- Testing HashMap ---")
-    map = HashMap<string, i32>(alloc)
+    map = HashMap<StaticString, i32>(alloc)
     map.insert("one", 1)
     map.insert("two", 2)
     map.insert("three", 3)

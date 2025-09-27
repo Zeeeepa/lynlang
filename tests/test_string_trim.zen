@@ -1,11 +1,11 @@
-// Test string.trim() method
+// Test StaticString.trim() method
 { io , get_default_allocator} = @std
 
 main = () i32 {
     alloc = get_default_allocator()
-    io.println("Testing string.trim() method...")
+    io.println("Testing StaticString.trim() method...")
     
-    // Test 1: Basic string with leading and trailing spaces
+    // Test 1: Basic StaticString with leading and trailing spaces
     basic = "  hello world  "
     trimmed1 = basic.trim()
     io.println("Test 1: '${basic}' -> '${trimmed1}'")
@@ -30,10 +30,10 @@ main = () i32 {
     trimmed5 = no_ws.trim()
     io.println("Test 5: No whitespace -> '${trimmed5}'")
     
-    // Test 6: Empty string
+    // Test 6: Empty StaticString
     empty = ""
     trimmed6 = empty.trim()
-    io.println("Test 6: Empty string -> '${trimmed6}'")
+    io.println("Test 6: Empty StaticString -> '${trimmed6}'")
     
     // Test 7: Only whitespace
     only_ws = "   \t\n   "
@@ -59,7 +59,7 @@ main = () i32 {
     trimmed11 = "  direct literal  ".trim()
     io.println("Test 11: Direct literal -> '${trimmed11}'")
     
-    io.println("\n✓ All string.trim() tests completed successfully!")
+    io.println("\n✓ All StaticString.trim() tests completed successfully!")
     0
 }
 

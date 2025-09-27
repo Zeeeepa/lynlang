@@ -7,7 +7,7 @@ main = () void {
     
     // Test 1: Quadruple nested Results
     io.println("Test 1: Result<Result<Result<Result<i32,E>,E>,E>,E>")
-    create_quad = () Result<Result<Result<Result<i32, string>, string>, string>, string> {
+    create_quad = () Result<Result<Result<Result<i32, StaticString>, StaticString>, StaticString>, StaticString> {
         return Result.Ok(Result.Ok(Result.Ok(Result.Ok(999))))
     }
     
@@ -20,7 +20,7 @@ main = () void {
     
     // Test 2: Mixed nested Option and Result
     io.println("\nTest 2: Option<Result<Option<Result<i32,E>>,E>>")
-    create_mixed = () Option<Result<Option<Result<i32, string>>, string>> {
+    create_mixed = () Option<Result<Option<Result<i32, StaticString>>, StaticString>> {
         return Option.Some(Result.Ok(Option.Some(Result.Ok(777))))
     }
     
@@ -38,8 +38,8 @@ main = () void {
         | Option.None { io.println("  Error: Got None") }
     
     // Test 3: Result with complex error type
-    io.println("\nTest 3: Result<T, Result<string, i32>>")
-    create_complex_err = () Result<i32, Result<string, i32>> {
+    io.println("\nTest 3: Result<T, Result<StaticString, i32>>")
+    create_complex_err = () Result<i32, Result<StaticString, i32>> {
         // Return an error that is itself a Result
         return Result.Err(Result.Ok("complex error"))
     }

@@ -1,7 +1,7 @@
 // Test .raise() from function call result
 { io, Result , get_default_allocator} = @std
 
-get_result = () Result<i32, string> {
+get_result = () Result<i32, StaticString> {
     return Result.Ok(42)
 }
 

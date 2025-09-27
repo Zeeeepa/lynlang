@@ -54,7 +54,7 @@ main = () i32 {
     }
     io.println("Complex expression: final = ${final}")
     
-    // Block with string result
+    // Block with StaticString result
     message = {
         hour = 14
         hour < 12 ?
@@ -65,7 +65,7 @@ main = () i32 {
                     | false { "evening" }
             }
     }
-    io.println("Block returning string: message = ${message}")
+    io.println("Block returning StaticString: message = ${message}")
     
     // Multiple blocks in expression
     calculation = {

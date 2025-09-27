@@ -2,7 +2,7 @@
 { io, Result, Option , get_default_allocator} = @std
 
 // Custom enum to test generic instantiation with user-defined types
-CustomResult : .Success(value: i32) | .Failure(msg: string)
+CustomResult : .Success(value: i32) | .Failure(msg: StaticString)
 
 // Helper functions for testing
 create_nested_custom = () CustomResult {
@@ -14,8 +14,8 @@ create_deep_option = () Option<Option<Option<i32>>> {
 }
 
 // Test returning Result from inline closure
-test_closure_result = () Result<i32, string> {
-    compute = () Result<i32, string> { Result.Ok(123) }
+test_closure_result = () Result<i32, StaticString> {
+    compute = () Result<i32, StaticString> { Result.Ok(123) }
     return compute()
 }
 

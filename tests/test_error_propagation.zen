@@ -8,7 +8,7 @@ FileError:
     | IOError
 
 // Mock file read that returns Result
-read_file = (path: string) Result<string, FileError> {
+read_file = (path: StaticString) Result<StaticString, FileError> {
     // Simulate different file scenarios
     path == "valid.txt" ? {
         return Result.Ok("File contents here")
@@ -22,8 +22,8 @@ read_file = (path: string) Result<string, FileError> {
     return Result.Err(FileError.IOError)
 }
 
-// Parse configuration from string
-parse_config = (content: string) Result<i32, string> {
+// Parse configuration from StaticString
+parse_config = (content: StaticString) Result<i32, StaticString> {
     content == "File contents here" ? {
         return Result.Ok(42)
     }
@@ -31,7 +31,7 @@ parse_config = (content: string) Result<i32, string> {
 }
 
 // Manual error propagation (current approach)
-load_config_manual = (path: string) Result<i32, string> {
+load_config_manual = (path: StaticString) Result<i32, StaticString> {
     io.println("Loading config manually from: ${path}")
     
     // Read file with explicit error handling
@@ -63,7 +63,7 @@ load_config_manual = (path: string) Result<i32, string> {
 
 // Simulated .raise() approach (what it would look like with compiler support)
 // This demonstrates the intended usage pattern
-load_config_with_raise_simulation = (path: string) Result<i32, string> {
+load_config_with_raise_simulation = (path: StaticString) Result<i32, StaticString> {
     io.println("Loading config with raise simulation from: ${path}")
     
     // This simulates what .raise() would do:
@@ -89,14 +89,14 @@ load_config_with_raise_simulation = (path: string) Result<i32, string> {
 }
 
 // Chain multiple operations using combinators  
-// process_files = (paths: Array<string>) Result<i32, string> {
+// process_files = (paths: Array<StaticString>) Result<i32, StaticString> {
 //     io.println("Processing multiple files")
 //     
 //     // For now, just process a fixed set of paths
 //     // Array.len() is not yet implemented
 //     total ::= 0
 // Note: Commented out for now as Array indexing is not yet implemented
-process_files = () Result<i32, string> {
+process_files = () Result<i32, StaticString> {
     io.println("Processing multiple files")
     
     total ::= 0

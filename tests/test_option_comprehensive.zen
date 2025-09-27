@@ -28,7 +28,7 @@ main = () i32 {
     io.println("")
     io.println("=== Option<String> Tests ===")
     
-    // Test with string payload using blocks
+    // Test with StaticString payload using blocks
     str_opt = Some("hello world")
     str_opt ?
         | .Some(s) {
@@ -38,7 +38,7 @@ main = () i32 {
             io.println("String None")
         }
     
-    // Test string None with default
+    // Test StaticString None with default
     empty_str = None
     result = empty_str ?
         | .Some(s) {

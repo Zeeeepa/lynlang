@@ -1,7 +1,7 @@
 // Test .raise() with arithmetic operations
 { io, Result , get_default_allocator} = @std
 
-calculate = () Result<i32, string> {
+calculate = () Result<i32, StaticString> {
     a = Result.Ok(10)
     b = Result.Ok(20)
     c = Result.Ok(5)

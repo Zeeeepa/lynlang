@@ -2,7 +2,7 @@
 { io, get_default_allocator, HashMap } = @std
 
 // Simple hash function for testing
-hash_string = (s: string) i64 {
+hash_string = (s: StaticString) i64 {
     hash ::= 0 as i64
     i ::= 0 as i32
     loop {
@@ -16,7 +16,7 @@ hash_string = (s: string) i64 {
 }
 
 // String equality function  
-eq_string = (a: string, b: string) i64 {
+eq_string = (a: StaticString, b: StaticString) i64 {
     a == b ?
         | true { return 1 as i64 }
         | false { return 0 as i64 }
@@ -27,7 +27,7 @@ main = () i32 {
     alloc = get_default_allocator()
     
     // Create HashMap with allocator
-    map = HashMap<string, i32>(alloc)
+    map = HashMap<StaticString, i32>(alloc)
     
     // Insert some values
     map.insert("hello", 42, hash_string, eq_string)

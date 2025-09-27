@@ -1,8 +1,8 @@
-// Test function with conditional returning Result<i32, string>
+// Test function with conditional returning Result<i32, StaticString>
 { io, Result , get_default_allocator} = @std
 
-// Function with conditional that returns Result<i32, string>
-make_result = (success: bool) Result<i32, string> {
+// Function with conditional that returns Result<i32, StaticString>
+make_result = (success: bool) Result<i32, StaticString> {
     success ?
         | true { Result.Ok(42) }
         | false { Result.Err("failed") }

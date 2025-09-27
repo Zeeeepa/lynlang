@@ -1,7 +1,7 @@
 // Test double raise with assignment
 { io, Result , get_default_allocator} = @std
 
-get_double_nested = () Result<Result<i32, string>, string> {
+get_double_nested = () Result<Result<i32, StaticString>, StaticString> {
     Result.Ok(Result.Ok(100))
 }
 

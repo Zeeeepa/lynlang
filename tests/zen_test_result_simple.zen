@@ -4,7 +4,7 @@
 
 // Import Result and Option from stdlib
 
-test_result = () Result<i32, string> {
+test_result = () Result<i32, StaticString> {
     return Result.Ok(42)
 }
 

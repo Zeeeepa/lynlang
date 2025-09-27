@@ -1,15 +1,15 @@
 // Test direct use of .raise() without storing in variable
 { io, Result , get_default_allocator} = @std
 
-maybe_fail = (fail: bool) Result<i32, string> {
+maybe_fail = (fail: bool) Result<i32, StaticString> {
     fail ? {
         return Result.Err("Failed")
     }
     return Result.Ok(42)
 }
 
-process_value = () Result<i32, string> {
-    // Use .raise() directly in string interpolation
+process_value = () Result<i32, StaticString> {
+    // Use .raise() directly in StaticString interpolation
     io.println("Got value: ${maybe_fail(false).raise()}")
     return Result.Ok(42)
 }

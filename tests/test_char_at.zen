@@ -1,4 +1,4 @@
-// Test string.char_at() method
+// Test StaticString.char_at() method
 { io , get_default_allocator} = @std
 
 main = () i32 {
@@ -15,7 +15,7 @@ main = () i32 {
     c4 ::= s.char_at(4)
     io.println("char_at(4): ${c4}")  // Should print 111 (o)
     
-    // Test with string literal
+    // Test with StaticString literal
     direct ::= "World".char_at(0)
     io.println("World[0]: ${direct}")  // Should print 87 (W)
     

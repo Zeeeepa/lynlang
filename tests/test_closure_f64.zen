@@ -3,7 +3,7 @@
 
 main = () i32 {
     // Test with f64 parameters
-    get_float = () Result<f64, string> {
+    get_float = () Result<f64, StaticString> {
         return Result.Ok(3.14)
     }
     

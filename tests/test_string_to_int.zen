@@ -1,9 +1,9 @@
-// Test string.to_i32() and string.to_i64() methods
+// Test StaticString.to_i32() and StaticString.to_i64() methods
 { io, Option , get_default_allocator} = @std
 
 main = () i32 {
     alloc = get_default_allocator()
-    io.println("Testing string.to_i32() and string.to_i64() methods...")
+    io.println("Testing StaticString.to_i32() and StaticString.to_i64() methods...")
     
     // Test 1: Valid i32 conversion
     s1 = "42"
@@ -38,7 +38,7 @@ main = () i32 {
             io.println("✗ Failed to parse '9999999999' as i64")
         }
     
-    // Test 4: Invalid string (should return None)
+    // Test 4: Invalid StaticString (should return None)
     invalid = "not_a_number"
     opt4 = invalid.to_i32()
     opt4 ? 
@@ -49,15 +49,15 @@ main = () i32 {
             io.println("✓ Correctly returned None for 'not_a_number'")
         }
     
-    // Test 5: Empty string (should return None)
+    // Test 5: Empty StaticString (should return None)
     empty = ""
     opt5 = empty.to_i32()
     opt5 ? 
         | Option.Some(v) { 
-            io.println("✗ Unexpectedly parsed empty string: ${v}")
+            io.println("✗ Unexpectedly parsed empty StaticString: ${v}")
         }
         | Option.None { 
-            io.println("✓ Correctly returned None for empty string")
+            io.println("✓ Correctly returned None for empty StaticString")
         }
     
     // Test 6: Zero
@@ -82,6 +82,6 @@ main = () i32 {
             io.println("✗ Failed to parse '-9999999999' as i64")
         }
     
-    io.println("All string to integer conversion tests completed!")
+    io.println("All StaticString to integer conversion tests completed!")
     0
 }

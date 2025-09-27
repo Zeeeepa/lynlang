@@ -21,7 +21,7 @@ test_chained_raise = () void {
 test_mixed_errors = () void {
     io.println("Test 2: Mixed error types")
     
-    // Result<Result<i32, string>, i32>
+    // Result<Result<i32, StaticString>, i32>
     mixed = Result.Ok(Result.Err("inner error"))
     
     inner = mixed.raise()
@@ -34,7 +34,7 @@ test_mixed_errors = () void {
 test_raise_in_expressions = () void {
     io.println("Test 3: raise() in expressions")
     
-    get_result = () Result<i32, string> { Result.Ok(10) }
+    get_result = () Result<i32, StaticString> { Result.Ok(10) }
     
     // Use raise() directly in arithmetic
     value = get_result().raise() + 5

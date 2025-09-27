@@ -5,7 +5,7 @@ main = () i32 {
     alloc = get_default_allocator()
     io.println("=== Testing Inline Nested Construction ===")
     
-    // Test 1: Direct inline Result<Result<i32, string>, string>
+    // Test 1: Direct inline Result<Result<i32, StaticString>, StaticString>
     nested1 = Result.Ok(Result.Ok(42))
     nested1 ?
         | Result.Ok(inner) {
@@ -15,7 +15,7 @@ main = () i32 {
         }
         | Result.Err(e) { io.println("Test 1 - Outer error: ${e}") }
     
-    // Test 2: Direct inline Result<Option<i32>, string>
+    // Test 2: Direct inline Result<Option<i32>, StaticString>
     nested2 = Result.Ok(Option.Some(100))
     nested2 ?
         | Result.Ok(opt) {
@@ -25,7 +25,7 @@ main = () i32 {
         }
         | Result.Err(e) { io.println("Test 2 - Error: ${e}") }
     
-    // Test 3: Direct inline Option<Result<i32, string>>
+    // Test 3: Direct inline Option<Result<i32, StaticString>>
     nested3 = Option.Some(Result.Ok(200))
     nested3 ?
         | Option.Some(res) {

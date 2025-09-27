@@ -1,8 +1,8 @@
 // Test single .raise() on nested Result
 { io, Result , get_default_allocator} = @std
 
-// Function that returns Result<Result<i32, string>, string>
-get_nested = () Result<Result<i32, string>, string> {
+// Function that returns Result<Result<i32, StaticString>, StaticString>
+get_nested = () Result<Result<i32, StaticString>, StaticString> {
     Result.Ok(Result.Ok(42))
 }
 
@@ -12,7 +12,7 @@ main = () i32 {
     result = get_nested().raise()
     io.println("After raise")
     
-    // The result should now be Result<i32, string>
+    // The result should now be Result<i32, StaticString>
     // But let's see what we actually get
     0
 }

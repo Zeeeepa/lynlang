@@ -3,12 +3,12 @@
 
 main = () void {
     alloc = get_default_allocator()
-    // Create a Result<i32, string> - this should work
+    // Create a Result<i32, StaticString> - this should work
     simple_result = Result.Ok(42)
     simple_result ? | Result.Ok(n) => io.println("Simple: ${n}")
                     | Result.Err(e) => io.println("Error: ${e}")
     
-    // Create a Result<Option<i32>, string> - payload is an Option
+    // Create a Result<Option<i32>, StaticString> - payload is an Option
     complex_result = Result.Ok(Option.Some(99))
     
     // Extract the Option - this is where it gets interesting

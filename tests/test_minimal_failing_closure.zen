@@ -4,7 +4,7 @@
 main = () i32 {
     alloc = get_default_allocator()
     // This closure has explicit return type
-    test = () Result<i32, string> {
+    test = () Result<i32, StaticString> {
         return Result.Ok(42)
     }
     

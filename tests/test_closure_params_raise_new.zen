@@ -4,7 +4,7 @@
 main = () i32 {
     alloc = get_default_allocator()
     // Closure with params and explicit return type
-    test = (x: f64) Result<f64, string> {
+    test = (x: f64) Result<f64, StaticString> {
         return Result.Ok(x * 2.0)
     }
     

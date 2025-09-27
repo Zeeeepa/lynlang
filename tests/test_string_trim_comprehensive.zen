@@ -1,10 +1,10 @@
-// Comprehensive test for string.trim() method
+// Comprehensive test for StaticString.trim() method
 { io , get_default_allocator} = @std
 
 main = () i32 {
     alloc = get_default_allocator()
     io.println("═══════════════════════════════════════")
-    io.println("    string.trim() Comprehensive Test   ")
+    io.println("    StaticString.trim() Comprehensive Test   ")
     io.println("═══════════════════════════════════════")
     
     // Test 1: Basic trim with spaces
@@ -62,18 +62,18 @@ test
     io.println("  Output: '${t5}'")
     t5 == "" ?
         | true { io.println("  ✓ PASS") }
-        | false { io.println("  ✗ FAIL: Expected empty string") }
+        | false { io.println("  ✗ FAIL: Expected empty StaticString") }
     
-    // Test 6: Empty string
+    // Test 6: Empty StaticString
     s6 = ""
     t6 = s6.trim()
     io.println("")
-    io.println("Test 6: Empty string")
+    io.println("Test 6: Empty StaticString")
     io.println("  Input:  '${s6}'")
     io.println("  Output: '${t6}'")
     t6 == "" ?
         | true { io.println("  ✓ PASS") }
-        | false { io.println("  ✗ FAIL: Expected empty string") }
+        | false { io.println("  ✗ FAIL: Expected empty StaticString") }
     
     // Test 7: Mixed whitespace
     s7 = " 	

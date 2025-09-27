@@ -39,21 +39,21 @@ main = () i32 {
     io.println("")
     io.println("▸ Option<String>")
     
-    // Test Some with string
+    // Test Some with StaticString
     name_opt: Option<String> = Some("Alice")
     greeting = name_opt ?
         | Some(n) => "Hello, ${n}!"
         | None => "Hello, stranger!"
     io.println("  ${greeting}")
     
-    // Test None with string
+    // Test None with StaticString
     empty_str: Option<String> = None
     msg = empty_str ?
         | Some(s) => "Found: ${s}"
         | None => "Nothing found"
     io.println("  ${msg}")
     
-    // Test string interpolation in patterns
+    // Test StaticString interpolation in patterns
     city = Some("Tokyo")
     location = city ?
         | Some(c) => "Living in ${c}"

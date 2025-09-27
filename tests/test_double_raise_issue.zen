@@ -1,12 +1,12 @@
 // Debug double raise issue - second raise
 {io, Result, get_default_allocator} = @std
 
-// Helper that returns Result<Result<i32, string>, string>
-get_double_result = () Result<Result<i32, string>, string> {
+// Helper that returns Result<Result<i32, StaticString>, StaticString>
+get_double_result = () Result<Result<i32, StaticString>, StaticString> {
     Result.Ok(Result.Ok(789))
 }
 
-test_double_raise = () Result<i32, string> {
+test_double_raise = () Result<i32, StaticString> {
     // Extract inner Result with first raise
     inner = get_double_result().raise()
     

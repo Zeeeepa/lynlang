@@ -4,7 +4,7 @@ main = () i32 {
     alloc = get_default_allocator()
     io.println("=== String Operations Tests ===")
     
-    // Basic string interpolation
+    // Basic StaticString interpolation
     io.println("\n▸ String interpolation:")
     name = "Zen"
     version = 1
@@ -72,7 +72,7 @@ main = () i32 {
     // Edge cases
     io.println("\n▸ Edge cases:")
     empty = ""
-    io.println("  Empty string: '${empty}'")
+    io.println("  Empty StaticString: '${empty}'")
     
     zero = 0
     zero_float = 0.0
@@ -81,7 +81,7 @@ main = () i32 {
     negative = -123
     io.println("  Negative: ${negative}")
     
-    io.println("\n=== All string operation tests passed ===")
+    io.println("\n=== All StaticString operation tests passed ===")
     
     return 0
 }

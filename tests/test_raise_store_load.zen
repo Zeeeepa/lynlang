@@ -21,7 +21,7 @@ main = () i32 {
     io.println("Direct print value:")
     io.println(value)
     
-    // Test in string interpolation
+    // Test in StaticString interpolation
     io.println("String interpolation: ${value}")
     
     return 0  // Return 0 for test success

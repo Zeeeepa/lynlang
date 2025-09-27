@@ -1,9 +1,9 @@
-// Comprehensive nested generics test without string payloads
+// Comprehensive nested generics test without StaticString payloads
 { io, Result, Option , get_default_allocator} = @std
 
 test_double_nested_result = () i32 {
     io.println("Test 1: Double nested")
-    get_double_nested = () Result<Result<i32, string>, string> {
+    get_double_nested = () Result<Result<i32, StaticString>, StaticString> {
         Result.Ok(Result.Ok(100))
     }
     outer_result = get_double_nested()
@@ -15,7 +15,7 @@ test_double_nested_result = () i32 {
 
 test_triple_nested_result = () i32 {
     io.println("Test 2: Triple nested")
-    get_triple_nested = () Result<Result<Result<i32, string>, string>, string> {
+    get_triple_nested = () Result<Result<Result<i32, StaticString>, StaticString>, StaticString> {
         Result.Ok(Result.Ok(Result.Ok(200)))
     }
     level1 = get_triple_nested()
@@ -28,7 +28,7 @@ test_triple_nested_result = () i32 {
 
 test_option_result = () i32 {
     io.println("Test 3: Option<Result>")
-    get_option_result = () Option<Result<i32, string>> {
+    get_option_result = () Option<Result<i32, StaticString>> {
         Option.Some(Result.Ok(400))
     }
     opt = get_option_result()

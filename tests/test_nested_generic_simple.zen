@@ -1,7 +1,7 @@
-// Test nested generic type: Result<Result<i32, string>, string>
+// Test nested generic type: Result<Result<i32, StaticString>, StaticString>
 { io, Result , get_default_allocator} = @std
 
-test_nested = () Result<Result<i32, string>, string> {
+test_nested = () Result<Result<i32, StaticString>, StaticString> {
     Result.Ok(Result.Ok(100))
 }
 

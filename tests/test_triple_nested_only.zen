@@ -5,7 +5,7 @@ main = () void {
     alloc = get_default_allocator()
     io.println("Test: Triple nested Result")
     
-    get_triple_nested = () Result<Result<Result<i32, string>, string>, string> {
+    get_triple_nested = () Result<Result<Result<i32, StaticString>, StaticString>, StaticString> {
         Result.Ok(Result.Ok(Result.Ok(200)))
     }
     

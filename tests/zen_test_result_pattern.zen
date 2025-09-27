@@ -4,7 +4,7 @@
 // Import Result and Option from stdlib
 
 // Function with pattern matching as expression
-test_pattern = () Result<i32, string> {
+test_pattern = () Result<i32, StaticString> {
     maybe: Option<i32> = Option.Some(42)
     
     // Pattern matching in expression context (not statement)

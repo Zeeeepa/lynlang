@@ -2,7 +2,7 @@
 { io, Result, Option , get_default_allocator} = @std
 
 // Custom enum similar to Result but with different names
-MyResult : .Success(val: i32) | .Error(msg: string)
+MyResult : .Success(val: i32) | .Error(msg: StaticString)
 
 // Custom enum with generic-like behavior
 Container : .Full(data: i32) | .Empty
@@ -55,8 +55,8 @@ main = () void {
                 | Container.Empty => io.println("  Container is empty")
     
     // Test 5: Custom enum in Result
-    io.println("\n5. Custom enum in Result<MyResult, string>:")
-    wrap_custom = () Result<MyResult, string> {
+    io.println("\n5. Custom enum in Result<MyResult, StaticString>:")
+    wrap_custom = () Result<MyResult, StaticString> {
         return Result.Ok(MyResult.Success(777))
     }
     

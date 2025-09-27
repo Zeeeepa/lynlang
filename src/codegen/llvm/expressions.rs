@@ -22,7 +22,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Expression::Float64(_) => Ok(AstType::F64),
             Expression::Boolean(_) => Ok(AstType::Bool),
             Expression::Unit => Ok(AstType::Void),
-            Expression::String(_) => Ok(AstType::StringLiteral),  // String literals are compile-time
+            Expression::String(_) => Ok(AstType::StaticLiteral),  // String literals are compile-time
             Expression::Identifier(name) => {
                 // Look up variable type
                 if let Some(var_info) = self.variables.get(name) {
@@ -3274,7 +3274,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     if let AstType::Generic { type_args, .. } = &var_info.ast_type {
                                         if type_args.len() >= 1 {
                                             match &type_args[0] {
-                                                AstType::String | AstType::StaticString | AstType::StringLiteral => {
+                                                AstType::String | AstType::StaticString | AstType::StaticLiteral => {
                                                     // String key: convert i64 to pointer
                                                     let stored_key_ptr = self.builder.build_int_to_ptr(
                                                         stored_key_i64,
@@ -8175,7 +8175,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 
                                 Ok(loaded)
                             }
-                            AstType::String | AstType::StaticString | AstType::StringLiteral => {
+                            AstType::String | AstType::StaticString | AstType::StaticLiteral => {
                                 // String is already a pointer value, just return it directly
                                 // The ptr_val is already pointing to the string data
                                 Ok(ptr_val.into())
@@ -9139,8 +9139,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
             "f32" => Ok(AstType::F32),
             "f64" => Ok(AstType::F64),
             "bool" => Ok(AstType::Bool),
-            "string" => Ok(AstType::StringLiteral),
-            "StaticString" => Ok(AstType::StringLiteral),
+            "string" => Ok(AstType::StaticLiteral),
+            "StaticString" => Ok(AstType::StaticString),
             "String" => Ok(AstType::String),  // Dynamic string type
             "void" => Ok(AstType::Void),
             _ => {

@@ -16,7 +16,7 @@ pub enum AstType {
     F32,
     F64,
     Bool,
-    StringLiteral, // Internal: Compiler-known string literals (LLVM use only)
+    StaticLiteral, // Internal: Compiler-known string literals (LLVM use only)
     StaticString,  // User-facing: Static strings (compile-time, immutable, no allocator)
     String,        // User-facing: Dynamic strings (runtime, mutable, requires allocator)
     Void,
@@ -118,7 +118,7 @@ impl fmt::Display for AstType {
             AstType::F32 => write!(f, "f32"),
             AstType::F64 => write!(f, "f64"),
             AstType::Bool => write!(f, "bool"),
-            AstType::StringLiteral => write!(f, "StaticString"), // Display as StaticString to users
+            AstType::StaticLiteral => write!(f, "StaticString"), // Display as StaticString to users
             AstType::StaticString => write!(f, "StaticString"),
             AstType::String => write!(f, "String"),
             AstType::Void => write!(f, "void"),

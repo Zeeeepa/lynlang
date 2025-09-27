@@ -24,9 +24,9 @@ double = (x: i32) i32 {
 }
 
 // Multiple overloads - not yet implemented
-// get_name = (x: i32) string { return "integer" }
-// get_name = (x: f64) string { return "float" }
-// get_name = (x: string) string { return "string" }
+// get_name = (x: i32) StaticString { return "integer" }
+// get_name = (x: f64) StaticString { return "float" }
+// get_name = (x: StaticString) StaticString { return "StaticString" }
 
 // Commenting out structs - not fully working
 // Vector: {

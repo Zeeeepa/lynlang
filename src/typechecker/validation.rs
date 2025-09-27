@@ -24,21 +24,21 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
     }
 
     // Check for string type compatibility
-    // StringLiteral is internal only
+    // StaticLiteral is internal only
     // StaticString can be coerced to String (requires allocator at runtime)
     // But String cannot be coerced back to StaticString
     match (expected, actual) {
-        // StringLiteral is internal - it should be compatible with StaticString
-        (AstType::StaticString, AstType::StringLiteral) => return true,
-        (AstType::StringLiteral, AstType::StaticString) => return true,
+        // StaticLiteral is internal - it should be compatible with StaticString
+        (AstType::StaticString, AstType::StaticLiteral) => return true,
+        (AstType::StaticLiteral, AstType::StaticString) => return true,
 
         // StaticString -> String is ok (will need allocator at runtime)
         (AstType::String, AstType::StaticString) => return true,
-        (AstType::String, AstType::StringLiteral) => return true,  // Internal literal -> dynamic is ok
+        (AstType::String, AstType::StaticLiteral) => return true,  // Internal literal -> dynamic is ok
 
         // String -> StaticString is NOT ok (would lose allocator)
         (AstType::StaticString, AstType::String) => return false,
-        (AstType::StringLiteral, AstType::String) => return false,
+        (AstType::StaticLiteral, AstType::String) => return false,
         _ => {}
     }
 

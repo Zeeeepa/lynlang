@@ -5,7 +5,7 @@ main = () void {
     alloc = get_default_allocator()
     io.println("Test: Method chaining")
     
-    get_chained = () Result<Result<i32, string>, string> {
+    get_chained = () Result<Result<i32, StaticString>, StaticString> {
         Result.Ok(Result.Ok(500))
     }
     

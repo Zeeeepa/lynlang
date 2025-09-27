@@ -1,15 +1,15 @@
 // Test .raise() with function calls returning Result<T,E>
 { io, Result , get_default_allocator} = @std
 
-// Helper function that returns Result<i32, string>
-compute = (x: i32) Result<i32, string> {
+// Helper function that returns Result<i32, StaticString>
+compute = (x: i32) Result<i32, StaticString> {
     x > 0 ?
         | true { Result.Ok(x * 2) }
         | false { Result.Err("Value must be positive") }
 }
 
 // Function that uses raise() on function call results
-process = () Result<i32, string> {
+process = () Result<i32, StaticString> {
     // Call function and immediately raise
     val1 = compute(10).raise()  // Should extract 20
     val2 = compute(5).raise()   // Should extract 10

@@ -2,8 +2,8 @@
 { io, Result } = @std
 
 main = () i32 {
-    // Define a closure that returns Result<i32, string>
-    get_val = () Result<i32, string> {
+    // Define a closure that returns Result<i32, StaticString>
+    get_val = () Result<i32, StaticString> {
         return Result.Ok(42)
     }
     
@@ -18,7 +18,7 @@ main = () i32 {
         | false { io.println("v1 == 42: FAILED") }
     
     // Test with parameters
-    add_one = (x: i32) Result<i32, string> {
+    add_one = (x: i32) Result<i32, StaticString> {
         return Result.Ok(x + 1)
     }
     

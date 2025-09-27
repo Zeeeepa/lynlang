@@ -26,7 +26,7 @@ main = () i32 {
     io.println("")
     
     io.println("3. MULTISYNC FUNCTION - Same code, different behavior")
-    io.println("   fetch_data = (url: string, alloc: Allocator) Result<Data, Error> {")
+    io.println("   fetch_data = (url: StaticString, alloc: Allocator) Result<Data, Error> {")
     io.println("       client = HttpClient(alloc)")
     io.println("       @this.defer(client.deinit())")
     io.println("       response = client.get(url)  // sync OR async based on alloc!")

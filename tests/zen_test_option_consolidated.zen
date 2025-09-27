@@ -28,7 +28,7 @@ main = () void {
     str_opt = Option.Some("hello")
     str_opt ?
         | Option.Some(s) { io.println("  String: ${s}") }
-        | Option.None { io.println("  No string") }
+        | Option.None { io.println("  No StaticString") }
     
     // Test 4: Option arithmetic  
     io.println("\n4. Option arithmetic:")

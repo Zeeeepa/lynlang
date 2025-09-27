@@ -1,14 +1,14 @@
-// Test basic string operations with new type system
+// Test basic StaticString operations with new type system
 { io } = @std
 
 main = () i32 {
     // StringLiteral (compile-time)
-    literal: string = "Hello"
+    literal: StaticString = "Hello"
     
     // StaticString 
     static_str: StaticString = "World"
     
-    // Test string operations
+    // Test StaticString operations
     io.println(literal)
     io.println(static_str)
     

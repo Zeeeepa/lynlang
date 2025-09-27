@@ -3,7 +3,7 @@
 
 // Test struct for nested generics
 Person: {
-    name: string,
+    name: StaticString,
     age: i32,
 }
 
@@ -11,9 +11,9 @@ main = () void {
     alloc = get_default_allocator()
     io.println("=== Testing Vec with Nested Generics ===")
     
-    // Test 1: Vec<Option<Result<i32, string>>>
-    io.println("\n1. Vec<Option<Result<i32, string>>>")
-    vec1 = Vec<Option<Result<i32, string>>, 3>()
+    // Test 1: Vec<Option<Result<i32, StaticString>>>
+    io.println("\n1. Vec<Option<Result<i32, StaticString>>>")
+    vec1 = Vec<Option<Result<i32, StaticString>>, 3>()
     
     // Create nested value: Some(Ok(42))
     nested1 = Option.Some(Result.Ok(42))
@@ -21,7 +21,7 @@ main = () void {
     io.println("Pushed Some(Ok(42))")
     
     // Retrieve and verify
-    retrieved1: Option<Result<i32, string>> = vec1.get(0)
+    retrieved1: Option<Result<i32, StaticString>> = vec1.get(0)
     retrieved1 ?
         | Some(res) {
             res ?
@@ -30,9 +30,9 @@ main = () void {
         }
         | None { io.println("Got None") }
     
-    // Test 2: Vec<Result<Option<i32>, string>>
-    io.println("\n2. Vec<Result<Option<i32>, string>>")
-    vec2 = Vec<Result<Option<i32>, string>, 3>()
+    // Test 2: Vec<Result<Option<i32>, StaticString>>
+    io.println("\n2. Vec<Result<Option<i32>, StaticString>>")
+    vec2 = Vec<Result<Option<i32>, StaticString>, 3>()
     
     // Create nested value: Ok(Some(100))
     nested2 = Result.Ok(Option.Some(100))
@@ -40,7 +40,7 @@ main = () void {
     io.println("Pushed Ok(Some(100))")
     
     // Retrieve and verify
-    retrieved2: Result<Option<i32>, string> = vec2.get(0)
+    retrieved2: Result<Option<i32>, StaticString> = vec2.get(0)
     retrieved2 ?
         | Ok(opt) {
             opt ?

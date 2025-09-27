@@ -1,6 +1,6 @@
 {io, Result, get_default_allocator} = @std
 
-divide = (a: i32, b: i32) Result<i32, string> {
+divide = (a: i32, b: i32) Result<i32, StaticString> {
     Result.Ok(a / b)
 }
 
@@ -8,7 +8,7 @@ main = () void {
     alloc = get_default_allocator()
     io.println("Testing .raise() inside closure that returns Result")
     
-    test = () Result<i32, string> {
+    test = () Result<i32, StaticString> {
         // This is the problematic pattern
         val = divide(10, 2).raise()
         Result.Ok(val)

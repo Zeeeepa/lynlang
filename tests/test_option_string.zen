@@ -21,7 +21,7 @@ main = () i32 {
     
     io.println(message)
     
-    // Test with string concatenation in patterns
+    // Test with StaticString concatenation in patterns
     city: Option<String> = Some("New York")
     location = city ?
         | Some(c) => "Living in ${c}"

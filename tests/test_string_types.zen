@@ -4,11 +4,11 @@ main = () i32 {
     // Test 1: String literals should be StaticString
     static_str: StaticString = "Hello, World!"
     
-    // Test 2: Check string literal type compatibility 
+    // Test 2: Check StaticString literal type compatibility 
     literal = "This is a literal"  // Should be StaticString
     
     // Test 3: String type compatibility
-    str: string = "Old style string"  // Should still work (maps to StaticString)
+    str: StaticString = "Old style StaticString"  // Should still work (maps to StaticString)
     
     // Test 4: Type compatibility for variable assignment
     another_static: StaticString = literal  // Should work
@@ -19,7 +19,7 @@ main = () i32 {
     // TODO: Test dynamic String (requires allocator)
     // When String implementation is ready:
     // allocator := get_default_allocator()
-    // dynamic_str := String.from_static("Dynamic string", allocator)
+    // dynamic_str := String.from_static("Dynamic StaticString", allocator)
     
     // If we got here, all type checks passed
     return 0

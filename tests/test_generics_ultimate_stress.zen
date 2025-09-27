@@ -11,7 +11,7 @@ main = () void {
     
     // Test 1: 5-level deep nested Result
     io.println("\n[1] 5-level nested Result")
-    create_penta = () Result<Result<Result<Result<Result<i32, string>, string>, string>, string>, string> {
+    create_penta = () Result<Result<Result<Result<Result<i32, StaticString>, StaticString>, StaticString>, StaticString>, StaticString> {
         Result.Ok(Result.Ok(Result.Ok(Result.Ok(Result.Ok(12345)))))
     }
     
@@ -24,8 +24,8 @@ main = () void {
     io.println("  Expected 12345, got: ${final_value}")
     
     // Test 2: Complex mixed nesting with custom enum
-    io.println("\n[2] Complex mixed: Result<Option<Either<i32, Result<string, f64>>>>")
-    create_complex = () Result<Option<Either<i32, Result<string, f64>>>, string> {
+    io.println("\n[2] Complex mixed: Result<Option<Either<i32, Result<StaticString, f64>>>>")
+    create_complex = () Result<Option<Either<i32, Result<StaticString, f64>>>, StaticString> {
         Result.Ok(Option.Some(Either.Right(Result.Ok("nested"))))
     }
     
@@ -47,8 +47,8 @@ main = () void {
         | Result.Err(e) { io.println("  Got Err: ${e}") }
     
     // Test 3: Array of nested generics
-    io.println("\n[3] Array<Option<Result<i32, string>>>")
-    arr = Array<Option<Result<i32, string>>>()
+    io.println("\n[3] Array<Option<Result<i32, StaticString>>>")
+    arr = Array<Option<Result<i32, StaticString>>>()
     arr.push(Option.Some(Result.Ok(100)))
     arr.push(Option.None)
     arr.push(Option.Some(Result.Err("error")))
@@ -65,7 +65,7 @@ main = () void {
     // Test 5: Function returning deeply nested generic
     io.println("\n[5] Function chaining with nested generics")
     
-    transform = (x: i32) Result<Option<Result<i32, string>>, string> {
+    transform = (x: i32) Result<Option<Result<i32, StaticString>>, StaticString> {
         x > 0 ?
             | true { Result.Ok(Option.Some(Result.Ok(x * 2))) }
             | false { Result.Ok(Option.None) }
@@ -86,7 +86,7 @@ main = () void {
     
     // Test 6: Alternating Option/Result nesting
     io.println("\n[6] Alternating: Option<Result<Option<Result<Option<i32>, E>>, E>>")
-    create_alternating = () Option<Result<Option<Result<Option<i32>, string>>, string>> {
+    create_alternating = () Option<Result<Option<Result<Option<i32>, StaticString>>, StaticString>> {
         Option.Some(Result.Ok(Option.Some(Result.Ok(Option.Some(888)))))
     }
     
@@ -113,7 +113,7 @@ main = () void {
     
     // Test 7: Generic type with multiple type parameters
     io.println("\n[7] Result with both T and E as nested generics")
-    complex_both = () Result<Result<i32, Option<string>>, Option<Result<string, i32>>> {
+    complex_both = () Result<Result<i32, Option<StaticString>>, Option<Result<StaticString, i32>>> {
         Result.Ok(Result.Ok(777))
     }
     

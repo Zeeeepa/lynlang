@@ -18,7 +18,7 @@ test_inline = () void {
 test_from_function = () void {
     io.println("Testing function-returned Result:")
     
-    make_result = () Result<i32, string> { Result.Ok(314159) }
+    make_result = () Result<i32, StaticString> { Result.Ok(314159) }
     
     r = make_result()
     r ?

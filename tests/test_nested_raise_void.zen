@@ -1,7 +1,7 @@
 // Test raise in void function
 { io, Result , get_default_allocator} = @std
 
-get_nested = () Result<Result<i32, string>, string> {
+get_nested = () Result<Result<i32, StaticString>, StaticString> {
     Result.Ok(Result.Ok(42))
 }
 

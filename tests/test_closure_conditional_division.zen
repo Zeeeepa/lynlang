@@ -3,7 +3,7 @@
 
 main = () i32 {
     alloc = get_default_allocator()
-    divide = (a: f64, b: f64) Result<f64, string> {
+    divide = (a: f64, b: f64) Result<f64, StaticString> {
         // Store b first
         b_val = b
         // Add conditional

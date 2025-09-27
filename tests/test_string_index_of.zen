@@ -1,4 +1,4 @@
-// Test string.index_of() method
+// Test StaticString.index_of() method
 { get_default_allocator } = @std
 
 main = () i32 {
@@ -29,11 +29,11 @@ main = () i32 {
         | true { io.println("Test 4 passed: Found first 'o' at index 4") }
         | false { io.println("Test 4 FAILED: First 'o' should be at index 4"); return 1 }
     
-    // Test index_of - empty string (should always return 0)
+    // Test index_of - empty StaticString (should always return 0)
     idx5 = text.index_of("")
     idx5 == 0 ?
-        | true { io.println("Test 5 passed: Empty string found at index 0") }
-        | false { io.println("Test 5 FAILED: Empty string should be at index 0"); return 1 }
+        | true { io.println("Test 5 passed: Empty StaticString found at index 0") }
+        | false { io.println("Test 5 FAILED: Empty StaticString should be at index 0"); return 1 }
     
     // Test index_of - special characters
     idx6 = text.index_of(",")
@@ -48,7 +48,7 @@ main = () i32 {
         | true { io.println("Test 7 passed: Variable substring found at index 7") }
         | false { io.println("Test 7 FAILED: Variable substring should be at index 7"); return 1 }
     
-    // Test with string variable
+    // Test with StaticString variable
     str = "programming is fun"
     idx8 = str.index_of("gram")
     idx8 == 3 ?
@@ -67,6 +67,6 @@ main = () i32 {
         | true { io.println("Test 10 passed: Found '!' at index 12") }
         | false { io.println("Test 10 FAILED: '!' should be at index 12"); return 1 }
     
-    io.println("All string.index_of() tests passed!")
+    io.println("All StaticString.index_of() tests passed!")
     return 0
 }

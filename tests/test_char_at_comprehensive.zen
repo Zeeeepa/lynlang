@@ -1,4 +1,4 @@
-// Comprehensive test for string.char_at() method
+// Comprehensive test for StaticString.char_at() method
 { io , get_default_allocator} = @std
 
 main = () i32 {
@@ -15,12 +15,12 @@ main = () i32 {
     io.println("  char_at(7) = ${hello.char_at(7)}")  // W = 87
     io.println("  char_at(12) = ${hello.char_at(12)}") // ! = 33
     
-    // Test with single character string
+    // Test with single character StaticString
     io.println("Testing single char 'A':")
     io.println("  char_at(0) = ${single.char_at(0)}")  // A = 65
     
-    // Test with string literals directly
-    io.println("Testing string literal:")
+    // Test with StaticString literals directly
+    io.println("Testing StaticString literal:")
     io.println("  '123'[0] = ${"123".char_at(0)}")     // 1 = 49
     io.println("  '123'[1] = ${"123".char_at(1)}")     // 2 = 50
     io.println("  '123'[2] = ${"123".char_at(2)}")     // 3 = 51

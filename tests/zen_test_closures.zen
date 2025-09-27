@@ -35,7 +35,7 @@ test_closure_return = () void {
 test_closure_result = () void {
     io.println("=== Test 3: Closure with Result ===")
     
-    divide = (a: i32, b: i32) Result<i32, string> {
+    divide = (a: i32, b: i32) Result<i32, StaticString> {
         b == 0 ?
             | true { Result.Err("Division by zero") }
             | false { Result.Ok(a / b) }
@@ -56,7 +56,7 @@ test_closure_result = () void {
 test_closure_raise = () void {
     io.println("=== Test 4: Closure with Raise ===")
     
-    safe_divide = (a: i32, b: i32) Result<i32, string> {
+    safe_divide = (a: i32, b: i32) Result<i32, StaticString> {
         b == 0 ?
             | true { Result.Err("Division by zero") }
             | false { Result.Ok(a / b) }
@@ -106,11 +106,11 @@ test_closure_ternary = () void {
     io.println("Maximum: ${result}")
 }
 
-// Test 7: Closure with string operations
+// Test 7: Closure with StaticString operations
 test_closure_string = () void {
     io.println("=== Test 7: Closure with String ===")
     
-    greet = (name: string) string {
+    greet = (name: StaticString) StaticString {
         "Hello, " + name + "!"
     }
     

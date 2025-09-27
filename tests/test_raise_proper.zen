@@ -1,14 +1,14 @@
 // Proper test for .raise() issue
 { io, Result , get_default_allocator} = @std
 
-maybe_fail = (fail: bool) Result<i32, string> {
+maybe_fail = (fail: bool) Result<i32, StaticString> {
     fail ? {
         return Result.Err("Failed")
     }
     return Result.Ok(42)
 }
 
-process_value = () Result<i32, string> {
+process_value = () Result<i32, StaticString> {
     value = maybe_fail(false).raise()
     io.println("Got value: ${value}")
     return Result.Ok(value)

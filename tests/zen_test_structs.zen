@@ -23,12 +23,12 @@ test_basic_struct = () void {
 
 // Test 2: Struct with methods
 Person : {
-    name: string,
+    name: StaticString,
     age: i32
 }
 
 // Method for Person struct
-get_info = (self: Person) string {
+get_info = (self: Person) StaticString {
     return "Name: ${self.name}, Age: ${self.age}"
 }
 
@@ -52,7 +52,7 @@ test_generic_struct = () void {
     int_container = Container<i32> { value: 42, count: 1 }
     io.println("Int container: value=${int_container.value}, count=${int_container.count}")
     
-    string_container = Container<string> { value: "hello", count: 2 }
+    string_container = Container<StaticString> { value: "hello", count: 2 }
     io.println("String container: value=${string_container.value}, count=${string_container.count}")
 }
 
@@ -78,8 +78,8 @@ test_option_struct = () void {
 
 // Test 5: Struct with Result fields
 ResultPoint = struct {
-    x: Result<i32, string>,
-    y: Result<i32, string>
+    x: Result<i32, StaticString>,
+    y: Result<i32, StaticString>
 }
 
 test_result_struct = () void {
@@ -98,12 +98,12 @@ test_result_struct = () void {
 
 // Test 6: Nested structs
 Address = struct {
-    street: string,
-    city: string
+    street: StaticString,
+    city: StaticString
 }
 
 Employee = struct {
-    name: string,
+    name: StaticString,
     address: Address,
     salary: i32
 }
@@ -122,7 +122,7 @@ test_nested_structs = () void {
 // Test 7: Struct with DynVec field
 ArrayStruct: {
     numbers: DynVec<i32>,
-    name: string
+    name: StaticString
 }
 
 test_array_struct = () void {
@@ -176,7 +176,7 @@ test_struct_self_methods = () void {
 // Test 9: Struct with default values
 DefaultStruct : {
     value: i32,
-    name: string,
+    name: StaticString,
     active: bool
 }
 

@@ -1,14 +1,14 @@
-// Test function returning Result<i32, string>
+// Test function returning Result<i32, StaticString>
 { io, Result , get_default_allocator} = @std
 
-// Function that returns Result<i32, string>
-make_result = (val: i32) Result<i32, string> {
+// Function that returns Result<i32, StaticString>
+make_result = (val: i32) Result<i32, StaticString> {
     Result.Ok(val)
 }
 
 main = () i32 {
     alloc = get_default_allocator()
-    io.println("=== Testing function returns with Result<i32, string> ===")
+    io.println("=== Testing function returns with Result<i32, StaticString> ===")
     
     // Call function
     res = make_result(42)

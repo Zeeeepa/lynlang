@@ -1,4 +1,4 @@
-// Test string.contains() method
+// Test StaticString.contains() method
 { get_default_allocator } = @std
 
 main = () i32 {
@@ -21,10 +21,10 @@ main = () i32 {
         | true { io.println("Test 3 FAILED: Should not find 'Python'"); return 1 }
         | false { io.println("Test 3 passed: Correctly didn't find 'Python'") }
     
-    // Test contains with empty string - should always return true
+    // Test contains with empty StaticString - should always return true
     text.contains("") ?
-        | true { io.println("Test 4 passed: Empty string is contained") }
-        | false { io.println("Test 4 FAILED: Empty string should be contained"); return 1 }
+        | true { io.println("Test 4 passed: Empty StaticString is contained") }
+        | false { io.println("Test 4 FAILED: Empty StaticString should be contained"); return 1 }
     
     // Test contains with single character
     text.contains("o") ?
@@ -37,7 +37,7 @@ main = () i32 {
         | true { io.println("Test 6 passed: Found variable substring") }
         | false { io.println("Test 6 FAILED: Should find variable substring"); return 1 }
     
-    // Test with string variable
+    // Test with StaticString variable
     str = "programming is fun"
     str.contains("gram") ?
         | true { io.println("Test 7 passed: Found 'gram' in variable") }
@@ -48,6 +48,6 @@ main = () i32 {
         | true { io.println("Test 8 FAILED: Should be case sensitive"); return 1 }
         | false { io.println("Test 8 passed: Correctly case sensitive") }
     
-    io.println("All string.contains() tests passed!")
+    io.println("All StaticString.contains() tests passed!")
     return 0
 }

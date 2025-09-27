@@ -1,7 +1,7 @@
 { io, Result , get_default_allocator} = @std
 
-// Simple function returning Result<void, string>
-test_fn = () Result<void, string> {
+// Simple function returning Result<void, StaticString>
+test_fn = () Result<void, StaticString> {
     Result.Ok(void)
 }
 

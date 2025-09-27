@@ -64,7 +64,7 @@ main = () void {
     
     // Test 8: Function returning nested generics
     io.println("\n8. Function returning nested generics:")
-    make_nested = () Result<Option<i32>, string> {
+    make_nested = () Result<Option<i32>, StaticString> {
         return Result.Ok(Option.Some(252))
     }
     nested_result = make_nested()
@@ -84,7 +84,7 @@ main = () void {
     io.println("\n=== Summary ===")
     io.println("✅ Standard library generics (Result, Option) work perfectly")
     io.println("✅ Deep nesting (triple+ levels) works correctly")
-    io.println("✅ Mixed type payloads (i32, f64, string) all work")
+    io.println("✅ Mixed type payloads (i32, f64, StaticString) all work")
     io.println("✅ Cross-nesting (Result<Option<T>>, Option<Result<T>>) works")
     io.println("⚠️  Custom enums in generics lose payload values (needs fix)")
 }

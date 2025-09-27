@@ -17,7 +17,7 @@ main = () i32 {
             inner_result ?
                 | Result.Ok(val) {
                     io.println("Got inner value")
-                    // Don't use string interpolation with val yet
+                    // Don't use StaticString interpolation with val yet
                 }
                 | Result.Err(e) { io.println("Inner was Err") }
         }

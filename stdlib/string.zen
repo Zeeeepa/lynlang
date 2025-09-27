@@ -1,0 +1,237 @@
+// Dynamic String type with allocator support
+// This implements the heap-allocated, mutable string type
+
+{ Allocator } = @std.memory_unified
+
+struct String {
+    data: Ptr<u8>
+    len: u64
+    capacity: u64
+    allocator: Allocator
+}
+
+// Create a new empty String with the given allocator
+String.new = (allocator: Allocator) String {
+    return String {
+        data: allocator.alloc(1),  // Allocate space for null terminator
+        len: 0,
+        capacity: 1,
+        allocator: allocator
+    }
+}
+
+// Create a String from a StaticString
+String.from_static = (s: StaticString, allocator: Allocator) String {
+    len := s.len()
+    capacity := len + 1  // +1 for null terminator
+
+    data := allocator.alloc(capacity)
+    // Copy data from static string
+    i := 0
+    loop(() {
+        i >= len ? { break }
+        data[i] = s[i]
+        i = i + 1
+    })
+    data[len] = 0  // Null terminator
+
+    return String {
+        data: data,
+        len: len,
+        capacity: capacity,
+        allocator: allocator
+    }
+}
+
+// Append a StaticString to this String
+String.append = (self: String, s: StaticString) Result<String, StaticString> {
+    new_len := self.len + s.len()
+
+    // Check if we need to grow
+    self.capacity <= new_len ? {
+        // Need to reallocate
+        new_capacity := new_len * 2 + 1
+        new_data := self.allocator.alloc(new_capacity)
+
+        // Copy existing data
+        i := 0
+        loop(() {
+            i >= self.len ? { break }
+            new_data[i] = self.data[i]
+            i = i + 1
+        })
+
+        // Free old data
+        self.allocator.free(self.data)
+
+        self.data = new_data
+        self.capacity = new_capacity
+    }
+
+    // Append new data
+    i := 0
+    s_len := s.len()
+    loop(() {
+        i >= s_len ? { break }
+        self.data[self.len + i] = s[i]
+        i = i + 1
+    })
+
+    self.len = new_len
+    self.data[new_len] = 0  // Null terminator
+
+    return Result::Ok(self)
+}
+
+// Append another String to this String
+String.append_string = (self: String, other: String) Result<String, StaticString> {
+    new_len := self.len + other.len
+
+    // Check if we need to grow
+    self.capacity <= new_len ? {
+        // Need to reallocate
+        new_capacity := new_len * 2 + 1
+        new_data := self.allocator.alloc(new_capacity)
+
+        // Copy existing data
+        i := 0
+        loop(() {
+            i >= self.len ? { break }
+            new_data[i] = self.data[i]
+            i = i + 1
+        })
+
+        // Free old data
+        self.allocator.free(self.data)
+
+        self.data = new_data
+        self.capacity = new_capacity
+    }
+
+    // Append new data
+    i := 0
+    loop(() {
+        i >= other.len ? { break }
+        self.data[self.len + i] = other.data[i]
+        i = i + 1
+    })
+
+    self.len = new_len
+    self.data[new_len] = 0  // Null terminator
+
+    return Result::Ok(self)
+}
+
+// Convert String to StaticString (creates a static view - be careful with lifetime!)
+String.as_static = (self: String) StaticString {
+    // This is unsafe and should only be used when the String outlives the StaticString usage
+    return @cast(StaticString, self.data)
+}
+
+// Get the length of the String
+String.len = (self: String) u64 {
+    return self.len
+}
+
+// Check if the String is empty
+String.is_empty = (self: String) bool {
+    return self.len == 0
+}
+
+// Clear the String (keeps allocated memory)
+String.clear = (self: String) String {
+    self.len = 0
+    self.data[0] = 0  // Null terminator
+    return self
+}
+
+// Free the String's memory
+String.free = (self: String) void {
+    self.allocator.free(self.data)
+}
+
+// Clone the String with the same allocator
+String.clone = (self: String) String {
+    new_data := self.allocator.alloc(self.capacity)
+
+    // Copy data
+    i := 0
+    loop(() {
+        i > self.len ? { break }  // Include null terminator
+        new_data[i] = self.data[i]
+        i = i + 1
+    })
+
+    return String {
+        data: new_data,
+        len: self.len,
+        capacity: self.capacity,
+        allocator: self.allocator
+    }
+}
+
+// Substring operation
+String.substr = (self: String, start: u64, len: u64) Result<String, StaticString> {
+    start >= self.len ? {
+        return Result::Err("Start index out of bounds")
+    }
+
+    actual_len := len
+    (start + len) > self.len ? {
+        actual_len = self.len - start
+    }
+
+    new_capacity := actual_len + 1
+    new_data := self.allocator.alloc(new_capacity)
+
+    // Copy substring
+    i := 0
+    loop(() {
+        i >= actual_len ? { break }
+        new_data[i] = self.data[start + i]
+        i = i + 1
+    })
+    new_data[actual_len] = 0  // Null terminator
+
+    return Result::Ok(String {
+        data: new_data,
+        len: actual_len,
+        capacity: new_capacity,
+        allocator: self.allocator
+    })
+}
+
+// Concatenate two Strings, creating a new String
+String.concat = (s1: String, s2: String, allocator: Allocator) String {
+    new_len := s1.len + s2.len
+    new_capacity := new_len + 1
+    new_data := allocator.alloc(new_capacity)
+
+    // Copy first string
+    i := 0
+    loop(() {
+        i >= s1.len ? { break }
+        new_data[i] = s1.data[i]
+        i = i + 1
+    })
+
+    // Copy second string
+    i = 0
+    loop(() {
+        i >= s2.len ? { break }
+        new_data[s1.len + i] = s2.data[i]
+        i = i + 1
+    })
+
+    new_data[new_len] = 0  // Null terminator
+
+    return String {
+        data: new_data,
+        len: new_len,
+        capacity: new_capacity,
+        allocator: allocator
+    }
+}
+
+// Export the String type
+export String

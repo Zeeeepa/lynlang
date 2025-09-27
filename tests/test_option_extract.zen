@@ -20,7 +20,7 @@ main = () i32 {
         
     io.println("None gives: ${result2}")
     
-    // Test with string payload
+    // Test with StaticString payload
     msg = Some("hello")
     msg_result = msg ?
         | .Some(s) => s

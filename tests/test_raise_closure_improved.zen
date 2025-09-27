@@ -3,28 +3,28 @@
 
 main = () i32 {
     alloc = get_default_allocator()
-    // Test 1: Basic closure returning Result<i32, string>
+    // Test 1: Basic closure returning Result<i32, StaticString>
     get_int = () {
         return Result.Ok(42)
     }
     
     val1 = get_int().raise()
     val1 == 42 ? {
-        io.println("✓ Test 1: Result<i32,string> from closure works")
+        io.println("✓ Test 1: Result<i32,StaticString> from closure works")
     }
     val1 != 42 ? {
         io.println("✗ Test 1 failed: Got ${val1}")
         return 1
     }
     
-    // Test 2: Closure returning Result<f64, string>
+    // Test 2: Closure returning Result<f64, StaticString>
     get_float = () {
         return Result.Ok(3.14)
     }
     
     val2 = get_float().raise()
     val2 == 3.14 ? {
-        io.println("✓ Test 2: Result<f64,string> from closure works")
+        io.println("✓ Test 2: Result<f64,StaticString> from closure works")
     }
     val2 != 3.14 ? {
         io.println("✗ Test 2 failed: Got ${val2}")

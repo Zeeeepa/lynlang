@@ -1,9 +1,9 @@
-// Test string.substr() method
+// Test StaticString.substr() method
 { io , get_default_allocator} = @std
 
 main = () i32 {
     alloc = get_default_allocator()
-    io.println("Testing string.substr() method...")
+    io.println("Testing StaticString.substr() method...")
     
     // Test 1: Basic substring extraction
     text = "Hello, World!"
@@ -71,17 +71,17 @@ main = () i32 {
         return 1
     }
     
-    // Test 6: Full string extraction
+    // Test 6: Full StaticString extraction
     full_text = "Complete"
     full_len_var: i64 = full_text.len()
     sub6 = full_text.substr(0, full_len_var)
     io.println("Full substring of 'Complete': '${sub6}'")
     sub6_len: i64 = sub6.len()
     sub6_len == full_len_var ? {
-        io.println("✓ Full string extraction test passed")
+        io.println("✓ Full StaticString extraction test passed")
     }
     sub6_len != full_len_var ? {
-        io.println("✗ Full string extraction test failed: expected length ${full_len_var}, got ${sub6_len}")
+        io.println("✗ Full StaticString extraction test failed: expected length ${full_len_var}, got ${sub6_len}")
         return 1
     }
     
@@ -112,6 +112,6 @@ main = () i32 {
         return 1
     }
     
-    io.println("\n✓ All string.substr() tests passed!")
+    io.println("\n✓ All StaticString.substr() tests passed!")
     return 0
 }

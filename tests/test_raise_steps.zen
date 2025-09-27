@@ -1,8 +1,8 @@
 // Test raise() step by step
 { io, Result , get_default_allocator} = @std
 
-// Function that returns Result<Result<i32, string>, string>
-get_nested = () Result<Result<i32, string>, string> {
+// Function that returns Result<Result<i32, StaticString>, StaticString>
+get_nested = () Result<Result<i32, StaticString>, StaticString> {
     inner = Result.Ok(88)
     Result.Ok(inner)
 }

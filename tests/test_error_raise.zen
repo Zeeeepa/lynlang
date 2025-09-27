@@ -2,7 +2,7 @@
 { io, Result , get_default_allocator} = @std
 
 // Helper function that might fail
-divide = (a: i32, b: i32) Result<i32, string> {
+divide = (a: i32, b: i32) Result<i32, StaticString> {
     b == 0 ? {
         return Result.Err("Division by zero")
     }
@@ -10,7 +10,7 @@ divide = (a: i32, b: i32) Result<i32, string> {
 }
 
 // Function that uses .raise() to propagate errors
-calculate = (x: i32) Result<i32, string> {
+calculate = (x: i32) Result<i32, StaticString> {
     // This should propagate the error if divide fails
     step1 = divide(10, x).raise()   // If Err, returns early
     step2 = divide(step1, 2).raise() // Chain operations

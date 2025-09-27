@@ -25,7 +25,7 @@ test_string_option = () void {
     str_opt = Some("hello")
     str_opt ?
         | Some(s) { io.println("String: ${s}") }
-        | None { io.println("No string") }
+        | None { io.println("No StaticString") }
 }
 
 // Test 3: Multiple Options
