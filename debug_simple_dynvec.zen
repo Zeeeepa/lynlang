@@ -1,8 +1,0 @@
-// Simplest possible DynVec test
-{DynVec, get_default_allocator} = @std
-
-main = () i32 {
-    alloc = get_default_allocator()
-    vec = DynVec<i32>(alloc)
-    return 0
-}

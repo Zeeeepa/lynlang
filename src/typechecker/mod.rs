@@ -78,7 +78,9 @@ impl TypeChecker {
                         "f32" => AstType::F32,
                         "f64" => AstType::F64,
                         "bool" => AstType::Bool,
-                        "string" => AstType::String,
+                        "string" => AstType::StringLiteral,  // lowercase string is StringLiteral
+                        "StaticString" => AstType::StringLiteral,  // alias for StringLiteral
+                        "String" => AstType::String,  // capital String is dynamic String
                         _ => {
                             // Check if it's another generic type
                             if trimmed.contains('<') {

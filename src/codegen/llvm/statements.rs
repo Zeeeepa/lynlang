@@ -176,8 +176,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             self.track_generic_type(format!("{}_Array_Element_Type", name), type_args[0].clone());
                                             self.generic_tracker.track_generic_type(&ast_type, name);
                                         } else if type_name == "HashMap" && type_args.len() == 2 {
-                                            // eprintln!("[DEBUG] Tracking HashMap<{:?}, {:?}> for variable '{}'", 
-                                            //     type_args[0], type_args[1], name);
                                             self.track_generic_type(format!("{}_HashMap_Key_Type", name), type_args[0].clone());
                                             self.track_generic_type(format!("{}_HashMap_Value_Type", name), type_args[1].clone());
                                             self.generic_tracker.track_generic_type(&ast_type, name);

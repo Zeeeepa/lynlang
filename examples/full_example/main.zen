@@ -10,14 +10,14 @@
 // 1. STRUCTS - Custom data types with fields
 // ============================================================================
 
-Person := {
+Person: {
     name: string,
     age: i32,
     email: Option<string>
 }
 
 // Struct with methods (when supported)
-Point := {
+Point: {
     x: f64,
     y: f64
 }
@@ -63,11 +63,11 @@ divide = (a: f64, b: f64) Result<f64, string> {
 find_person = (id: i64) Option<Person> {
     // Simulated lookup
     id == 1 ? {
-        return Option.Some(Person {
+        return Option.Some(Person(
             name: "Alice",
             age: 30,
             email: Option.Some("alice@example.com")
-        })
+        ))
     }
     return Option.None
 }
@@ -200,10 +200,10 @@ demo_generics = () void {
     println("\n=== GENERICS ===")
     
     // Simple generic
-    container = Container<i32> {
+    container = Container<i32>(
         value: 42,
         metadata: Option.Some("Important number")
-    }
+    )
     println("Container value: ${container.value}")
     
     // Nested generics
@@ -292,7 +292,7 @@ demo_ffi = () void {
 // 15. DEFAULT VALUES - Struct field defaults
 // ============================================================================
 
-Config := {
+Config: {
     host: string = "localhost",
     port: i32 = 8080,
     debug: bool = false
@@ -302,14 +302,14 @@ demo_defaults = () void {
     println("\n=== DEFAULT VALUES ===")
     
     // Using defaults
-    config1 = Config {}
+    config1 = Config()
     println("Default config: ${config1.host}:${config1.port}")
     
-    // Override some defaults  
-    config2 = Config {
+    // Override some defaults
+    config2 = Config(
         port: 3000,
         debug: true
-    }
+    )
     println("Custom config: port=${config2.port}, debug=${config2.debug}")
 }
 

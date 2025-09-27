@@ -186,7 +186,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     if let Some(angle_pos) = name.find('<') {
                         let base_type = &name[..angle_pos];
                         let type_params_str = &name[angle_pos+1..name.len()-1];
-                        
+
                         // Parse type parameters - need to handle nested generics
                         let type_args = self.parse_type_args_string(type_params_str)?;
                         
@@ -3270,11 +3270,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 )?.into_int_value();
                                 
                                 // Determine key type and handle accordingly
-                                let (stored_key_for_eq, eq_fn_type): (BasicValueEnum, _) = if let Some(var_info) = self.variables.get(obj_name) {
+                                let (stored_key_for_eq, key_for_eq, eq_fn_type): (BasicValueEnum, BasicValueEnum, _) = if let Some(var_info) = self.variables.get(obj_name) {
                                     if let AstType::Generic { type_args, .. } = &var_info.ast_type {
                                         if type_args.len() >= 1 {
                                             match &type_args[0] {
-                                                AstType::String => {
+                                                AstType::String | AstType::StaticString | AstType::StringLiteral => {
                                                     // String key: convert i64 to pointer
                                                     let stored_key_ptr = self.builder.build_int_to_ptr(
                                                         stored_key_i64,
@@ -3288,7 +3288,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         ],
                                                         false
                                                     );
-                                                    (stored_key_ptr.into(), fn_type)
+                                                    // key is already a pointer for string types
+                                                    (stored_key_ptr.into(), key, fn_type)
                                                 }
                                                 AstType::I32 => {
                                                     // i32 key: truncate i64 to i32
@@ -3297,6 +3298,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         self.context.i32_type(),
                                                         "stored_key_i32"
                                                     )?;
+                                                    // If key is i64, truncate it to i32
+                                                    let key_for_eq = if key.get_type() == self.context.i64_type().into() {
+                                                        self.builder.build_int_truncate(
+                                                            key.into_int_value(),
+                                                            self.context.i32_type(),
+                                                            "key_i32"
+                                                        )?.into()
+                                                    } else {
+                                                        key
+                                                    };
                                                     let fn_type = self.context.i64_type().fn_type(
                                                         &[
                                                             self.context.i32_type().into(),
@@ -3304,7 +3315,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         ],
                                                         false
                                                     );
-                                                    (stored_key_i32.into(), fn_type)
+                                                    (stored_key_i32.into(), key_for_eq, fn_type)
                                                 }
                                                 _ => {
                                                     // Default: use as i64
@@ -3315,7 +3326,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         ],
                                                         false
                                                     );
-                                                    (stored_key_i64.into(), fn_type)
+                                                    (stored_key_i64.into(), key, fn_type)
                                                 }
                                             }
                                         } else {
@@ -3327,7 +3338,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 ],
                                                 false
                                             );
-                                            (stored_key_i64.into(), fn_type)
+                                            (stored_key_i64.into(), key, fn_type)
                                         }
                                     } else {
                                         // Not a generic type, default to i64
@@ -3338,7 +3349,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             ],
                                             false
                                         );
-                                        (stored_key_i64.into(), fn_type)
+                                        (stored_key_i64.into(), key, fn_type)
                                     }
                                 } else {
                                     // Variable not found, default to i64
@@ -3349,14 +3360,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         ],
                                         false
                                     );
-                                    (stored_key_i64.into(), fn_type)
+                                    (stored_key_i64.into(), key, fn_type)
                                 };
-                                
+
                                 // Call equality function to compare keys
                                 let eq_result = self.builder.build_indirect_call(
                                     eq_fn_type,
                                     eq_fn_ptr,
-                                    &[stored_key_for_eq.into(), key.into()],
+                                    &[stored_key_for_eq.into(), key_for_eq.into()],
                                     "eq_result"
                                 )?;
                                 let eq_int = eq_result.try_as_basic_value().left()
@@ -8164,7 +8175,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 
                                 Ok(loaded)
                             }
-                            AstType::String => {
+                            AstType::String | AstType::StaticString | AstType::StringLiteral => {
                                 // String is already a pointer value, just return it directly
                                 // The ptr_val is already pointing to the string data
                                 Ok(ptr_val.into())
@@ -9128,7 +9139,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
             "f32" => Ok(AstType::F32),
             "f64" => Ok(AstType::F64),
             "bool" => Ok(AstType::Bool),
-            "string" => Ok(AstType::String),
+            "string" => Ok(AstType::StringLiteral),
+            "StaticString" => Ok(AstType::StringLiteral),
+            "String" => Ok(AstType::String),  // Dynamic string type
             "void" => Ok(AstType::Void),
             _ => {
                 // Check if it's a generic type like "Option<i32>"
