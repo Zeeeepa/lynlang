@@ -10,39 +10,45 @@ main = () i32 {
         | Some(inner) {
             inner ?
                 | Some(v) { io.print_int(v) }  // Should print 42
-                | None { io.println("Inner None") }
+                | None { io.print("Inner None") }
         }
-        | None { io.println("Outer None") }
+        | None { io.print("Outer None") }
     
-    io.println("")
+    io.print("\n")
     
-    // Test Result<Option<i32>, String>
+    // Test Result<Option<i32>, i32>
     res = Result.Ok(Option.Some(100))
     
     res ?
         | Ok(opt) {
             opt ?
                 | Some(v) { io.print_int(v) }  // Should print 100
-                | None { io.println("None value") }
+                | None { io.print("None value") }
         }
-        | Err(e) { io.println(e) }
+        | Err(e) { 
+            io.print("Error: ")
+            io.print_int(e) 
+        }
     
-    io.println("")
+    io.print("\n")
     
-    // Test Option<Result<i32, String>>
+    // Test Option<Result<i32, i32>>
     opt_res = Option.Some(Result.Ok(200))
     
     opt_res ?
         | Some(r) {
             r ?
                 | Ok(v) { io.print_int(v) }  // Should print 200
-                | Err(e) { io.println(e) }
+                | Err(e) { 
+                    io.print("Error: ")
+                    io.print_int(e) 
+                }
         }
-        | None { io.println("No result") }
+        | None { io.print("No result") }
     
-    io.println("")
+    io.print("\n")
     
-    // Test triple nesting: Result<Option<Result<i32, String>>, String>
+    // Test triple nesting: Result<Option<Result<i32, i32>>, i32>
     triple = Result.Ok(Option.Some(Result.Ok(300)))
     
     triple ?
@@ -51,11 +57,19 @@ main = () i32 {
                 | Some(inner_res) {
                     inner_res ?
                         | Ok(v) { io.print_int(v) }  // Should print 300
-                        | Err(e) { io.println(e) }
+                        | Err(e) { 
+                            io.print("Inner error: ")
+                            io.print_int(e) 
+                        }
                 }
-                | None { io.println("Middle None") }
+                | None { io.print("Middle None") }
         }
-        | Err(e) { io.println(e) }
+        | Err(e) { 
+            io.print("Outer error: ")
+            io.print_int(e) 
+        }
+    
+    io.print("\n")
     
     return 0
 }

@@ -28,7 +28,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             AstType::F32 => Ok(Type::Basic(self.context.f32_type().into())),
             AstType::F64 => Ok(Type::Basic(self.context.f64_type().into())),
             AstType::Bool => Ok(Type::Basic(self.context.bool_type().into())),
-            AstType::String => Ok(Type::Basic(
+            AstType::StringLiteral | AstType::StaticString | AstType::String => Ok(Type::Basic(
                 self.context.ptr_type(AddressSpace::default()).into(),
             )),
             AstType::Void => Ok(Type::Void),

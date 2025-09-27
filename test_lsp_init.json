@@ -1,0 +1,3 @@
+Content-Length: 177
+
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"processId":1234,"rootUri":"file:///home/ubuntu/zenlang","capabilities":{"textDocument":{"completion":{},"hover":{}}}}}

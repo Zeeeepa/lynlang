@@ -23,6 +23,19 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
         }
     }
 
+    // Check for string type compatibility
+    // StringLiteral and StaticString can be used where String is expected (implicit coercion)
+    // But String cannot be used where StaticString/StringLiteral is expected without conversion
+    match (expected, actual) {
+        (AstType::String, AstType::StringLiteral) => return true,  // StringLiteral -> String is ok
+        (AstType::String, AstType::StaticString) => return true,  // StaticString -> String is ok
+        (AstType::StaticString, AstType::StringLiteral) => return true,  // StringLiteral -> StaticString is ok
+        (AstType::StringLiteral, AstType::StaticString) => return true,  // They're compatible
+        (AstType::StaticString, AstType::String) => return false,  // String -> StaticString needs conversion
+        (AstType::StringLiteral, AstType::String) => return false,  // String -> StringLiteral needs conversion
+        _ => {}
+    }
+
     // Check for pointer compatibility
     match (expected, actual) {
         (AstType::Ptr(expected_inner), AstType::Ptr(actual_inner)) => {

@@ -1210,7 +1210,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 BasicValueEnum::PointerValue(_) => {
                                     // For pointers, check if the initializer is a string literal
                                     if matches!(init_expr, Expression::String(_)) {
-                                        AstType::String
+                                        AstType::StringLiteral  // String literals are compile-time
                                     } else {
                                         AstType::Ptr(Box::new(AstType::I8)) // Generic pointer type
                                     }

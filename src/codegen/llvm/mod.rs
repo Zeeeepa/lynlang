@@ -583,7 +583,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 AstType::F32 => self.context.f32_type().as_basic_type_enum(),
                 AstType::F64 => self.context.f64_type().as_basic_type_enum(),
                 AstType::Bool => self.context.bool_type().as_basic_type_enum(),
-                AstType::String => self
+                AstType::StringLiteral | AstType::StaticString | AstType::String => self
                     .context
                     .ptr_type(inkwell::AddressSpace::default())
                     .as_basic_type_enum(),
@@ -674,7 +674,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         AstType::I16 | AstType::U16 => 16,
                         AstType::I32 | AstType::U32 | AstType::F32 => 32,
                         AstType::I64 | AstType::U64 | AstType::F64 | AstType::Usize => 64,
-                        AstType::String
+                        AstType::StringLiteral
+                        | AstType::StaticString
+                        | AstType::String
                         | AstType::Ptr(_)
                         | AstType::MutPtr(_)
                         | AstType::RawPtr(_) => 64, // pointer size
@@ -905,7 +907,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 "f32" => AstType::F32,
                 "f64" => AstType::F64,
                 "bool" => AstType::Bool,
-                "string" | "String" => AstType::String,
+                "string" => AstType::StringLiteral,
+                "StaticString" => AstType::StaticString,
+                "String" => AstType::String,
                 "void" => AstType::Void,
                 _ => AstType::I32, // Default fallback
             }

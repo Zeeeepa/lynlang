@@ -1,0 +1,426 @@
+// Enhanced Import System for Zen
+// Provides advanced module loading and dependency management
+
+{ Option, Result, HashMap, DynVec } = @std
+{ fs } = @std
+
+// ============================================================================
+// MODULE METADATA
+// ============================================================================
+
+ModuleVersion = {
+    major: i32
+    minor: i32
+    patch: i32
+}
+
+ModuleVersion.parse = (version_str: String) Option<ModuleVersion> {
+    // Parse version string like "1.2.3"
+    parts = version_str.split(".")
+    (parts.len() != 3) ? {
+        return Option.None
+    }
+    
+    major_opt = parts.get(0).and_then((s) Option<i32> { s.to_i32() })
+    minor_opt = parts.get(1).and_then((s) Option<i32> { s.to_i32() })
+    patch_opt = parts.get(2).and_then((s) Option<i32> { s.to_i32() })
+    
+    major_opt ?
+        | Some(major) {
+            minor_opt ?
+                | Some(minor) {
+                    patch_opt ?
+                        | Some(patch) {
+                            return Option.Some(ModuleVersion {
+                                major: major,
+                                minor: minor,
+                                patch: patch
+                            })
+                        }
+                        | None { return Option.None }
+                }
+                | None { return Option.None }
+        }
+        | None { return Option.None }
+}
+
+ModuleVersion.compatible = (self: ModuleVersion, required: ModuleVersion) bool {
+    // Semantic versioning compatibility
+    (self.major != required.major) ? { return false }
+    (self.minor < required.minor) ? { return false }
+    (self.minor == required.minor && self.patch < required.patch) ? { return false }
+    return true
+}
+
+ModuleVersion.to_string = (self: ModuleVersion) String {
+    return "${self.major}.${self.minor}.${self.patch}"
+}
+
+// ============================================================================
+// MODULE DEPENDENCY
+// ============================================================================
+
+DependencyKind:
+    Local { path: String }
+    | Git { url: String, branch: Option<String>, tag: Option<String> }
+    | Registry { name: String, version: String }
+    | Builtin { name: String }
+
+Dependency = {
+    name: String
+    kind: DependencyKind
+    features: DynVec<String>
+    optional: bool
+}
+
+// ============================================================================
+// MODULE MANIFEST
+// ============================================================================
+
+ModuleManifest = {
+    name: String
+    version: ModuleVersion
+    description: Option<String>
+    authors: DynVec<String>
+    license: Option<String>
+    
+    // Dependencies
+    dependencies: HashMap<String, Dependency>
+    dev_dependencies: HashMap<String, Dependency>
+    build_dependencies: HashMap<String, Dependency>
+    
+    // Features
+    features: HashMap<String, DynVec<String>>
+    default_features: DynVec<String>
+    
+    // Exports
+    exports: DynVec<String>
+}
+
+// ============================================================================
+// MODULE RESOLUTION
+// ============================================================================
+
+ModuleResolver = {
+    search_paths: DynVec<String>
+    module_cache: HashMap<String, Module>
+    manifest_cache: HashMap<String, ModuleManifest>
+}
+
+ModuleResolver.new = () ModuleResolver {
+    paths = DynVec<String>.new()
+    
+    // Add default search paths
+    paths.push(".")
+    paths.push("./lib")
+    paths.push("./modules")
+    paths.push("./stdlib")
+    paths.push("/usr/local/lib/zen")
+    
+    // Add ZEN_HOME if set
+    zen_home = @env.get("ZEN_HOME")
+    zen_home ?
+        | Some(path) {
+            paths.push("${path}/lib")
+            paths.push("${path}/stdlib")
+        }
+        | None { }
+    
+    return ModuleResolver {
+        search_paths: paths,
+        module_cache: HashMap<String, Module>.new(),
+        manifest_cache: HashMap<String, ModuleManifest>.new()
+    }
+}
+
+ModuleResolver.resolve = (self: MutPtr<ModuleResolver>, import_path: String) Result<Module, String> {
+    // Check cache first
+    cached = self.module_cache.get(import_path)
+    cached ?
+        | Some(module) {
+            return Result.Ok(module)
+        }
+        | None { }
+    
+    // Parse import path
+    parts = import_path.split(".")
+    
+    // Check if it's a builtin module
+    (parts.get(0) == Option.Some("@std")) ? {
+        return self.resolve_builtin(import_path)
+    }
+    
+    // Check if it's a relative import
+    (import_path.starts_with("./") || import_path.starts_with("../")) ? {
+        return self.resolve_relative(import_path)
+    }
+    
+    // Search in search paths
+    return self.resolve_from_paths(import_path)
+}
+
+ModuleResolver.resolve_builtin = (self: MutPtr<ModuleResolver>, path: String) Result<Module, String> {
+    // Handle @std modules
+    parts = path.split(".")
+    (parts.len() < 2) ? {
+        return Result.Err("Invalid builtin module path")
+    }
+    
+    module_name = parts.get(1).unwrap()
+    
+    module = match module_name {
+        "core" => create_core_module(),
+        "io" => create_io_module(),
+        "fs" => create_fs_module(),
+        "net" => create_net_module(),
+        "math" => create_math_module(),
+        "collections" => create_collections_module(),
+        _ => return Result.Err("Unknown builtin module: ${module_name}")
+    }
+    
+    // Cache and return
+    self.module_cache.insert(path, module)
+    return Result.Ok(module)
+}
+
+ModuleResolver.resolve_relative = (self: MutPtr<ModuleResolver>, path: String) Result<Module, String> {
+    // Convert relative path to absolute
+    abs_path = fs.resolve_path(path)
+    abs_path ?
+        | Ok(resolved) {
+            return self.load_module_from_file(resolved)
+        }
+        | Err(e) {
+            return Result.Err("Failed to resolve relative path: ${e}")
+        }
+}
+
+ModuleResolver.resolve_from_paths = (self: MutPtr<ModuleResolver>, import_path: String) Result<Module, String> {
+    // Convert import path to file path
+    file_path = import_path.replace(".", "/")
+    
+    // Try each search path
+    i = 0
+    loop {
+        (i >= self.search_paths.len()) ? { break }
+        
+        search_path = self.search_paths.get(i).unwrap()
+        
+        // Try .zen file
+        full_path = "${search_path}/${file_path}.zen"
+        (fs.exists(full_path)) ? {
+            return self.load_module_from_file(full_path)
+        }
+        
+        // Try directory with mod.zen
+        dir_path = "${search_path}/${file_path}/mod.zen"
+        (fs.exists(dir_path)) ? {
+            return self.load_module_from_file(dir_path)
+        }
+        
+        i = i + 1
+    }
+    
+    return Result.Err("Module not found: ${import_path}")
+}
+
+ModuleResolver.load_module_from_file = (self: MutPtr<ModuleResolver>, file_path: String) Result<Module, String> {
+    // Check for manifest file
+    dir_path = fs.dirname(file_path)
+    manifest_path = "${dir_path}/zen.toml"
+    
+    manifest = Option.None
+    (fs.exists(manifest_path)) ? {
+        manifest = self.load_manifest(manifest_path)
+    }
+    
+    // Load module source
+    source = fs.read_file(file_path)
+    source ?
+        | Ok(content) {
+            module = Module {
+                path: file_path,
+                source: content,
+                manifest: manifest,
+                exports: DynVec<String>.new()
+            }
+            
+            // Parse exports if needed
+            module.parse_exports()
+            
+            return Result.Ok(module)
+        }
+        | Err(e) {
+            return Result.Err("Failed to load module: ${e}")
+        }
+}
+
+// ============================================================================
+// MODULE STRUCTURE
+// ============================================================================
+
+Module = {
+    path: String
+    source: String
+    manifest: Option<ModuleManifest>
+    exports: DynVec<String>
+}
+
+Module.parse_exports = (self: MutPtr<Module>) void {
+    // Parse source to find exported symbols
+    // This would integrate with the parser
+    // For now, simplified version
+    
+    lines = self.source.split("\n")
+    i = 0
+    loop {
+        (i >= lines.len()) ? { break }
+        line = lines.get(i).unwrap()
+        
+        // Look for function definitions
+        (line.contains(" = (")) ? {
+            // Extract function name
+            parts = line.split("=")
+            (parts.len() > 0) ? {
+                name = parts.get(0).unwrap().trim()
+                self.exports.push(name)
+            }
+        }
+        
+        // Look for type definitions
+        (line.contains(" := {") || line.contains(":")) ? {
+            parts = line.split(":=")
+            (parts.len() == 0) ? {
+                parts = line.split(":")
+            }
+            (parts.len() > 0) ? {
+                name = parts.get(0).unwrap().trim()
+                self.exports.push(name)
+            }
+        }
+        
+        i = i + 1
+    }
+}
+
+// ============================================================================
+// IMPORT CONTEXT
+// ============================================================================
+
+ImportContext = {
+    resolver: ModuleResolver
+    imported_modules: HashMap<String, Module>
+    import_stack: DynVec<String>  // For circular dependency detection
+}
+
+ImportContext.new = () ImportContext {
+    return ImportContext {
+        resolver: ModuleResolver.new(),
+        imported_modules: HashMap<String, Module>.new(),
+        import_stack: DynVec<String>.new()
+    }
+}
+
+ImportContext.import = (self: MutPtr<ImportContext>, path: String) Result<Module, String> {
+    // Check for circular dependencies
+    i = 0
+    loop {
+        (i >= self.import_stack.len()) ? { break }
+        stack_item = self.import_stack.get(i).unwrap()
+        (stack_item == path) ? {
+            return Result.Err("Circular dependency detected: ${path}")
+        }
+        i = i + 1
+    }
+    
+    // Add to import stack
+    self.import_stack.push(path)
+    
+    // Resolve module
+    result = self.resolver.resolve(path)
+    
+    // Remove from import stack
+    self.import_stack.pop()
+    
+    result ?
+        | Ok(module) {
+            self.imported_modules.insert(path, module)
+            return Result.Ok(module)
+        }
+        | Err(e) {
+            return Result.Err(e)
+        }
+}
+
+// ============================================================================
+// CONVENIENCE FUNCTIONS
+// ============================================================================
+
+// Import a module with version requirement
+import_with_version = (module_name: String, version_req: String) Result<Module, String> {
+    ctx = ImportContext.new()
+    
+    // Parse version requirement
+    required_version = ModuleVersion.parse(version_req)
+    required_version ?
+        | None {
+            return Result.Err("Invalid version requirement: ${version_req}")
+        }
+        | Some(ver) {
+            // Load module
+            module_result = ctx.import(module_name)
+            module_result ?
+                | Ok(module) {
+                    // Check version compatibility
+                    module.manifest ?
+                        | Some(manifest) {
+                            (manifest.version.compatible(ver)) ? {
+                                return Result.Ok(module)
+                            } : {
+                                return Result.Err("Module version ${manifest.version.to_string()} incompatible with requirement ${version_req}")
+                            }
+                        }
+                        | None {
+                            // No manifest - assume compatible
+                            return Result.Ok(module)
+                        }
+                }
+                | Err(e) {
+                    return Result.Err(e)
+                }
+        }
+}
+
+// Import multiple modules
+import_many = (module_paths: DynVec<String>) Result<HashMap<String, Module>, String> {
+    ctx = ImportContext.new()
+    results = HashMap<String, Module>.new()
+    
+    i = 0
+    loop {
+        (i >= module_paths.len()) ? { break }
+        path = module_paths.get(i).unwrap()
+        
+        result = ctx.import(path)
+        result ?
+            | Ok(module) {
+                results.insert(path, module)
+            }
+            | Err(e) {
+                return Result.Err("Failed to import ${path}: ${e}")
+            }
+        
+        i = i + 1
+    }
+    
+    return Result.Ok(results)
+}
+
+// Check if a module is available
+module_available = (module_path: String) bool {
+    ctx = ImportContext.new()
+    result = ctx.resolver.resolve(module_path)
+    result ?
+        | Ok(_) { return true }
+        | Err(_) { return false }
+}

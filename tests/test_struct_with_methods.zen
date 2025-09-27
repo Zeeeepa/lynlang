@@ -28,8 +28,8 @@ Rectangle: {
 
 // Define area method for Rectangle
 rect_area = (r: Rectangle) f64 {
-    width = r.bottom_right.x - r.top_left.x
-    height = r.bottom_right.y - r.top_left.y
+    width: f64 = r.bottom_right.x - r.top_left.x
+    height: f64 = r.bottom_right.y - r.top_left.y
     return width * height
 }
 

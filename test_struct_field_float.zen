@@ -1,0 +1,16 @@
+// Test struct field float access
+{ io } = @std
+
+Point: {
+    x: f64,
+    y: f64,
+}
+
+test = (p: Point) f64 {
+    return 3.14159 * p.x * p.y
+}
+
+main = () void {
+    p = Point { x: 5.0, y: 5.0 }
+    io.println("Result: ${test(p)}")
+}

@@ -1,0 +1,125 @@
+// Test virtual dispatch allocator system
+{io, Option} = @std
+{AllocatorDyn, get_default_allocator_dyn, make_tracking_allocator, make_tracking_allocator_dyn, 
+ TrackingAllocator, AllocatorType, create_allocator} = @memory_virtual
+{DynVecVirtual} = @vec_virtual
+
+main = () i32 {
+    io.print("Testing virtual dispatch allocators...\n")
+    
+    // Test 1: Default allocator through virtual dispatch
+    io.print("\n1. Default allocator via trait object:\n")
+    default_alloc = get_default_allocator_dyn()
+    
+    // Allocate some memory using virtual dispatch
+    result1 = default_alloc.create<i32>()
+    result1 ?
+        | Ok(ptr) {
+            *ptr = 42
+            io.print("  Allocated i32 with value: ")
+            io.print_int(*ptr)
+            io.print("\n")
+            default_alloc.destroy(ptr)
+            io.print("  Freed i32\n")
+        }
+        | Err(_) {
+            io.print("  Allocation failed\n")
+        }
+    
+    // Test 2: DynVec with virtual allocator
+    io.print("\n2. DynVec using virtual dispatch:\n")
+    vec = DynVecVirtual<i32>.new(default_alloc)
+    
+    vec.push(10)
+    vec.push(20)
+    vec.push(30)
+    
+    io.print("  Vector length: ")
+    io.print_int(vec.len())
+    io.print("\n")
+    
+    io.print("  Vector contents: ")
+    i = 0
+    loop {
+        (i >= vec.len()) ? { break }
+        item = vec.get(i)
+        item ?
+            | Some(val) {
+                io.print_int(val)
+                io.print(" ")
+            }
+            | None { }
+        i = i + 1
+    }
+    io.print("\n")
+    
+    // Test 3: Tracking allocator wrapping default allocator
+    io.print("\n3. Tracking allocator with virtual dispatch:\n")
+    
+    // Create tracking allocator that wraps default
+    tracker = make_tracking_allocator(default_alloc)
+    tracking_alloc = make_tracking_allocator_dyn(@ref(tracker))
+    
+    // Use tracking allocator for a new vector
+    tracked_vec = DynVecVirtual<i32>.new(tracking_alloc)
+    tracked_vec.push(100)
+    tracked_vec.push(200)
+    tracked_vec.push(300)
+    tracked_vec.push(400)
+    
+    io.print("  Tracked vector created with ")
+    io.print_int(tracked_vec.len())
+    io.print(" elements\n")
+    
+    io.print("  Allocations: ")
+    io.print_int(tracker.allocations)
+    io.print("\n")
+    
+    io.print("  Current bytes: ")
+    io.print_int(tracker.current_bytes)
+    io.print("\n")
+    
+    io.print("  Peak bytes: ")
+    io.print_int(tracker.peak_bytes)
+    io.print("\n")
+    
+    // Test 4: Factory pattern with virtual dispatch
+    io.print("\n4. Allocator factory pattern:\n")
+    
+    // Create allocator using factory
+    factory_alloc = create_allocator(AllocatorType.Default)
+    factory_vec = DynVecVirtual<i32>.new(factory_alloc)
+    factory_vec.push(1000)
+    factory_vec.push(2000)
+    
+    io.print("  Factory-created vector with ")
+    io.print_int(factory_vec.len())
+    io.print(" elements\n")
+    
+    // Test 5: Multiple allocators with same interface
+    io.print("\n5. Polymorphic allocator usage:\n")
+    
+    // Function that accepts any allocator through virtual dispatch
+    use_allocator = (alloc: AllocatorDyn) void {
+        result = alloc.alloc_array<i32>(10)
+        result ?
+            | Ok(ptr) {
+                io.print("  Allocated array of 10 i32s\n")
+                alloc.free_array(ptr, 10)
+                io.print("  Freed array\n")
+            }
+            | Err(_) {
+                io.print("  Array allocation failed\n")
+            }
+    }
+    
+    io.print("  Using default allocator:\n")
+    use_allocator(default_alloc)
+    
+    io.print("  Using tracking allocator:\n")
+    use_allocator(tracking_alloc)
+    
+    io.print("\nVirtual dispatch allocator tests complete!\n")
+    
+    return 0
+}

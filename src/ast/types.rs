@@ -16,7 +16,9 @@ pub enum AstType {
     F32,
     F64,
     Bool,
-    String,
+    StringLiteral, // Internal: Compiler-known string literals
+    StaticString,  // User-facing: Static/literal strings (compile-time, immutable)
+    String,        // User-facing: Dynamic strings (runtime, requires allocator)
     Void,
     // New pointer types as per spec
     Ptr(Box<AstType>),    // Immutable pointer
@@ -116,7 +118,9 @@ impl fmt::Display for AstType {
             AstType::F32 => write!(f, "f32"),
             AstType::F64 => write!(f, "f64"),
             AstType::Bool => write!(f, "bool"),
-            AstType::String => write!(f, "string"),
+            AstType::StringLiteral => write!(f, "StaticString"), // Display as StaticString to users
+            AstType::StaticString => write!(f, "StaticString"),
+            AstType::String => write!(f, "String"),
             AstType::Void => write!(f, "void"),
             AstType::Ptr(inner) => write!(f, "Ptr<{}>", inner),
             AstType::MutPtr(inner) => write!(f, "MutPtr<{}>", inner),

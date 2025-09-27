@@ -1,0 +1,27 @@
+// Test Circle struct
+{ io } = @std
+
+Point: {
+    x: f64,
+    y: f64,
+}
+
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+circle_area = (c: Circle) f64 {
+    return 3.14159 * c.radius * c.radius
+}
+
+main = () void {
+    io.println("Testing Circle...")
+    circle = Circle { 
+        center: Point { x: 0.0, y: 0.0 }, 
+        radius: 5.0 
+    }
+    io.println("Circle radius: ${circle.radius}")
+    area = circle_area(circle)
+    io.println("Circle area: ${area}")
+}

@@ -1,0 +1,17 @@
+// Test struct with float fields
+{ io } = @std
+
+Circle: {
+    radius: f64,
+}
+
+circle_area = (c: Circle) f64 {
+    return 3.14159 * c.radius * c.radius
+}
+
+main = () void {
+    io.println("Testing struct float...")
+    circle = Circle { radius: 5.0 }
+    area = circle_area(circle)
+    io.println("Area: ${area}")
+}

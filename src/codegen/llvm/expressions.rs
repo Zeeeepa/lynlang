@@ -22,7 +22,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Expression::Float64(_) => Ok(AstType::F64),
             Expression::Boolean(_) => Ok(AstType::Bool),
             Expression::Unit => Ok(AstType::Void),
-            Expression::String(_) => Ok(AstType::String),
+            Expression::String(_) => Ok(AstType::StringLiteral),  // String literals are compile-time
             Expression::Identifier(name) => {
                 // Look up variable type
                 if let Some(var_info) = self.variables.get(name) {

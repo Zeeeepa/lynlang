@@ -9,6 +9,37 @@ also our type system and variable mapping is key to our language, we need to mak
 I need an LSP to work please make the lsp work after we have done nesting generics, allocator, imports and build.
 
 
+FUCK WE FUCKED UP
+
+WE TRIED TO MAKE STATIC STRING AND STRINGS DYNAMIC 
+
+but we introduced confusing terminology and such
+
+what we did
+
+StatisString = string // as an aslias  which means we have two words for it which is confusuing to developers
+String = dynamic...
+
+
+we want two types
+
+StaticString = static strings
+String = dynamic which takes an allocator 
+
+if we have to rewrite internal thing fine!
+
+this is also ideal 
+
+StaticLiteral = compiler known for internal llm strings and then even StringLLVM maaybe if we have to 
+StaticString = static strings
+String = dynamic which takes an allocator 
+
+
+
+
+
+
+
 # PROJECT STATUS (2025-09-26)
 
 ## Test Suite Health

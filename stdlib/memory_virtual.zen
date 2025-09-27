@@ -1,0 +1,270 @@
+// Virtual Dispatch Support for Allocators
+// Provides trait object infrastructure for dynamic polymorphism
+
+{ Result, Option } = @std
+{ AllocatorError, RawPtr, Ptr, MutPtr } = @memory_unified
+
+// ============================================================================
+// TRAIT OBJECT INFRASTRUCTURE
+// ============================================================================
+
+// Virtual table for allocator behavior
+AllocatorVTable = {
+    // Core operations - note the extra 'self' parameter for the data pointer
+    alloc: (self: RawPtr<void>, size: usize, align: usize) Result<RawPtr<void>, AllocatorError>
+    realloc: (self: RawPtr<void>, ptr: RawPtr<void>, old_size: usize, new_size: usize, align: usize) Result<RawPtr<void>, AllocatorError>
+    free: (self: RawPtr<void>, ptr: RawPtr<void>, size: usize, align: usize) void
+    
+    // Optional metadata
+    name: Option<String>
+    can_grow: bool
+    is_thread_safe: bool
+}
+
+// Trait object for allocators - fat pointer (data + vtable)
+AllocatorDyn = {
+    data: RawPtr<void>           // Pointer to actual allocator instance
+    vtable: Ptr<AllocatorVTable> // Pointer to virtual function table
+}
+
+// ============================================================================
+// TRAIT OBJECT OPERATIONS
+// ============================================================================
+
+// Call alloc through virtual dispatch
+AllocatorDyn.alloc = (self: AllocatorDyn, size: usize, align: usize) Result<RawPtr<void>, AllocatorError> {
+    return self.vtable.alloc(self.data, size, align)
+}
+
+// Call realloc through virtual dispatch
+AllocatorDyn.realloc = (self: AllocatorDyn, ptr: RawPtr<void>, old_size: usize, new_size: usize, align: usize) Result<RawPtr<void>, AllocatorError> {
+    return self.vtable.realloc(self.data, ptr, old_size, new_size, align)
+}
+
+// Call free through virtual dispatch
+AllocatorDyn.free = (self: AllocatorDyn, ptr: RawPtr<void>, size: usize, align: usize) void {
+    self.vtable.free(self.data, ptr, size, align)
+}
+
+// Typed allocation helpers using virtual dispatch
+AllocatorDyn.create = <T>(self: AllocatorDyn) Result<Ptr<T>, AllocatorError> {
+    result = self.alloc(@sizeof(T), @alignof(T))
+    result ?
+        | Err(e) { return Result.Err(e) }
+        | Ok(ptr) { return Result.Ok(@ptrcast(Ptr<T>, ptr)) }
+}
+
+AllocatorDyn.destroy = <T>(self: AllocatorDyn, ptr: Ptr<T>) void {
+    self.free(@ptrcast(RawPtr<void>, ptr), @sizeof(T), @alignof(T))
+}
+
+AllocatorDyn.alloc_array = <T>(self: AllocatorDyn, count: usize) Result<Ptr<T>, AllocatorError> {
+    size = count * @sizeof(T)
+    result = self.alloc(size, @alignof(T))
+    result ?
+        | Err(e) { return Result.Err(e) }
+        | Ok(ptr) { return Result.Ok(@ptrcast(Ptr<T>, ptr)) }
+}
+
+AllocatorDyn.free_array = <T>(self: AllocatorDyn, ptr: Ptr<T>, count: usize) void {
+    size = count * @sizeof(T)
+    self.free(@ptrcast(RawPtr<void>, ptr), size, @alignof(T))
+}
+
+// ============================================================================
+// VTABLE CREATION FOR DEFAULT ALLOCATOR
+// ============================================================================
+
+{ DefaultAllocator, allocate_raw, deallocate_raw, reallocate_raw } = @memory_unified
+
+// Wrapper functions that take self pointer and delegate to DefaultAllocator
+default_alloc_impl = (self: RawPtr<void>, size: usize, align: usize) Result<RawPtr<void>, AllocatorError> {
+    allocator = @ptrcast(Ptr<DefaultAllocator>, self)
+    return allocator.alloc(size, align)
+}
+
+default_realloc_impl = (self: RawPtr<void>, ptr: RawPtr<void>, old_size: usize, new_size: usize, align: usize) Result<RawPtr<void>, AllocatorError> {
+    allocator = @ptrcast(Ptr<DefaultAllocator>, self)
+    return allocator.realloc(ptr, old_size, new_size, align)
+}
+
+default_free_impl = (self: RawPtr<void>, ptr: RawPtr<void>, size: usize, align: usize) void {
+    allocator = @ptrcast(Ptr<DefaultAllocator>, self)
+    allocator.free(ptr, size, align)
+}
+
+// Static vtable for DefaultAllocator
+default_allocator_vtable: AllocatorVTable = AllocatorVTable {
+    alloc: default_alloc_impl,
+    realloc: default_realloc_impl,
+    free: default_free_impl,
+    name: Option.Some("DefaultAllocator"),
+    can_grow: true,
+    is_thread_safe: false
+}
+
+// ============================================================================
+// VTABLE CREATION FOR ARENA ALLOCATOR
+// ============================================================================
+
+{ Arena } = @memory_unified
+
+// Wrapper functions for Arena
+arena_alloc_impl = (self: RawPtr<void>, size: usize, align: usize) Result<RawPtr<void>, AllocatorError> {
+    arena = @ptrcast(Ptr<Arena>, self)
+    return arena.alloc(size, align)
+}
+
+arena_realloc_impl = (self: RawPtr<void>, ptr: RawPtr<void>, old_size: usize, new_size: usize, align: usize) Result<RawPtr<void>, AllocatorError> {
+    arena = @ptrcast(Ptr<Arena>, self)
+    return arena.realloc(ptr, old_size, new_size, align)
+}
+
+arena_free_impl = (self: RawPtr<void>, ptr: RawPtr<void>, size: usize, align: usize) void {
+    arena = @ptrcast(Ptr<Arena>, self)
+    arena.free(ptr, size, align)
+}
+
+// Static vtable for Arena
+arena_allocator_vtable: AllocatorVTable = AllocatorVTable {
+    alloc: arena_alloc_impl,
+    realloc: arena_realloc_impl,
+    free: arena_free_impl,
+    name: Option.Some("Arena"),
+    can_grow: false,
+    is_thread_safe: false
+}
+
+// ============================================================================
+// TRAIT OBJECT CREATION
+// ============================================================================
+
+// Create a trait object from a DefaultAllocator
+make_default_allocator_dyn = (allocator: Ptr<DefaultAllocator>) AllocatorDyn {
+    return AllocatorDyn {
+        data: @ptrcast(RawPtr<void>, allocator),
+        vtable: @ref(default_allocator_vtable)
+    }
+}
+
+// Create a trait object from an Arena
+make_arena_allocator_dyn = (arena: Ptr<Arena>) AllocatorDyn {
+    return AllocatorDyn {
+        data: @ptrcast(RawPtr<void>, arena),
+        vtable: @ref(arena_allocator_vtable)
+    }
+}
+
+// ============================================================================
+// GLOBAL DEFAULT ALLOCATOR WITH VIRTUAL DISPATCH
+// ============================================================================
+
+{ default_allocator } = @memory_unified
+
+// Returns default allocator as trait object
+get_default_allocator_dyn = () AllocatorDyn {
+    return make_default_allocator_dyn(@ref(default_allocator))
+}
+
+// ============================================================================
+// TRACKING ALLOCATOR WITH VIRTUAL DISPATCH
+// ============================================================================
+
+TrackingAllocator = {
+    inner: AllocatorDyn  // Wrap another allocator
+    allocations: i64
+    deallocations: i64
+    current_bytes: i64
+    peak_bytes: i64
+}
+
+tracking_alloc_impl = (self: RawPtr<void>, size: usize, align: usize) Result<RawPtr<void>, AllocatorError> {
+    tracker = @ptrcast(Ptr<TrackingAllocator>, self)
+    result = tracker.inner.alloc(size, align)
+    result ?
+        | Ok(ptr) {
+            tracker.allocations = tracker.allocations + 1
+            tracker.current_bytes = tracker.current_bytes + size
+            (tracker.current_bytes > tracker.peak_bytes) ? {
+                tracker.peak_bytes = tracker.current_bytes
+            }
+            return Result.Ok(ptr)
+        }
+        | Err(e) { return Result.Err(e) }
+}
+
+tracking_realloc_impl = (self: RawPtr<void>, ptr: RawPtr<void>, old_size: usize, new_size: usize, align: usize) Result<RawPtr<void>, AllocatorError> {
+    tracker = @ptrcast(Ptr<TrackingAllocator>, self)
+    result = tracker.inner.realloc(ptr, old_size, new_size, align)
+    result ?
+        | Ok(new_ptr) {
+            tracker.current_bytes = tracker.current_bytes - old_size + new_size
+            (tracker.current_bytes > tracker.peak_bytes) ? {
+                tracker.peak_bytes = tracker.current_bytes
+            }
+            return Result.Ok(new_ptr)
+        }
+        | Err(e) { return Result.Err(e) }
+}
+
+tracking_free_impl = (self: RawPtr<void>, ptr: RawPtr<void>, size: usize, align: usize) void {
+    tracker = @ptrcast(Ptr<TrackingAllocator>, self)
+    tracker.inner.free(ptr, size, align)
+    tracker.deallocations = tracker.deallocations + 1
+    tracker.current_bytes = tracker.current_bytes - size
+}
+
+tracking_allocator_vtable: AllocatorVTable = AllocatorVTable {
+    alloc: tracking_alloc_impl,
+    realloc: tracking_realloc_impl,
+    free: tracking_free_impl,
+    name: Option.Some("TrackingAllocator"),
+    can_grow: true,
+    is_thread_safe: false
+}
+
+// Create a tracking allocator that wraps another allocator
+make_tracking_allocator = (inner: AllocatorDyn) TrackingAllocator {
+    return TrackingAllocator {
+        inner: inner,
+        allocations: 0,
+        deallocations: 0,
+        current_bytes: 0,
+        peak_bytes: 0
+    }
+}
+
+// Convert tracking allocator to trait object
+make_tracking_allocator_dyn = (tracker: Ptr<TrackingAllocator>) AllocatorDyn {
+    return AllocatorDyn {
+        data: @ptrcast(RawPtr<void>, tracker),
+        vtable: @ref(tracking_allocator_vtable)
+    }
+}
+
+// ============================================================================
+// EXAMPLE: ALLOCATOR FACTORY
+// ============================================================================
+
+AllocatorType:
+    Default
+    | Arena { size: usize }
+    | Tracking { inner: AllocatorType }
+
+// Factory function that returns allocators as trait objects
+create_allocator = (type: AllocatorType) AllocatorDyn {
+    type ?
+        | Default {
+            return get_default_allocator_dyn()
+        }
+        | Arena { size } {
+            // Would need to allocate arena buffer first
+            // For now just return default
+            return get_default_allocator_dyn()
+        }
+        | Tracking { inner } {
+            inner_alloc = create_allocator(inner)
+            tracker = make_tracking_allocator(inner_alloc)
+            return make_tracking_allocator_dyn(@ref(tracker))
+        }
+}

@@ -1,0 +1,26 @@
+// Test multiplication order
+{ io } = @std
+
+Circle: {
+    radius: f64,
+}
+
+test1 = (c: Circle) f64 {
+    return 3.14159 * c.radius * c.radius
+}
+
+test2 = (c: Circle) f64 {
+    r: f64 = c.radius
+    return 3.14159 * r * r
+}
+
+test3 = (c: Circle) f64 {
+    return (3.14159 * c.radius) * c.radius
+}
+
+main = () void {
+    c = Circle { radius: 5.0 }
+    io.println("Test1: ${test1(c)}")
+    io.println("Test2: ${test2(c)}")
+    io.println("Test3: ${test3(c)}")
+}

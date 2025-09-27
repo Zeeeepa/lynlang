@@ -9,7 +9,7 @@
 
 // Static strings are compile-time constants, stored in read-only memory
 // They are represented as simple char pointers (string type)
-StaticString := string  // Alias for clarity
+// StaticString is now a proper type in the compiler, not an alias
 
 // Helper to get static string length
 static_string_len = (s: StaticString) u64 {

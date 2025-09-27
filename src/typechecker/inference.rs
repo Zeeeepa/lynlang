@@ -20,7 +20,7 @@ pub fn infer_binary_op_type(
         if name == "T" && type_args.is_empty() {
             left_type = AstType::I32;
         } else if name == "E" && type_args.is_empty() {
-            // Error types default to String
+            // Error types default to String (dynamic with allocator)
             left_type = AstType::String;
         }
     }
@@ -28,7 +28,7 @@ pub fn infer_binary_op_type(
         if name == "T" && type_args.is_empty() {
             right_type = AstType::I32;
         } else if name == "E" && type_args.is_empty() {
-            // Error types default to String
+            // Error types default to String (dynamic with allocator)
             right_type = AstType::String;
         }
     }
@@ -85,7 +85,10 @@ pub fn infer_binary_op_type(
         }
         BinaryOperator::StringConcat => {
             // String concatenation
-            if matches!(left_type, AstType::String) && matches!(right_type, AstType::String) {
+            // All string types can be concatenated
+            if matches!(left_type, AstType::StringLiteral | AstType::StaticString | AstType::String) && 
+               matches!(right_type, AstType::StringLiteral | AstType::StaticString | AstType::String) {
+                // Result is always String (dynamic) when concatenating
                 Ok(AstType::String)
             } else {
                 Err(CompileError::TypeError(

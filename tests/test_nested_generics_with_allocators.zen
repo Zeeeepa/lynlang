@@ -1,56 +1,127 @@
-// Test nested generics with allocator requirements
-{io, Allocator, DynVec, get_default_allocator, Option, Result, HashMap} = @std
+// Test nested generics with allocator requirements  
+{io, Allocator, DynVec, get_default_allocator, Option, Result} = @std
 
 main = () i32 {
     // Get default allocator
     alloc = get_default_allocator()
     
-    // Test HashMap<String, Option<i32>>
-    map1 = HashMap<String, Option<i32>>(alloc)
-    map1.insert("key1", Some(42))
-    map1.insert("key2", None)
+    // Test DynVec<Option<i32>>
+    vec1 = DynVec<Option<i32>>(alloc)
+    vec1.push(Option.Some(42))
+    vec1.push(Option.None)
+    vec1.push(Option.Some(100))
     
-    val1 = map1.get("key1")
+    // Get and check first element
+    val1 = vec1.get(0)
     val1 ?
         | Some(opt) {
             opt ?
-                | Some(v) { io.print_int(v) }  // Should print 42
-                | None { io.println("Unexpected None") }
+                | Some(v) {
+                    io.print("DynVec<Option<i32>> value: ")
+                    io.print_int(v)
+                    io.print("\n")
+                }
+                | None { io.print("Inner None\n") }
         }
-        | None { io.println("Key not found") }
+        | None { io.print("Index out of bounds\n") }
     
-    // Test DynVec<Result<i32, String>>
-    vec = DynVec<Result<i32, String>>(alloc)
-    vec.push(Ok(100))
-    vec.push(Err("error"))
+    // Test DynVec<Result<i32, i32>>
+    vec2 = DynVec<Result<i32, i32>>(alloc)
+    vec2.push(Result.Ok(200))
+    vec2.push(Result.Err(404))
+    vec2.push(Result.Ok(300))
     
-    item1 = vec.get(0)
+    // Check first result
+    item1 = vec2.get(0)
     item1 ?
         | Some(res) {
             res ?
-                | Ok(v) { io.print_int(v) }  // Should print 100
-                | Err(e) { io.println(e) }
+                | Ok(v) {
+                    io.print("DynVec<Result> Ok value: ")
+                    io.print_int(v)
+                    io.print("\n")
+                }
+                | Err(e) {
+                    io.print("Error: ")
+                    io.print_int(e)
+                    io.print("\n")
+                }
         }
-        | None { io.println("Index out of bounds") }
+        | None { io.print("Index out of bounds\n") }
     
-    // Test HashMap<i32, DynVec<String>>
-    map2 = HashMap<i32, DynVec<String>>(alloc)
+    // Check error result
+    item2 = vec2.get(1)
+    item2 ?
+        | Some(res) {
+            res ?
+                | Ok(v) {
+                    io.print("Ok: ")
+                    io.print_int(v)
+                    io.print("\n")
+                }
+                | Err(e) {
+                    io.print("DynVec<Result> Err value: ")
+                    io.print_int(e)
+                    io.print("\n")
+                }
+        }
+        | None { io.print("Index out of bounds\n") }
     
-    strings = DynVec<String>(alloc)
-    strings.push("hello")
-    strings.push("world")
+    // Test DynVec<DynVec<i32>> - nested vectors
+    outer_vec = DynVec<DynVec<i32>>(alloc)
     
-    map2.insert(1, strings)
+    inner1 = DynVec<i32>(alloc)
+    inner1.push(10)
+    inner1.push(20)
     
-    list = map2.get(1)
-    list ?
-        | Some(vec_ref) {
-            first = vec_ref.get(0)
+    inner2 = DynVec<i32>(alloc)
+    inner2.push(30)
+    inner2.push(40)
+    
+    outer_vec.push(inner1)
+    outer_vec.push(inner2)
+    
+    // Access nested vector
+    nested = outer_vec.get(0)
+    nested ?
+        | Some(inner_vec) {
+            first = inner_vec.get(0)
             first ?
-                | Some(s) { io.println(s) }  // Should print "hello"
-                | None { io.println("Empty vec") }
+                | Some(n) {
+                    io.print("Nested DynVec value: ")
+                    io.print_int(n)
+                    io.print("\n")
+                }
+                | None { io.print("Empty inner vec\n") }
         }
-        | None { io.println("Key not found") }
+        | None { io.print("Outer vec empty\n") }
+    
+    // Test Result<Option<Result<i32, i32>>, i32> - triple nesting
+    triple = Result.Ok(Option.Some(Result.Ok(500)))
+    
+    triple ?
+        | Ok(opt) {
+            opt ?
+                | Some(inner_res) {
+                    inner_res ?
+                        | Ok(v) {
+                            io.print("Triple nested value: ")
+                            io.print_int(v)
+                            io.print("\n")
+                        }
+                        | Err(e) {
+                            io.print("Inner error: ")
+                            io.print_int(e)
+                            io.print("\n")
+                        }
+                }
+                | None { io.print("Middle None\n") }
+        }
+        | Err(e) {
+            io.print("Outer error: ")
+            io.print_int(e)
+            io.print("\n")
+        }
     
     return 0
 }

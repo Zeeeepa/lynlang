@@ -1,0 +1,35 @@
+// Test structs with methods (simplified version)
+{ io , get_default_allocator} = @std
+
+Point: {
+    x: f64,
+    y: f64,
+}
+
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+// Define area method for Circle
+circle_area = (c: Circle) f64 {
+    return 3.14159 * c.radius * c.radius
+}
+
+// Define perimeter method for Circle  
+circle_perimeter = (c: Circle) f64 {
+    return 2.0 * 3.14159 * c.radius
+}
+
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point,
+}
+
+// Define area method for Rectangle
+rect_area = (r: Rectangle) f64 {
+    width = r.bottom_right.x - r.top_left.x
+    height = r.bottom_right.y - r.top_left.y
+    return width * height
+}
+

@@ -1,0 +1,521 @@
+// Enhanced Build System for Zen
+// Provides comprehensive build and dependency management
+
+{ Option, Result, HashMap, DynVec, fs, io } = @std
+{ ModuleVersion, Dependency, DependencyKind, ModuleManifest, ImportContext } = @import_enhanced
+{ get_default_allocator } = @memory_unified
+
+// ============================================================================
+// BUILD CONFIGURATION
+// ============================================================================
+
+BuildTarget = {
+    name: String
+    platform: String  // "linux", "windows", "macos", "wasm"
+    arch: String     // "x86_64", "aarch64", "wasm32"
+    features: DynVec<String>
+}
+
+BuildProfile = {
+    name: String
+    optimization_level: i32  // 0-3
+    debug_info: bool
+    lto: bool  // Link-time optimization
+    strip: bool
+    panic_strategy: String  // "abort" or "unwind"
+}
+
+BuildConfig = {
+    manifest: ModuleManifest
+    target: BuildTarget
+    profile: BuildProfile
+    output_dir: String
+    cache_dir: String
+    
+    // Feature flags
+    enabled_features: DynVec<String>
+    disabled_features: DynVec<String>
+}
+
+// Default build profiles
+BuildProfile.debug = () BuildProfile {
+    return BuildProfile {
+        name: "debug",
+        optimization_level: 0,
+        debug_info: true,
+        lto: false,
+        strip: false,
+        panic_strategy: "unwind"
+    }
+}
+
+BuildProfile.release = () BuildProfile {
+    return BuildProfile {
+        name: "release",
+        optimization_level: 3,
+        debug_info: false,
+        lto: true,
+        strip: true,
+        panic_strategy: "abort"
+    }
+}
+
+// ============================================================================
+// DEPENDENCY GRAPH
+// ============================================================================
+
+DependencyNode = {
+    name: String
+    version: ModuleVersion
+    dependencies: DynVec<String>
+    resolved: bool
+}
+
+DependencyGraph = {
+    nodes: HashMap<String, DependencyNode>
+    roots: DynVec<String>
+    alloc: Ptr<Allocator>
+}
+
+DependencyGraph.new = () DependencyGraph {
+    alloc = get_default_allocator()
+    return DependencyGraph {
+        nodes: HashMap<String, DependencyNode>(alloc),
+        roots: DynVec<String>(alloc),
+        alloc: alloc
+    }
+}
+
+DependencyGraph.add_dependency = (self: MutPtr<DependencyGraph>, name: String, dep: Dependency) void {
+    // Check if node exists
+    existing = self.nodes.get(name)
+    existing ?
+        | Some(node) {
+            // Update existing node if needed
+        }
+        | None {
+            // Create new node
+            node = DependencyNode {
+                name: name,
+                version: ModuleVersion { major: 1, minor: 0, patch: 0 },
+                dependencies: DynVec<String>(self.alloc),
+                resolved: false
+            }
+            self.nodes.insert(name, node)
+        }
+}
+
+DependencyGraph.topological_sort = (self: Ptr<DependencyGraph>) Result<DynVec<String>, String> {
+    alloc = self.alloc
+    sorted = DynVec<String>(alloc)
+    visited = HashMap<String, bool>(alloc)
+    temp_mark = HashMap<String, bool>(alloc)
+    
+    // Helper function for DFS
+    visit = (node_name: String) Result<void, String> {
+        // Check for cycles
+        is_temp = temp_mark.get(node_name)
+        is_temp ?
+            | Some(true) {
+                return Result.Err("Circular dependency detected at: ${node_name}")
+            }
+            | _ { }
+        
+        // Check if already visited
+        is_visited = visited.get(node_name)
+        is_visited ?
+            | Some(true) { return Result.Ok(void) }
+            | _ { }
+        
+        // Mark as temporary
+        temp_mark.insert(node_name, true)
+        
+        // Visit dependencies
+        node = self.nodes.get(node_name)
+        node ?
+            | Some(n) {
+                i = 0
+                loop {
+                    (i >= n.dependencies.len()) ? { break }
+                    dep = n.dependencies.get(i).unwrap()
+                    result = visit(dep)
+                    result ?
+                        | Err(e) { return Result.Err(e) }
+                        | Ok(_) { }
+                    i = i + 1
+                }
+            }
+            | None { }
+        
+        // Mark as visited
+        temp_mark.remove(node_name)
+        visited.insert(node_name, true)
+        sorted.push(node_name)
+        
+        return Result.Ok(void)
+    }
+    
+    // Visit all roots
+    i = 0
+    loop {
+        (i >= self.roots.len()) ? { break }
+        root = self.roots.get(i).unwrap()
+        result = visit(root)
+        result ?
+            | Err(e) { return Result.Err(e) }
+            | Ok(_) { }
+        i = i + 1
+    }
+    
+    return Result.Ok(sorted)
+}
+
+// ============================================================================
+// BUILD CACHE
+// ============================================================================
+
+BuildArtifact = {
+    path: String
+    hash: String
+    timestamp: i64
+    dependencies: DynVec<String>
+}
+
+BuildCache = {
+    artifacts: HashMap<String, BuildArtifact>
+    cache_dir: String
+    alloc: Ptr<Allocator>
+}
+
+BuildCache.new = (cache_dir: String) BuildCache {
+    alloc = get_default_allocator()
+    return BuildCache {
+        artifacts: HashMap<String, BuildArtifact>(alloc),
+        cache_dir: cache_dir,
+        alloc: alloc
+    }
+}
+
+BuildCache.is_cached = (self: Ptr<BuildCache>, module_path: String) bool {
+    artifact = self.artifacts.get(module_path)
+    artifact ?
+        | Some(art) {
+            // Check if file has changed
+            current_hash = fs.hash_file(module_path).unwrap_or("")
+            return art.hash == current_hash
+        }
+        | None { return false }
+}
+
+BuildCache.add_artifact = (self: MutPtr<BuildCache>, path: String, deps: DynVec<String>) void {
+    hash = fs.hash_file(path).unwrap_or("")
+    timestamp = @time.now()
+    
+    artifact = BuildArtifact {
+        path: path,
+        hash: hash,
+        timestamp: timestamp,
+        dependencies: deps
+    }
+    
+    self.artifacts.insert(path, artifact)
+}
+
+// ============================================================================
+// BUILD EXECUTOR
+// ============================================================================
+
+BuildExecutor = {
+    config: BuildConfig
+    import_ctx: ImportContext
+    dep_graph: DependencyGraph
+    cache: BuildCache
+    alloc: Ptr<Allocator>
+}
+
+BuildExecutor.new = (config: BuildConfig) BuildExecutor {
+    alloc = get_default_allocator()
+    cache_dir = "${config.cache_dir}/${config.profile.name}"
+    
+    return BuildExecutor {
+        config: config,
+        import_ctx: ImportContext.new(),
+        dep_graph: DependencyGraph.new(),
+        cache: BuildCache.new(cache_dir),
+        alloc: alloc
+    }
+}
+
+BuildExecutor.resolve_dependencies = (self: MutPtr<BuildExecutor>) Result<void, String> {
+    io.print("Resolving dependencies...\n")
+    
+    // Process each dependency in manifest
+    deps = self.config.manifest.dependencies
+    dep_names = deps.keys()
+    
+    i = 0
+    loop {
+        (i >= dep_names.len()) ? { break }
+        name = dep_names.get(i).unwrap()
+        dep = deps.get(name).unwrap()
+        
+        // Add to dependency graph
+        self.dep_graph.add_dependency(name, dep)
+        
+        // Resolve the dependency
+        result = self.resolve_single_dependency(dep)
+        result ?
+            | Err(e) {
+                return Result.Err("Failed to resolve ${name}: ${e}")
+            }
+            | Ok(_) { }
+        
+        i = i + 1
+    }
+    
+    io.print("Dependencies resolved successfully\n")
+    return Result.Ok(void)
+}
+
+BuildExecutor.resolve_single_dependency = (self: MutPtr<BuildExecutor>, dep: Dependency) Result<void, String> {
+    dep.kind ?
+        | Local { path } {
+            // Import local module
+            result = self.import_ctx.import(path)
+            result ?
+                | Err(e) { return Result.Err(e) }
+                | Ok(_) { return Result.Ok(void) }
+        }
+        | Git { url, branch, tag } {
+            // Clone and build git dependency
+            io.print("  Fetching git dependency: ${url}\n")
+            // Implementation would clone repo, checkout branch/tag
+            return Result.Ok(void)
+        }
+        | Registry { name, version } {
+            // Fetch from package registry
+            io.print("  Fetching from registry: ${name}@${version}\n")
+            // Implementation would download from registry
+            return Result.Ok(void)
+        }
+        | Builtin { name } {
+            // Already available
+            return Result.Ok(void)
+        }
+}
+
+BuildExecutor.build = (self: MutPtr<BuildExecutor>) Result<void, String> {
+    io.print("Starting build with profile: ${self.config.profile.name}\n")
+    
+    // Resolve dependencies
+    dep_result = self.resolve_dependencies()
+    dep_result ?
+        | Err(e) { return Result.Err(e) }
+        | Ok(_) { }
+    
+    // Get build order
+    build_order = self.dep_graph.topological_sort()
+    build_order ?
+        | Err(e) { return Result.Err(e) }
+        | Ok(order) {
+            io.print("Build order determined: ")
+            io.print_int(order.len())
+            io.print(" modules\n")
+            
+            // Build each module
+            i = 0
+            loop {
+                (i >= order.len()) ? { break }
+                module_name = order.get(i).unwrap()
+                
+                // Check cache
+                (self.cache.is_cached(module_name)) ? {
+                    io.print("  Using cached: ${module_name}\n")
+                } : {
+                    io.print("  Building: ${module_name}\n")
+                    result = self.build_module(module_name)
+                    result ?
+                        | Err(e) {
+                            return Result.Err("Failed to build ${module_name}: ${e}")
+                        }
+                        | Ok(_) { }
+                }
+                
+                i = i + 1
+            }
+        }
+    
+    io.print("Build completed successfully!\n")
+    return Result.Ok(void)
+}
+
+BuildExecutor.build_module = (self: MutPtr<BuildExecutor>, module_name: String) Result<void, String> {
+    // Get module
+    module = self.import_ctx.imported_modules.get(module_name)
+    module ?
+        | None {
+            return Result.Err("Module not found: ${module_name}")
+        }
+        | Some(mod) {
+            // Compile module
+            output_path = "${self.config.output_dir}/${module_name}.o"
+            
+            // This would invoke the actual compiler
+            // For now, simulate compilation
+            io.print("    Compiling ${mod.path} -> ${output_path}\n")
+            
+            // Add to cache
+            deps = DynVec<String>(self.alloc)
+            self.cache.add_artifact(output_path, deps)
+            
+            return Result.Ok(void)
+        }
+}
+
+BuildExecutor.link = (self: MutPtr<BuildExecutor>) Result<void, String> {
+    io.print("Linking executable...\n")
+    
+    executable_name = self.config.manifest.name
+    output_path = "${self.config.output_dir}/${executable_name}"
+    
+    // This would invoke the linker
+    io.print("  Output: ${output_path}\n")
+    
+    return Result.Ok(void)
+}
+
+// ============================================================================
+// BUILD COMMANDS
+// ============================================================================
+
+// Build the current project
+build_project = (profile_name: Option<String>) Result<void, String> {
+    // Load manifest
+    manifest_result = load_project_manifest()
+    manifest_result ?
+        | Err(e) { return Result.Err(e) }
+        | Ok(manifest) {
+            // Select profile
+            profile = profile_name ?
+                | Some("release") { BuildProfile.release() }
+                | Some("debug") { BuildProfile.debug() }
+                | _ { BuildProfile.debug() }
+            
+            // Create build config
+            config = BuildConfig {
+                manifest: manifest,
+                target: get_current_target(),
+                profile: profile,
+                output_dir: "./target/${profile.name}",
+                cache_dir: "./target/cache",
+                enabled_features: manifest.default_features,
+                disabled_features: DynVec<String>(get_default_allocator())
+            }
+            
+            // Execute build
+            executor = BuildExecutor.new(config)
+            result = executor.build()
+            result ?
+                | Err(e) { return Result.Err(e) }
+                | Ok(_) {
+                    link_result = executor.link()
+                    return link_result
+                }
+        }
+}
+
+// Clean build artifacts
+clean_build = () Result<void, String> {
+    io.print("Cleaning build artifacts...\n")
+    
+    // Remove target directory
+    fs.remove_dir("./target")
+    
+    io.print("Clean completed\n")
+    return Result.Ok(void)
+}
+
+// Check project without building
+check_project = () Result<void, String> {
+    io.print("Checking project...\n")
+    
+    // Load manifest
+    manifest_result = load_project_manifest()
+    manifest_result ?
+        | Err(e) { return Result.Err(e) }
+        | Ok(manifest) {
+            // Create minimal config for checking
+            config = BuildConfig {
+                manifest: manifest,
+                target: get_current_target(),
+                profile: BuildProfile.debug(),
+                output_dir: "./target/check",
+                cache_dir: "./target/cache",
+                enabled_features: manifest.default_features,
+                disabled_features: DynVec<String>(get_default_allocator())
+            }
+            
+            executor = BuildExecutor.new(config)
+            
+            // Only resolve dependencies
+            return executor.resolve_dependencies()
+        }
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+load_project_manifest = () Result<ModuleManifest, String> {
+    // Load zen.toml
+    manifest_path = "./zen.toml"
+    (fs.exists(manifest_path).unwrap_or(false)) ? {
+        // Parse TOML file
+        // This would use a TOML parser
+        // For now, return a dummy manifest
+        alloc = get_default_allocator()
+        
+        return Result.Ok(ModuleManifest {
+            name: "my_project",
+            version: ModuleVersion { major: 1, minor: 0, patch: 0 },
+            description: Option.Some("My Zen project"),
+            authors: DynVec<String>(alloc),
+            license: Option.Some("MIT"),
+            dependencies: HashMap<String, Dependency>(alloc),
+            dev_dependencies: HashMap<String, Dependency>(alloc),
+            build_dependencies: HashMap<String, Dependency>(alloc),
+            features: HashMap<String, DynVec<String>>(alloc),
+            default_features: DynVec<String>(alloc),
+            exports: DynVec<String>(alloc)
+        })
+    } : {
+        return Result.Err("No zen.toml found in current directory")
+    }
+}
+
+get_current_target = () BuildTarget {
+    alloc = get_default_allocator()
+    
+    // Detect current platform
+    platform = @comptime {
+        @if(@target.os == "linux") { "linux" }
+        @elif(@target.os == "windows") { "windows" }
+        @elif(@target.os == "macos") { "macos" }
+        @else { "unknown" }
+    }
+    
+    // Detect current architecture
+    arch = @comptime {
+        @if(@target.arch == "x86_64") { "x86_64" }
+        @elif(@target.arch == "aarch64") { "aarch64" }
+        @elif(@target.arch == "wasm32") { "wasm32" }
+        @else { "unknown" }
+    }
+    
+    return BuildTarget {
+        name: "${platform}-${arch}",
+        platform: platform,
+        arch: arch,
+        features: DynVec<String>(alloc)
+    }
+}
