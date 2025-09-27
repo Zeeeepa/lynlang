@@ -78,8 +78,8 @@ impl TypeChecker {
                         "f32" => AstType::F32,
                         "f64" => AstType::F64,
                         "bool" => AstType::Bool,
-                        "string" => AstType::StringLiteral,  // lowercase string is StringLiteral
-                        "StaticString" => AstType::StringLiteral,  // alias for StringLiteral
+                        "string" => AstType::StaticString,  // lowercase string maps to StaticString
+                        "StaticString" => AstType::StaticString,  // explicit static string type
                         "String" => AstType::String,  // capital String is dynamic String
                         _ => {
                             // Check if it's another generic type
@@ -738,7 +738,7 @@ impl TypeChecker {
             Expression::Float64(_) => Ok(AstType::F64),
             Expression::Boolean(_) => Ok(AstType::Bool),
             Expression::Unit => Ok(AstType::Void),
-            Expression::String(_) => Ok(AstType::StringLiteral),  // String literals are compile-time
+            Expression::String(_) => Ok(AstType::StaticString),  // String literals are static strings
             Expression::Identifier(name) => {
                 // eprintln!("DEBUG TypeChecker: Looking up identifier '{}'", name);
                 // First check if it's a function name
@@ -935,8 +935,8 @@ impl TypeChecker {
                 })
             }
             Expression::StringInterpolation { .. } => {
-                // String interpolation always returns a string (pointer to char)
-                Ok(AstType::Ptr(Box::new(AstType::I8)))
+                // String interpolation returns dynamic String (requires allocator)
+                Ok(AstType::String)
             }
             Expression::Closure { params, return_type, body } => {
                 // Infer closure type - create a FunctionPointer type
@@ -1481,8 +1481,8 @@ impl TypeChecker {
                     }
                 }
 
-                // Special handling for string methods
-                if object_type == AstType::String {
+                // Special handling for string methods (both StaticString and String)
+                if object_type == AstType::String || object_type == AstType::StaticString || object_type == AstType::StringLiteral {
                     // Common string methods with hardcoded return types for now
                     match method.as_str() {
                         "len" => return Ok(AstType::I64),
@@ -1510,17 +1510,31 @@ impl TypeChecker {
                                 type_args: vec![AstType::F64],
                             })
                         }
-                        "substr" => return Ok(AstType::String),
+                        "substr" => {
+                            // substr returns same type as input (static stays static, dynamic stays dynamic)
+                            return Ok(if object_type == AstType::String { AstType::String } else { AstType::StaticString })
+                        }
                         "char_at" => return Ok(AstType::I32),
                         "split" => {
+                            // split returns array of same string type as input
+                            let string_type = if object_type == AstType::String { AstType::String } else { AstType::StaticString };
                             return Ok(AstType::Generic {
                                 name: "Array".to_string(),
-                                type_args: vec![AstType::String],
+                                type_args: vec![string_type],
                             })
                         }
-                        "trim" => return Ok(AstType::String),
-                        "to_upper" => return Ok(AstType::String),
-                        "to_lower" => return Ok(AstType::String),
+                        "trim" => {
+                            // trim returns same type as input
+                            return Ok(if object_type == AstType::String { AstType::String } else { AstType::StaticString })
+                        }
+                        "to_upper" => {
+                            // to_upper returns same type as input
+                            return Ok(if object_type == AstType::String { AstType::String } else { AstType::StaticString })
+                        }
+                        "to_lower" => {
+                            // to_lower returns same type as input
+                            return Ok(if object_type == AstType::String { AstType::String } else { AstType::StaticString })
+                        }
                         "contains" => return Ok(AstType::Bool),
                         "starts_with" => return Ok(AstType::Bool),
                         "ends_with" => return Ok(AstType::Bool),

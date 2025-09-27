@@ -284,8 +284,9 @@ fn types_comparable(left: &AstType, right: &AstType) -> bool {
         return true;
     }
 
-    // Strings can be compared
-    if matches!(left, AstType::String) && matches!(right, AstType::String) {
+    // All string types can be compared with each other
+    if matches!(left, AstType::String | AstType::StaticString | AstType::StringLiteral)
+       && matches!(right, AstType::String | AstType::StaticString | AstType::StringLiteral) {
         return true;
     }
 

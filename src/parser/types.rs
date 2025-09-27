@@ -37,7 +37,7 @@ impl<'a> Parser<'a> {
                     "f32" => Ok(AstType::F32),
                     "f64" => Ok(AstType::F64),
                     "bool" => Ok(AstType::Bool),
-                    "string" => Ok(AstType::StringLiteral),  // Internal: string literals
+                    "string" => Ok(AstType::StaticString),  // Maps to static string for backwards compatibility
                     "StaticString" => Ok(AstType::StaticString),  // User-facing: static strings
                     "String" => Ok(AstType::String),  // Dynamic strings that require allocator
                     "void" => Ok(AstType::Void),

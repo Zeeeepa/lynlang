@@ -16,9 +16,9 @@ pub enum AstType {
     F32,
     F64,
     Bool,
-    StringLiteral, // Internal: Compiler-known string literals
-    StaticString,  // User-facing: Static/literal strings (compile-time, immutable)
-    String,        // User-facing: Dynamic strings (runtime, requires allocator)
+    StringLiteral, // Internal: Compiler-known string literals (LLVM use only)
+    StaticString,  // User-facing: Static strings (compile-time, immutable, no allocator)
+    String,        // User-facing: Dynamic strings (runtime, mutable, requires allocator)
     Void,
     // New pointer types as per spec
     Ptr(Box<AstType>),    // Immutable pointer

@@ -28,9 +28,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
             AstType::F32 => Ok(Type::Basic(self.context.f32_type().into())),
             AstType::F64 => Ok(Type::Basic(self.context.f64_type().into())),
             AstType::Bool => Ok(Type::Basic(self.context.bool_type().into())),
-            AstType::StringLiteral | AstType::StaticString | AstType::String => Ok(Type::Basic(
+            AstType::StringLiteral | AstType::StaticString => Ok(Type::Basic(
                 self.context.ptr_type(AddressSpace::default()).into(),
             )),
+            AstType::String => {
+                // String is a struct with: data (ptr), len (u64), capacity (u64), allocator (ptr)
+                // For now, treat it as a pointer until we properly implement struct type resolution
+                // TODO: Return proper struct type once String struct is registered
+                Ok(Type::Basic(
+                    self.context.ptr_type(AddressSpace::default()).into(),
+                ))
+            },
             AstType::Void => Ok(Type::Void),
             AstType::Ptr(inner) => {
                 let inner_type = self.to_llvm_type(inner)?;
