@@ -1,0 +1,51 @@
+// Test file for LSP features: UFC completion, goto definition, and allocator warnings
+{io, Result, Option, get_default_allocator, HashMap, DynVec} = @std
+
+main = () i32 {
+    // Test allocator warning - should show warning for missing allocator
+    bad_map = HashMap()  // WARNING: HashMap requires allocator
+
+    // Correct usage with allocator
+    alloc = get_default_allocator()
+    good_map = HashMap(alloc)
+
+    // Test UFC method completion and goto definition
+    test_str = "hello world"
+    length = test_str.len()  // Test UFC completion after dot
+    upper = test_str.to_upper()  // Should suggest string methods
+
+    // Test Result UFC methods
+    divide = (a: f64, b: f64) Result<f64, String> {
+        b == 0.0 ? {
+            return Result.Err("Division by zero")
+        }
+        Result.Ok(a / b)
+    }
+
+    result = divide(10.0, 2.0)
+    value = result.raise()  // Should show raise() in completion
+
+    // Test collection UFC methods
+    vec = DynVec(alloc)
+    vec.push(10)  // Should show push() in completion
+    vec.push(20)
+    first = vec.get(0)  // Should show get() in completion
+
+    // Test Option types
+    opt_val = Some(42)
+    opt_val ?
+        | Some(v) => { io.println("Value: ${v}") }
+        | None => { io.println("No value") }
+
+    // Test HashMap with allocator
+    map = HashMap(alloc)
+    map.insert("key1", 100)  // Should show insert() in completion
+    val = map.get("key1")  // Should return Option<V>
+
+    // Test loop with UFC
+    vec.loop((item) {  // Should show loop() in completion
+        io.println("Item: ${item}")
+    })
+
+    0
+}

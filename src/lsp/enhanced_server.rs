@@ -40,6 +40,18 @@ struct SymbolInfo {
     references: Vec<Range>,
 }
 
+#[derive(Debug, Clone)]
+struct UfcMethodInfo {
+    receiver: String,
+    method_name: String,
+}
+
+#[derive(Debug)]
+enum CompletionContext {
+    General,
+    UfcMethod { receiver_type: String },
+}
+
 struct DocumentStore {
     documents: HashMap<Url, Document>,
 }
@@ -116,16 +128,139 @@ impl DocumentStore {
 
     fn analyze_document(&self, content: &str) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
-        
-        // Lexical analysis
+
+        // Parse the document
         let lexer = Lexer::new(content);
         let mut parser = Parser::new(lexer);
-        
-        if let Err(err) = parser.parse_program() {
-            diagnostics.push(self.error_to_diagnostic(err));
+
+        match parser.parse_program() {
+            Ok(program) => {
+                // Check for allocator issues
+                for decl in &program.declarations {
+                    if let Declaration::Function(func) = decl {
+                        self.check_allocator_usage(&func.body, &mut diagnostics, content);
+                    }
+                }
+            }
+            Err(err) => {
+                diagnostics.push(self.error_to_diagnostic(err));
+            }
         }
-        
+
         diagnostics
+    }
+
+    fn check_allocator_usage(&self, statements: &[Statement], diagnostics: &mut Vec<Diagnostic>, content: &str) {
+        for stmt in statements {
+            match stmt {
+                Statement::Expression(expr) | Statement::Return(expr) => {
+                    self.check_allocator_in_expression(expr, diagnostics, content);
+                }
+                Statement::VariableDeclaration { initializer: Some(expr), .. } |
+                Statement::VariableAssignment { value: expr, .. } => {
+                    self.check_allocator_in_expression(expr, diagnostics, content);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn check_allocator_in_expression(&self, expr: &Expression, diagnostics: &mut Vec<Diagnostic>, content: &str) {
+        match expr {
+            Expression::FunctionCall { name, args, .. } => {
+                // Check for collection constructors without allocator
+                if name == "HashMap" || name == "DynVec" || name == "Array" {
+                    if args.is_empty() || !self.has_allocator_arg(args) {
+                        // Find the position of this function call in the source
+                        if let Some(position) = self.find_text_position(name, content) {
+                            diagnostics.push(Diagnostic {
+                                range: Range {
+                                    start: position,
+                                    end: Position {
+                                        line: position.line,
+                                        character: position.character + name.len() as u32,
+                                    },
+                                },
+                                severity: Some(DiagnosticSeverity::WARNING),
+                                code: Some(NumberOrString::String("allocator-required".to_string())),
+                                code_description: None,
+                                source: Some("zen-lsp".to_string()),
+                                message: format!(
+                                    "{} requires an allocator. Use get_default_allocator() or provide a custom allocator.",
+                                    name
+                                ),
+                                related_information: None,
+                                tags: None,
+                                data: None,
+                            });
+                        }
+                    }
+                }
+                // Check method calls that might need allocators
+                for arg in args {
+                    self.check_allocator_in_expression(arg, diagnostics, content);
+                }
+            }
+            Expression::MethodCall { object, method, args } => {
+                // Check for methods that might allocate
+                if method == "push" || method == "insert" || method == "concat" {
+                    // These methods on collections might need allocators
+                    // Could add more sophisticated checks here
+                }
+                self.check_allocator_in_expression(object, diagnostics, content);
+                for arg in args {
+                    self.check_allocator_in_expression(arg, diagnostics, content);
+                }
+            }
+            Expression::Block(stmts) => {
+                self.check_allocator_usage(stmts, diagnostics, content);
+            }
+            Expression::Conditional { scrutinee, arms } => {
+                self.check_allocator_in_expression(scrutinee, diagnostics, content);
+                for arm in arms {
+                    if let Some(guard) = &arm.guard {
+                        self.check_allocator_in_expression(guard, diagnostics, content);
+                    }
+                    self.check_allocator_in_expression(&arm.body, diagnostics, content);
+                }
+            }
+            Expression::BinaryOp { left, right, .. } => {
+                self.check_allocator_in_expression(left, diagnostics, content);
+                self.check_allocator_in_expression(right, diagnostics, content);
+            }
+            _ => {}
+        }
+    }
+
+    fn has_allocator_arg(&self, args: &[Expression]) -> bool {
+        // Check if any argument looks like an allocator
+        // This is a simple heuristic - could be more sophisticated
+        for arg in args {
+            if let Expression::FunctionCall { name, .. } = arg {
+                if name.contains("allocator") {
+                    return true;
+                }
+            }
+            if let Expression::Identifier(name) = arg {
+                if name.contains("alloc") {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn find_text_position(&self, text: &str, content: &str) -> Option<Position> {
+        let lines: Vec<&str> = content.lines().collect();
+        for (line_num, line) in lines.iter().enumerate() {
+            if let Some(col) = line.find(text) {
+                return Some(Position {
+                    line: line_num as u32,
+                    character: col as u32,
+                });
+            }
+        }
+        None
     }
 
     fn error_to_diagnostic(&self, error: crate::error::CompileError) -> Diagnostic {
@@ -303,9 +438,60 @@ impl DocumentStore {
         }
     }
 
-    fn find_references_in_expression(&self, _expr: &Expression, _symbols: &mut HashMap<String, SymbolInfo>) {
-        // TODO: Traverse expression tree to find identifier references
-        // This would need to walk through all expressions and track uses of identifiers
+    fn find_references_in_expression(&self, expr: &Expression, symbols: &mut HashMap<String, SymbolInfo>) {
+        match expr {
+            Expression::Identifier(name) => {
+                // Track reference to this identifier
+                if let Some(symbol) = symbols.get_mut(name) {
+                    // Add reference location (would need position info)
+                }
+            }
+            Expression::FunctionCall { name, args, .. } => {
+                // Track function call reference
+                if let Some(symbol) = symbols.get_mut(name) {
+                    // Add reference location
+                }
+                // Recurse into arguments
+                for arg in args {
+                    self.find_references_in_expression(arg, symbols);
+                }
+            }
+            Expression::MethodCall { object, method: _, args } => {
+                // Track UFC method call - recurse into object and args
+                self.find_references_in_expression(object, symbols);
+                for arg in args {
+                    self.find_references_in_expression(arg, symbols);
+                }
+            }
+            Expression::BinaryOp { left, right, .. } => {
+                self.find_references_in_expression(left, symbols);
+                self.find_references_in_expression(right, symbols);
+            }
+            Expression::MemberAccess { object, .. } => {
+                self.find_references_in_expression(object, symbols);
+            }
+            Expression::ArrayIndex { array, index } => {
+                self.find_references_in_expression(array, symbols);
+                self.find_references_in_expression(index, symbols);
+            }
+            Expression::Conditional { scrutinee, arms } => {
+                self.find_references_in_expression(scrutinee, symbols);
+                for arm in arms {
+                    if let Some(guard) = &arm.guard {
+                        self.find_references_in_expression(guard, symbols);
+                    }
+                    self.find_references_in_expression(&arm.body, symbols);
+                }
+            }
+            Expression::Closure { body, .. } => {
+                // Recurse into closure body expression
+                self.find_references_in_expression(body, symbols);
+            }
+            Expression::Block(stmts) => {
+                self.find_references_in_statements(stmts, symbols);
+            }
+            _ => {}
+        }
     }
 }
 
@@ -742,7 +928,7 @@ impl ZenLanguageServer {
     }
 
     fn handle_completion(&self, req: Request) -> Response {
-        let _params: CompletionParams = match serde_json::from_value(req.params) {
+        let params: CompletionParams = match serde_json::from_value(req.params) {
             Ok(p) => p,
             Err(_) => {
                 return Response {
@@ -752,9 +938,36 @@ impl ZenLanguageServer {
                 };
             }
         };
-        
-        // Provide enhanced completions based on context
-        let mut completions = vec![
+
+        let store = self.store.lock().unwrap();
+        let mut completions = Vec::new();
+
+        // Check if we're completing after a dot (UFC method call)
+        if let Some(doc) = store.documents.get(&params.text_document_position.text_document.uri) {
+            let position = params.text_document_position.position;
+
+            if let Some(context) = self.get_completion_context(&doc.content, position) {
+                match context {
+                    CompletionContext::UfcMethod { receiver_type } => {
+                        // Provide UFC method completions
+                        completions = self.get_ufc_method_completions(&receiver_type);
+
+                        let response = CompletionResponse::Array(completions);
+                        return Response {
+                            id: req.id,
+                            result: Some(serde_json::to_value(response).unwrap_or(Value::Null)),
+                            error: None,
+                        };
+                    }
+                    CompletionContext::General => {
+                        // Fall through to provide general completions
+                    }
+                }
+            }
+        }
+
+        // Provide general completions
+        completions = vec![
             // Keywords
             CompletionItem {
                 label: "main".to_string(),
@@ -909,6 +1122,18 @@ impl ZenLanguageServer {
         if let Some(doc) = store.documents.get(&params.text_document_position_params.text_document.uri) {
             let position = params.text_document_position_params.position;
 
+            // Check if we're on a UFC method call
+            if let Some(method_info) = self.find_ufc_method_at_position(&doc.content, position) {
+                // Try to resolve the UFC method
+                if let Some(location) = self.resolve_ufc_method(&method_info, &store) {
+                    return Response {
+                        id: req.id,
+                        result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                        error: None,
+                    };
+                }
+            }
+
             // Find the symbol at the cursor position
             if let Some(symbol_name) = self.find_symbol_at_position(&doc.content, position) {
                 // Check local document symbols first
@@ -981,6 +1206,164 @@ impl ZenLanguageServer {
         } else {
             None
         }
+    }
+
+    fn find_ufc_method_at_position(&self, content: &str, position: Position) -> Option<UfcMethodInfo> {
+        let lines: Vec<&str> = content.lines().collect();
+        if position.line as usize >= lines.len() {
+            return None;
+        }
+
+        let line = lines[position.line as usize];
+        let char_pos = position.character as usize;
+        let chars: Vec<char> = line.chars().collect();
+
+        // Check if we're after a dot (UFC method call)
+        if char_pos > 0 {
+            // Find the dot before the cursor
+            let mut dot_pos = None;
+            for i in (0..char_pos).rev() {
+                if chars[i] == '.' {
+                    dot_pos = Some(i);
+                    break;
+                } else if chars[i] == ' ' || chars[i] == '(' || chars[i] == ')' {
+                    // Stop if we hit whitespace or parens before finding a dot
+                    break;
+                }
+            }
+
+            if let Some(dot) = dot_pos {
+                // Extract the method name after the dot
+                let mut method_end = dot + 1;
+                while method_end < chars.len() && (chars[method_end].is_alphanumeric() || chars[method_end] == '_') {
+                    method_end += 1;
+                }
+                let method_name: String = chars[(dot + 1)..method_end].iter().collect();
+
+                // Extract the object/receiver before the dot
+                let mut obj_start = dot;
+                let mut paren_depth = 0;
+                while obj_start > 0 {
+                    obj_start -= 1;
+                    match chars[obj_start] {
+                        ')' => paren_depth += 1,
+                        '(' => {
+                            if paren_depth > 0 {
+                                paren_depth -= 1;
+                            } else {
+                                break;
+                            }
+                        }
+                        ' ' | '\t' | '\n' | '=' | '{' | '[' | ',' | ';' if paren_depth == 0 => {
+                            obj_start += 1;
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+
+                let receiver: String = chars[obj_start..dot].iter().collect();
+
+                return Some(UfcMethodInfo {
+                    receiver: receiver.trim().to_string(),
+                    method_name,
+                });
+            }
+        }
+
+        None
+    }
+
+    fn resolve_ufc_method(&self, method_info: &UfcMethodInfo, store: &DocumentStore) -> Option<Location> {
+        // Try to determine the receiver type for better resolution
+        let receiver_type = self.infer_receiver_type(&method_info.receiver, store);
+
+        // Handle built-in methods based on receiver type
+        match receiver_type.as_deref() {
+            Some(typ) if typ == "Result" || typ.starts_with("Result<") => {
+                if method_info.method_name == "raise" {
+                    // Point to stdlib Result implementation if available
+                    return self.find_stdlib_location("core/result.zen", "raise", store);
+                }
+                if method_info.method_name == "is_ok" || method_info.method_name == "is_err" {
+                    return self.find_stdlib_location("core/result.zen", &method_info.method_name, store);
+                }
+            }
+            Some(typ) if typ == "Option" || typ.starts_with("Option<") => {
+                let option_methods = ["is_some", "is_none", "unwrap", "unwrap_or"];
+                if option_methods.contains(&method_info.method_name.as_str()) {
+                    return self.find_stdlib_location("core/option.zen", &method_info.method_name, store);
+                }
+            }
+            Some(typ) if typ == "String" || typ == "StaticString" || typ == "str" => {
+                let string_methods = [
+                    "len", "to_i32", "to_i64", "to_f64", "to_upper", "to_lower",
+                    "trim", "split", "substr", "char_at", "contains", "starts_with",
+                    "ends_with", "index_of", "replace", "concat"
+                ];
+                if string_methods.contains(&method_info.method_name.as_str()) {
+                    return self.find_stdlib_location("string.zen", &method_info.method_name, store);
+                }
+            }
+            Some(typ) if typ == "HashMap" || typ.starts_with("HashMap<") => {
+                let hashmap_methods = ["insert", "get", "remove", "contains_key", "keys", "values", "len", "clear"];
+                if hashmap_methods.contains(&method_info.method_name.as_str()) {
+                    return self.find_stdlib_location("collections/hashmap.zen", &method_info.method_name, store);
+                }
+            }
+            Some(typ) if typ == "DynVec" || typ.starts_with("DynVec<") => {
+                let dynvec_methods = ["push", "get", "set", "len", "clear", "capacity", "pop", "insert", "remove"];
+                if dynvec_methods.contains(&method_info.method_name.as_str()) {
+                    return self.find_stdlib_location("vec.zen", &method_info.method_name, store);
+                }
+            }
+            Some(typ) if typ == "Vec" || typ.starts_with("Vec<") => {
+                let vec_methods = ["push", "get", "set", "len", "clear", "capacity"];
+                if vec_methods.contains(&method_info.method_name.as_str()) {
+                    return self.find_stdlib_location("vec.zen", &method_info.method_name, store);
+                }
+            }
+            Some(typ) if typ == "Array" || typ.starts_with("Array<") => {
+                let array_methods = ["len", "get", "set", "push", "pop"];
+                if array_methods.contains(&method_info.method_name.as_str()) {
+                    return self.find_stdlib_location("array.zen", &method_info.method_name, store);
+                }
+            }
+            _ => {}
+        }
+
+        // Check if method exists on any collection type (generic loop method)
+        if method_info.method_name == "loop" {
+            // loop is available on all iterable types
+            return self.find_stdlib_location("iterator.zen", "loop", store);
+        }
+
+        // Search for the method as a regular function that could be called with UFC
+        // In Zen, any function can be called as a method if the first parameter matches the receiver type
+        for (uri, doc) in &store.documents {
+            if let Some(symbol) = doc.symbols.get(&method_info.method_name) {
+                if matches!(symbol.kind, SymbolKind::FUNCTION | SymbolKind::METHOD) {
+                    // Check if the function's first parameter could match the receiver
+                    // This would require more sophisticated type checking
+                    return Some(Location {
+                        uri: uri.clone(),
+                        range: symbol.range.clone(),
+                    });
+                }
+            }
+
+            // Also search for UFC-callable functions (any function where first param matches receiver)
+            for (name, symbol) in &doc.symbols {
+                if name == &method_info.method_name && matches!(symbol.kind, SymbolKind::FUNCTION) {
+                    return Some(Location {
+                        uri: uri.clone(),
+                        range: symbol.range.clone(),
+                    });
+                }
+            }
+        }
+
+        None
     }
 
     fn handle_references(&self, req: Request) -> Response {
@@ -1118,5 +1501,644 @@ impl ZenLanguageServer {
             result: Some(Value::Null),
             error: None,
         }
+    }
+
+    fn infer_receiver_type(&self, receiver: &str, store: &DocumentStore) -> Option<String> {
+        // Try to infer the type of the receiver expression
+        // This is a simplified version - a real implementation would need full type inference
+
+        // Check if receiver is a string literal
+        if receiver.starts_with('"') || receiver.starts_with("'") {
+            return Some("String".to_string());
+        }
+
+        // Check if receiver is a known variable in symbols
+        for doc in store.documents.values() {
+            if let Some(symbol) = doc.symbols.get(receiver) {
+                if let Some(type_info) = &symbol.type_info {
+                    return Some(format_type(type_info));
+                }
+                // Try to infer from symbol detail
+                if let Some(detail) = &symbol.detail {
+                    if detail.contains("HashMap") {
+                        return Some("HashMap".to_string());
+                    }
+                    if detail.contains("DynVec") {
+                        return Some("DynVec".to_string());
+                    }
+                    if detail.contains("Vec<") {
+                        return Some("Vec".to_string());
+                    }
+                    if detail.contains("Option") {
+                        return Some("Option".to_string());
+                    }
+                    if detail.contains("Result") {
+                        return Some("Result".to_string());
+                    }
+                    if detail.contains("String") {
+                        return Some("String".to_string());
+                    }
+                }
+            }
+        }
+
+        // Check for function call patterns
+        if receiver.contains("HashMap(") {
+            return Some("HashMap".to_string());
+        }
+        if receiver.contains("DynVec(") {
+            return Some("DynVec".to_string());
+        }
+        if receiver.contains("Vec(") || receiver.contains("Vec<") {
+            return Some("Vec".to_string());
+        }
+        if receiver.contains("Some(") {
+            return Some("Option".to_string());
+        }
+        if receiver.contains("Ok(") || receiver.contains("Err(") || receiver.contains("Result.") {
+            return Some("Result".to_string());
+        }
+        if receiver.contains("get_default_allocator()") {
+            return Some("Allocator".to_string());
+        }
+
+        None
+    }
+
+    fn find_stdlib_location(&self, stdlib_path: &str, method_name: &str, store: &DocumentStore) -> Option<Location> {
+        // Try to find the method in the stdlib file
+        // First check if we have the stdlib file open
+        for (uri, doc) in &store.documents {
+            if uri.path().contains(stdlib_path) {
+                // Look for the method in this file's symbols
+                if let Some(symbol) = doc.symbols.get(method_name) {
+                    return Some(Location {
+                        uri: uri.clone(),
+                        range: symbol.range.clone(),
+                    });
+                }
+            }
+        }
+
+        // If not found in open documents, we could potentially open and parse the stdlib file
+        // For now, return None to indicate it's a built-in method
+        None
+    }
+
+    fn get_completion_context(&self, content: &str, position: Position) -> Option<CompletionContext> {
+        let lines: Vec<&str> = content.lines().collect();
+        if position.line as usize >= lines.len() {
+            return Some(CompletionContext::General);
+        }
+
+        let line = lines[position.line as usize];
+        let char_pos = position.character as usize;
+
+        // Check if we're after a dot
+        if char_pos > 0 && line.chars().nth(char_pos - 1) == Some('.') {
+            // Extract the receiver expression before the dot
+            let chars: Vec<char> = line.chars().collect();
+            let mut start = if char_pos > 1 { char_pos - 2 } else { 0 };
+            let mut paren_depth = 0;
+
+            // Find the start of the receiver expression
+            while start > 0 {
+                match chars[start] {
+                    ')' => paren_depth += 1,
+                    '(' => {
+                        if paren_depth > 0 {
+                            paren_depth -= 1;
+                        } else {
+                            break;
+                        }
+                    }
+                    ' ' | '\t' | '=' | '{' | '[' | ',' | ';' if paren_depth == 0 => {
+                        start += 1;
+                        break;
+                    }
+                    _ => {}
+                }
+                start -= 1;
+            }
+
+            let receiver: String = chars[start..(char_pos - 1)].iter().collect();
+            let receiver = receiver.trim();
+
+            // Try to infer the receiver type
+            let store = self.store.lock().unwrap();
+            let receiver_type = self.infer_receiver_type(receiver, &store)
+                .unwrap_or_else(|| "unknown".to_string());
+
+            return Some(CompletionContext::UfcMethod {
+                receiver_type,
+            });
+        }
+
+        Some(CompletionContext::General)
+    }
+
+    fn get_ufc_method_completions(&self, receiver_type: &str) -> Vec<CompletionItem> {
+        // Provide type-specific completions based on receiver type
+        let mut completions = Vec::new();
+
+        // Determine what methods are available based on receiver type
+        match receiver_type {
+            typ if typ == "Result" || typ.starts_with("Result<") => {
+                completions.extend(vec![
+                    CompletionItem {
+                        label: "raise".to_string(),
+                        kind: Some(CompletionItemKind::METHOD),
+                        detail: Some("raise() T".to_string()),
+                        documentation: Some(Documentation::String(
+                            "Extracts the Ok value from Result<T,E> or propagates the error".to_string()
+                        )),
+                        insert_text: Some("raise()".to_string()),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "is_ok".to_string(),
+                        kind: Some(CompletionItemKind::METHOD),
+                        detail: Some("is_ok() bool".to_string()),
+                        documentation: Some(Documentation::String("Check if Result is Ok".to_string())),
+                        insert_text: Some("is_ok()".to_string()),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "is_err".to_string(),
+                        kind: Some(CompletionItemKind::METHOD),
+                        detail: Some("is_err() bool".to_string()),
+                        documentation: Some(Documentation::String("Check if Result is Err".to_string())),
+                        insert_text: Some("is_err()".to_string()),
+                        ..Default::default()
+                    },
+                ]);
+            }
+            typ if typ == "Option" || typ.starts_with("Option<") => {
+                completions.extend(vec![
+                    CompletionItem {
+                        label: "is_some".to_string(),
+                        kind: Some(CompletionItemKind::METHOD),
+                        detail: Some("is_some() bool".to_string()),
+                        documentation: Some(Documentation::String("Check if Option is Some".to_string())),
+                        insert_text: Some("is_some()".to_string()),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "is_none".to_string(),
+                        kind: Some(CompletionItemKind::METHOD),
+                        detail: Some("is_none() bool".to_string()),
+                        documentation: Some(Documentation::String("Check if Option is None".to_string())),
+                        insert_text: Some("is_none()".to_string()),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "unwrap".to_string(),
+                        kind: Some(CompletionItemKind::METHOD),
+                        detail: Some("unwrap() T".to_string()),
+                        documentation: Some(Documentation::String("Extract value or panic if None".to_string())),
+                        insert_text: Some("unwrap()".to_string()),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "unwrap_or".to_string(),
+                        kind: Some(CompletionItemKind::METHOD),
+                        detail: Some("unwrap_or(default: T) T".to_string()),
+                        documentation: Some(Documentation::String("Extract value or return default".to_string())),
+                        insert_text: Some("unwrap_or(${1:default})".to_string()),
+                        ..Default::default()
+                    },
+                ]);
+            }
+            "String" | "StaticString" | "str" => {
+                completions.extend(self.get_string_method_completions());
+            }
+            typ if typ == "HashMap" || typ.starts_with("HashMap<") => {
+                completions.extend(self.get_hashmap_method_completions());
+            }
+            typ if typ == "DynVec" || typ.starts_with("DynVec<") => {
+                completions.extend(self.get_dynvec_method_completions());
+            }
+            typ if typ == "Vec" || typ.starts_with("Vec<") => {
+                completions.extend(self.get_vec_method_completions());
+            }
+            typ if typ == "Array" || typ.starts_with("Array<") => {
+                completions.extend(self.get_array_method_completions());
+            }
+            _ => {
+                // For unknown types, provide all common methods
+                completions.extend(self.get_all_common_methods());
+            }
+        }
+
+        // Add loop method for all collection types
+        if receiver_type.contains("Vec") || receiver_type.contains("Array") ||
+           receiver_type.contains("HashMap") || receiver_type.contains("DynVec") {
+            completions.push(CompletionItem {
+                label: "loop".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("loop((item) { ... })".to_string()),
+                documentation: Some(Documentation::String("Iterate over collection".to_string())),
+                insert_text: Some("loop((${1:item}) {\n    ${0}\n})".to_string()),
+                ..Default::default()
+            });
+        }
+
+        completions
+    }
+
+    fn get_string_method_completions(&self) -> Vec<CompletionItem> {
+        vec![
+            CompletionItem {
+                label: "len".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("len() usize".to_string()),
+                documentation: Some(Documentation::String("Returns the length of the string".to_string())),
+                insert_text: Some("len()".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "to_i32".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("to_i32() Option<i32>".to_string()),
+                documentation: Some(Documentation::String("Parse string to i32".to_string())),
+                insert_text: Some("to_i32()".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "to_i64".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("to_i64() Option<i64>".to_string()),
+                documentation: Some(Documentation::String("Parse string to i64".to_string())),
+                insert_text: Some("to_i64()".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "to_f64".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("to_f64() Option<f64>".to_string()),
+                documentation: Some(Documentation::String("Parse string to f64".to_string())),
+                insert_text: Some("to_f64()".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "to_upper".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("to_upper() String".to_string()),
+                documentation: Some(Documentation::String("Convert to uppercase".to_string())),
+                insert_text: Some("to_upper()".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "to_lower".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("to_lower() String".to_string()),
+                documentation: Some(Documentation::String("Convert to lowercase".to_string())),
+                insert_text: Some("to_lower()".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "trim".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("trim() String".to_string()),
+                documentation: Some(Documentation::String("Remove leading/trailing whitespace".to_string())),
+                insert_text: Some("trim()".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "split".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("split(delimiter: String) Array<String>".to_string()),
+                documentation: Some(Documentation::String("Split string by delimiter (requires allocator)".to_string())),
+                insert_text: Some("split(\"${1:,}\")".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "substr".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("substr(start: usize, length: usize) String".to_string()),
+                documentation: Some(Documentation::String("Extract substring".to_string())),
+                insert_text: Some("substr(${1:0}, ${2:10})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "char_at".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("char_at(index: usize) Option<char>".to_string()),
+                documentation: Some(Documentation::String("Get character at index".to_string())),
+                insert_text: Some("char_at(${1:0})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "contains".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("contains(substr: String) bool".to_string()),
+                documentation: Some(Documentation::String("Check if string contains substring".to_string())),
+                insert_text: Some("contains(\"${1}\")".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "starts_with".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("starts_with(prefix: String) bool".to_string()),
+                documentation: Some(Documentation::String("Check if string starts with prefix".to_string())),
+                insert_text: Some("starts_with(\"${1}\")".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "ends_with".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("ends_with(suffix: String) bool".to_string()),
+                documentation: Some(Documentation::String("Check if string ends with suffix".to_string())),
+                insert_text: Some("ends_with(\"${1}\")".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "index_of".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("index_of(substr: String) Option<usize>".to_string()),
+                documentation: Some(Documentation::String("Find index of substring".to_string())),
+                insert_text: Some("index_of(\"${1}\")".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "replace".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("replace(old: String, new: String) String".to_string()),
+                documentation: Some(Documentation::String("Replace all occurrences".to_string())),
+                insert_text: Some("replace(\"${1:old}\", \"${2:new}\")".to_string()),
+                ..Default::default()
+            },
+        ]
+    }
+
+    fn get_hashmap_method_completions(&self) -> Vec<CompletionItem> {
+        vec![
+            CompletionItem {
+                label: "insert".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("insert(key: K, value: V) Option<V>".to_string()),
+                documentation: Some(Documentation::String("Insert key-value pair, returns previous value if any".to_string())),
+                insert_text: Some("insert(${1:key}, ${2:value})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "get".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("get(key: K) Option<V>".to_string()),
+                documentation: Some(Documentation::String("Get value for key".to_string())),
+                insert_text: Some("get(${1:key})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "remove".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("remove(key: K) Option<V>".to_string()),
+                documentation: Some(Documentation::String("Remove key-value pair, returns value if existed".to_string())),
+                insert_text: Some("remove(${1:key})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "contains_key".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("contains_key(key: K) bool".to_string()),
+                documentation: Some(Documentation::String("Check if key exists".to_string())),
+                insert_text: Some("contains_key(${1:key})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "len".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("len() usize".to_string()),
+                documentation: Some(Documentation::String("Get number of key-value pairs".to_string())),
+                insert_text: Some("len()".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "clear".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("clear() void".to_string()),
+                documentation: Some(Documentation::String("Remove all key-value pairs".to_string())),
+                insert_text: Some("clear()".to_string()),
+                ..Default::default()
+            },
+        ]
+    }
+
+    fn get_dynvec_method_completions(&self) -> Vec<CompletionItem> {
+        vec![
+            CompletionItem {
+                label: "push".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("push(value: T) void".to_string()),
+                documentation: Some(Documentation::String("Add element to end of vector".to_string())),
+                insert_text: Some("push(${1:value})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "pop".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("pop() Option<T>".to_string()),
+                documentation: Some(Documentation::String("Remove and return last element".to_string())),
+                insert_text: Some("pop()".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "get".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("get(index: usize) Option<T>".to_string()),
+                documentation: Some(Documentation::String("Get element at index".to_string())),
+                insert_text: Some("get(${1:0})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "set".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("set(index: usize, value: T) void".to_string()),
+                documentation: Some(Documentation::String("Set element at index".to_string())),
+                insert_text: Some("set(${1:0}, ${2:value})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "insert".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("insert(index: usize, value: T) void".to_string()),
+                documentation: Some(Documentation::String("Insert element at index".to_string())),
+                insert_text: Some("insert(${1:0}, ${2:value})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "remove".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("remove(index: usize) Option<T>".to_string()),
+                documentation: Some(Documentation::String("Remove element at index".to_string())),
+                insert_text: Some("remove(${1:0})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "len".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("len() usize".to_string()),
+                documentation: Some(Documentation::String("Get number of elements".to_string())),
+                insert_text: Some("len()".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "capacity".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("capacity() usize".to_string()),
+                documentation: Some(Documentation::String("Get current capacity".to_string())),
+                insert_text: Some("capacity()".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "clear".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("clear() void".to_string()),
+                documentation: Some(Documentation::String("Remove all elements".to_string())),
+                insert_text: Some("clear()".to_string()),
+                ..Default::default()
+            },
+        ]
+    }
+
+    fn get_vec_method_completions(&self) -> Vec<CompletionItem> {
+        vec![
+            CompletionItem {
+                label: "push".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("push(value: T) bool".to_string()),
+                documentation: Some(Documentation::String("Add element if space available (fixed-size vector)".to_string())),
+                insert_text: Some("push(${1:value})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "get".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("get(index: usize) Option<T>".to_string()),
+                documentation: Some(Documentation::String("Get element at index".to_string())),
+                insert_text: Some("get(${1:0})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "set".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("set(index: usize, value: T) bool".to_string()),
+                documentation: Some(Documentation::String("Set element at index".to_string())),
+                insert_text: Some("set(${1:0}, ${2:value})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "len".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("len() usize".to_string()),
+                documentation: Some(Documentation::String("Get current number of elements".to_string())),
+                insert_text: Some("len()".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "capacity".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("capacity() usize".to_string()),
+                documentation: Some(Documentation::String("Get fixed capacity".to_string())),
+                insert_text: Some("capacity()".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "clear".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("clear() void".to_string()),
+                documentation: Some(Documentation::String("Remove all elements".to_string())),
+                insert_text: Some("clear()".to_string()),
+                ..Default::default()
+            },
+        ]
+    }
+
+    fn get_array_method_completions(&self) -> Vec<CompletionItem> {
+        vec![
+            CompletionItem {
+                label: "len".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("len() usize".to_string()),
+                documentation: Some(Documentation::String("Get array length".to_string())),
+                insert_text: Some("len()".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "get".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("get(index: usize) Option<T>".to_string()),
+                documentation: Some(Documentation::String("Get element at index".to_string())),
+                insert_text: Some("get(${1:0})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "set".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("set(index: usize, value: T) void".to_string()),
+                documentation: Some(Documentation::String("Set element at index".to_string())),
+                insert_text: Some("set(${1:0}, ${2:value})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "push".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("push(value: T) void".to_string()),
+                documentation: Some(Documentation::String("Add element to end (may reallocate)".to_string())),
+                insert_text: Some("push(${1:value})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "pop".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("pop() Option<T>".to_string()),
+                documentation: Some(Documentation::String("Remove and return last element".to_string())),
+                insert_text: Some("pop()".to_string()),
+                ..Default::default()
+            },
+        ]
+    }
+
+    fn get_all_common_methods(&self) -> Vec<CompletionItem> {
+        // Return a combination of all common methods when type is unknown
+        let mut methods = Vec::new();
+        methods.extend(self.get_string_method_completions());
+        methods.extend(vec![
+            CompletionItem {
+                label: "raise".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("raise() T".to_string()),
+                documentation: Some(Documentation::String(
+                    "Extracts the Ok value from Result<T,E> or propagates the error".to_string()
+                )),
+                insert_text: Some("raise()".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "push".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("push(value: T) void".to_string()),
+                documentation: Some(Documentation::String("Add element to collection".to_string())),
+                insert_text: Some("push(${1})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "get".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("get(index) Option<T>".to_string()),
+                documentation: Some(Documentation::String("Get element at index".to_string())),
+                insert_text: Some("get(${1:0})".to_string()),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "loop".to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some("loop((item) { ... })".to_string()),
+                documentation: Some(Documentation::String("Iterate over collection".to_string())),
+                insert_text: Some("loop((${1:item}) {\n    ${0}\n})".to_string()),
+                ..Default::default()
+            },
+        ]);
+        methods
     }
 }
