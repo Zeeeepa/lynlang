@@ -1,7 +1,7 @@
 // Enhanced LSP Server for Zen Language
 // Provides advanced IDE features with compiler integration
 
-use lsp_server::{Connection, Message, Request, Response, Notification as ServerNotification};
+use lsp_server::{Connection, Message, Request, Response, ResponseError, ErrorCode, Notification as ServerNotification};
 use lsp_types::*;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -781,6 +781,7 @@ impl ZenLanguageServer {
             "textDocument/formatting" => self.handle_formatting(req.clone()),
             "textDocument/rename" => self.handle_rename(req.clone()),
             "textDocument/codeAction" => self.handle_code_action(req.clone()),
+            "textDocument/semanticTokens/full" => self.handle_semantic_tokens(req.clone()),
             _ => Response {
                 id: req.id,
                 result: Some(Value::Null),
@@ -1757,6 +1758,305 @@ impl ZenLanguageServer {
         })
     }
 
+    fn handle_semantic_tokens(&self, req: Request) -> Response {
+        let params: SemanticTokensParams = match serde_json::from_value(req.params) {
+            Ok(p) => p,
+            Err(_) => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: Some(ResponseError {
+                        code: ErrorCode::InvalidParams as i32,
+                        message: "Invalid parameters".to_string(),
+                        data: None,
+                    }),
+                }
+            }
+        };
+
+        let store = self.store.lock().unwrap();
+        let doc = match store.documents.get(&params.text_document.uri) {
+            Some(doc) => doc,
+            None => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: None,
+                }
+            }
+        };
+
+        // Generate semantic tokens for the document
+        let tokens = self.generate_semantic_tokens(&doc.content);
+
+        let result = SemanticTokens {
+            result_id: None,
+            data: tokens,
+        };
+
+        Response {
+            id: req.id,
+            result: Some(serde_json::to_value(result).unwrap_or(Value::Null)),
+            error: None,
+        }
+    }
+
+    fn generate_semantic_tokens(&self, content: &str) -> Vec<SemanticToken> {
+        let mut tokens = Vec::new();
+        let mut lexer = Lexer::new(content);
+
+        // Token type indices (must match the legend in server capabilities)
+        const TYPE_NAMESPACE: u32 = 0;
+        const TYPE_TYPE: u32 = 1;
+        const TYPE_CLASS: u32 = 2;
+        const TYPE_ENUM: u32 = 3;
+        const TYPE_INTERFACE: u32 = 4;
+        const TYPE_STRUCT: u32 = 5;
+        const TYPE_TYPE_PARAM: u32 = 6;
+        const TYPE_PARAMETER: u32 = 7;
+        const TYPE_VARIABLE: u32 = 8;
+        const TYPE_PROPERTY: u32 = 9;
+        const TYPE_ENUM_MEMBER: u32 = 10;
+        const TYPE_EVENT: u32 = 11;
+        const TYPE_FUNCTION: u32 = 12;
+        const TYPE_METHOD: u32 = 13;
+        const TYPE_MACRO: u32 = 14;
+        const TYPE_KEYWORD: u32 = 15;
+        const TYPE_MODIFIER: u32 = 16;
+        const TYPE_COMMENT: u32 = 17;
+        const TYPE_STRING: u32 = 18;
+        const TYPE_NUMBER: u32 = 19;
+        const TYPE_REGEXP: u32 = 20;
+        const TYPE_OPERATOR: u32 = 21;
+
+        // Token modifiers (can be combined)
+        const MOD_DECLARATION: u32 = 0b1;
+        const MOD_DEFINITION: u32 = 0b10;
+        const MOD_READONLY: u32 = 0b100;
+        const MOD_STATIC: u32 = 0b1000;
+        const MOD_DEPRECATED: u32 = 0b10000;
+        const MOD_ABSTRACT: u32 = 0b100000;
+        const MOD_ASYNC: u32 = 0b1000000;
+        const MOD_MODIFICATION: u32 = 0b10000000;
+        const MOD_DOCUMENTATION: u32 = 0b100000000;
+        const MOD_DEFAULT_LIBRARY: u32 = 0b1000000000;
+
+        let mut prev_line = 0;
+        let mut prev_start = 0;
+        let lines: Vec<&str> = content.lines().collect();
+
+        // Track context for better token classification
+        let mut in_function = false;
+        let mut in_struct = false;
+
+        for (line_idx, line) in lines.iter().enumerate() {
+            let mut char_idx = 0;
+            let mut chars = line.chars().peekable();
+
+            while let Some(ch) = chars.next() {
+                let start = char_idx;
+                char_idx += ch.len_utf8();
+
+                // Skip whitespace
+                if ch.is_whitespace() {
+                    continue;
+                }
+
+                // Comments
+                if ch == '/' && chars.peek() == Some(&'/') {
+                    // Single-line comment
+                    let length = line.len() - start;
+                    let delta_line = line_idx as u32 - prev_line;
+                    let delta_start = if delta_line == 0 {
+                        start as u32 - prev_start
+                    } else {
+                        start as u32
+                    };
+
+                    tokens.push(SemanticToken {
+                        delta_line,
+                        delta_start,
+                        length: length as u32,
+                        token_type: TYPE_COMMENT,
+                        token_modifiers_bitset: 0,
+                    });
+
+                    prev_line = line_idx as u32;
+                    prev_start = start as u32;
+                    break; // Rest of line is comment
+                }
+
+                // String literals
+                if ch == '"' {
+                    let mut string_len = 1;
+                    let mut escaped = false;
+                    while let Some(&next_ch) = chars.peek() {
+                        chars.next();
+                        char_idx += next_ch.len_utf8();
+                        string_len += next_ch.len_utf8();
+
+                        if escaped {
+                            escaped = false;
+                        } else if next_ch == '\\' {
+                            escaped = true;
+                        } else if next_ch == '"' {
+                            break;
+                        }
+                    }
+
+                    let delta_line = line_idx as u32 - prev_line;
+                    let delta_start = if delta_line == 0 {
+                        start as u32 - prev_start
+                    } else {
+                        start as u32
+                    };
+
+                    tokens.push(SemanticToken {
+                        delta_line,
+                        delta_start,
+                        length: string_len as u32,
+                        token_type: TYPE_STRING,
+                        token_modifiers_bitset: 0,
+                    });
+
+                    prev_line = line_idx as u32;
+                    prev_start = start as u32;
+                    continue;
+                }
+
+                // Numbers
+                if ch.is_numeric() {
+                    let mut num_len = ch.len_utf8();
+                    while let Some(&next_ch) = chars.peek() {
+                        if next_ch.is_numeric() || next_ch == '.' || next_ch == '_' {
+                            chars.next();
+                            char_idx += next_ch.len_utf8();
+                            num_len += next_ch.len_utf8();
+                        } else {
+                            break;
+                        }
+                    }
+
+                    let delta_line = line_idx as u32 - prev_line;
+                    let delta_start = if delta_line == 0 {
+                        start as u32 - prev_start
+                    } else {
+                        start as u32
+                    };
+
+                    tokens.push(SemanticToken {
+                        delta_line,
+                        delta_start,
+                        length: num_len as u32,
+                        token_type: TYPE_NUMBER,
+                        token_modifiers_bitset: 0,
+                    });
+
+                    prev_line = line_idx as u32;
+                    prev_start = start as u32;
+                    continue;
+                }
+
+                // Identifiers and keywords
+                if ch.is_alphabetic() || ch == '_' {
+                    let mut word = String::from(ch);
+                    while let Some(&next_ch) = chars.peek() {
+                        if next_ch.is_alphanumeric() || next_ch == '_' {
+                            chars.next();
+                            char_idx += next_ch.len_utf8();
+                            word.push(next_ch);
+                        } else {
+                            break;
+                        }
+                    }
+
+                    let (token_type, modifiers) = match word.as_str() {
+                        // Keywords
+                        "fn" => {
+                            in_function = true;
+                            (TYPE_KEYWORD, 0)
+                        }
+                        "struct" => {
+                            in_struct = true;
+                            (TYPE_KEYWORD, 0)
+                        }
+                        "enum" => (TYPE_KEYWORD, 0),
+                        "let" | "mut" | "const" => (TYPE_KEYWORD, 0),
+                        "if" | "else" | "match" | "while" | "for" | "loop" | "break" | "continue" => (TYPE_KEYWORD, 0),
+                        "return" | "raise" => (TYPE_KEYWORD, 0),
+                        "import" | "export" | "pub" => (TYPE_KEYWORD, 0),
+                        "true" | "false" | "null" => (TYPE_KEYWORD, 0),
+
+                        // Built-in types
+                        "i8" | "i16" | "i32" | "i64" | "i128" |
+                        "u8" | "u16" | "u32" | "u64" | "u128" |
+                        "f32" | "f64" | "bool" | "void" => (TYPE_TYPE, MOD_DEFAULT_LIBRARY),
+
+                        // Zen-specific types
+                        "String" | "StaticString" => (TYPE_TYPE, MOD_DEFAULT_LIBRARY),
+                        "Option" | "Result" => (TYPE_ENUM, MOD_DEFAULT_LIBRARY),
+                        "HashMap" | "DynVec" | "Vec" | "Array" => (TYPE_CLASS, MOD_DEFAULT_LIBRARY),
+                        "Allocator" => (TYPE_INTERFACE, MOD_DEFAULT_LIBRARY),
+
+                        // Enum variants
+                        "Some" | "None" | "Ok" | "Err" => (TYPE_ENUM_MEMBER, 0),
+
+                        // Function names (when we know we're after 'fn')
+                        _ if in_function && prev_line == line_idx as u32 => {
+                            in_function = false;
+                            (TYPE_FUNCTION, MOD_DECLARATION | MOD_DEFINITION)
+                        }
+
+                        // Default to variable
+                        _ => (TYPE_VARIABLE, 0),
+                    };
+
+                    let delta_line = line_idx as u32 - prev_line;
+                    let delta_start = if delta_line == 0 {
+                        start as u32 - prev_start
+                    } else {
+                        start as u32
+                    };
+
+                    tokens.push(SemanticToken {
+                        delta_line,
+                        delta_start,
+                        length: word.len() as u32,
+                        token_type,
+                        token_modifiers_bitset: modifiers,
+                    });
+
+                    prev_line = line_idx as u32;
+                    prev_start = start as u32;
+                    continue;
+                }
+
+                // Operators (single character for now)
+                if "+-*/%&|^!<>=.".contains(ch) {
+                    let delta_line = line_idx as u32 - prev_line;
+                    let delta_start = if delta_line == 0 {
+                        start as u32 - prev_start
+                    } else {
+                        start as u32
+                    };
+
+                    tokens.push(SemanticToken {
+                        delta_line,
+                        delta_start,
+                        length: 1,
+                        token_type: TYPE_OPERATOR,
+                        token_modifiers_bitset: 0,
+                    });
+
+                    prev_line = line_idx as u32;
+                    prev_start = start as u32;
+                }
+            }
+        }
+
+        tokens
+    }
+
     fn infer_receiver_type(&self, receiver: &str, store: &DocumentStore) -> Option<String> {
         // Enhanced type inference for UFC method resolution
         // This now handles more complex patterns and nested types
@@ -1837,27 +2137,176 @@ impl ZenLanguageServer {
             }
         }
 
-        // Check for method call chains (e.g., foo.bar().baz())
+        // Enhanced support for method call chains (e.g., foo.bar().baz())
         if receiver.contains('.') && receiver.contains('(') {
-            // Try to infer from the last method call in the chain
-            if let Some(last_call) = receiver.rsplit('.').next() {
-                if let Some(method_name) = last_call.split('(').next() {
-                    // Map known methods to their return types
-                    match method_name {
-                        "to_string" | "to_upper" | "to_lower" | "trim" | "concat" => return Some("String".to_string()),
-                        "to_i32" | "to_i64" | "to_f64" => return Some("Option".to_string()),
-                        "get" => return Some("Option".to_string()),
-                        "split" => return Some("Array".to_string()),
-                        "keys" | "values" => return Some("Array".to_string()),
-                        "is_ok" | "is_err" | "is_some" | "is_none" | "contains" => return Some("bool".to_string()),
-                        "len" | "capacity" | "index_of" => return Some("i32".to_string()),
-                        _ => {}
+            return self.infer_chained_method_type(receiver, store);
+        }
+
+        None
+    }
+
+    fn infer_chained_method_type(&self, receiver: &str, store: &DocumentStore) -> Option<String> {
+        // Parse method chains from left to right, tracking type through each call
+        let mut current_type: Option<String> = None;
+        let mut parts = Vec::new();
+        let mut current = String::new();
+        let mut paren_depth = 0;
+        let mut in_string = false;
+
+        // Split by dots, respecting parentheses and strings
+        for ch in receiver.chars() {
+            match ch {
+                '"' => {
+                    in_string = !in_string;
+                    current.push(ch);
+                }
+                '(' if !in_string => {
+                    paren_depth += 1;
+                    current.push(ch);
+                }
+                ')' if !in_string => {
+                    paren_depth -= 1;
+                    current.push(ch);
+                }
+                '.' if !in_string && paren_depth == 0 => {
+                    if !current.is_empty() {
+                        parts.push(current.clone());
+                        current.clear();
+                    }
+                }
+                _ => current.push(ch),
+            }
+        }
+        if !current.is_empty() {
+            parts.push(current);
+        }
+
+        // Process each part of the chain
+        for (i, part) in parts.iter().enumerate() {
+            if i == 0 {
+                // First part - infer its base type
+                current_type = self.infer_base_expression_type(part, store);
+            } else if let Some(ref curr_type) = current_type {
+                // Subsequent parts are method calls on the current type
+                if let Some(method_name) = part.split('(').next() {
+                    current_type = self.get_method_return_type(curr_type, method_name);
+                }
+            }
+        }
+
+        current_type
+    }
+
+    fn infer_base_expression_type(&self, expr: &str, store: &DocumentStore) -> Option<String> {
+        // Infer type of base expression (before any method calls)
+        let expr = expr.trim();
+
+        // String literal
+        if expr.starts_with('"') {
+            return Some("String".to_string());
+        }
+
+        // Numeric literal
+        if expr.parse::<i64>().is_ok() {
+            return Some("i32".to_string());
+        }
+        if expr.parse::<f64>().is_ok() {
+            return Some("f64".to_string());
+        }
+
+        // Constructor calls
+        if let Some(type_name) = expr.split('(').next() {
+            match type_name {
+                "HashMap" => return Some("HashMap".to_string()),
+                "DynVec" => return Some("DynVec".to_string()),
+                "Vec" => return Some("Vec".to_string()),
+                "Array" => return Some("Array".to_string()),
+                "Some" => return Some("Option".to_string()),
+                "None" => return Some("Option".to_string()),
+                "Ok" => return Some("Result".to_string()),
+                "Err" => return Some("Result".to_string()),
+                "get_default_allocator" => return Some("Allocator".to_string()),
+                _ => {
+                    // Check if it's a variable
+                    for doc in store.documents.values() {
+                        if let Some(symbol) = doc.symbols.get(type_name) {
+                            if let Some(type_info) = &symbol.type_info {
+                                let type_str = format_type(type_info);
+                                if let Some(base) = type_str.split('<').next() {
+                                    return Some(base.to_string());
+                                }
+                                return Some(type_str);
+                            }
+                        }
                     }
                 }
             }
         }
 
+        // Fixed array syntax [size; type]
+        if expr.starts_with('[') && expr.contains(';') {
+            return Some("Array".to_string());
+        }
+
         None
+    }
+
+    fn get_method_return_type(&self, receiver_type: &str, method_name: &str) -> Option<String> {
+        // Comprehensive method return type mapping
+        match receiver_type {
+            "String" | "StaticString" | "str" => match method_name {
+                "to_string" | "to_upper" | "to_lower" | "trim" | "concat" |
+                "replace" | "substr" | "reverse" | "repeat" => Some("String".to_string()),
+                "to_i32" | "to_i64" | "to_f64" => Some("Option".to_string()),
+                "split" => Some("Array".to_string()),
+                "len" | "index_of" => Some("i32".to_string()),
+                "char_at" => Some("Option".to_string()),
+                "contains" | "starts_with" | "ends_with" | "is_empty" => Some("bool".to_string()),
+                "to_bytes" => Some("Array".to_string()),
+                _ => None,
+            },
+            "HashMap" => match method_name {
+                "get" | "remove" => Some("Option".to_string()),
+                "keys" | "values" => Some("Array".to_string()),
+                "len" | "capacity" => Some("i32".to_string()),
+                "contains_key" | "is_empty" => Some("bool".to_string()),
+                "insert" => Some("Option".to_string()), // Returns old value if any
+                _ => None,
+            },
+            "DynVec" | "Vec" => match method_name {
+                "get" | "pop" | "first" | "last" => Some("Option".to_string()),
+                "len" | "capacity" => Some("i32".to_string()),
+                "is_empty" | "is_full" | "contains" => Some("bool".to_string()),
+                _ => None,
+            },
+            "Array" => match method_name {
+                "get" | "pop" | "first" | "last" => Some("Option".to_string()),
+                "len" => Some("i32".to_string()),
+                "is_empty" | "contains" => Some("bool".to_string()),
+                "slice" => Some("Array".to_string()),
+                _ => None,
+            },
+            "Option" => match method_name {
+                "is_some" | "is_none" => Some("bool".to_string()),
+                "unwrap" | "unwrap_or" | "expect" => Some("T".to_string()), // Would need generics tracking
+                "map" => Some("Option".to_string()),
+                "and" | "or" => Some("Option".to_string()),
+                _ => None,
+            },
+            "Result" => match method_name {
+                "is_ok" | "is_err" => Some("bool".to_string()),
+                "unwrap" | "raise" | "expect" | "unwrap_or" => Some("T".to_string()),
+                "map" => Some("Result".to_string()),
+                "map_err" => Some("Result".to_string()),
+                _ => None,
+            },
+            "Allocator" => match method_name {
+                "alloc" => Some("*mut u8".to_string()),
+                "clone" => Some("Allocator".to_string()),
+                _ => None,
+            },
+            _ => None,
+        }
     }
 
     fn find_stdlib_location(&self, stdlib_path: &str, method_name: &str, store: &DocumentStore) -> Option<Location> {

@@ -1,0 +1,34 @@
+// Test file for enhanced UFC method resolution with chained calls
+
+import std::collections::HashMap;
+import std::vec::DynVec;
+import std::string::String;
+import std::memory::get_default_allocator;
+
+fn test_chained_methods() {
+    let allocator = get_default_allocator();
+
+    // Test string method chains
+    let text = "hello world";
+    let result = text.to_upper().trim().split(" ");  // Should infer Array return type
+
+    // Test HashMap with chained calls
+    let map = HashMap(allocator);
+    map.insert("key", "value");
+    let value = map.get("key").unwrap();  // Should track Option -> T
+
+    // Test DynVec with chained calls
+    let vec = DynVec(allocator);
+    vec.push(42);
+    let first = vec.first().unwrap_or(0);  // Should track Option -> T
+
+    // Test complex chain with multiple types
+    let complex = map.keys().first().unwrap().to_upper();  // Array -> Option -> String -> String
+
+    // Test Result/Option chains
+    let opt = Some(42);
+    let is_valid = opt.is_some();  // Should infer bool
+
+    let res = Ok(100);
+    let value = res.unwrap_or(0);  // Should infer T (generic)
+}
