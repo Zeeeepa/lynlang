@@ -1,0 +1,17 @@
+// Simple test for UFC and allocator warnings
+
+main = () i32 {
+    // Test string UFC methods
+    test_str = "hello world"
+    length = test_str.len()
+
+    // Test Option UFC
+    opt = Some(42)
+    has_value = opt.is_some()
+
+    // Test Result UFC
+    res = Result.Ok(10)
+    is_ok = res.is_ok()
+
+    0
+}

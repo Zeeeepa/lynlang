@@ -186,8 +186,8 @@ impl DocumentStore {
                                 code_description: None,
                                 source: Some("zen-lsp".to_string()),
                                 message: format!(
-                                    "{} requires an allocator. Use get_default_allocator() or provide a custom allocator.",
-                                    name
+                                    "{} requires an allocator. Consider: {}({}, get_default_allocator())",
+                                    name, name, if args.is_empty() { "" } else { "...existing_args" }
                                 ),
                                 related_information: None,
                                 tags: None,
@@ -202,10 +202,37 @@ impl DocumentStore {
                 }
             }
             Expression::MethodCall { object, method, args } => {
-                // Check for methods that might allocate
-                if method == "push" || method == "insert" || method == "concat" {
-                    // These methods on collections might need allocators
-                    // Could add more sophisticated checks here
+                // Enhanced checking for methods that allocate
+                let allocating_methods = [
+                    "push", "insert", "concat", "extend", "resize",
+                    "append", "merge", "clone", "copy"
+                ];
+
+                if allocating_methods.contains(&method.as_str()) {
+                    // Warn about allocating methods on collections
+                    // A more sophisticated implementation would track allocator flow through the code
+                    if let Some(position) = self.find_text_position(method, content) {
+                        diagnostics.push(Diagnostic {
+                            range: Range {
+                                start: position,
+                                end: Position {
+                                    line: position.line,
+                                    character: position.character + method.len() as u32,
+                                },
+                            },
+                            severity: Some(DiagnosticSeverity::HINT),
+                            code: Some(NumberOrString::String("allocator-method".to_string())),
+                            code_description: None,
+                            source: Some("zen-lsp".to_string()),
+                            message: format!(
+                                "Method '{}' may allocate memory. Ensure the collection was created with an allocator.",
+                                method
+                            ),
+                            related_information: None,
+                            tags: None,
+                            data: None,
+                        });
+                    }
                 }
                 self.check_allocator_in_expression(object, diagnostics, content);
                 for arg in args {
@@ -233,18 +260,32 @@ impl DocumentStore {
     }
 
     fn has_allocator_arg(&self, args: &[Expression]) -> bool {
-        // Check if any argument looks like an allocator
-        // This is a simple heuristic - could be more sophisticated
+        // Enhanced checking for allocator arguments
         for arg in args {
-            if let Expression::FunctionCall { name, .. } = arg {
-                if name.contains("allocator") {
-                    return true;
+            match arg {
+                Expression::FunctionCall { name, .. } => {
+                    // Check for common allocator functions
+                    if name.contains("allocator") || name == "get_default_allocator" {
+                        return true;
+                    }
                 }
-            }
-            if let Expression::Identifier(name) = arg {
-                if name.contains("alloc") {
-                    return true;
+                Expression::Identifier(name) => {
+                    // Check for variables that might be allocators
+                    if name.contains("alloc") || name.ends_with("_allocator") || name == "allocator" {
+                        return true;
+                    }
                 }
+                Expression::MethodCall { object, method, .. } => {
+                    // Check for allocator obtained from method calls
+                    if method.contains("allocator") || method == "get_allocator" {
+                        return true;
+                    }
+                    // Recursively check the object
+                    if self.has_allocator_arg(&[(**object).clone()]) {
+                        return true;
+                    }
+                }
+                _ => {}
             }
         }
         false
@@ -1275,76 +1316,124 @@ impl ZenLanguageServer {
     }
 
     fn resolve_ufc_method(&self, method_info: &UfcMethodInfo, store: &DocumentStore) -> Option<Location> {
-        // Try to determine the receiver type for better resolution
+        // Enhanced UFC method resolution with better type awareness
         let receiver_type = self.infer_receiver_type(&method_info.receiver, store);
 
         // Handle built-in methods based on receiver type
         match receiver_type.as_deref() {
-            Some(typ) if typ == "Result" || typ.starts_with("Result<") => {
-                if method_info.method_name == "raise" {
-                    // Point to stdlib Result implementation if available
-                    return self.find_stdlib_location("core/result.zen", "raise", store);
-                }
-                if method_info.method_name == "is_ok" || method_info.method_name == "is_err" {
+            Some(typ) if typ == "Result" || typ.starts_with("Result") => {
+                // Result methods
+                let result_methods = ["raise", "is_ok", "is_err", "map", "map_err", "unwrap", "unwrap_or", "expect"];
+                if result_methods.contains(&method_info.method_name.as_str()) {
                     return self.find_stdlib_location("core/result.zen", &method_info.method_name, store);
                 }
             }
-            Some(typ) if typ == "Option" || typ.starts_with("Option<") => {
-                let option_methods = ["is_some", "is_none", "unwrap", "unwrap_or"];
+            Some(typ) if typ == "Option" || typ.starts_with("Option") => {
+                // Option methods
+                let option_methods = ["is_some", "is_none", "unwrap", "unwrap_or", "map", "or", "and", "expect"];
                 if option_methods.contains(&method_info.method_name.as_str()) {
                     return self.find_stdlib_location("core/option.zen", &method_info.method_name, store);
                 }
             }
             Some(typ) if typ == "String" || typ == "StaticString" || typ == "str" => {
+                // String methods - comprehensive list
                 let string_methods = [
                     "len", "to_i32", "to_i64", "to_f64", "to_upper", "to_lower",
                     "trim", "split", "substr", "char_at", "contains", "starts_with",
-                    "ends_with", "index_of", "replace", "concat"
+                    "ends_with", "index_of", "replace", "concat", "repeat", "reverse",
+                    "strip_prefix", "strip_suffix", "to_bytes", "from_bytes"
                 ];
                 if string_methods.contains(&method_info.method_name.as_str()) {
                     return self.find_stdlib_location("string.zen", &method_info.method_name, store);
                 }
             }
-            Some(typ) if typ == "HashMap" || typ.starts_with("HashMap<") => {
-                let hashmap_methods = ["insert", "get", "remove", "contains_key", "keys", "values", "len", "clear"];
+            Some(typ) if typ == "HashMap" || typ.starts_with("HashMap") => {
+                // HashMap methods - comprehensive list
+                let hashmap_methods = [
+                    "insert", "get", "remove", "contains_key", "keys", "values",
+                    "len", "clear", "is_empty", "iter", "drain", "extend", "merge"
+                ];
                 if hashmap_methods.contains(&method_info.method_name.as_str()) {
                     return self.find_stdlib_location("collections/hashmap.zen", &method_info.method_name, store);
                 }
             }
-            Some(typ) if typ == "DynVec" || typ.starts_with("DynVec<") => {
-                let dynvec_methods = ["push", "get", "set", "len", "clear", "capacity", "pop", "insert", "remove"];
+            Some(typ) if typ == "DynVec" || typ.starts_with("DynVec") => {
+                // DynVec methods - comprehensive list
+                let dynvec_methods = [
+                    "push", "pop", "get", "set", "len", "clear", "capacity",
+                    "insert", "remove", "is_empty", "resize", "extend", "drain",
+                    "first", "last", "sort", "reverse", "contains"
+                ];
                 if dynvec_methods.contains(&method_info.method_name.as_str()) {
                     return self.find_stdlib_location("vec.zen", &method_info.method_name, store);
                 }
             }
-            Some(typ) if typ == "Vec" || typ.starts_with("Vec<") => {
-                let vec_methods = ["push", "get", "set", "len", "clear", "capacity"];
+            Some(typ) if typ == "Vec" || typ.starts_with("Vec") => {
+                // Vec (fixed-size) methods
+                let vec_methods = [
+                    "push", "get", "set", "len", "clear", "capacity", "is_full", "is_empty"
+                ];
                 if vec_methods.contains(&method_info.method_name.as_str()) {
                     return self.find_stdlib_location("vec.zen", &method_info.method_name, store);
                 }
             }
-            Some(typ) if typ == "Array" || typ.starts_with("Array<") => {
-                let array_methods = ["len", "get", "set", "push", "pop"];
+            Some(typ) if typ == "Array" || typ.starts_with("Array") => {
+                // Array methods
+                let array_methods = [
+                    "len", "get", "set", "push", "pop", "first", "last",
+                    "slice", "contains", "find", "sort", "reverse"
+                ];
                 if array_methods.contains(&method_info.method_name.as_str()) {
-                    return self.find_stdlib_location("array.zen", &method_info.method_name, store);
+                    return self.find_stdlib_location("collections/array.zen", &method_info.method_name, store);
+                }
+            }
+            Some(typ) if typ == "Allocator" => {
+                // Allocator methods
+                let allocator_methods = ["alloc", "dealloc", "realloc", "clone"];
+                if allocator_methods.contains(&method_info.method_name.as_str()) {
+                    return self.find_stdlib_location("memory_unified.zen", &method_info.method_name, store);
                 }
             }
             _ => {}
         }
 
-        // Check if method exists on any collection type (generic loop method)
-        if method_info.method_name == "loop" {
-            // loop is available on all iterable types
-            return self.find_stdlib_location("iterator.zen", "loop", store);
+        // Check for generic iterator/collection methods
+        if method_info.method_name == "loop" || method_info.method_name == "iter" {
+            // loop/iter is available on all iterable types
+            return self.find_stdlib_location("iterator.zen", &method_info.method_name, store);
         }
 
-        // Search for the method as a regular function that could be called with UFC
-        // In Zen, any function can be called as a method if the first parameter matches the receiver type
+        // Enhanced UFC function search - any function can be called as a method
+        // if the first parameter type matches the receiver type
         for (uri, doc) in &store.documents {
+            // Direct method name match
             if let Some(symbol) = doc.symbols.get(&method_info.method_name) {
                 if matches!(symbol.kind, SymbolKind::FUNCTION | SymbolKind::METHOD) {
-                    // Check if the function's first parameter could match the receiver
-                    // This would require more sophisticated type checking
+                    // Check if this function can be called with UFC on the receiver type
+                    if let Some(detail) = &symbol.detail {
+                        // Parse the function signature to check first parameter
+                        if let Some(params_start) = detail.find('(') {
+                            if let Some(params_end) = detail.find(')') {
+                                let params = &detail[params_start + 1..params_end];
+                                if !params.is_empty() {
+                                    // Check if first parameter type matches receiver type
+                                    if let Some(first_param) = params.split(',').next() {
+                                        if let Some(receiver_type) = &receiver_type {
+                                            // Simple heuristic: check if parameter type contains receiver type
+                                            if first_param.contains(receiver_type) {
+                                                return Some(Location {
+                                                    uri: uri.clone(),
+                                                    range: symbol.range.clone(),
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Fallback: if we can't parse the signature, still return it as a possibility
                     return Some(Location {
                         uri: uri.clone(),
                         range: symbol.range.clone(),
@@ -1352,13 +1441,25 @@ impl ZenLanguageServer {
                 }
             }
 
-            // Also search for UFC-callable functions (any function where first param matches receiver)
+            // Search for functions that might be UFC-callable
             for (name, symbol) in &doc.symbols {
+                // Check if the function name matches and is a function
                 if name == &method_info.method_name && matches!(symbol.kind, SymbolKind::FUNCTION) {
                     return Some(Location {
                         uri: uri.clone(),
                         range: symbol.range.clone(),
                     });
+                }
+
+                // Also check for pattern: type_method (e.g., string_len for String.len)
+                if let Some(receiver_type) = &receiver_type {
+                    let prefixed_name = format!("{}_{}", receiver_type.to_lowercase(), method_info.method_name);
+                    if name == &prefixed_name && matches!(symbol.kind, SymbolKind::FUNCTION) {
+                        return Some(Location {
+                            uri: uri.clone(),
+                            range: symbol.range.clone(),
+                        });
+                    }
                 }
             }
         }
@@ -1504,62 +1605,103 @@ impl ZenLanguageServer {
     }
 
     fn infer_receiver_type(&self, receiver: &str, store: &DocumentStore) -> Option<String> {
-        // Try to infer the type of the receiver expression
-        // This is a simplified version - a real implementation would need full type inference
+        // Enhanced type inference for UFC method resolution
+        // This now handles more complex patterns and nested types
 
         // Check if receiver is a string literal
         if receiver.starts_with('"') || receiver.starts_with("'") {
             return Some("String".to_string());
         }
 
+        // Check for numeric literals
+        if receiver.chars().all(|c| c.is_numeric() || c == '.' || c == '-') {
+            if receiver.contains('.') {
+                return Some("f64".to_string());
+            } else {
+                return Some("i32".to_string());
+            }
+        }
+
         // Check if receiver is a known variable in symbols
         for doc in store.documents.values() {
             if let Some(symbol) = doc.symbols.get(receiver) {
                 if let Some(type_info) = &symbol.type_info {
-                    return Some(format_type(type_info));
+                    let type_str = format_type(type_info);
+                    // Extract base type from generic types
+                    if let Some(base) = type_str.split('<').next() {
+                        return Some(base.to_string());
+                    }
+                    return Some(type_str);
                 }
-                // Try to infer from symbol detail
+                // Enhanced detail parsing for better type inference
                 if let Some(detail) = &symbol.detail {
-                    if detail.contains("HashMap") {
-                        return Some("HashMap".to_string());
+                    // Parse function return types
+                    if detail.contains(" = ") && detail.contains(")") {
+                        if let Some(return_type) = detail.split(" = ").nth(1) {
+                            if let Some(ret) = return_type.split(')').nth(1).map(|s| s.trim()) {
+                                if !ret.is_empty() && ret != "void" {
+                                    return Some(ret.to_string());
+                                }
+                            }
+                        }
                     }
-                    if detail.contains("DynVec") {
-                        return Some("DynVec".to_string());
+                    // Check for collection types with generics
+                    if let Some(cap) = regex::Regex::new(r"(HashMap|DynVec|Vec|Array|Option|Result)<[^>]+>")
+                        .ok()?.captures(detail) {
+                        return Some(cap[1].to_string());
                     }
-                    if detail.contains("Vec<") {
-                        return Some("Vec".to_string());
-                    }
-                    if detail.contains("Option") {
-                        return Some("Option".to_string());
-                    }
-                    if detail.contains("Result") {
-                        return Some("Result".to_string());
-                    }
-                    if detail.contains("String") {
-                        return Some("String".to_string());
+                    // Fallback to simple contains checks
+                    for type_name in ["HashMap", "DynVec", "Vec", "Array", "Option", "Result", "String", "StaticString"] {
+                        if detail.contains(type_name) {
+                            return Some(type_name.to_string());
+                        }
                     }
                 }
             }
         }
 
-        // Check for function call patterns
-        if receiver.contains("HashMap(") {
-            return Some("HashMap".to_string());
+        // Enhanced pattern matching for function calls and constructors
+        let patterns = [
+            (r"HashMap\s*\(", "HashMap"),
+            (r"DynVec\s*\(", "DynVec"),
+            (r"Vec\s*[<(]", "Vec"),
+            (r"Array\s*\(", "Array"),
+            (r"Some\s*\(", "Option"),
+            (r"None", "Option"),
+            (r"Ok\s*\(", "Result"),
+            (r"Err\s*\(", "Result"),
+            (r"Result\.", "Result"),
+            (r"Option\.", "Option"),
+            (r"get_default_allocator\s*\(\)", "Allocator"),
+            (r"\[\s*\d+\s*;\s*\d+\s*\]", "Array"), // Fixed array syntax
+        ];
+
+        for (pattern, type_name) in patterns {
+            if let Ok(re) = regex::Regex::new(pattern) {
+                if re.is_match(receiver) {
+                    return Some(type_name.to_string());
+                }
+            }
         }
-        if receiver.contains("DynVec(") {
-            return Some("DynVec".to_string());
-        }
-        if receiver.contains("Vec(") || receiver.contains("Vec<") {
-            return Some("Vec".to_string());
-        }
-        if receiver.contains("Some(") {
-            return Some("Option".to_string());
-        }
-        if receiver.contains("Ok(") || receiver.contains("Err(") || receiver.contains("Result.") {
-            return Some("Result".to_string());
-        }
-        if receiver.contains("get_default_allocator()") {
-            return Some("Allocator".to_string());
+
+        // Check for method call chains (e.g., foo.bar().baz())
+        if receiver.contains('.') && receiver.contains('(') {
+            // Try to infer from the last method call in the chain
+            if let Some(last_call) = receiver.rsplit('.').next() {
+                if let Some(method_name) = last_call.split('(').next() {
+                    // Map known methods to their return types
+                    match method_name {
+                        "to_string" | "to_upper" | "to_lower" | "trim" | "concat" => return Some("String".to_string()),
+                        "to_i32" | "to_i64" | "to_f64" => return Some("Option".to_string()),
+                        "get" => return Some("Option".to_string()),
+                        "split" => return Some("Array".to_string()),
+                        "keys" | "values" => return Some("Array".to_string()),
+                        "is_ok" | "is_err" | "is_some" | "is_none" | "contains" => return Some("bool".to_string()),
+                        "len" | "capacity" | "index_of" => return Some("i32".to_string()),
+                        _ => {}
+                    }
+                }
+            }
         }
 
         None
