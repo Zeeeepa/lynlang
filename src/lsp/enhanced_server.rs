@@ -1596,12 +1596,165 @@ impl ZenLanguageServer {
     }
 
     fn handle_code_action(&self, req: Request) -> Response {
-        // TODO: Implement code actions
+        let params: CodeActionParams = match serde_json::from_value(req.params) {
+            Ok(p) => p,
+            Err(_) => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: None,
+                };
+            }
+        };
+
+        let mut actions = Vec::new();
+        let store = self.store.lock().unwrap();
+
+        if let Some(doc) = store.documents.get(&params.text_document.uri) {
+            // Check diagnostics in the requested range
+            for diagnostic in &params.context.diagnostics {
+                if diagnostic.message.contains("requires an allocator") {
+                    // Create a code action to add get_default_allocator()
+                    actions.push(self.create_allocator_fix_action(diagnostic, &params.text_document.uri, &doc.content));
+                }
+
+                // Add code action for string conversions
+                if diagnostic.message.contains("type mismatch") &&
+                   (diagnostic.message.contains("StaticString") || diagnostic.message.contains("String")) {
+                    if let Some(action) = self.create_string_conversion_action(diagnostic, &params.text_document.uri, &doc.content) {
+                        actions.push(action);
+                    }
+                }
+
+                // Add code action for missing error handling
+                if diagnostic.message.contains("Result") && diagnostic.message.contains("unwrap") {
+                    if let Some(action) = self.create_error_handling_action(diagnostic, &params.text_document.uri) {
+                        actions.push(action);
+                    }
+                }
+            }
+        }
+
         Response {
             id: req.id,
-            result: Some(Value::Null),
+            result: Some(serde_json::to_value(actions).unwrap_or(Value::Null)),
             error: None,
         }
+    }
+
+    fn create_allocator_fix_action(&self, diagnostic: &Diagnostic, uri: &Url, content: &str) -> CodeAction {
+        // Extract the line content
+        let lines: Vec<&str> = content.lines().collect();
+        let line_content = if (diagnostic.range.start.line as usize) < lines.len() {
+            lines[diagnostic.range.start.line as usize]
+        } else {
+            ""
+        };
+
+        // Determine if we need to add allocator parameter or insert new call
+        let (new_text, edit_range) = if line_content.contains("()") {
+            // Empty parentheses - add allocator as first parameter
+            ("get_default_allocator()".to_string(), Range {
+                start: Position {
+                    line: diagnostic.range.start.line,
+                    character: diagnostic.range.end.character - 1,  // Before closing paren
+                },
+                end: Position {
+                    line: diagnostic.range.start.line,
+                    character: diagnostic.range.end.character - 1,
+                },
+            })
+        } else if line_content.contains("(") {
+            // Has parameters - add allocator as additional parameter
+            (", get_default_allocator()".to_string(), Range {
+                start: Position {
+                    line: diagnostic.range.end.line,
+                    character: diagnostic.range.end.character - 1,  // Before closing paren
+                },
+                end: Position {
+                    line: diagnostic.range.end.line,
+                    character: diagnostic.range.end.character - 1,
+                },
+            })
+        } else {
+            // No parentheses - add full call
+            ("(get_default_allocator())".to_string(), diagnostic.range.clone())
+        };
+
+        let text_edit = TextEdit {
+            range: edit_range,
+            new_text,
+        };
+
+        let workspace_edit = WorkspaceEdit {
+            changes: Some({
+                let mut changes = HashMap::new();
+                changes.insert(uri.clone(), vec![text_edit]);
+                changes
+            }),
+            document_changes: None,
+            change_annotations: None,
+        };
+
+        CodeAction {
+            title: "Add get_default_allocator()".to_string(),
+            kind: Some(CodeActionKind::QUICKFIX),
+            diagnostics: Some(vec![diagnostic.clone()]),
+            edit: Some(workspace_edit),
+            command: None,
+            is_preferred: Some(true),
+            disabled: None,
+            data: None,
+        }
+    }
+
+    fn create_string_conversion_action(&self, diagnostic: &Diagnostic, uri: &Url, content: &str) -> Option<CodeAction> {
+        // Determine conversion direction
+        let title = if diagnostic.message.contains("expected StaticString") {
+            "Convert to StaticString"
+        } else if diagnostic.message.contains("expected String") {
+            "Convert to String with allocator"
+        } else {
+            return None;
+        };
+
+        let workspace_edit = WorkspaceEdit {
+            changes: None,  // Would need more context to implement actual conversion
+            document_changes: None,
+            change_annotations: None,
+        };
+
+        Some(CodeAction {
+            title: title.to_string(),
+            kind: Some(CodeActionKind::QUICKFIX),
+            diagnostics: Some(vec![diagnostic.clone()]),
+            edit: Some(workspace_edit),
+            command: None,
+            is_preferred: Some(false),
+            disabled: None,
+            data: None,
+        })
+    }
+
+    fn create_error_handling_action(&self, diagnostic: &Diagnostic, uri: &Url) -> Option<CodeAction> {
+        let title = "Add proper error handling";
+
+        let workspace_edit = WorkspaceEdit {
+            changes: None,  // Would need AST analysis to implement
+            document_changes: None,
+            change_annotations: None,
+        };
+
+        Some(CodeAction {
+            title: title.to_string(),
+            kind: Some(CodeActionKind::QUICKFIX),
+            diagnostics: Some(vec![diagnostic.clone()]),
+            edit: Some(workspace_edit),
+            command: None,
+            is_preferred: Some(false),
+            disabled: None,
+            data: None,
+        })
     }
 
     fn infer_receiver_type(&self, receiver: &str, store: &DocumentStore) -> Option<String> {
