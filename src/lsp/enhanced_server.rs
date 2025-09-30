@@ -168,8 +168,20 @@ impl DocumentStore {
     fn check_allocator_in_expression(&self, expr: &Expression, diagnostics: &mut Vec<Diagnostic>, content: &str) {
         match expr {
             Expression::FunctionCall { name, args, .. } => {
-                // Check for collection constructors without allocator
-                if name == "HashMap" || name == "DynVec" || name == "Array" {
+                // Enhanced collection constructors checking with generic support
+                let collections_requiring_allocator = [
+                    "HashMap", "DynVec", "Array", "HashSet", "BTreeMap", "LinkedList"
+                ];
+
+                // Check if this is a collection that requires an allocator
+                let base_name = if name.contains('<') {
+                    // Extract base type from generic like HashMap<String, i32>
+                    name.split('<').next().unwrap_or(name)
+                } else {
+                    name.as_str()
+                };
+
+                if collections_requiring_allocator.contains(&base_name) {
                     if args.is_empty() || !self.has_allocator_arg(args) {
                         // Find the position of this function call in the source
                         if let Some(position) = self.find_text_position(name, content) {
@@ -181,15 +193,29 @@ impl DocumentStore {
                                         character: position.character + name.len() as u32,
                                     },
                                 },
-                                severity: Some(DiagnosticSeverity::WARNING),
+                                severity: Some(DiagnosticSeverity::ERROR),
                                 code: Some(NumberOrString::String("allocator-required".to_string())),
                                 code_description: None,
                                 source: Some("zen-lsp".to_string()),
                                 message: format!(
-                                    "{} requires an allocator. Consider: {}({}, get_default_allocator())",
-                                    name, name, if args.is_empty() { "" } else { "...existing_args" }
+                                    "{} requires an allocator for memory management. Add get_default_allocator() as the last parameter.",
+                                    base_name
                                 ),
-                                related_information: None,
+                                related_information: Some(vec![
+                                    DiagnosticRelatedInformation {
+                                        location: Location {
+                                            uri: Url::parse("file:///").unwrap(), // Placeholder
+                                            range: Range {
+                                                start: position,
+                                                end: position,
+                                            },
+                                        },
+                                        message: format!(
+                                            "Quick fix: {}({}, get_default_allocator())",
+                                            name, if args.is_empty() { "" } else { "..., " }
+                                        ),
+                                    }
+                                ]),
                                 tags: None,
                                 data: None,
                             });
@@ -202,15 +228,22 @@ impl DocumentStore {
                 }
             }
             Expression::MethodCall { object, method, args } => {
-                // Enhanced checking for methods that allocate
-                let allocating_methods = [
-                    "push", "insert", "concat", "extend", "resize",
-                    "append", "merge", "clone", "copy"
+                // Enhanced checking for methods that require memory allocation
+                let collection_allocating_methods = [
+                    "push", "insert", "extend", "resize", "reserve",
+                    "append", "merge", "clone", "copy", "drain"
                 ];
 
-                if allocating_methods.contains(&method.as_str()) {
-                    // Warn about allocating methods on collections
-                    // A more sophisticated implementation would track allocator flow through the code
+                let string_allocating_methods = [
+                    "concat", "repeat", "split", "replace", "join"
+                ];
+
+                let is_collection_method = collection_allocating_methods.contains(&method.as_str());
+                let is_string_method = string_allocating_methods.contains(&method.as_str());
+
+                if is_collection_method || is_string_method {
+                    // Warn about allocating methods
+                    let warning_type = if is_string_method { "String operation" } else { "Collection method" };
                     if let Some(position) = self.find_text_position(method, content) {
                         diagnostics.push(Diagnostic {
                             range: Range {
@@ -220,15 +253,26 @@ impl DocumentStore {
                                     character: position.character + method.len() as u32,
                                 },
                             },
-                            severity: Some(DiagnosticSeverity::HINT),
+                            severity: Some(DiagnosticSeverity::INFORMATION),
                             code: Some(NumberOrString::String("allocator-method".to_string())),
                             code_description: None,
                             source: Some("zen-lsp".to_string()),
                             message: format!(
-                                "Method '{}' may allocate memory. Ensure the collection was created with an allocator.",
-                                method
+                                "{} '{}' requires memory allocation. Ensure the object was created with an allocator.",
+                                warning_type, method
                             ),
-                            related_information: None,
+                            related_information: Some(vec![
+                                DiagnosticRelatedInformation {
+                                    location: Location {
+                                        uri: Url::parse("file:///").unwrap(),
+                                        range: Range {
+                                            start: position,
+                                            end: position,
+                                        },
+                                    },
+                                    message: "Collections and dynamic strings must be initialized with an allocator to support operations that allocate memory.".to_string(),
+                                }
+                            ]),
                             tags: None,
                             data: None,
                         });
@@ -1317,26 +1361,39 @@ impl ZenLanguageServer {
     }
 
     fn resolve_ufc_method(&self, method_info: &UfcMethodInfo, store: &DocumentStore) -> Option<Location> {
-        // Enhanced UFC method resolution with better type awareness
+        // Enhanced UFC method resolution with improved generic type handling
         let receiver_type = self.infer_receiver_type(&method_info.receiver, store);
 
-        // Handle built-in methods based on receiver type
-        match receiver_type.as_deref() {
-            Some(typ) if typ == "Result" || typ.starts_with("Result") => {
-                // Result methods
-                let result_methods = ["raise", "is_ok", "is_err", "map", "map_err", "unwrap", "unwrap_or", "expect"];
+        // Extract base type and generic parameters for better matching
+        let (base_type, _generic_params) = if let Some(ref typ) = receiver_type {
+            self.parse_generic_type(typ)
+        } else {
+            (String::new(), Vec::new())
+        };
+
+        // Handle built-in methods based on base type
+        match base_type.as_str() {
+            "Result" => {
+                // Result methods with error propagation
+                let result_methods = [
+                    "raise", "is_ok", "is_err", "map", "map_err", "unwrap",
+                    "unwrap_or", "expect", "unwrap_err", "and_then", "or_else"
+                ];
                 if result_methods.contains(&method_info.method_name.as_str()) {
                     return self.find_stdlib_location("core/result.zen", &method_info.method_name, store);
                 }
             }
-            Some(typ) if typ == "Option" || typ.starts_with("Option") => {
-                // Option methods
-                let option_methods = ["is_some", "is_none", "unwrap", "unwrap_or", "map", "or", "and", "expect"];
+            "Option" => {
+                // Option methods with monadic operations
+                let option_methods = [
+                    "is_some", "is_none", "unwrap", "unwrap_or", "map",
+                    "or", "and", "expect", "and_then", "or_else", "filter"
+                ];
                 if option_methods.contains(&method_info.method_name.as_str()) {
                     return self.find_stdlib_location("core/option.zen", &method_info.method_name, store);
                 }
             }
-            Some(typ) if typ == "String" || typ == "StaticString" || typ == "str" => {
+            "String" | "StaticString" | "str" => {
                 // String methods - comprehensive list
                 let string_methods = [
                     "len", "to_i32", "to_i64", "to_f64", "to_upper", "to_lower",
@@ -1348,7 +1405,7 @@ impl ZenLanguageServer {
                     return self.find_stdlib_location("string.zen", &method_info.method_name, store);
                 }
             }
-            Some(typ) if typ == "HashMap" || typ.starts_with("HashMap") => {
+            "HashMap" => {
                 // HashMap methods - comprehensive list
                 let hashmap_methods = [
                     "insert", "get", "remove", "contains_key", "keys", "values",
@@ -1358,7 +1415,7 @@ impl ZenLanguageServer {
                     return self.find_stdlib_location("collections/hashmap.zen", &method_info.method_name, store);
                 }
             }
-            Some(typ) if typ == "DynVec" || typ.starts_with("DynVec") => {
+            "DynVec" => {
                 // DynVec methods - comprehensive list
                 let dynvec_methods = [
                     "push", "pop", "get", "set", "len", "clear", "capacity",
@@ -1369,7 +1426,7 @@ impl ZenLanguageServer {
                     return self.find_stdlib_location("vec.zen", &method_info.method_name, store);
                 }
             }
-            Some(typ) if typ == "Vec" || typ.starts_with("Vec") => {
+            "Vec" => {
                 // Vec (fixed-size) methods
                 let vec_methods = [
                     "push", "get", "set", "len", "clear", "capacity", "is_full", "is_empty"
@@ -1378,7 +1435,7 @@ impl ZenLanguageServer {
                     return self.find_stdlib_location("vec.zen", &method_info.method_name, store);
                 }
             }
-            Some(typ) if typ == "Array" || typ.starts_with("Array") => {
+            "Array" => {
                 // Array methods
                 let array_methods = [
                     "len", "get", "set", "push", "pop", "first", "last",
@@ -1388,7 +1445,7 @@ impl ZenLanguageServer {
                     return self.find_stdlib_location("collections/array.zen", &method_info.method_name, store);
                 }
             }
-            Some(typ) if typ == "Allocator" => {
+            "Allocator" => {
                 // Allocator methods
                 let allocator_methods = ["alloc", "dealloc", "realloc", "clone"];
                 if allocator_methods.contains(&method_info.method_name.as_str()) {
@@ -1848,6 +1905,7 @@ impl ZenLanguageServer {
         // Track context for better token classification
         let mut in_function = false;
         let mut in_struct = false;
+        let mut in_allocator_context = false;
 
         for (line_idx, line) in lines.iter().enumerate() {
             let mut char_idx = 0;
@@ -1970,6 +2028,12 @@ impl ZenLanguageServer {
                         }
                     }
 
+                    // Check if this is a UFC method call by looking ahead for '.'
+                    let is_ufc_call = chars.peek() == Some(&'.');
+
+                    // Check if this is allocator-related
+                    let is_allocator_related = word.contains("allocator") || word == "alloc" || word == "dealloc";
+
                     let (token_type, modifiers) = match word.as_str() {
                         // Keywords
                         "fn" => {
@@ -1983,7 +2047,8 @@ impl ZenLanguageServer {
                         "enum" => (TYPE_KEYWORD, 0),
                         "let" | "mut" | "const" => (TYPE_KEYWORD, 0),
                         "if" | "else" | "match" | "while" | "for" | "loop" | "break" | "continue" => (TYPE_KEYWORD, 0),
-                        "return" | "raise" => (TYPE_KEYWORD, 0),
+                        "return" => (TYPE_KEYWORD, 0),
+                        "raise" => (TYPE_KEYWORD, MOD_ASYNC), // Special highlighting for error propagation
                         "import" | "export" | "pub" => (TYPE_KEYWORD, 0),
                         "true" | "false" | "null" => (TYPE_KEYWORD, 0),
 
@@ -1995,8 +2060,14 @@ impl ZenLanguageServer {
                         // Zen-specific types
                         "String" | "StaticString" => (TYPE_TYPE, MOD_DEFAULT_LIBRARY),
                         "Option" | "Result" => (TYPE_ENUM, MOD_DEFAULT_LIBRARY),
-                        "HashMap" | "DynVec" | "Vec" | "Array" => (TYPE_CLASS, MOD_DEFAULT_LIBRARY),
-                        "Allocator" => (TYPE_INTERFACE, MOD_DEFAULT_LIBRARY),
+                        "HashMap" | "DynVec" | "Vec" | "Array" | "HashSet" => {
+                            in_allocator_context = true; // These types need allocators
+                            (TYPE_CLASS, MOD_DEFAULT_LIBRARY)
+                        }
+                        "Allocator" => (TYPE_INTERFACE, MOD_DEFAULT_LIBRARY | MOD_ABSTRACT),
+
+                        // Allocator-related functions (highlight specially)
+                        "get_default_allocator" => (TYPE_FUNCTION, MOD_DEFAULT_LIBRARY | MOD_STATIC),
 
                         // Enum variants
                         "Some" | "None" | "Ok" | "Err" => (TYPE_ENUM_MEMBER, 0),
@@ -2006,6 +2077,12 @@ impl ZenLanguageServer {
                             in_function = false;
                             (TYPE_FUNCTION, MOD_DECLARATION | MOD_DEFINITION)
                         }
+
+                        // Allocator-related identifiers get special highlighting
+                        _ if is_allocator_related => (TYPE_INTERFACE, MOD_ABSTRACT),
+
+                        // UFC calls get method highlighting
+                        _ if is_ufc_call => (TYPE_VARIABLE, 0), // Will be followed by method
 
                         // Default to variable
                         _ => (TYPE_VARIABLE, 0),
@@ -2031,8 +2108,77 @@ impl ZenLanguageServer {
                     continue;
                 }
 
-                // Operators (single character for now)
-                if "+-*/%&|^!<>=.".contains(ch) {
+                // Handle dot operator specially for UFC method calls
+                if ch == '.' {
+                    // Mark the dot operator
+                    let delta_line = line_idx as u32 - prev_line;
+                    let delta_start = if delta_line == 0 {
+                        start as u32 - prev_start
+                    } else {
+                        start as u32
+                    };
+
+                    tokens.push(SemanticToken {
+                        delta_line,
+                        delta_start,
+                        length: 1,
+                        token_type: TYPE_OPERATOR,
+                        token_modifiers_bitset: 0,
+                    });
+
+                    prev_line = line_idx as u32;
+                    prev_start = start as u32;
+
+                    // Look ahead for method name after dot
+                    if let Some(&next_ch) = chars.peek() {
+                        if next_ch.is_alphabetic() || next_ch == '_' {
+                            // Skip the dot we just processed
+                            let method_start = char_idx;
+                            let mut method_name = String::new();
+
+                            while let Some(&ch) = chars.peek() {
+                                if ch.is_alphanumeric() || ch == '_' {
+                                    chars.next();
+                                    char_idx += ch.len_utf8();
+                                    method_name.push(ch);
+                                } else {
+                                    break;
+                                }
+                            }
+
+                            // Add the method name token with special highlighting
+                            let delta_line = 0;  // Same line as dot
+                            let delta_start = method_start as u32 - prev_start;
+
+                            // Determine if this is a special method
+                            let is_allocator_method = method_name.contains("alloc");
+                            let is_error_method = method_name == "raise";
+
+                            let (token_type, modifiers) = if is_error_method {
+                                (TYPE_METHOD, MOD_ASYNC) // Special for error propagation
+                            } else if is_allocator_method {
+                                (TYPE_METHOD, MOD_ABSTRACT) // Special for allocator methods
+                            } else {
+                                (TYPE_METHOD, 0) // Regular UFC method
+                            };
+
+                            tokens.push(SemanticToken {
+                                delta_line,
+                                delta_start,
+                                length: method_name.len() as u32,
+                                token_type,
+                                token_modifiers_bitset: modifiers,
+                            });
+
+                            prev_line = line_idx as u32;
+                            prev_start = method_start as u32;
+                        }
+                    }
+                    continue;
+                }
+
+                // Other operators
+                if "+-*/%&|^!<>=".contains(ch) {
                     let delta_line = line_idx as u32 - prev_line;
                     let delta_start = if delta_line == 0 {
                         start as u32 - prev_start
@@ -2057,9 +2203,54 @@ impl ZenLanguageServer {
         tokens
     }
 
+    fn parse_generic_type(&self, type_str: &str) -> (String, Vec<String>) {
+        // Parse a generic type like HashMap<K, V> into ("HashMap", ["K", "V"])
+        if let Some(angle_pos) = type_str.find('<') {
+            let base = type_str[..angle_pos].to_string();
+            let params_end = type_str.rfind('>').unwrap_or(type_str.len());
+            let params_str = &type_str[angle_pos + 1..params_end];
+
+            let params = if params_str.is_empty() {
+                Vec::new()
+            } else {
+                // Handle nested generics by tracking bracket depth
+                let mut params = Vec::new();
+                let mut current = String::new();
+                let mut depth = 0;
+
+                for ch in params_str.chars() {
+                    match ch {
+                        '<' => {
+                            depth += 1;
+                            current.push(ch);
+                        }
+                        '>' => {
+                            depth -= 1;
+                            current.push(ch);
+                        }
+                        ',' if depth == 0 => {
+                            params.push(current.trim().to_string());
+                            current.clear();
+                        }
+                        _ => current.push(ch),
+                    }
+                }
+
+                if !current.trim().is_empty() {
+                    params.push(current.trim().to_string());
+                }
+
+                params
+            };
+
+            (base, params)
+        } else {
+            (type_str.to_string(), Vec::new())
+        }
+    }
+
     fn infer_receiver_type(&self, receiver: &str, store: &DocumentStore) -> Option<String> {
-        // Enhanced type inference for UFC method resolution
-        // This now handles more complex patterns and nested types
+        // Enhanced type inference for UFC method resolution with nested generic support
 
         // Check if receiver is a string literal
         if receiver.starts_with('"') || receiver.starts_with("'") {
@@ -2079,12 +2270,7 @@ impl ZenLanguageServer {
         for doc in store.documents.values() {
             if let Some(symbol) = doc.symbols.get(receiver) {
                 if let Some(type_info) = &symbol.type_info {
-                    let type_str = format_type(type_info);
-                    // Extract base type from generic types
-                    if let Some(base) = type_str.split('<').next() {
-                        return Some(base.to_string());
-                    }
-                    return Some(type_str);
+                    return Some(format_type(type_info));
                 }
                 // Enhanced detail parsing for better type inference
                 if let Some(detail) = &symbol.detail {
