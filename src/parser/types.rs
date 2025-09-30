@@ -190,6 +190,13 @@ impl<'a> Parser<'a> {
                             ));
                         }
                     }
+                    "string" => {
+                        // Provide helpful error for common mistake
+                        return Err(CompileError::SyntaxError(
+                            "Use 'StaticString' for static strings or 'String' for dynamic strings (lowercase 'string' is not a valid type)".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
                     _ => {
                         // Check for generic type instantiation (e.g., List<T>)
                         if self.current_token == Token::Operator("<".to_string()) {

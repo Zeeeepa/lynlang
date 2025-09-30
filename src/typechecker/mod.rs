@@ -1299,7 +1299,7 @@ impl TypeChecker {
                         // We don't know the error type yet, default to String like codegen does
                         Ok(AstType::Generic {
                             name: "Result".to_string(),
-                            type_args: vec![ok_type, AstType::String],
+                            type_args: vec![ok_type, AstType::StaticString],
                         })
                     } else if variant == "Err" {
                         let err_type = if let Some(p) = payload {
@@ -1320,7 +1320,7 @@ impl TypeChecker {
                         // Unknown variant, default
                         Ok(AstType::Generic {
                             name: "Result".to_string(),
-                            type_args: vec![AstType::I32, AstType::String],
+                            type_args: vec![AstType::I32, AstType::StaticString],
                         })
                     }
                 } else {
@@ -1862,14 +1862,12 @@ impl TypeChecker {
                 })
             }
             Expression::None => {
-                // Option::None -> Option<T>
-                // eprintln!("[DEBUG typechecker] Expression::None returning Option<T>");
+                // Option::None -> Option<Void> as a default
+                // The actual type will be inferred from context during type checking
+                // Using Void as placeholder to avoid unresolved generic T
                 Ok(AstType::Generic {
                     name: "Option".to_string(),
-                    type_args: vec![AstType::Generic {
-                        name: "T".to_string(),
-                        type_args: vec![],
-                    }],
+                    type_args: vec![AstType::Void],
                 })
             }
             Expression::CollectionLoop { .. } => {

@@ -8,9 +8,9 @@
 
 // Argument parser configuration
 ArgParser: {
-    program_name: string,
-    description: string,
-    version: string,
+    program_name: StaticString,
+    description: StaticString,
+    version: StaticString,
     flags: DynVec<Flag>,
     positional: DynVec<Positional>,
     subcommands: DynVec<Subcommand>,
@@ -19,10 +19,10 @@ ArgParser: {
 // Flag definition
 Flag: {
     short: Option<u8>,        // -h
-    long: string,             // --help
-    description: string,
-    value_name: Option<string>,
-    default_value: Option<string>,
+    long: StaticString,             // --help
+    description: StaticString,
+    value_name: Option<StaticString>,
+    default_value: Option<StaticString>,
     required: bool,
     takes_value: bool,
     multiple: bool,           // Can be specified multiple times
@@ -31,7 +31,7 @@ Flag: {
 // Positional argument
 Positional: {
     name: string,
-    description: string,
+    description: StaticString,
     required: bool,
     multiple: bool,           // Accepts multiple values
 }
@@ -39,7 +39,7 @@ Positional: {
 // Subcommand definition
 Subcommand: {
     name: string,
-    description: string,
+    description: StaticString,
     parser: ArgParser,
 }
 

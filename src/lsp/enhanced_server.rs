@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 
-use crate::ast::{Declaration, AstType};
+use crate::ast::{Declaration, AstType, Expression, Statement};
 use crate::lexer::{Lexer, Token};
 use crate::parser::Parser;
 
@@ -32,9 +32,12 @@ struct SymbolInfo {
     name: String,
     kind: SymbolKind,
     range: Range,
+    selection_range: Range,
     detail: Option<String>,
     documentation: Option<String>,
     type_info: Option<AstType>,
+    definition_uri: Option<Url>,
+    references: Vec<Range>,
 }
 
 struct DocumentStore {
@@ -154,65 +157,187 @@ impl DocumentStore {
 
     fn extract_symbols(&self, content: &str) -> HashMap<String, SymbolInfo> {
         let mut symbols = HashMap::new();
-        
+
         if let Some(ast) = self.parse(content) {
-            for decl in ast {
+            // First pass: Extract symbol definitions
+            for (decl_index, decl) in ast.iter().enumerate() {
+                let (line, _) = self.find_declaration_position(content, &decl, decl_index);
+                let range = Range {
+                    start: Position { line: line as u32, character: 0 },
+                    end: Position { line: line as u32, character: 100 },
+                };
+
                 match decl {
                     Declaration::Function(func) => {
-                        let detail = format!("{} = () {}", 
-                            func.name, 
+                        let detail = format!("{} = ({}) {}",
+                            func.name,
+                            func.args.iter()
+                                .map(|(name, ty)| format!("{}: {}", name, format_type(ty)))
+                                .collect::<Vec<_>>()
+                                .join(", "),
                             format_type(&func.return_type)
                         );
-                        
+
                         symbols.insert(func.name.clone(), SymbolInfo {
                             name: func.name.clone(),
                             kind: SymbolKind::FUNCTION,
-                            range: Default::default(),
+                            range: range.clone(),
+                            selection_range: range,
                             detail: Some(detail),
                             documentation: None,
                             type_info: Some(func.return_type.clone()),
+                            definition_uri: None,
+                            references: Vec::new(),
                         });
                     }
                     Declaration::Struct(struct_def) => {
                         let detail = format!("{} struct with {} fields", struct_def.name, struct_def.fields.len());
-                        
+
                         symbols.insert(struct_def.name.clone(), SymbolInfo {
                             name: struct_def.name.clone(),
                             kind: SymbolKind::STRUCT,
-                            range: Default::default(),
+                            range: range.clone(),
+                            selection_range: range,
                             detail: Some(detail),
                             documentation: None,
                             type_info: None,
+                            definition_uri: None,
+                            references: Vec::new(),
                         });
                     }
                     Declaration::Enum(enum_def) => {
                         let detail = format!("{} enum with {} variants", enum_def.name, enum_def.variants.len());
-                        
+
                         symbols.insert(enum_def.name.clone(), SymbolInfo {
                             name: enum_def.name.clone(),
                             kind: SymbolKind::ENUM,
-                            range: Default::default(),
+                            range: range.clone(),
+                            selection_range: range,
                             detail: Some(detail),
                             documentation: None,
                             type_info: None,
+                            definition_uri: None,
+                            references: Vec::new(),
                         });
+
+                        // Add enum variants as symbols
+                        for variant in &enum_def.variants {
+                            let variant_name = format!("{}::{}", enum_def.name, variant.name);
+                            symbols.insert(variant_name.clone(), SymbolInfo {
+                                name: variant.name.clone(),
+                                kind: SymbolKind::ENUM_MEMBER,
+                                range: range.clone(),
+                                selection_range: range.clone(),
+                                detail: Some(format!("{}::{}", enum_def.name, variant.name)),
+                                documentation: None,
+                                type_info: None,
+                                definition_uri: None,
+                                references: Vec::new(),
+                            });
+                        }
                     }
                     Declaration::Constant { name, type_, .. } => {
                         symbols.insert(name.clone(), SymbolInfo {
                             name: name.clone(),
                             kind: SymbolKind::CONSTANT,
-                            range: Default::default(),
+                            range: range.clone(),
+                            selection_range: range,
                             detail: type_.as_ref().map(|t| format_type(t)),
                             documentation: None,
                             type_info: type_.clone(),
+                            definition_uri: None,
+                            references: Vec::new(),
                         });
                     }
                     _ => {}
                 }
             }
+
+            // Second pass: Find references to symbols
+            for decl in ast {
+                if let Declaration::Function(func) = decl {
+                    self.find_references_in_statements(&func.body, &mut symbols);
+                }
+            }
         }
-        
+
         symbols
+    }
+
+    fn find_declaration_position(&self, content: &str, decl: &Declaration, _index: usize) -> (usize, usize) {
+        // Find the line number where the declaration starts
+        let search_str = match decl {
+            Declaration::Function(f) => &f.name,
+            Declaration::Struct(s) => &s.name,
+            Declaration::Enum(e) => &e.name,
+            Declaration::Constant { name, .. } => name,
+            _ => return (0, 0),
+        };
+
+        let lines: Vec<&str> = content.lines().collect();
+        for (line_num, line) in lines.iter().enumerate() {
+            if line.contains(search_str) && line.contains('=') {
+                return (line_num, line.find(search_str).unwrap_or(0));
+            }
+        }
+        (0, 0)
+    }
+
+    fn find_references_in_statements(&self, statements: &[Statement], symbols: &mut HashMap<String, SymbolInfo>) {
+        for stmt in statements {
+            match stmt {
+                Statement::Expression(expr) => self.find_references_in_expression(expr, symbols),
+                Statement::Return(expr) => self.find_references_in_expression(expr, symbols),
+                Statement::VariableDeclaration { initializer: Some(expr), .. } => {
+                    self.find_references_in_expression(expr, symbols);
+                }
+                Statement::VariableAssignment { value, .. } => {
+                    self.find_references_in_expression(value, symbols);
+                }
+                Statement::PointerAssignment { pointer, value } => {
+                    self.find_references_in_expression(pointer, symbols);
+                    self.find_references_in_expression(value, symbols);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn find_references_in_expression(&self, _expr: &Expression, _symbols: &mut HashMap<String, SymbolInfo>) {
+        // TODO: Traverse expression tree to find identifier references
+        // This would need to walk through all expressions and track uses of identifiers
+    }
+}
+
+fn format_symbol_kind(kind: SymbolKind) -> &'static str {
+    match kind {
+        SymbolKind::FILE => "File",
+        SymbolKind::MODULE => "Module",
+        SymbolKind::NAMESPACE => "Namespace",
+        SymbolKind::PACKAGE => "Package",
+        SymbolKind::CLASS => "Class",
+        SymbolKind::METHOD => "Method",
+        SymbolKind::PROPERTY => "Property",
+        SymbolKind::FIELD => "Field",
+        SymbolKind::CONSTRUCTOR => "Constructor",
+        SymbolKind::ENUM => "Enum",
+        SymbolKind::INTERFACE => "Interface",
+        SymbolKind::FUNCTION => "Function",
+        SymbolKind::VARIABLE => "Variable",
+        SymbolKind::CONSTANT => "Constant",
+        SymbolKind::STRING => "String",
+        SymbolKind::NUMBER => "Number",
+        SymbolKind::BOOLEAN => "Boolean",
+        SymbolKind::ARRAY => "Array",
+        SymbolKind::OBJECT => "Object",
+        SymbolKind::KEY => "Key",
+        SymbolKind::NULL => "Null",
+        SymbolKind::ENUM_MEMBER => "Enum Member",
+        SymbolKind::STRUCT => "Struct",
+        SymbolKind::EVENT => "Event",
+        SymbolKind::OPERATOR => "Operator",
+        SymbolKind::TYPE_PARAMETER => "Type Parameter",
+        _ => "Unknown",
     }
 }
 
@@ -498,23 +623,117 @@ impl ZenLanguageServer {
             }
         };
 
-        // Get document and find symbol at position
-        if let Some(_doc) = self.store.lock().unwrap().documents.get(&params.text_document_position_params.text_document.uri) {
-            // TODO: Find the symbol at the given position
-            // For now, return basic hover info
-            let hover_text = "Zen Language Element";
-            let contents = HoverContents::Scalar(MarkedString::String(hover_text.to_string()));
-            
-            return Response {
-                id: req.id,
-                result: Some(serde_json::to_value(Hover {
-                    contents,
-                    range: None,
-                }).unwrap_or(Value::Null)),
-                error: None,
-            };
+        let store = self.store.lock().unwrap();
+        if let Some(doc) = store.documents.get(&params.text_document_position_params.text_document.uri) {
+            let position = params.text_document_position_params.position;
+
+            // Find the symbol at the cursor position
+            if let Some(symbol_name) = self.find_symbol_at_position(&doc.content, position) {
+                // Check for symbol info in current document
+                if let Some(symbol_info) = doc.symbols.get(&symbol_name) {
+                    let mut hover_content = Vec::new();
+
+                    // Add type signature
+                    if let Some(detail) = &symbol_info.detail {
+                        hover_content.push(format!("```zen\n{}\n```", detail));
+                    }
+
+                    // Add documentation
+                    if let Some(doc) = &symbol_info.documentation {
+                        hover_content.push(doc.clone());
+                    }
+
+                    // Add type information
+                    if let Some(type_info) = &symbol_info.type_info {
+                        hover_content.push(format!("**Type:** `{}`", format_type(type_info)));
+                    }
+
+                    // Add symbol kind
+                    hover_content.push(format!("**Kind:** {}", format_symbol_kind(symbol_info.kind)));
+
+                    let contents = HoverContents::Markup(MarkupContent {
+                        kind: MarkupKind::Markdown,
+                        value: hover_content.join("\n\n"),
+                    });
+
+                    return Response {
+                        id: req.id,
+                        result: Some(serde_json::to_value(Hover {
+                            contents,
+                            range: Some(Range {
+                                start: Position {
+                                    line: position.line,
+                                    character: position.character.saturating_sub(symbol_name.len() as u32),
+                                },
+                                end: Position {
+                                    line: position.line,
+                                    character: position.character + symbol_name.len() as u32,
+                                },
+                            }),
+                        }).unwrap_or(Value::Null)),
+                        error: None,
+                    };
+                }
+
+                // Check stdlib or other documents
+                for (_uri, other_doc) in &store.documents {
+                    if let Some(symbol_info) = other_doc.symbols.get(&symbol_name) {
+                        let mut hover_content = Vec::new();
+
+                        if let Some(detail) = &symbol_info.detail {
+                            hover_content.push(format!("```zen\n{}\n```", detail));
+                        }
+
+                        if let Some(type_info) = &symbol_info.type_info {
+                            hover_content.push(format!("**Type:** `{}`", format_type(type_info)));
+                        }
+
+                        let contents = HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: hover_content.join("\n\n"),
+                        });
+
+                        return Response {
+                            id: req.id,
+                            result: Some(serde_json::to_value(Hover {
+                                contents,
+                                range: None,
+                            }).unwrap_or(Value::Null)),
+                            error: None,
+                        };
+                    }
+                }
+
+                // Provide hover for built-in types and keywords
+                let hover_text = match symbol_name.as_str() {
+                    "Option" => "```zen\nenum Option<T> {\n    Some(T),\n    None,\n}\n```\n\nOptional value type",
+                    "Result" => "```zen\nenum Result<T, E> {\n    Ok(T),\n    Err(E),\n}\n```\n\nResult type for error handling",
+                    "HashMap" => "```zen\nHashMap<K, V>\n```\n\nHash map collection (requires allocator)",
+                    "DynVec" => "```zen\nDynVec<T>\n```\n\nDynamic vector (requires allocator)",
+                    "Array" => "```zen\nArray<T>\n```\n\nDynamic array (requires allocator)",
+                    "String" => "```zen\nString\n```\n\nDynamic string type (requires allocator)",
+                    "StaticString" => "```zen\nStaticString\n```\n\nStatic string type (compile-time, no allocator)",
+                    "loop" => "```zen\nloop() { ... }\nloop((handle) { ... })\n(range).loop((i) { ... })\n```\n\nLoop construct with internal state management",
+                    "raise" => "```zen\nexpr.raise()\n```\n\nPropagate errors from Result types",
+                    _ => "Zen language element",
+                };
+
+                let contents = HoverContents::Markup(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: hover_text.to_string(),
+                });
+
+                return Response {
+                    id: req.id,
+                    result: Some(serde_json::to_value(Hover {
+                        contents,
+                        range: None,
+                    }).unwrap_or(Value::Null)),
+                    error: None,
+                };
+            }
         }
-        
+
         Response {
             id: req.id,
             result: Some(Value::Null),
@@ -675,7 +894,56 @@ impl ZenLanguageServer {
     }
 
     fn handle_definition(&self, req: Request) -> Response {
-        // TODO: Implement go-to-definition
+        let params: GotoDefinitionParams = match serde_json::from_value(req.params) {
+            Ok(p) => p,
+            Err(_) => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: None,
+                };
+            }
+        };
+
+        let store = self.store.lock().unwrap();
+        if let Some(doc) = store.documents.get(&params.text_document_position_params.text_document.uri) {
+            let position = params.text_document_position_params.position;
+
+            // Find the symbol at the cursor position
+            if let Some(symbol_name) = self.find_symbol_at_position(&doc.content, position) {
+                // Check local document symbols first
+                if let Some(symbol_info) = doc.symbols.get(&symbol_name) {
+                    let location = Location {
+                        uri: params.text_document_position_params.text_document.uri.clone(),
+                        range: symbol_info.range.clone(),
+                    };
+
+                    return Response {
+                        id: req.id,
+                        result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                        error: None,
+                    };
+                }
+
+                // TODO: Check stdlib and imported symbols
+                // For now, we'll search for the symbol in all open documents
+                for (uri, other_doc) in &store.documents {
+                    if let Some(symbol_info) = other_doc.symbols.get(&symbol_name) {
+                        let location = Location {
+                            uri: uri.clone(),
+                            range: symbol_info.range.clone(),
+                        };
+
+                        return Response {
+                            id: req.id,
+                            result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                            error: None,
+                        };
+                    }
+                }
+            }
+        }
+
         Response {
             id: req.id,
             result: Some(Value::Null),
@@ -683,11 +951,104 @@ impl ZenLanguageServer {
         }
     }
 
+    fn find_symbol_at_position(&self, content: &str, position: Position) -> Option<String> {
+        let lines: Vec<&str> = content.lines().collect();
+        if position.line as usize >= lines.len() {
+            return None;
+        }
+
+        let line = lines[position.line as usize];
+        let char_pos = position.character as usize;
+
+        // Find word boundaries around the cursor position
+        let mut start = char_pos;
+        let mut end = char_pos;
+
+        let chars: Vec<char> = line.chars().collect();
+
+        // Move start backwards to find word beginning
+        while start > 0 && (chars[start - 1].is_alphanumeric() || chars[start - 1] == '_') {
+            start -= 1;
+        }
+
+        // Move end forward to find word end
+        while end < chars.len() && (chars[end].is_alphanumeric() || chars[end] == '_') {
+            end += 1;
+        }
+
+        if start < end {
+            Some(chars[start..end].iter().collect())
+        } else {
+            None
+        }
+    }
+
     fn handle_references(&self, req: Request) -> Response {
-        // TODO: Implement find references
+        let params: ReferenceParams = match serde_json::from_value(req.params) {
+            Ok(p) => p,
+            Err(_) => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: None,
+                };
+            }
+        };
+
+        let store = self.store.lock().unwrap();
+        let mut locations = Vec::new();
+
+        if let Some(doc) = store.documents.get(&params.text_document_position.text_document.uri) {
+            let position = params.text_document_position.position;
+
+            // Find the symbol at the cursor position
+            if let Some(symbol_name) = self.find_symbol_at_position(&doc.content, position) {
+                // Search for references in all open documents
+                for (uri, doc) in &store.documents {
+                    // Find all occurrences of the symbol in the document
+                    let lines: Vec<&str> = doc.content.lines().collect();
+                    for (line_num, line) in lines.iter().enumerate() {
+                        // Simple text search - could be improved with proper AST traversal
+                        if let Some(col) = line.find(&symbol_name) {
+                            // Verify it's a whole word match
+                            let before_ok = col == 0 || !line.chars().nth(col - 1).unwrap_or(' ').is_alphanumeric();
+                            let after_ok = col + symbol_name.len() >= line.len() ||
+                                !line.chars().nth(col + symbol_name.len()).unwrap_or(' ').is_alphanumeric();
+
+                            if before_ok && after_ok {
+                                locations.push(Location {
+                                    uri: uri.clone(),
+                                    range: Range {
+                                        start: Position {
+                                            line: line_num as u32,
+                                            character: col as u32,
+                                        },
+                                        end: Position {
+                                            line: line_num as u32,
+                                            character: (col + symbol_name.len()) as u32,
+                                        },
+                                    },
+                                });
+                            }
+                        }
+                    }
+                }
+
+                // Include the definition if requested
+                if params.context.include_declaration {
+                    if let Some(symbol_info) = doc.symbols.get(&symbol_name) {
+                        locations.push(Location {
+                            uri: params.text_document_position.text_document.uri.clone(),
+                            range: symbol_info.range.clone(),
+                        });
+                    }
+                }
+            }
+        }
+
         Response {
             id: req.id,
-            result: Some(Value::Null),
+            result: Some(serde_json::to_value(locations).unwrap_or(Value::Null)),
             error: None,
         }
     }

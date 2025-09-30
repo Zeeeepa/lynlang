@@ -10,67 +10,67 @@ hashmap = @std
 
 // Package manifest structure
 Package: {
-    name: string,
-    version: string,
-    description: string,
-    author: string,
-    license: string,
-    repository: string,
-    dependencies: HashMap<string, Dependency>,
-    dev_dependencies: HashMap<string, Dependency>,
+    name: StaticString,
+    version: StaticString,
+    description: StaticString,
+    author: StaticString,
+    license: StaticString,
+    repository: StaticString,
+    dependencies: HashMap<StaticString, Dependency>,
+    dev_dependencies: HashMap<StaticString, Dependency>,
     build_config: BuildConfig,
 }
 
 // Dependency specification
 Dependency: 
-    Version: {version: string},
-    Git: { url: string, branch: string},
-    Path: { path: string},
-    Registry: { name: string, version: string }
+    Version: {version: StaticString},
+    Git: { url: StaticString, branch: StaticString},
+    Path: { path: StaticString},
+    Registry: { name: StaticString, version: StaticString }
 
 // Semantic version
 SemVer: {
     major: i32,
     minor: i32,
     patch: i32,
-    prerelease: Option<string>,
-    build: Option<string>,
+    prerelease: Option<StaticString>,
+    build: Option<StaticString>,
 }
 
 // Package registry
 Registry: {
-    url: string,
-    packages: HashMap<string, PackageInfo>,
+    url: StaticString,
+    packages: HashMap<StaticString, PackageInfo>,
 }
 
 // Package information in registry
 PackageInfo: {
-    name: string,
+    name: StaticString,
     versions: Vec<SemVer>,
     latest: SemVer,
-    description: string,
+    description: StaticString,
     downloads: i64,
 }
 
 // Dependency resolution result
 ResolutionResult: Resolved(packages: HashMap<string, ResolvedPackage>)
-    | Conflict(message: string)
+    | Conflict(message: StaticString)
 
 // Resolved package with exact version
 ResolvedPackage: {
-    name: string,
+    name: StaticString,
     version: SemVer,
     source: DependencySource,
     dependencies: Vec<string>,
 }
 
 // Source of a dependency
-DependencySource: Registry(url: string)
-    | Git(url: string, commit: string)
-    | Local(path: string)
+DependencySource: Registry(url: StaticString)
+    | Git(url: StaticString, commit: StaticString)
+    | Local(path: StaticString)
 
 // Parse semantic version string
-parse_version = (version: string) Result<SemVer, string>   {
+parse_version = (version: StaticString) Result<SemVer, StaticString>   {
     parts := string.split(version, ".")
     parts.len() != 3 ? 
         | true { Result.Err("Invalid version format") }
@@ -131,7 +131,7 @@ compare_versions = (a: SemVer, b: SemVer) i32   {
 }
 
 // Check if version satisfies constraint
-satisfies = (version: SemVer, constraint: string) bool   {
+satisfies = (version: SemVer, constraint: StaticString) bool   {
     // Simple implementation - just checks exact match or range
     constraint == "*" ? | true { return true | false => { }}
     
@@ -170,7 +170,7 @@ satisfies = (version: SemVer, constraint: string) bool   {
 }
 
 // Load package manifest from file
-load_manifest = (path: string) Result<Package, string>   {
+load_manifest = (path: StaticString) Result<Package, StaticString>   {
     content := fs.read_file(path) ?
         | Ok(c) { c }
         | Err(e) { return Result.Err(string.format("Failed to read manifest: { }}", e))
@@ -290,7 +290,7 @@ resolve_dependencies = (deps: HashMap<string, Dependency>) ResolutionResult   {
 }
 
 // Resolve a single dependency
-resolve_single_dependency = (name: string, dep: Dependency) Result<ResolvedPackage, string>   {
+resolve_single_dependency = (name: StaticString, dep: Dependency) Result<ResolvedPackage, StaticString>   {
     dep ?
         | Version(v) {
             // Fetch from registry
@@ -341,7 +341,7 @@ resolve_single_dependency = (name: string, dep: Dependency) Result<ResolvedPacka
 }
 
 // Find matching version from list
-find_matching_version = (versions: Vec<SemVer>, constraint: string) Option<SemVer>   {
+find_matching_version = (versions: Vec<SemVer>, constraint: StaticString) Option<SemVer>   {
     best := Option.None
     
     versions.loop((version) {
@@ -362,7 +362,7 @@ find_matching_version = (versions: Vec<SemVer>, constraint: string) Option<SemVe
 }
 
 // Install a resolved package
-install_package = (package: ResolvedPackage, target_dir: string) Result<void, string>   {
+install_package = (package: ResolvedPackage, target_dir: StaticString) Result<void, StaticString>   {
     package_dir := string.format("{}/{}", target_dir, package.name)
     
     package.source ?
@@ -392,7 +392,7 @@ version_to_string = (v: SemVer) string   {
 }
 
 // Fetch package info from registry
-fetch_package_info = (name: string) Result<PackageInfo, string>   {
+fetch_package_info = (name: StaticString) Result<PackageInfo, StaticString>   {
     url := string.format("https://registry.zen-lang.org/api/packages/{}", name)
     response := net.http_get(url) ?
         | Ok(r) { r }
@@ -413,7 +413,7 @@ fetch_package_info = (name: string) Result<PackageInfo, string>   {
 }
 
 // Initialize a new package
-init_package = (name: string) Result<void, string>   {
+init_package = (name: StaticString) Result<void, StaticString>   {
     // Create package manifest
     manifest := Package {
         name: name,

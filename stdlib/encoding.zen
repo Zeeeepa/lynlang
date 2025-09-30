@@ -13,7 +13,7 @@ hex_chars := "0123456789abcdef"
 HEX_CHARS := "0123456789ABCDEF"
 
 // Encode bytes to hex string (lowercase)
-encode_hex = (data: Vec<u8>, len: usize) string   {
+encode_hex = (data: Vec<u8>, len: usize) StaticString   {
     result := ""
     i := 0: usize
     loop i < len {
@@ -27,7 +27,7 @@ encode_hex = (data: Vec<u8>, len: usize) string   {
 }
 
 // Encode bytes to hex string (uppercase)
-encode_hex_upper = (data: Vec<u8>, len: usize) string   {
+encode_hex_upper = (data: Vec<u8>, len: usize) StaticString   {
     result := ""
     i := 0: usize
     loop i < len {

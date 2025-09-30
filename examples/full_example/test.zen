@@ -6,8 +6,7 @@
 { HashMap, HashSet } = @std.collections
 { Vec, DynVec, Array } = @std
 
-// Import the main module functions to test
-{ add, divide, find_person, describe_status, calculate } = @this
+// Import the main module functions to test 
 
 // ============================================================================
 // TEST FRAMEWORK - Simple test utilities
@@ -15,17 +14,17 @@
 
 TestResult:
     Pass,
-    Fail: string
+    Fail: StaticString
 
 TestSuite: {
-    name: string,
+    name: StaticString,
     tests: DynVec<() TestResult>,
     passed: u32,
     failed: u32
 }
 
 // Create a new test suite
-new_test_suite = (name: string) TestSuite {
+new_test_suite = (name: StaticString) TestSuite {
     allocator = @std.get_default_allocator()
     return TestSuite {
         name: name,
@@ -36,7 +35,7 @@ new_test_suite = (name: string) TestSuite {
 }
 
 // Add a test to the suite
-add_test = (suite: TestSuite, test_name: string, test_func: () TestResult) void {
+add_test = (suite: TestSuite, test_name: StaticString, test_func: () TestResult) void {
     suite.tests.push(() {
         println("  Running: ${test_name}")
         result = test_func()
@@ -171,7 +170,7 @@ test_collections = () TestResult {
     allocator = @std.get_default_allocator()
     
     // Test HashMap
-    map = HashMap.new<string, i32>(allocator)
+    map = HashMap.new<StaticString, i32>(allocator)
     map.insert("test", 42)
     value = map.get("test")
     value ?

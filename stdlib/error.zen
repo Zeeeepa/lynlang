@@ -5,9 +5,9 @@
 
 // Common error types
 Error: {
-    message: string
+    message: StaticString
     code: i32
-    source: Option<string>
+    source: Option<StaticString>
 }
 
 // Error severity levels
@@ -17,25 +17,25 @@ ErrorLevel:
     | Fatal
 
 // Create a new error
-new_error = (message: string, code: i32) Error   {
+new_error = (message: StaticString, code: i32) Error   {
     return Error {
         message: message,
         code: code,
-        source: Option<string>.None
+        source: Option<StaticString>.None
     }
 }
 
 // Create an error with source information
-new_error_with_source = (message: string, code: i32, source: string) Error   {
+new_error_with_source = (message: StaticString, code: i32, source: StaticString) Error   {
     return Error {
         message: message,
         code: code,
-        source: Option<string>.Some(source)
+        source: Option<StaticString>.Some(source)
     }
 }
 
 // Format error for display
-format_error = (error: Error) string   {
+format_error = (error: Error) StaticString   {
     mut result := "Error "
     result = string.concat(result, string.from_int(error.code))
     result = string.concat(result, ": ")
@@ -66,7 +66,7 @@ is_fatal = (code: i32) bool   {
 }
 
 // Panic with error message
-panic = (message: string) void   {
+panic = (message: StaticString) void   {
     io.eprint("PANIC: ")
     io.eprint(message)
     io.eprint("\n")
@@ -74,7 +74,7 @@ panic = (message: string) void   {
 }
 
 // Assert with custom message
-assert_msg = (condition: bool, message: string) void   {
+assert_msg = (condition: bool, message: StaticString) void   {
     if !condition {
         panic(message)
     }

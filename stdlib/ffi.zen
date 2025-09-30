@@ -21,14 +21,14 @@ Type: Void,
     Struct: {fields: DynVec<FieldType>}
 
 FieldType: {
-    name: string,
+    name: StaticString,
     field_type: Type,
 }
 
 // FFI builder for safe C interop
 FFI: {
     // Create a new library builder
-    lib: (name: string) Ptr<LibBuilder> {
+    lib: (name: StaticString) Ptr<LibBuilder> {
         builder := LibBuilder{
             name: name,
             path_str: None,
@@ -41,18 +41,18 @@ FFI: {
 }
 
 LibBuilder: {
-    name: string,
-    path_str: Option<string> = None,
+    name: StaticString,
+    path_str: Option<StaticString> = None,
     functions: DynVec<FunctionBinding> = DynVec<FunctionBinding>:new(),
     constants: DynVec<ConstantBinding> = DynVec<ConstantBinding>:new(),
     structs: DynVec<StructBinding> = DynVec<StructBinding>:new(),
     
-    path: (self: Ptr<LibBuilder>, p: string) Ptr<LibBuilder> {
+    path: (self: Ptr<LibBuilder>, p: StaticString) Ptr<LibBuilder> {
         self.value.path_str = Some(p)
         self
     },
     
-    function: (self: Ptr<LibBuilder>, name: string, sig: FnSignature) Ptr<LibBuilder> {
+    function: (self: Ptr<LibBuilder>, name: StaticString, sig: FnSignature) Ptr<LibBuilder> {
         binding := FunctionBinding{
             name: name,
             signature: sig,
@@ -61,7 +61,7 @@ LibBuilder: {
         self
     },
     
-    constant: (self: Ptr<LibBuilder>, name: string, type: Type) Ptr<LibBuilder> {
+    constant: (self: Ptr<LibBuilder>, name: StaticString, type: Type) Ptr<LibBuilder> {
         binding := ConstantBinding{
             name: name,
             const_type: type,
@@ -70,7 +70,7 @@ LibBuilder: {
         self
     },
     
-    struct: (self: Ptr<LibBuilder>, name: string, fields: DynVec<FieldType>) Ptr<LibBuilder> {
+    struct: (self: Ptr<LibBuilder>, name: StaticString, fields: DynVec<FieldType>) Ptr<LibBuilder> {
         binding := StructBinding{
             name: name,
             fields: fields,
@@ -94,7 +94,7 @@ LibBuilder: {
 }
 
 FunctionBinding: {
-    name: string,
+    name: StaticString,
     signature: FnSignature,
 }
 
@@ -112,26 +112,26 @@ CallingConvention: CDecl      // Default C calling convention
     | VectorCall // Vector calling convention
 
 ConstantBinding: {
-    name: string,
+    name: StaticString,
     const_type: Type,
 }
 
 StructBinding: {
-    name: string,
+    name: StaticString,
     fields: DynVec<FieldType>,
 }
 
 Library: {
-    name: string,
-    path: Option<string>,
+    name: StaticString,
+    path: Option<StaticString>,
     functions: DynVec<FunctionBinding>,
     constants: DynVec<ConstantBinding>,
     structs: DynVec<StructBinding>,
     handle: Option<RawPtr<void>> = None,
-    symbol_cache: HashMap<string, RawPtr<void>> = HashMap<string, RawPtr<void>>:new(),
+    symbol_cache: HashMap<StaticString, RawPtr<void>> = HashMap<StaticString, RawPtr<void>>:new(),
     
     // Load the library
-    load: (self: Ptr<Library>) Result<void, string> {
+    load: (self: Ptr<Library>) Result<void, StaticString> {
         self.value.path ?
             | Some(p) {
                 // Call dlopen or equivalent
@@ -147,7 +147,7 @@ Library: {
     },
     
     // Get function pointer with caching
-    get_function: (self: Ptr<Library>, name: string) Result<RawPtr<void>, string> {
+    get_function: (self: Ptr<Library>, name: StaticString) Result<RawPtr<void>, StaticString> {
         // Check cache first
         self.value.symbol_cache.get(name) ?
             | Some(ptr) { Ok(ptr) }
@@ -169,12 +169,12 @@ Library: {
     },
     
     // Get constant value with caching
-    get_constant: (self: Ptr<Library>, name: string) Result<RawPtr<void>, string> {
+    get_constant: (self: Ptr<Library>, name: StaticString) Result<RawPtr<void>, StaticString> {
         self.get_function(name) // Constants use same mechanism as functions
     },
     
     // Unload library and clean up
-    unload: (self: Ptr<Library>) Result<void, string> {
+    unload: (self: Ptr<Library>) Result<void, StaticString> {
         self.value.handle ?
             | Some(h) {
                 // Clear cache
@@ -193,7 +193,7 @@ Library: {
     },
     
     // Call a function with type safety
-    call_function<Args, Ret>: (self: Ptr<Library>, name: string, args: Args) Result<Ret, string> {
+    call_function<Args, Ret>: (self: Ptr<Library>, name: StaticString, args: Args) Result<Ret, StaticString> {
         fn_ptr := self.get_function(name)
         fn_ptr ?
             | Ok(ptr) {
@@ -206,7 +206,7 @@ Library: {
 }
 
 // Platform-specific library loading
-load_library = (path: string) Result<RawPtr<void>, string>   {
+load_library = (path: StaticString) Result<RawPtr<void>, StaticString>   {
     @std.target.os ?
         | linux { load_library_linux(path) }
         | windows { load_library_windows(path) }
@@ -215,7 +215,7 @@ load_library = (path: string) Result<RawPtr<void>, string>   {
 }
 
 // Platform-specific library unloading
-unload_library = (handle: RawPtr<void>) Result<void, string>   {
+unload_library = (handle: RawPtr<void>) Result<void, StaticString>   {
     @std.target.os ?
         | linux { unload_library_linux(handle) }
         | windows { unload_library_windows(handle) }
@@ -224,7 +224,7 @@ unload_library = (handle: RawPtr<void>) Result<void, string>   {
 }
 
 // Platform-specific symbol lookup
-get_symbol = (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string>   {
+get_symbol = (handle: RawPtr<void>, name: StaticString) Result<RawPtr<void>, StaticString>   {
     @std.target.os ?
         | linux { get_symbol_linux(handle, name) }
         | windows { get_symbol_windows(handle, name)   }
@@ -233,13 +233,13 @@ get_symbol = (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string>  
 }
 
 // Linux implementation
-dlopen = (filename: string, flag: i32) RawPtr<void> {
+dlopen = (filename: StaticString, flag: i32) RawPtr<void> {
     inline.c("""
         return dlopen(${filename.addr}, ${flag});
     """)
 }
 
-dlsym = (handle: RawPtr<void>, symbol: string) RawPtr<void> {
+dlsym = (handle: RawPtr<void>, symbol: StaticString) RawPtr<void> {
     inline.c("""
         return dlsym(${handle.addr}, ${symbol.addr});
     """)
@@ -251,13 +251,13 @@ dlclose = (handle: RawPtr<void>) i32 {
     """)
 }
 
-dlerror = () string {
+dlerror = () StaticString {
     inline.c("""
         return dlerror();
     """)
 }
 
-load_library_linux = (path: string) Result<RawPtr<void>, string>   {
+load_library_linux = (path: StaticString) Result<RawPtr<void>, StaticString>   {
     RTLD_LAZY := 1
     handle := dlopen(path, RTLD_LAZY)
     handle.address \!= 0 ?
@@ -265,14 +265,14 @@ load_library_linux = (path: string) Result<RawPtr<void>, string>   {
         | false { Err(dlerror()) }
 }
 
-get_symbol_linux = (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string>   {
+get_symbol_linux = (handle: RawPtr<void>, name: StaticString) Result<RawPtr<void>, StaticString>   {
     symbol := dlsym(handle, name)
     symbol.address \!= 0 ?
         | true { Ok(symbol) }
         | false { Err(dlerror()) }
 }
 
-unload_library_linux = (handle: RawPtr<void>) Result<void, string>   {
+unload_library_linux = (handle: RawPtr<void>) Result<void, StaticString>   {
     result := dlclose(handle)
     result == 0 ?
         | true { Ok(void) }
@@ -280,13 +280,13 @@ unload_library_linux = (handle: RawPtr<void>) Result<void, string>   {
 }
 
 // Windows implementation
-LoadLibraryA = (lpLibFileName: string) RawPtr<void> {
+LoadLibraryA = (lpLibFileName: StaticString) RawPtr<void> {
     inline.c("""
         return LoadLibraryA(${lpLibFileName.addr});
     """)
 }
 
-GetProcAddress = (hModule: RawPtr<void>, lpProcName: string) RawPtr<void> {
+GetProcAddress = (hModule: RawPtr<void>, lpProcName: StaticString) RawPtr<void> {
     inline.c("""
         return GetProcAddress(${hModule.addr}, ${lpProcName.addr});
     """)
@@ -304,21 +304,21 @@ GetLastError = () u32 {
     """)
 }
 
-load_library_windows = (path: string) Result<RawPtr<void>, string>   {
+load_library_windows = (path: StaticString) Result<RawPtr<void>, StaticString>   {
     handle := LoadLibraryA(path)
     handle.address \!= 0 ?
         | true { Ok(handle) }
         | false { Err("Failed to load library: error code $(GetLastError())") }
 }
 
-get_symbol_windows = (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string>   {
+get_symbol_windows = (handle: RawPtr<void>, name: StaticString) Result<RawPtr<void>, StaticString>   {
     symbol := GetProcAddress(handle, name)
     symbol.address \!= 0 ?
         | true { Ok(symbol) }
         | false { Err("Symbol not found: error code $(GetLastError())") }
 }
 
-unload_library_windows = (handle: RawPtr<void>) Result<void, string>   {
+unload_library_windows = (handle: RawPtr<void>) Result<void, StaticString>   {
     result := FreeLibrary(handle)
     result ?
         | true { Ok(void) }
@@ -326,20 +326,20 @@ unload_library_windows = (handle: RawPtr<void>) Result<void, string>   {
 }
 
 // macOS implementation (uses same as Linux)  
-load_library_macos = (path: string) Result<RawPtr<void>, string>   {
+load_library_macos = (path: StaticString) Result<RawPtr<void>, StaticString>   {
     load_library_linux(path) // macOS uses dlopen/dlsym like Linux
 }
 
-get_symbol_macos = (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string>   {
+get_symbol_macos = (handle: RawPtr<void>, name: StaticString) Result<RawPtr<void>, StaticString>   {
     get_symbol_linux(handle, name)
 }
 
-unload_library_macos = (handle: RawPtr<void>) Result<void, string>   {
+unload_library_macos = (handle: RawPtr<void>) Result<void, StaticString>   {
     unload_library_linux(handle)
 }
 
 // Helper functions for common FFI patterns
-create_c_string = (s: string) RawPtr<u8>   {
+create_c_string = (s: StaticString) RawPtr<u8>   {
     // Allocate buffer with null terminator
     buffer := mem.alloc<u8>(s.len() + 1)
     
@@ -359,7 +359,7 @@ free_c_string = (ptr: RawPtr<u8>) void   {
 }
 
 // Convert C string to Zen string
-from_c_string = (ptr: RawPtr<u8>) string   {
+from_c_string = (ptr: RawPtr<u8>) StaticString   {
     len := 0
     
     // Find null terminator

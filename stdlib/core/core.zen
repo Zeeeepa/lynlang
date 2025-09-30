@@ -12,7 +12,7 @@ byte: i8
 
 // Basic error types
 Error: OutOfMemory
-    InvalidArgument: { message: string },
+    InvalidArgument: { message: StaticString },
     IndexOutOfBounds: { start: i64, end: i64 },
     NullPointer,
     SystemError: { code: i32 }
@@ -21,7 +21,7 @@ Error: OutOfMemory
 { allocate_raw, deallocate_raw, memcpy, memset } = import("memory.zen")
 
 // Assertion for debugging
-assert = (condition: bool, message: string) void {
+assert = (condition: bool, message: StaticString) void {
     condition ?
         | false {
             // In the future, this would panic with the message

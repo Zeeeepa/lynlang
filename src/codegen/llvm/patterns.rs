@@ -531,7 +531,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 .unwrap_or(loaded_payload);
                                             loaded
                                         }
-                                        AstType::String => loaded_payload, // Strings are already pointers, don't load
+                                        AstType::String | AstType::StaticString | AstType::StaticLiteral => loaded_payload, // Strings are already pointers, don't load
                                         _ => {
                                             // Try default loading for other types - i32 first
                                             match self.builder.build_load(
@@ -733,7 +733,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 "payload_f64",
                                             )
                                             .unwrap_or(extracted),
-                                        AstType::String => extracted, // Strings are already pointers, don't load
+                                        AstType::String | AstType::StaticString | AstType::StaticLiteral => extracted, // Strings are already pointers, don't load
                                         _ => {
                                             // Try default loading - i32 first, then i64
                                             match self.builder.build_load(
@@ -1062,7 +1062,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                             "payload_f64",
                                                         )
                                                         .unwrap_or(loaded_payload),
-                                                    AstType::String => loaded_payload, // Strings are already pointers, don't load
+                                                    AstType::String | AstType::StaticString | AstType::StaticLiteral => loaded_payload, // Strings are already pointers, don't load
                                                     AstType::Generic { name, type_args } if name == "Result" || name == "Option" => {
                                                         // For nested generics (Result<Result<T,E>,E2>), 
                                                         // the payload is a struct stored directly
@@ -1263,7 +1263,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         "payload_f64",
                                                     )
                                                     .unwrap_or(extracted),
-                                                AstType::String => extracted, // Strings are already pointers, don't load
+                                                AstType::String | AstType::StaticString | AstType::StaticLiteral => extracted, // Strings are already pointers, don't load
                                                 AstType::Generic { name, type_args } if name == "Option" || name == "Result" => {
                                                     // For nested generics (Result<Option<T>, E> or Option<Result<T,E>>),
                                                     // the payload is itself an enum struct. Load it as a struct.
@@ -1675,7 +1675,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     } else {
                         // For pointers, we need to detect if it's a DynVec based on what we stored
                         // But for now, just check our trackers
-                        crate::ast::AstType::String
+                        crate::ast::AstType::StaticString
                     }
                 };
                 (*value, ast_type)
@@ -1711,7 +1711,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // We have Result type information - the struct IS a Result
                         let err_type = self.generic_tracker.get("Result_Err_Type")
                             .cloned()
-                            .unwrap_or(crate::ast::AstType::String);
+                            .unwrap_or(crate::ast::AstType::StaticString);
                         crate::ast::AstType::Generic {
                             name: "Result".to_string(),
                             type_args: vec![ok_type.clone(), err_type],

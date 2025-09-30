@@ -475,13 +475,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 },
                             }
                         } else if let Expression::None = init_expr {
-                            // Option::None variant - use Option<T> with generic T
+                            // Option::None variant - use Option<Void> as default
                             AstType::Generic {
                                 name: "Option".to_string(),
-                                type_args: vec![AstType::Generic {
-                                    name: "T".to_string(),
-                                    type_args: vec![],
-                                }],
+                                type_args: vec![AstType::Void],
                             }
                         } else if let Expression::Range { inclusive, .. } = init_expr {
                             // Range expression - infer Range type
@@ -1229,13 +1226,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             },
                                         }
                                     } else if let Expression::None = init_expr {
-                                        // Option::None variant - use Option<T> with generic T
+                                        // Option::None variant - use Option<Void> as default
                                         AstType::Generic {
                                             name: "Option".to_string(),
-                                            type_args: vec![AstType::Generic {
-                                                name: "T".to_string(),
-                                                type_args: vec![],
-                                            }],
+                                            type_args: vec![AstType::Void],
                                         }
                                     } else {
                                         // For other struct values, use an empty generic type as fallback

@@ -11,9 +11,9 @@
 // ============================================================================
 
 Person: {
-    name: string,
+    name: StaticString,
     age: i32,
-    email: Option<string>
+    email: Option<StaticString>
 }
 
 // Struct with methods (when supported)
@@ -29,7 +29,7 @@ Point: {
 Status:
     Active: {user_id: i64},
     Inactive,
-    Banned: {reason: string, until: i64}
+    Banned: {reason: StaticString, until: i64}
 
 Color:
     Red,
@@ -52,7 +52,7 @@ swap = <T>(a: T, b: T) {a: T, b: T} {
 }
 
 // Function returning Result
-divide = (a: f64, b: f64) Result<f64, string> {
+divide = (a: f64, b: f64) Result<f64, StaticString> {
     b == 0.0 ? {
         return Result.Err("Division by zero")
     }
@@ -84,7 +84,7 @@ make_multiplier = ((factor: i32) i32) i32 {
 // 5. PATTERN MATCHING - Exhaustive matching with {}
 // ============================================================================
 
-describe_status = (status: Status) string {
+describe_status = (status: Status) StaticString {
     status ?
         | Active(id) { return "User ${id} is active" }
         | Inactive { return "User is inactive" }
@@ -95,7 +95,7 @@ describe_status = (status: Status) string {
 // 6. ERROR PROPAGATION - Using .raise() for Result/Option
 // ============================================================================
 
-calculate = () Result<f64, string> {
+calculate = () Result<f64, StaticString> {
     // Chain operations with error propagation
     x = divide(10.0, 2.0).raise()  // Returns 5.0 or propagates error
     y = divide(x, 2.0).raise()     // Returns 2.5 or propagates error
@@ -137,7 +137,7 @@ demo_collections = () void {
     allocator ::= get_default_allocator()
     
     // HashMap with allocator
-    map ::= HashMap.new<string, i32>(allocator)
+    map ::= HashMap.new<StaticString, i32>(allocator)
     map.insert("one", 1)
     map.insert("two", 2)
     map.insert("three", 3)
@@ -193,7 +193,7 @@ demo_strings = () void {
 
 Container<T> : {
     value: T,
-    metadata: Option<string>
+    metadata: Option<StaticString>
 }
 
 demo_generics = () void {
@@ -207,7 +207,7 @@ demo_generics = () void {
     println("Container value: ${container.value}")
     
     // Nested generics
-    result_option: Result<Option<i32>, string> = Result.Ok(Option.Some(100))
+    result_option: Result<Option<i32>, StaticString> = Result.Ok(Option.Some(100))
     result_option ?
         | Ok(opt) {
             opt ?
@@ -217,7 +217,7 @@ demo_generics = () void {
         | Err(e) { println("Error: ${e}") }
     
     // Triple nested
-    complex: Option<Result<Option<string>, i32>> = 
+    complex: Option<Result<Option<StaticString>, i32>> =
         Option.Some(Result.Ok(Option.Some("deeply nested")))
     println("Triple nested generic works!")
 }
@@ -245,10 +245,10 @@ demo_ufc = () void {
 // ============================================================================
 
 // Forward declare a function
-process_data: (data: string) Result<i32, string>
+process_data: (data: StaticString) Result<i32, StaticString>
 
 // Implementation comes later
-process_data = (data: string) Result<i32, string> {
+process_data = (data: StaticString) Result<i32, StaticString> {
     data.len() > 0 ? {
         return Result.Ok(data.len())
     }
@@ -275,7 +275,7 @@ demo_meta = () void {
 // ============================================================================
 
 // External C function declaration
-external strlen: (str: string) i64
+external strlen: (str: StaticString) i64
 
 demo_ffi = () void {
     println("\n=== FFI (C Interop) ===")
@@ -293,7 +293,7 @@ demo_ffi = () void {
 // ============================================================================
 
 Config: {
-    host: string = "localhost",
+    host: StaticString = "localhost",
     port: i32 = 8080,
     debug: bool = false
 }

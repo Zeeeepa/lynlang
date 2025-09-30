@@ -74,28 +74,28 @@ W_OK = 2  // Check write permission
 X_OK = 1  // Check execute permission
 
 // Check if file exists
-exists = (path: string) bool   {
+exists = (path: StaticString) bool   {
     access(path, F_OK) == 0 ? 
         | true { true } 
         | false { false }
 }
 
 // Check if path is a directory
-is_dir = (path: string) bool   {
+is_dir = (path: StaticString) bool   {
     // Would use stat() to check S_ISDIR
     // Simplified for now
     false
 }
 
 // Check if path is a file
-is_file = (path: string) bool   {
+is_file = (path: StaticString) bool   {
     // Would use stat() to check S_ISREG
     // Simplified for now
     exists(path) && !is_dir(path)
 }
 
 // Create a directory
-create_dir = (path: string) Result<void, string> {
+create_dir = (path: StaticString) Result<void, StaticString> {
     result := mkdir(path, 0o755)
     result == 0 ? 
         | true { Result.Ok(void) }
@@ -103,13 +103,13 @@ create_dir = (path: string) Result<void, string> {
 }
 
 // Create directory and all parent directories
-create_dir_all = (path: string) Result<void, string> {
+create_dir_all = (path: StaticString) Result<void, StaticString> {
     // Would recursively create parent directories
     create_dir(path)
 }
 
 // Remove an empty directory
-remove_dir = (path: string) Result<void, string> {
+remove_dir = (path: StaticString) Result<void, StaticString> {
     result := rmdir(path)
     result == 0 ? 
         | true { Result.Ok(void) }
@@ -117,7 +117,7 @@ remove_dir = (path: string) Result<void, string> {
 }
 
 // Remove a file
-remove_file = (path: string) Result<void, string> {
+remove_file = (path: StaticString) Result<void, StaticString> {
     result := unlink(path)
     result == 0 ? 
         | true { Result.Ok(void) }
@@ -125,7 +125,7 @@ remove_file = (path: string) Result<void, string> {
 }
 
 // Rename/move a file or directory
-rename_path = (from: string, to: string) Result<void, string> {
+rename_path = (from: StaticString, to: StaticString) Result<void, StaticString> {
     result := rename(from, to)
     result == 0 ? 
         | true { Result.Ok(void) }
@@ -133,7 +133,7 @@ rename_path = (from: string, to: string) Result<void, string> {
 }
 
 // Get current working directory
-current_dir = () Result<string, string> {
+current_dir = () Result<StaticString, StaticString> {
     buffer: Array<u8, 4096>
     result := getcwd(buffer.ptr(), 4096)
     result != null ? 
@@ -142,7 +142,7 @@ current_dir = () Result<string, string> {
 }
 
 // Change current directory
-set_current_dir = (path: string) Result<void, string> {
+set_current_dir = (path: StaticString) Result<void, StaticString> {
     result := chdir(path.cstr())
     result == 0 ? 
         | true { Result.Ok(void) }

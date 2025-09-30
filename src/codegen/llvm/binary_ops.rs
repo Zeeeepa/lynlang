@@ -770,6 +770,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
         left_val: BasicValueEnum<'ctx>,
         right_val: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // String concatenation requires an allocator - return error for now
+        // This will be replaced with proper allocator-based concatenation
+        return Err(CompileError::InternalError(
+            "String concatenation requires an allocator. Use String.concat() or String.append() from stdlib instead.".to_string(),
+            None,
+        ));
+
+        // TODO: Remove the code below once we have proper allocator-based string operations
+
         // Ensure both operands are string pointers (i8* in LLVM)
         let i8_ptr_type = self.context.ptr_type(AddressSpace::default());
 

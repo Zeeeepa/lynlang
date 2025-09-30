@@ -22,7 +22,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Expression::Float64(_) => Ok(AstType::F64),
             Expression::Boolean(_) => Ok(AstType::Bool),
             Expression::Unit => Ok(AstType::Void),
-            Expression::String(_) => Ok(AstType::StaticLiteral),  // String literals are compile-time
+            Expression::String(_) => Ok(AstType::StaticString),  // String literals are static strings
             Expression::Identifier(name) => {
                 // Look up variable type
                 if let Some(var_info) = self.variables.get(name) {
@@ -94,7 +94,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Try to get error type from context
                             let err_type = self.generic_type_context.get("Result_Err_Type")
                                 .cloned()
-                                .unwrap_or(AstType::String); // Default to String for errors
+                                .unwrap_or(AstType::StaticString); // Default to StaticString for errors
                             Ok(AstType::Generic {
                                 name: "Result".to_string(),
                                 type_args: vec![inner_type, err_type],
@@ -322,10 +322,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }),
                         "contains" | "starts_with" | "ends_with" => Ok(AstType::Bool),
                         "index_of" => Ok(AstType::I64),
-                        "substr" | "trim" | "to_upper" | "to_lower" => Ok(AstType::String),
+                        "substr" | "trim" | "to_upper" | "to_lower" => Ok(AstType::StaticString),
                         "split" => Ok(AstType::Generic { 
                             name: "Array".to_string(), 
-                            type_args: vec![AstType::String]
+                            type_args: vec![AstType::StaticString]
                         }),
                         "char_at" => Ok(AstType::I32),
                         "get" | "remove" | "insert" | "pop" => {
@@ -523,14 +523,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         type_args: vec![t.clone()],
                     })
                 } else {
-                    // Default to Option<T> with generic T
-                    // eprintln!("[DEBUG] Expression::None defaulting to Option<T>");
+                    // Default to Option<Void> instead of unresolved generic T
+                    // This avoids the "Unresolved generic type 'T'" error
+                    // eprintln!("[DEBUG] Expression::None defaulting to Option<Void>");
                     Ok(AstType::Generic {
                         name: "Option".to_string(),
-                        type_args: vec![AstType::Generic { 
-                            name: "T".to_string(), 
-                            type_args: vec![] 
-                        }],
+                        type_args: vec![AstType::Void],
                     })
                 }
             }
@@ -576,7 +574,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             Expression::StringInterpolation { .. } => {
                 // String interpolation always returns a string
-                Ok(AstType::String)
+                Ok(AstType::StaticString)
             }
             Expression::TypeCast { target_type, .. } => {
                 // Type cast returns the target type
@@ -6104,7 +6102,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         
                         let is_string = variant_info
                             .and_then(|v| v.payload.as_ref())
-                            .map(|p| matches!(p, AstType::String))
+                            .map(|p| matches!(p, AstType::String | AstType::StaticString))
                             .unwrap_or(false);
                         
                         if is_string && compiled.is_pointer_value() {
@@ -7935,12 +7933,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             let payload_type = self.infer_expression_type(payload_expr).unwrap_or(AstType::I32);
                             self.track_generic_type("Result_Ok_Type".to_string(), payload_type.clone());
                             // For Result.Ok, we don't know the error type yet, default to String
-                            self.track_generic_type("Result_Err_Type".to_string(), AstType::String);
+                            self.track_generic_type("Result_Err_Type".to_string(), AstType::StaticString);
                         }
                     } else if variant == "Err" {
                         // Infer type from the payload
                         if let Some(payload_expr) = payload {
-                            let payload_type = self.infer_expression_type(payload_expr).unwrap_or(AstType::String);
+                            let payload_type = self.infer_expression_type(payload_expr).unwrap_or(AstType::StaticString);
                             // For Result.Err, we don't know the Ok type yet, default to I32
                             self.track_generic_type("Result_Ok_Type".to_string(), AstType::I32);
                             self.track_generic_type("Result_Err_Type".to_string(), payload_type.clone());
@@ -9221,7 +9219,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // For Result.Ok, E type defaults to string (common error type)
                     Ok(AstType::Generic {
                         name: "Result".to_string(),
-                        type_args: vec![t_type, AstType::String],
+                        type_args: vec![t_type, AstType::StaticString],
                     })
                 } else if name == "Result.Err" {
                     // Infer the E type from the payload

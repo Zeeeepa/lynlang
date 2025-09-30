@@ -8,25 +8,25 @@
 // Utility functions for string manipulation
 StringUtils: {
     // Convert string to uppercase
-    to_upper: (s: string) string {
+    to_upper: (s: StaticString) StaticString {
         // Simple implementation - in real code this would be more sophisticated
         return s  // Placeholder
     },
     
     // Convert string to lowercase  
-    to_lower: (s: string) string {
+    to_lower: (s: StaticString) StaticString {
         return s  // Placeholder
     },
     
     // Check if string contains substring
-    contains: (s: string, substr: string) bool {
+    contains: (s: StaticString, substr: StaticString) bool {
         return true  // Placeholder
     },
     
     // Split string by delimiter
-    split: (s: string, delim: string) DynVec<string> {
+    split: (s: StaticString, delim: StaticString) DynVec<StaticString> {
         allocator = @std.get_default_allocator()
-        result = DynVec.new<string>(allocator)
+        result = DynVec.new<StaticString>(allocator)
         result.push(s)  // Placeholder - just return original string
         return result
     }
@@ -122,7 +122,7 @@ CollectionUtils: {
 // Configuration utilities
 ConfigUtils: {
     // Parse environment variable
-    get_env: (name: string) Option<string> {
+    get_env: (name: StaticString) Option<StaticString> {
         // In real implementation, this would read from environment
         name == "DEBUG" ? {
             return Option.Some("true")
@@ -132,9 +132,9 @@ ConfigUtils: {
     },
     
     // Parse configuration file
-    load_config: (path: string) Result<HashMap<string, string>, string> {
+    load_config: (path: StaticString) Result<HashMap<StaticString, StaticString>, StaticString> {
         allocator = @std.get_default_allocator()
-        config = HashMap.new<string, string>(allocator)
+        config = HashMap.new<StaticString, StaticString>(allocator)
         
         // In real implementation, this would parse a config file
         config.insert("app_name", "zen_demo")
