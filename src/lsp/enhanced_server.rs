@@ -55,6 +55,7 @@ enum CompletionContext {
 struct DocumentStore {
     documents: HashMap<Url, Document>,
     stdlib_symbols: HashMap<String, SymbolInfo>,
+    workspace_root: Option<Url>,
 }
 
 impl DocumentStore {
@@ -62,11 +63,16 @@ impl DocumentStore {
         let mut store = Self {
             documents: HashMap::new(),
             stdlib_symbols: HashMap::new(),
+            workspace_root: None,
         };
 
         // Index stdlib on initialization
         store.index_stdlib();
         store
+    }
+
+    fn set_workspace_root(&mut self, root_uri: Url) {
+        self.workspace_root = Some(root_uri);
     }
 
     fn index_stdlib(&mut self) {
@@ -618,6 +624,56 @@ impl DocumentStore {
         (0, 0)
     }
 
+    fn search_workspace_for_symbol(&self, symbol_name: &str) -> Option<(Url, SymbolInfo)> {
+        use std::fs;
+        use std::path::Path;
+
+        let workspace_root = self.workspace_root.as_ref()?;
+        let root_path = Path::new(workspace_root.path());
+
+        self.search_directory_for_symbol(root_path, symbol_name)
+    }
+
+    fn search_directory_for_symbol(&self, dir: &std::path::Path, symbol_name: &str) -> Option<(Url, SymbolInfo)> {
+        use std::fs;
+
+        if !dir.is_dir() {
+            return None;
+        }
+
+        let entries = fs::read_dir(dir).ok()?;
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+
+            if path.is_file() && path.extension().map_or(false, |e| e == "zen") {
+                if let Ok(content) = fs::read_to_string(&path) {
+                    let symbols = self.extract_symbols(&content);
+
+                    if let Some(symbol_info) = symbols.get(symbol_name) {
+                        if let Ok(uri) = Url::from_file_path(&path) {
+                            let mut symbol = symbol_info.clone();
+                            symbol.definition_uri = Some(uri.clone());
+                            return Some((uri, symbol));
+                        }
+                    }
+                }
+            } else if path.is_dir() {
+                let file_name = path.file_name()?.to_str()?;
+
+                if file_name.starts_with('.') || file_name == "target" || file_name == "node_modules" {
+                    continue;
+                }
+
+                if let Some(result) = self.search_directory_for_symbol(&path, symbol_name) {
+                    return Some(result);
+                }
+            }
+        }
+
+        None
+    }
+
     fn find_references_in_statements(&self, statements: &[Statement], symbols: &mut HashMap<String, SymbolInfo>) {
         for stmt in statements {
             match stmt {
@@ -902,13 +958,20 @@ impl ZenLanguageServer {
 
     pub fn run(mut self) -> Result<(), Box<dyn Error>> {
         eprintln!("Starting Enhanced Zen Language Server...");
-        
+
         let server_capabilities = serde_json::to_value(&self.capabilities)?;
-        let _initialization_params = self.connection.initialize(server_capabilities)?;
-        
+        let initialization_params = self.connection.initialize(server_capabilities)?;
+
+        if let Ok(params) = serde_json::from_value::<InitializeParams>(initialization_params) {
+            if let Some(root_uri) = params.root_uri {
+                eprintln!("[LSP] Setting workspace root: {}", root_uri);
+                self.store.lock().unwrap().set_workspace_root(root_uri);
+            }
+        }
+
         eprintln!("Zen LSP initialized with enhanced capabilities");
         self.main_loop()?;
-        
+
         eprintln!("Zen Language Server shutting down");
         Ok(())
     }
@@ -1418,6 +1481,20 @@ impl ZenLanguageServer {
                             error: None,
                         };
                     }
+                }
+
+                // Search the entire workspace for the symbol
+                if let Some((uri, symbol_info)) = store.search_workspace_for_symbol(&symbol_name) {
+                    let location = Location {
+                        uri,
+                        range: symbol_info.range,
+                    };
+
+                    return Response {
+                        id: req.id,
+                        result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                        error: None,
+                    };
                 }
             }
         }
