@@ -1,155 +1,117 @@
-# CURRENT FOCUS
+# CURRENT FOCUS: BUILD THE WORLD'S BEST LSP FOR ZEN
 
-## 🎉 RALPH'S PROGRESS UPDATE 🎉
-Ralph is doing EXCELLENT work on the LSP! Already implemented:
-- ✅ Enhanced hover with type info and Zen-specific docs
-- ✅ Symbol extraction and references functionality
-- ✅ Basic goto definition support
-- 🔄 Currently enhancing completion and references
+## 🎯 Mission: Create a World-Class Language Server
+Make Zen's LSP as good as rust-analyzer and TypeScript LSP combined!
 
-## IMMEDIATE PRIORITY FOR RALPH:
-0. **FIRST** - Explore the repository structure! Use `find`, `ls`, `tree` to understand:
-   - What's in `/src/` directory (compiler components)
-   - What's in `/tests/` directory (existing tests)
-   - What's in `/stdlib/` directory (standard library)
-   - Check `/src/lsp/` for current LSP implementation
-1. **FINISH** current string type updates (StaticString/String separation)
-2. **THEN START** LSP implementation from Phase 1 below
-3. **TEST** each feature as you implement it
-4. **COMMIT** working changes frequently
+## 📊 Current LSP Status (src/lsp/enhanced_server.rs - 3073 lines)
 
-## 🚨 CRITICAL FILE ORGANIZATION RULES 🚨
-- **NEVER** create test files in the root directory!
-- **ALL** test files MUST go in `/tests/` folder
-- **ALL** LSP tests should go in `/tests/lsp/` subfolder
-- **NO** temporary test files in root - use `/tests/temp/` if needed
-- **CHECK** `/tests/` folder first before creating ANY new test
-- **NAME** tests descriptively: `test_[feature].zen` or `zen_test_[feature].zen`
+### ✅ Implemented Features
+- **Hover** - Type information, function signatures, Zen-specific docs
+- **Goto Definition** - Basic symbol navigation, UFC method jumping (partial)
+- **Find References** - Text-based reference finding (needs AST improvement)
+- **Code Completion** - Basic keywords, UFC methods (needs type-aware improvement)
+- **Code Actions** - Allocator fixes, string conversion, error handling quick fixes
+- **Semantic Tokens** - Basic syntax highlighting (partial)
+- **Document Symbols** - Basic outline (partial)
 
-## Priority: Make the LSP the BEST LSP EVER
+### 🔄 Partially Working (Needs Improvement)
+- **UFC Method Resolution** - Basic pattern matching, needs full type inference
+- **Allocator Diagnostics** - Code actions exist, but no proactive warnings
+- **Generic Type Display** - Shows basic types, needs nested generic support
+- **Cross-File Navigation** - Limited to open documents only
 
-### String Type System ✅ COMPLETED
-- **StaticLiteral** - Internal compiler-known string literals (LLVM use only)
-- **StaticString** - User-facing static strings (compile-time, immutable, no allocator)
-- **String** - User-facing dynamic strings (runtime, mutable, REQUIRES allocator)
+### ❌ Not Implemented (High Priority)
+- **Real Compiler Diagnostics** - Currently no errors/warnings from compiler
+- **AST-Based Symbol Tracking** - Currently using text search
+- **Stdlib Integration** - Can't jump to stdlib functions
+- **Rename Symbol** - Stubbed but not implemented
+- **Signature Help** - Not implemented
+- **Type-Aware Completion** - Completion doesn't use type inference
+- **Workspace Symbol Search** - Not implemented
+- **Inline Type Hints** - Not implemented
 
-### LSP Requirements for Excellence
-The LSP must be world-class with these features:
+### 📋 Feature List (See .agent/lsp_features_comprehensive.md)
+Comprehensive LSP feature list with 60+ features categorized and prioritized.
 
-#### Core Functionality Needed
-1. **Type Intelligence**
-   - Full nested generic support (`Result<Option<T>,E>`)
-   - Real-time type inference display
-   - Allocator requirement warnings
+## 🚀 IMMEDIATE PRIORITIES (Next 3 Tasks)
 
-2. **Zen-Specific Features**
-   - UFC (Universal Function Call) syntax completion
-   - Pattern matching with `=>` arrow syntax
-   - `.raise()` propagation suggestions
-   - Loop construct templates with proper closure syntax
+### 1. 🎯 INTEGRATE REAL COMPILER DIAGNOSTICS
+**Goal**: Show real compilation errors and warnings in the editor
+- Connect LSP to the Zen compiler
+- Parse compiler output into LSP diagnostics
+- Show errors on save or as-you-type
+- **Impact**: Massive UX improvement - users see errors immediately
 
-3. **Code Actions**
-   - Auto-add missing allocators to collections
-   - Convert between StaticString/String
-   - Generate match arms for enums
-   - Fix type mismatches
+### 2. 🎯 AST-BASED SYMBOL RESOLUTION
+**Goal**: Replace text-search with proper AST traversal
+- Build symbol table from AST during parse
+- Track symbol definitions and usages
+- Enable cross-file symbol resolution
+- **Impact**: Fixes goto definition, find references, rename
 
-4. **Advanced Features**
-   - Goto definition/references
-   - Rename symbol
-   - Semantic highlighting
-   - Inline type hints
-   - Documentation on hover
+### 3. 🎯 STDLIB INTEGRATION
+**Goal**: Navigate to stdlib function definitions
+- Parse stdlib files on startup
+- Build symbol index for stdlib
+- Enable goto definition for stdlib functions
+- **Impact**: Essential for developer productivity
 
-### RALPH TODO LIST - MAKE THE LSP AMAZING
+## 📅 ROADMAP
 
-#### Phase 1: Core LSP Features (RALPH'S CURRENT WORK)
-- [x] ✅ Implement goto definition in `src/lsp/enhanced_server.rs`
-  - Track symbol definitions during parsing
-  - Handle UFC method resolution
-  - Support jumping to stdlib functions
-- [x] ✅ Add find references functionality
-  - Build reverse index of symbol usage
-  - Track type aliases and imports
-- [x] ✅ Implement hover with type information
-  - Show inferred types for variables
-  - Display function signatures with generics
-  - Show allocator requirements for collections
+### Phase 1: Foundation (2-3 days) 🎯
+- [ ] Integrate compiler diagnostics
+- [ ] AST-based symbol tracking
+- [ ] Stdlib symbol resolution
+- [ ] Improve UFC method resolution (type-aware)
+- [ ] Cross-file navigation
 
-#### NEXT: Complete UFC and Allocator Intelligence
-- [ ] **PRIORITY**: Implement UFC method resolution in goto definition
-  - Parse method calls like `value.method()`
-  - Resolve to correct function based on type
-- [ ] **PRIORITY**: Add allocator warnings in diagnostics
-  - Detect HashMap/DynVec/Array without allocator
-  - Provide quick fix suggestions
+### Phase 2: Zen-Specific Intelligence (3-4 days) 🎯
+- [ ] Allocator flow analysis and diagnostics
+- [ ] Pattern matching helpers (match arms completion)
+- [ ] Generic type inference display (nested generics)
+- [ ] Error propagation suggestions (.raise())
+- [ ] Loop construct templates
 
-#### Phase 2: Zen-Specific Intelligence
-- [ ] Add UFC syntax completion
-  - Suggest available methods for types
-  - Chain completion after `.` operator
-  - Show return types in completion items
-- [ ] Implement pattern matching helpers
-  - Auto-complete enum variants in match arms
-  - Suggest `=>` syntax after patterns
-  - Generate exhaustive match arms
-- [ ] Add allocator diagnostics
-  - Warn when HashMap/DynVec/Array used without allocator
-  - Suggest `get_default_allocator()` quick fix
-  - Show allocator flow through functions
+### Phase 3: Advanced IDE Features (2-3 days)
+- [ ] Semantic tokens (full implementation)
+- [ ] Rename symbol (properly implemented)
+- [ ] Signature help
+- [ ] Code lens (test runner)
+- [ ] Inline type hints
 
-#### Phase 3: Code Actions & Quick Fixes
-- [ ] Auto-add missing allocators
-  - Detect collection instantiation without allocator
-  - Insert allocator parameter automatically
-- [ ] String type conversions
-  - Quick fix to convert StaticString to String
-  - Warn about String to StaticString conversions
-- [ ] Error handling improvements
-  - Add `.raise()` for Result types
-  - Convert between Option and Result
-  - Generate error handling boilerplate
+### Phase 4: Refactoring & Generation (2-3 days)
+- [ ] Extract function/variable
+- [ ] Generate boilerplate (tests, constructors)
+- [ ] Import management
+- [ ] Type mismatch auto-fixes
 
-#### Phase 4: Advanced Features
-- [ ] Implement semantic tokens
-  - Highlight UFC calls differently
-  - Color allocator parameters specially
-  - Distinguish StaticString vs String literals
-- [ ] Add rename symbol support
-  - Handle UFC method renames
-  - Update import statements
-  - Rename across multiple files
-- [ ] Create code lens for tests
-  - Show "Run Test" above test functions
-  - Display test results inline
-  - Quick debug test execution
+### Phase 5: Performance & Polish (2-3 days)
+- [ ] Incremental parsing
+- [ ] Background type checking
+- [ ] Workspace symbol search
+- [ ] Performance optimization (sub-100ms responses)
 
-#### Phase 5: Performance & Polish
-- [ ] Implement incremental parsing
-  - Cache AST between edits
-  - Only reparse changed sections
-  - Background type checking
-- [ ] Add workspace symbol search
-  - Fast fuzzy finding across project
-  - Include stdlib symbols
-  - Filter by symbol type
-- [ ] Create inline type hints
-  - Show inferred types for `let` bindings
-  - Display closure parameter types
-  - Show generic type instantiations
+**Total Estimate**: 2-3 weeks for world-class LSP
 
-### Testing Requirements
-- **LOCATION**: ALL tests go in `/tests/` directory (NEVER in root!)
-- Create `/tests/lsp/` subdirectory for LSP-specific tests
-- Each LSP feature needs corresponding test in `/tests/lsp/`
-- Test with real Zen code examples
-- Verify VSCode extension integration
-- **BEFORE CREATING**: Always check if test already exists in `/tests/`
+## 🚨 CRITICAL RULES
 
-### Build Requirements
-- Rust compiler for the compiler itself
-- Stdlib should be written in Zen (self-hosting)
-- Type system must be rock-solid and mature 
+### File Organization
+- **NEVER** create test files in root directory
+- **ALL** LSP tests go in `/tests/lsp/` folder
+- **ALL** analysis docs go in `/.agent/` folder
+- Check existing files before creating new ones
+
+### Development Workflow
+1. Read existing code to understand patterns
+2. Test each feature as you implement it
+3. Commit working changes frequently
+4. Update documentation as you go
+
+### Quality Standards
+- LSP responses must be < 100ms
+- All features must work cross-file
+- Code must handle parse errors gracefully
+- User experience must be delightful 
 
 
 

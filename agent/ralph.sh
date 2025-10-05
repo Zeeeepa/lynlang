@@ -1,6 +1,6 @@
 while :; do
   cat agent/prompt.md | \
-          claude -p --output-format=stream-json --verbose --dangerously-skip-permissions --model opus | \
+          claude -p --output-format=stream-json --verbose --dangerously-skip-permissions --model claude-sonnet-4-5 | \
           tee -a .agent/claude_output.jsonl | \
           bun agent/visualize.ts --debug;
   echo -e "===SLEEP===\n===SLEEP===\n"; echo 'looping';
