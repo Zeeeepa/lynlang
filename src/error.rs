@@ -80,6 +80,66 @@ impl From<String> for CompileError {
     }
 }
 
+impl CompileError {
+    pub fn span(&self) -> Option<&Span> {
+        match self {
+            CompileError::SyntaxError(_, span) => span.as_ref(),
+            CompileError::UndeclaredVariable(_, span) => span.as_ref(),
+            CompileError::UndeclaredFunction(_, span) => span.as_ref(),
+            CompileError::TypeMismatch { span, .. } => span.as_ref(),
+            CompileError::InvalidLoopCondition(_, span) => span.as_ref(),
+            CompileError::MissingReturnStatement(_, span) => span.as_ref(),
+            CompileError::InternalError(_, span) => span.as_ref(),
+            CompileError::UnsupportedFeature(_, span) => span.as_ref(),
+            CompileError::TypeError(_, span) => span.as_ref(),
+            CompileError::ParseError(_, span) => span.as_ref(),
+            CompileError::UnexpectedToken { span, .. } => span.as_ref(),
+            CompileError::InvalidPattern(_, span) => span.as_ref(),
+            CompileError::ImportError(_, span) => span.as_ref(),
+            CompileError::FFIError(_, span) => span.as_ref(),
+            CompileError::InvalidSyntax { span, .. } => span.as_ref(),
+            CompileError::MissingTypeAnnotation(_, span) => span.as_ref(),
+            CompileError::DuplicateDeclaration { duplicate_location, .. } => duplicate_location.as_ref(),
+            _ => None,
+        }
+    }
+
+    pub fn message(&self) -> String {
+        match self {
+            CompileError::SyntaxError(msg, _) => msg.clone(),
+            CompileError::UndeclaredVariable(var, _) => format!("Undeclared variable: {}", var),
+            CompileError::UndeclaredFunction(func, _) => format!("Undeclared function: {}", func),
+            CompileError::TypeMismatch { expected, found, .. } => {
+                format!("Type mismatch: expected {}, found {}", expected, found)
+            }
+            CompileError::InvalidLoopCondition(msg, _) => msg.clone(),
+            CompileError::MissingReturnStatement(msg, _) => msg.clone(),
+            CompileError::InternalError(msg, _) => format!("Internal error: {}", msg),
+            CompileError::UnsupportedFeature(msg, _) => format!("Unsupported feature: {}", msg),
+            CompileError::TypeError(msg, _) => msg.clone(),
+            CompileError::FileNotFound(file, _) => format!("File not found: {}", file),
+            CompileError::ParseError(msg, _) => format!("Parse error: {}", msg),
+            CompileError::ComptimeError(msg) => format!("Comptime error: {}", msg),
+            CompileError::UnexpectedToken { expected, found, .. } => {
+                format!("Unexpected token: expected {:?}, found {}", expected, found)
+            }
+            CompileError::InvalidPattern(msg, _) => format!("Invalid pattern: {}", msg),
+            CompileError::ImportError(msg, _) => format!("Import error: {}", msg),
+            CompileError::FFIError(msg, _) => format!("FFI error: {}", msg),
+            CompileError::InvalidSyntax { message, suggestion, .. } => {
+                format!("{} (suggestion: {})", message, suggestion)
+            }
+            CompileError::MissingTypeAnnotation(msg, _) => format!("Missing type annotation: {}", msg),
+            CompileError::DuplicateDeclaration { name, .. } => {
+                format!("Duplicate declaration: {}", name)
+            }
+            CompileError::BuildError(msg) => format!("Build error: {}", msg),
+            CompileError::FileError(msg) => format!("File error: {}", msg),
+            CompileError::CyclicDependency(msg) => format!("Cyclic dependency: {}", msg),
+        }
+    }
+}
+
 impl From<LLVMString> for CompileError {
     fn from(err: LLVMString) -> Self {
         CompileError::InternalError(err.to_string(), None)

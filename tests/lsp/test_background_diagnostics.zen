@@ -1,0 +1,11 @@
+// Test file for background diagnostics
+
+main = () i32 {
+    // Type error - should be caught by compiler
+    x: i32 = "hello"
+
+    // Undeclared variable - should be caught
+    result = undeclared_func()
+
+    0
+}

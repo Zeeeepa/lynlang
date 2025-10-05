@@ -7,12 +7,15 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Instant;
+use std::sync::mpsc::{self, Sender, Receiver};
+use std::thread;
 
 use crate::ast::{Declaration, AstType, Expression, Statement, Program};
 use crate::lexer::{Lexer, Token};
 use crate::parser::Parser;
 use crate::typechecker::TypeChecker;
+use crate::compiler::Compiler;
 
 // ============================================================================
 // DOCUMENT STORE
@@ -55,10 +58,28 @@ enum CompletionContext {
     UfcMethod { receiver_type: String },
 }
 
+// Background analysis job
+#[derive(Debug, Clone)]
+struct AnalysisJob {
+    uri: Url,
+    version: i32,
+    content: String,
+    program: Program,
+}
+
+// Background analysis result
+#[derive(Debug, Clone)]
+struct AnalysisResult {
+    uri: Url,
+    version: i32,
+    diagnostics: Vec<Diagnostic>,
+}
+
 struct DocumentStore {
     documents: HashMap<Url, Document>,
     stdlib_symbols: HashMap<String, SymbolInfo>,
     workspace_root: Option<Url>,
+    analysis_sender: Option<Sender<AnalysisJob>>,
 }
 
 impl DocumentStore {
@@ -67,11 +88,16 @@ impl DocumentStore {
             documents: HashMap::new(),
             stdlib_symbols: HashMap::new(),
             workspace_root: None,
+            analysis_sender: None,
         };
 
         // Index stdlib on initialization
         store.index_stdlib();
         store
+    }
+
+    fn set_analysis_sender(&mut self, sender: Sender<AnalysisJob>) {
+        self.analysis_sender = Some(sender);
     }
 
     fn set_workspace_root(&mut self, root_uri: Url) {
@@ -150,11 +176,31 @@ impl DocumentStore {
             .map(|last| last.elapsed().as_millis() >= DEBOUNCE_MS)
             .unwrap_or(true);
 
+        // Quick diagnostics from TypeChecker (always run for immediate feedback)
         let diagnostics = self.analyze_document(&content, !should_run_analysis);
 
         let tokens = self.tokenize(&content);
         let ast = self.parse(&content);
         let symbols = self.extract_symbols(&content);
+
+        // Send to background thread for full analysis if enabled and debounced
+        if should_run_analysis {
+            if let Some(ast_decls) = &ast {
+                if let Some(sender) = &self.analysis_sender {
+                    let job = AnalysisJob {
+                        uri: uri.clone(),
+                        version,
+                        content: content.clone(),
+                        program: Program {
+                            declarations: ast_decls.clone(),
+                            statements: vec![],
+                        },
+                    };
+                    // Send job to background thread (ignore if receiver dropped)
+                    let _ = sender.send(job);
+                }
+            }
+        }
 
         if let Some(doc) = self.documents.get_mut(&uri) {
             doc.version = version;
@@ -966,10 +1012,119 @@ impl ZenLanguageServer {
             }
         }
 
+        // Start background analysis thread
+        let (analysis_tx, analysis_rx) = mpsc::channel();
+        let (result_tx, result_rx) = mpsc::channel();
+
+        // Give the analysis sender to the document store
+        self.store.lock().unwrap().set_analysis_sender(analysis_tx);
+
+        // Spawn background analysis worker
+        let _analysis_thread = thread::spawn(move || {
+            Self::background_analysis_worker(analysis_rx, result_tx);
+        });
+
         eprintln!("Zen LSP initialized with enhanced capabilities");
-        self.main_loop()?;
+        eprintln!("[LSP] Background analysis thread started");
+
+        // Start main loop with result receiver for async diagnostics
+        self.main_loop_with_background(result_rx)?;
 
         eprintln!("Zen Language Server shutting down");
+        Ok(())
+    }
+
+    fn background_analysis_worker(job_rx: Receiver<AnalysisJob>, result_tx: Sender<AnalysisResult>) {
+        eprintln!("[LSP-BG] Background analysis worker started");
+
+        // Create LLVM context and compiler (reused for all analyses)
+        use inkwell::context::Context;
+        let context = Context::create();
+        let compiler = Compiler::new(&context);
+
+        while let Ok(job) = job_rx.recv() {
+            eprintln!("[LSP-BG] Analyzing {} v{}", job.uri, job.version);
+
+            let start = Instant::now();
+            let errors = compiler.analyze_for_diagnostics(&job.program);
+            let duration = start.elapsed();
+
+            eprintln!("[LSP-BG] Analysis complete in {:?}, found {} errors", duration, errors.len());
+
+            // Convert compiler errors to LSP diagnostics
+            let diagnostics: Vec<Diagnostic> = errors
+                .into_iter()
+                .map(|err| {
+                    let (line, col) = err.span()
+                        .map(|s| (s.line as u32, s.column as u32))
+                        .unwrap_or((0, 0));
+
+                    Diagnostic {
+                        range: Range {
+                            start: Position { line, character: col },
+                            end: Position { line, character: col + 10 },
+                        },
+                        severity: Some(DiagnosticSeverity::ERROR),
+                        code: Some(NumberOrString::String("compiler-error".to_string())),
+                        source: Some("zen-compiler".to_string()),
+                        message: err.message(),
+                        ..Default::default()
+                    }
+                })
+                .collect();
+
+            let result = AnalysisResult {
+                uri: job.uri,
+                version: job.version,
+                diagnostics,
+            };
+
+            // Send result back (ignore if receiver disconnected)
+            let _ = result_tx.send(result);
+        }
+
+        eprintln!("[LSP-BG] Background analysis worker stopped");
+    }
+
+    fn main_loop_with_background(&mut self, result_rx: Receiver<AnalysisResult>) -> Result<(), Box<dyn Error>> {
+        use std::sync::mpsc::TryRecvError;
+
+        loop {
+            // Check for background analysis results (non-blocking)
+            match result_rx.try_recv() {
+                Ok(result) => {
+                    eprintln!("[LSP] Publishing background diagnostics for {}", result.uri);
+                    self.publish_diagnostics(result.uri, result.diagnostics)?;
+                }
+                Err(TryRecvError::Empty) => {
+                    // No results ready, continue
+                }
+                Err(TryRecvError::Disconnected) => {
+                    eprintln!("[LSP] Background analysis thread disconnected");
+                    break;
+                }
+            }
+
+            // Handle LSP messages (with timeout to check background results)
+            use std::time::Duration;
+            let timeout = Duration::from_millis(100);
+
+            if let Ok(msg) = self.connection.receiver.recv_timeout(timeout) {
+                match msg {
+                    Message::Request(req) => {
+                        if self.connection.handle_shutdown(&req)? {
+                            return Ok(());
+                        }
+                        self.handle_request(req)?;
+                    }
+                    Message::Notification(notif) => {
+                        self.handle_notification(notif)?;
+                    }
+                    Message::Response(_) => {}
+                }
+            }
+        }
+
         Ok(())
     }
 
