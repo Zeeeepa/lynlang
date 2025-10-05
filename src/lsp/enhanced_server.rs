@@ -1161,6 +1161,7 @@ impl ZenLanguageServer {
             "textDocument/signatureHelp" => self.handle_signature_help(req.clone()),
             "textDocument/inlayHint" => self.handle_inlay_hints(req.clone()),
             "textDocument/codeLens" => self.handle_code_lens(req.clone()),
+            "workspace/symbol" => self.handle_workspace_symbol(req.clone()),
             _ => Response {
                 id: req.id,
                 result: Some(Value::Null),
@@ -4008,6 +4009,75 @@ impl ZenLanguageServer {
                 None
             }
             _ => None,
+        }
+    }
+
+    fn handle_workspace_symbol(&self, req: Request) -> Response {
+        let params: WorkspaceSymbolParams = match serde_json::from_value(req.params) {
+            Ok(p) => p,
+            Err(_) => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: Some(ResponseError {
+                        code: ErrorCode::InvalidParams as i32,
+                        message: "Invalid parameters".to_string(),
+                        data: None,
+                    }),
+                }
+            }
+        };
+
+        let store = self.store.lock().unwrap();
+        let query = params.query.to_lowercase();
+        let mut symbols = Vec::new();
+
+        // Search in all open documents
+        for (uri, doc) in &store.documents {
+            for (name, symbol_info) in &doc.symbols {
+                // Fuzzy match: check if query is a substring of the symbol name
+                if name.to_lowercase().contains(&query) {
+                    symbols.push(SymbolInformation {
+                        name: symbol_info.name.clone(),
+                        kind: symbol_info.kind,
+                        tags: None,
+                        deprecated: None,
+                        location: Location {
+                            uri: uri.clone(),
+                            range: symbol_info.range,
+                        },
+                        container_name: None,
+                    });
+                }
+            }
+        }
+
+        // Search in stdlib symbols
+        for (name, symbol_info) in &store.stdlib_symbols {
+            if name.to_lowercase().contains(&query) {
+                if let Some(def_uri) = &symbol_info.definition_uri {
+                    symbols.push(SymbolInformation {
+                        name: symbol_info.name.clone(),
+                        kind: symbol_info.kind,
+                        tags: None,
+                        deprecated: None,
+                        location: Location {
+                            uri: def_uri.clone(),
+                            range: symbol_info.range,
+                        },
+                        container_name: Some("stdlib".to_string()),
+                    });
+                }
+            }
+        }
+
+        // Limit results to avoid overwhelming the client
+        symbols.truncate(100);
+
+        Response {
+            id: req.id,
+            result: Some(serde_json::to_value(symbols).unwrap_or(Value::Null)),
+            error: None,
         }
     }
 }
