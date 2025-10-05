@@ -2459,6 +2459,19 @@ impl ZenLanguageServer {
                     }
                 }
             }
+
+            // Add refactoring code actions (not tied to diagnostics)
+            // Extract variable - only if there's a selection
+            if params.range.start != params.range.end {
+                if let Some(action) = self.create_extract_variable_action(&params.range, &params.text_document.uri, &doc.content) {
+                    actions.push(action);
+                }
+            }
+
+            // Add imports for common types if they're missing
+            if let Some(action) = self.create_add_import_action(&params.range, &doc.content) {
+                actions.push(action);
+            }
         }
 
         Response {
@@ -4079,5 +4092,181 @@ impl ZenLanguageServer {
             result: Some(serde_json::to_value(symbols).unwrap_or(Value::Null)),
             error: None,
         }
+    }
+
+    fn create_extract_variable_action(&self, range: &Range, uri: &Url, content: &str) -> Option<CodeAction> {
+        // Extract the selected text
+        let lines: Vec<&str> = content.lines().collect();
+        let mut selected_text = String::new();
+
+        if range.start.line == range.end.line {
+            // Single line selection
+            if let Some(line) = lines.get(range.start.line as usize) {
+                let start_char = range.start.character as usize;
+                let end_char = range.end.character as usize;
+                if start_char < line.len() && end_char <= line.len() {
+                    selected_text = line[start_char..end_char].to_string();
+                }
+            }
+        } else {
+            // Multi-line selection
+            for line_idx in range.start.line..=range.end.line {
+                if let Some(line) = lines.get(line_idx as usize) {
+                    if line_idx == range.start.line {
+                        selected_text.push_str(&line[range.start.character as usize..]);
+                    } else if line_idx == range.end.line {
+                        selected_text.push_str(&line[..range.end.character as usize]);
+                    } else {
+                        selected_text.push_str(line);
+                    }
+                    if line_idx < range.end.line {
+                        selected_text.push('\n');
+                    }
+                }
+            }
+        }
+
+        // Skip if selection is empty or just whitespace
+        if selected_text.trim().is_empty() {
+            return None;
+        }
+
+        // Skip if selection looks like a variable name already (simple heuristic)
+        if selected_text.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            return None;
+        }
+
+        // Generate variable name based on selection
+        let var_name = self.generate_variable_name(&selected_text);
+
+        // Find the beginning of the current statement to insert the variable declaration
+        let insert_line = range.start.line;
+        let indent = if let Some(line) = lines.get(insert_line as usize) {
+            line.chars().take_while(|c| c.is_whitespace()).collect::<String>()
+        } else {
+            "    ".to_string()
+        };
+
+        // Create two edits:
+        // 1. Insert variable declaration before the current line
+        // 2. Replace selected expression with variable name
+        let declaration = format!("{}{} = {};\n", indent, var_name, selected_text.trim());
+
+        let mut changes = Vec::new();
+
+        // Insert variable declaration
+        changes.push(TextEdit {
+            range: Range {
+                start: Position {
+                    line: insert_line,
+                    character: 0,
+                },
+                end: Position {
+                    line: insert_line,
+                    character: 0,
+                },
+            },
+            new_text: declaration,
+        });
+
+        // Replace selected expression with variable name
+        changes.push(TextEdit {
+            range: range.clone(),
+            new_text: var_name.clone(),
+        });
+
+        let workspace_edit = WorkspaceEdit {
+            changes: Some({
+                let mut change_map = HashMap::new();
+                change_map.insert(uri.clone(), changes);
+                change_map
+            }),
+            document_changes: None,
+            change_annotations: None,
+        };
+
+        Some(CodeAction {
+            title: format!("Extract to variable '{}'", var_name),
+            kind: Some(CodeActionKind::REFACTOR_EXTRACT),
+            diagnostics: None,
+            edit: Some(workspace_edit),
+            command: None,
+            is_preferred: Some(false),
+            disabled: None,
+            data: None,
+        })
+    }
+
+    fn generate_variable_name(&self, expression: &str) -> String {
+        // Simple heuristic to generate a variable name from an expression
+        let expr_trimmed = expression.trim();
+
+        // If it's a method call, use the method name
+        if let Some(dot_pos) = expr_trimmed.rfind('.') {
+            if let Some(method_end) = expr_trimmed[dot_pos+1..].find('(') {
+                let method_name = &expr_trimmed[dot_pos+1..dot_pos+1+method_end];
+                return format!("{}_result", method_name);
+            }
+        }
+
+        // If it's a function call, use the function name
+        if let Some(paren_pos) = expr_trimmed.find('(') {
+            let func_name = expr_trimmed[..paren_pos].trim();
+            if !func_name.is_empty() && func_name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                return format!("{}_result", func_name);
+            }
+        }
+
+        // If it's a binary operation, try to infer from operands
+        for op in ["==", "!=", "<=", ">=", "<", ">", "+", "-", "*", "/", "%"] {
+            if expr_trimmed.contains(op) {
+                return "result".to_string();
+            }
+        }
+
+        // Default fallback
+        "extracted_value".to_string()
+    }
+
+    fn create_add_import_action(&self, _range: &Range, content: &str) -> Option<CodeAction> {
+        // Check if common types are used but not imported
+        let needs_io = content.contains("io.") && !content.contains("{ io }");
+        let needs_allocator = (content.contains("get_default_allocator") ||
+                               content.contains("GPA") ||
+                               content.contains("AsyncPool")) &&
+                              !content.contains("@std");
+
+        if !needs_io && !needs_allocator {
+            return None;
+        }
+
+        // Determine what to import
+        let import_statement = if needs_io && needs_allocator {
+            "{ io, GPA, AsyncPool } = @std\n"
+        } else if needs_io {
+            "{ io } = @std\n"
+        } else {
+            "{ GPA, AsyncPool } = @std\n"
+        };
+
+        // Insert at the top of the file
+        let workspace_edit = WorkspaceEdit {
+            changes: None,  // Would need URI context
+            document_changes: None,
+            change_annotations: None,
+        };
+
+        Some(CodeAction {
+            title: "Add missing import from @std".to_string(),
+            kind: Some(CodeActionKind::QUICKFIX),
+            diagnostics: None,
+            edit: Some(workspace_edit),
+            command: None,
+            is_preferred: Some(false),
+            disabled: Some(lsp_types::CodeActionDisabled {
+                reason: "Needs implementation".to_string(),
+            }),
+            data: None,
+        })
     }
 }
