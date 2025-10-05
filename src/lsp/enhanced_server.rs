@@ -7,6 +7,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use crate::ast::{Declaration, AstType, Expression, Statement};
 use crate::lexer::{Lexer, Token};
@@ -25,6 +26,7 @@ struct Document {
     ast: Option<Vec<Declaration>>,
     diagnostics: Vec<Diagnostic>,
     symbols: HashMap<String, SymbolInfo>,
+    last_analysis: Option<Instant>,
 }
 
 #[derive(Debug, Clone)]
@@ -121,8 +123,8 @@ impl DocumentStore {
     }
 
     fn open(&mut self, uri: Url, version: i32, content: String) -> Vec<Diagnostic> {
-        let diagnostics = self.analyze_document(&content);
-        
+        let diagnostics = self.analyze_document(&content, false);
+
         let doc = Document {
             uri: uri.clone(),
             version,
@@ -131,20 +133,28 @@ impl DocumentStore {
             ast: self.parse(&content),
             diagnostics: diagnostics.clone(),
             symbols: self.extract_symbols(&content),
+            last_analysis: Some(Instant::now()),
         };
-        
+
         self.documents.insert(uri, doc);
         diagnostics
     }
 
     fn update(&mut self, uri: Url, version: i32, content: String) -> Vec<Diagnostic> {
-        let diagnostics = self.analyze_document(&content);
-        
-        // Calculate values before mutably borrowing
+        const DEBOUNCE_MS: u128 = 300;
+
+        let should_run_analysis = self.documents
+            .get(&uri)
+            .and_then(|doc| doc.last_analysis)
+            .map(|last| last.elapsed().as_millis() >= DEBOUNCE_MS)
+            .unwrap_or(true);
+
+        let diagnostics = self.analyze_document(&content, !should_run_analysis);
+
         let tokens = self.tokenize(&content);
         let ast = self.parse(&content);
         let symbols = self.extract_symbols(&content);
-        
+
         if let Some(doc) = self.documents.get_mut(&uri) {
             doc.version = version;
             doc.content = content.clone();
@@ -152,8 +162,11 @@ impl DocumentStore {
             doc.ast = ast;
             doc.diagnostics = diagnostics.clone();
             doc.symbols = symbols;
+            if should_run_analysis {
+                doc.last_analysis = Some(Instant::now());
+            }
         }
-        
+
         diagnostics
     }
 
@@ -183,22 +196,21 @@ impl DocumentStore {
         }
     }
 
-    fn analyze_document(&self, content: &str) -> Vec<Diagnostic> {
+    fn analyze_document(&self, content: &str, skip_expensive_analysis: bool) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
-        // Parse the document
         let lexer = Lexer::new(content);
         let mut parser = Parser::new(lexer);
 
         match parser.parse_program() {
             Ok(program) => {
-                // Run full compiler analysis to get real diagnostics
-                diagnostics.extend(self.run_compiler_analysis(&program, content));
+                if !skip_expensive_analysis {
+                    diagnostics.extend(self.run_compiler_analysis(&program, content));
 
-                // Check for allocator issues (additional LSP-specific checks)
-                for decl in &program.declarations {
-                    if let Declaration::Function(func) = decl {
-                        self.check_allocator_usage(&func.body, &mut diagnostics, content);
+                    for decl in &program.declarations {
+                        if let Declaration::Function(func) = decl {
+                            self.check_allocator_usage(&func.body, &mut diagnostics, content);
+                        }
                     }
                 }
             }
@@ -210,32 +222,19 @@ impl DocumentStore {
         diagnostics
     }
 
-    fn run_compiler_analysis(&self, program: &crate::ast::Program, _content: &str) -> Vec<Diagnostic> {
-        use crate::compiler::Compiler;
-        use inkwell::context::Context;
+    fn run_compiler_analysis(&self, _program: &crate::ast::Program, _content: &str) -> Vec<Diagnostic> {
+        // DISABLED: Full compiler analysis causes hangs due to:
+        // 1. Creating LLVM context is expensive
+        // 2. process_imports() blocks on file I/O
+        // 3. Monomorphization can be slow for complex generics
+        //
+        // TODO: Re-enable with:
+        // - Async/background thread execution
+        // - Cached LLVM context
+        // - Incremental compilation
+        // - Skip imports for single-file analysis
 
-        let mut diagnostics = Vec::new();
-
-        // Run compiler analysis to get real diagnostics
-        // This provides accurate type checking, undeclared variables, etc.
-        // Create a temporary LLVM context for analysis
-        let context = Context::create();
-        let compiler = Compiler::new(&context);
-
-        // Collect all errors from compilation
-        let errors = compiler.analyze_for_diagnostics(program);
-
-        if errors.is_empty() {
-            eprintln!("[LSP] ✓ Compilation successful - no errors");
-        } else {
-            eprintln!("[LSP] ✗ Found {} compilation error(s)", errors.len());
-            for err in errors {
-                eprintln!("[LSP]   - {:?}", err);
-                diagnostics.push(self.error_to_diagnostic(err));
-            }
-        }
-
-        diagnostics
+        Vec::new()
     }
 
     fn check_allocator_usage(&self, statements: &[Statement], diagnostics: &mut Vec<Diagnostic>, content: &str) {
@@ -995,6 +994,7 @@ impl ZenLanguageServer {
     }
 
     fn handle_request(&self, req: Request) -> Result<(), Box<dyn Error>> {
+        eprintln!("[LSP] Handling request: {}", req.method);
         let response = match req.method.as_str() {
             "textDocument/hover" => self.handle_hover(req.clone()),
             "textDocument/completion" => self.handle_completion(req.clone()),
@@ -1014,8 +1014,10 @@ impl ZenLanguageServer {
                 error: None,
             },
         };
-        
+
+        eprintln!("[LSP] Sending response for {}", req.method);
         self.connection.sender.send(Message::Response(response))?;
+        eprintln!("[LSP] Response sent for {}", req.method);
         Ok(())
     }
 
@@ -2103,9 +2105,11 @@ impl ZenLanguageServer {
     }
 
     fn handle_code_lens(&self, req: Request) -> Response {
+        eprintln!("[LSP] Code lens request received");
         let params: CodeLensParams = match serde_json::from_value(req.params) {
             Ok(p) => p,
             Err(_) => {
+                eprintln!("[LSP] Failed to parse code lens params");
                 return Response {
                     id: req.id,
                     result: Some(Value::Null),
@@ -2114,10 +2118,13 @@ impl ZenLanguageServer {
             }
         };
 
+        eprintln!("[LSP] Acquiring lock for code lens...");
         let store = self.store.lock().unwrap();
+        eprintln!("[LSP] Lock acquired, looking up document");
         let doc = match store.documents.get(&params.text_document.uri) {
             Some(d) => d,
             None => {
+                eprintln!("[LSP] Document not found for code lens");
                 return Response {
                     id: req.id,
                     result: Some(Value::Null),
@@ -2128,8 +2135,10 @@ impl ZenLanguageServer {
 
         let mut lenses = Vec::new();
 
+        eprintln!("[LSP] Processing code lens for document");
         // Find test functions and add "Run Test" code lens
         if let Some(ast) = &doc.ast {
+            eprintln!("[LSP] Found AST with {} declarations", ast.len());
             for (idx, decl) in ast.iter().enumerate() {
                 if let Declaration::Function(func) = decl {
                     let func_name = &func.name;
@@ -2167,6 +2176,7 @@ impl ZenLanguageServer {
             }
         }
 
+        eprintln!("[LSP] Returning {} code lenses", lenses.len());
         Response {
             id: req.id,
             result: serde_json::to_value(lenses).ok(),
