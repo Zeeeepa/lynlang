@@ -9,9 +9,10 @@ use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use crate::ast::{Declaration, AstType, Expression, Statement};
+use crate::ast::{Declaration, AstType, Expression, Statement, Program};
 use crate::lexer::{Lexer, Token};
 use crate::parser::Parser;
+use crate::typechecker::TypeChecker;
 
 // ============================================================================
 // DOCUMENT STORE
@@ -222,19 +223,16 @@ impl DocumentStore {
         diagnostics
     }
 
-    fn run_compiler_analysis(&self, _program: &crate::ast::Program, _content: &str) -> Vec<Diagnostic> {
-        // DISABLED: Full compiler analysis causes hangs due to:
-        // 1. Creating LLVM context is expensive
-        // 2. process_imports() blocks on file I/O
-        // 3. Monomorphization can be slow for complex generics
-        //
-        // TODO: Re-enable with:
-        // - Async/background thread execution
-        // - Cached LLVM context
-        // - Incremental compilation
-        // - Skip imports for single-file analysis
+    fn run_compiler_analysis(&self, program: &Program, _content: &str) -> Vec<Diagnostic> {
+        let mut diagnostics = Vec::new();
 
-        Vec::new()
+        let mut type_checker = TypeChecker::new();
+
+        if let Err(err) = type_checker.check_program(program) {
+            diagnostics.push(self.error_to_diagnostic(err));
+        }
+
+        diagnostics
     }
 
     fn check_allocator_usage(&self, statements: &[Statement], diagnostics: &mut Vec<Diagnostic>, content: &str) {
@@ -1052,17 +1050,23 @@ impl ZenLanguageServer {
     }
 
     fn publish_diagnostics(&self, uri: Url, diagnostics: Vec<Diagnostic>) -> Result<(), Box<dyn Error>> {
+        eprintln!("[LSP] Publishing {} diagnostics for {}", diagnostics.len(), uri);
+        for (i, diag) in diagnostics.iter().enumerate() {
+            eprintln!("[LSP] Diagnostic {}: {:?} at line {} - {}",
+                i + 1, diag.severity, diag.range.start.line, diag.message);
+        }
+
         let params = PublishDiagnosticsParams {
             uri,
             diagnostics,
             version: None,
         };
-        
+
         let notification = ServerNotification {
             method: "textDocument/publishDiagnostics".to_string(),
             params: serde_json::to_value(params)?,
         };
-        
+
         self.connection.sender.send(Message::Notification(notification))?;
         Ok(())
     }
