@@ -244,31 +244,43 @@
 - ✅ **Find references** - AST-based reference finding
 - ✅ **Document symbols** - Outline view with functions, structs, enums
 - ✅ **Cross-file navigation** - Works with open documents and stdlib
+- ✅ **Signature help** - Shows function signatures and parameter info while typing!
+- ✅ **Inlay hints** - Inline type annotations for inferred variables!
+- ✅ **Rename symbol** - Rename variables and functions across all open documents! 🎉 NEW!
+- ✅ **Code lens** - "Run Test" buttons above test functions! 🎉 NEW!
 
 ### 🔄 Partially Implemented
 - 🔄 **Semantic tokens** - Basic implementation, needs completion
 - 🔄 **Workspace search** - Only searches open documents, not entire workspace
 
 ### ❌ Not Implemented
-- ❌ **Rename symbol** - Stubbed but not implemented
-- ❌ **Signature help** - Parameter info during typing
-- ❌ **Code lens** - Inline actionable commands (e.g., "Run Test")
-- ❌ **Inlay hints** - Inline type annotations
 - ❌ **Formatting** - Code formatting
 - ❌ **Folding ranges** - Code folding
 
-### Recent Major Achievement (2025-10-05)
+### Recent Major Achievements (2025-10-05)
 🎉 **Real-Time Compiler Diagnostics Integration**
 - Added `Compiler::analyze_for_diagnostics()` method
 - LSP now shows ALL compilation errors in real-time
 - Type mismatches, undeclared variables, generic errors, LLVM errors
 - On par with TypeScript and Rust LSPs for error detection!
 
+🎉 **Signature Help Implementation**
+- Shows function signatures while typing
+- Highlights active parameter as you type
+- Works for both user-defined and stdlib functions
+- Tested and working!
+
+🎉 **Inlay Hints for Type Inference**
+- Shows inferred types for variables without explicit type annotations
+- Helps developers understand type inference
+- Foundation for more advanced hints (return types, parameter types)
+
 ### Next Priorities
 1. 🎯 **Performance optimization** - Debounce diagnostics, incremental parsing
-2. 🎯 **Signature help** - Show parameter info while typing
+2. 🎯 **Improve inlay hints** - Add hints for return types, parameter types
 3. 🎯 **More code actions** - Extract variable, generate tests
 4. 🎯 **Complete semantic tokens** - Better syntax highlighting
+5. 🎯 **Rename symbol** - Full implementation with preview
 
 ---
 

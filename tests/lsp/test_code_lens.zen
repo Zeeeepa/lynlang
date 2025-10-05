@@ -1,0 +1,16 @@
+main = () i32 {
+    0
+}
+
+test_addition = () i32 {
+    x = 2 + 2
+    0
+}
+
+test_string_operations = () i32 {
+    0
+}
+
+helper_function = (x: i32) i32 {
+    x * 2
+}

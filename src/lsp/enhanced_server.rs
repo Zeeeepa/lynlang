@@ -170,7 +170,7 @@ impl DocumentStore {
     fn parse(&self, content: &str) -> Option<Vec<Declaration>> {
         let lexer = Lexer::new(content);
         let mut parser = Parser::new(lexer);
-        
+
         match parser.parse_program() {
             Ok(program) => Some(program.declarations),
             Err(_) => None,
@@ -830,6 +830,7 @@ impl ZenLanguageServer {
                 work_done_progress_options: WorkDoneProgressOptions::default(),
             })),
             folding_range_provider: Some(FoldingRangeProviderCapability::Simple(true)),
+            inlay_hint_provider: Some(OneOf::Left(true)),
             semantic_tokens_provider: Some(
                 SemanticTokensServerCapabilities::SemanticTokensRegistrationOptions(
                     SemanticTokensRegistrationOptions {
@@ -941,6 +942,9 @@ impl ZenLanguageServer {
             "textDocument/rename" => self.handle_rename(req.clone()),
             "textDocument/codeAction" => self.handle_code_action(req.clone()),
             "textDocument/semanticTokens/full" => self.handle_semantic_tokens(req.clone()),
+            "textDocument/signatureHelp" => self.handle_signature_help(req.clone()),
+            "textDocument/inlayHint" => self.handle_inlay_hints(req.clone()),
+            "textDocument/codeLens" => self.handle_code_lens(req.clone()),
             _ => Response {
                 id: req.id,
                 result: Some(Value::Null),
@@ -1523,6 +1527,25 @@ impl ZenLanguageServer {
         None
     }
 
+    fn find_function_line(&self, content: &str, func_name: &str) -> Option<usize> {
+        let lines: Vec<&str> = content.lines().collect();
+        for (line_num, line) in lines.iter().enumerate() {
+            // Look for function definition: "func_name = "
+            if line.contains(func_name) && line.contains("=") && line.contains("(") {
+                // Verify this is a function definition, not just usage
+                if let Some(eq_pos) = line.find('=') {
+                    if let Some(name_start) = line.find(func_name) {
+                        // Check if function name comes before '=' and there's '(' after
+                        if name_start < eq_pos && line[eq_pos..].contains('(') {
+                            return Some(line_num);
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
     fn resolve_ufc_method(&self, method_info: &UfcMethodInfo, store: &DocumentStore) -> Option<Location> {
         // Enhanced UFC method resolution with improved generic type handling
         let receiver_type = self.infer_receiver_type(&method_info.receiver, store);
@@ -1808,10 +1831,268 @@ impl ZenLanguageServer {
     }
 
     fn handle_rename(&self, req: Request) -> Response {
-        // TODO: Implement rename
+        let params: RenameParams = match serde_json::from_value(req.params) {
+            Ok(p) => p,
+            Err(_) => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: None,
+                };
+            }
+        };
+
+        let store = self.store.lock().unwrap();
+        let new_name = params.new_name;
+        let uri = &params.text_document_position.text_document.uri;
+
+        if let Some(doc) = store.documents.get(uri) {
+            let position = params.text_document_position.position;
+
+            if let Some(symbol_name) = self.find_symbol_at_position(&doc.content, position) {
+                let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
+
+                for (uri, doc) in &store.documents {
+                    let mut edits = Vec::new();
+                    let lines: Vec<&str> = doc.content.lines().collect();
+
+                    for (line_num, line) in lines.iter().enumerate() {
+                        let mut start_col = 0;
+                        while let Some(col) = line[start_col..].find(&symbol_name) {
+                            let actual_col = start_col + col;
+
+                            let before_ok = actual_col == 0 || !line.chars().nth(actual_col - 1).unwrap_or(' ').is_alphanumeric();
+                            let after_ok = actual_col + symbol_name.len() >= line.len() ||
+                                !line.chars().nth(actual_col + symbol_name.len()).unwrap_or(' ').is_alphanumeric();
+
+                            if before_ok && after_ok {
+                                edits.push(TextEdit {
+                                    range: Range {
+                                        start: Position {
+                                            line: line_num as u32,
+                                            character: actual_col as u32,
+                                        },
+                                        end: Position {
+                                            line: line_num as u32,
+                                            character: (actual_col + symbol_name.len()) as u32,
+                                        },
+                                    },
+                                    new_text: new_name.clone(),
+                                });
+                            }
+
+                            start_col = actual_col + 1;
+                        }
+                    }
+
+                    if !edits.is_empty() {
+                        changes.insert(uri.clone(), edits);
+                    }
+                }
+
+                let workspace_edit = WorkspaceEdit {
+                    changes: Some(changes),
+                    document_changes: None,
+                    change_annotations: None,
+                };
+
+                return Response {
+                    id: req.id,
+                    result: Some(serde_json::to_value(workspace_edit).unwrap_or(Value::Null)),
+                    error: None,
+                };
+            }
+        }
+
         Response {
             id: req.id,
             result: Some(Value::Null),
+            error: None,
+        }
+    }
+
+    fn handle_signature_help(&self, req: Request) -> Response {
+        let params: SignatureHelpParams = match serde_json::from_value(req.params) {
+            Ok(p) => p,
+            Err(_) => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: None,
+                };
+            }
+        };
+
+        let store = self.store.lock().unwrap();
+        let doc = match store.documents.get(&params.text_document_position_params.text_document.uri) {
+            Some(d) => d,
+            None => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: None,
+                };
+            }
+        };
+
+        // Find function call at cursor position
+        let position = params.text_document_position_params.position;
+        let function_call = self.find_function_call_at_position(&doc.content, position);
+
+        let signature_help = match function_call {
+            Some((function_name, active_param)) => {
+                // Look up function in symbols (both document and stdlib)
+                let mut signature_info = None;
+
+                // Check document symbols first
+                if let Some(symbol) = doc.symbols.get(&function_name) {
+                    signature_info = Some(self.create_signature_info(symbol));
+                }
+
+                // Check stdlib symbols if not found
+                if signature_info.is_none() {
+                    if let Some(symbol) = store.stdlib_symbols.get(&function_name) {
+                        signature_info = Some(self.create_signature_info(symbol));
+                    }
+                }
+
+                match signature_info {
+                    Some(sig_info) => SignatureHelp {
+                        signatures: vec![sig_info],
+                        active_signature: Some(0),
+                        active_parameter: Some(active_param as u32),
+                    },
+                    None => SignatureHelp {
+                        signatures: vec![],
+                        active_signature: None,
+                        active_parameter: None,
+                    },
+                }
+            }
+            None => SignatureHelp {
+                signatures: vec![],
+                active_signature: None,
+                active_parameter: None,
+            },
+        };
+
+        Response {
+            id: req.id,
+            result: serde_json::to_value(signature_help).ok(),
+            error: None,
+        }
+    }
+
+    fn handle_inlay_hints(&self, req: Request) -> Response {
+        let params: InlayHintParams = match serde_json::from_value(req.params) {
+            Ok(p) => p,
+            Err(_) => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: None,
+                };
+            }
+        };
+
+        let store = self.store.lock().unwrap();
+        let doc = match store.documents.get(&params.text_document.uri) {
+            Some(d) => d,
+            None => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: None,
+                };
+            }
+        };
+
+        let mut hints = Vec::new();
+
+        // Parse the AST and extract variable declarations
+        if let Some(ast) = &doc.ast {
+            for decl in ast {
+                if let Declaration::Function(func) = decl {
+                    self.collect_hints_from_statements(&func.body, &mut hints);
+                }
+            }
+        }
+
+        Response {
+            id: req.id,
+            result: serde_json::to_value(hints).ok(),
+            error: None,
+        }
+    }
+
+    fn handle_code_lens(&self, req: Request) -> Response {
+        let params: CodeLensParams = match serde_json::from_value(req.params) {
+            Ok(p) => p,
+            Err(_) => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: None,
+                };
+            }
+        };
+
+        let store = self.store.lock().unwrap();
+        let doc = match store.documents.get(&params.text_document.uri) {
+            Some(d) => d,
+            None => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: None,
+                };
+            }
+        };
+
+        let mut lenses = Vec::new();
+
+        // Find test functions and add "Run Test" code lens
+        if let Some(ast) = &doc.ast {
+            for (idx, decl) in ast.iter().enumerate() {
+                if let Declaration::Function(func) = decl {
+                    let func_name = &func.name;
+
+                    // Check if this is a test function (starts with test_ or ends with _test)
+                    if func_name.starts_with("test_") || func_name.ends_with("_test") || func_name.contains("_test_") {
+                        // Find the line number of this function
+                        let line_num = self.find_function_line(&doc.content, func_name);
+
+                        if let Some(line) = line_num {
+                            lenses.push(CodeLens {
+                                range: Range {
+                                    start: Position {
+                                        line: line as u32,
+                                        character: 0,
+                                    },
+                                    end: Position {
+                                        line: line as u32,
+                                        character: 0,
+                                    },
+                                },
+                                command: Some(Command {
+                                    title: "▶ Run Test".to_string(),
+                                    command: "zen.runTest".to_string(),
+                                    arguments: Some(vec![
+                                        serde_json::to_value(&params.text_document.uri).unwrap(),
+                                        serde_json::to_value(func_name).unwrap(),
+                                    ]),
+                                }),
+                                data: None,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        Response {
+            id: req.id,
+            result: serde_json::to_value(lenses).ok(),
             error: None,
         }
     }
@@ -3233,5 +3514,177 @@ impl ZenLanguageServer {
             },
         ]);
         methods
+    }
+
+    fn find_function_call_at_position(&self, content: &str, position: Position) -> Option<(String, usize)> {
+        let lines: Vec<&str> = content.lines().collect();
+        if position.line as usize >= lines.len() {
+            return None;
+        }
+
+        let line = lines[position.line as usize];
+        let cursor_pos = position.character as usize;
+
+        // Find the function call - look backwards from cursor for opening paren
+        let mut paren_count = 0;
+        let mut current_pos = cursor_pos.min(line.len());
+
+        // Move to the nearest opening paren
+        while current_pos > 0 {
+            let ch = line.chars().nth(current_pos - 1)?;
+            if ch == ')' {
+                paren_count += 1;
+            } else if ch == '(' {
+                if paren_count == 0 {
+                    break;
+                }
+                paren_count -= 1;
+            }
+            current_pos -= 1;
+        }
+
+        if current_pos == 0 {
+            return None; // No opening paren found
+        }
+
+        // Extract function name before the opening paren
+        let before_paren = &line[..current_pos - 1];
+        let function_name = before_paren
+            .split(|c: char| c.is_whitespace() || c == '=' || c == ',' || c == ';')
+            .last()?
+            .trim()
+            .split('.')
+            .last()?
+            .to_string();
+
+        // Count parameters by counting commas at paren_depth = 0
+        let inside_parens = &line[current_pos..cursor_pos.min(line.len())];
+        let mut active_param = 0;
+        let mut depth = 0;
+
+        for ch in inside_parens.chars() {
+            match ch {
+                '(' => depth += 1,
+                ')' => depth -= 1,
+                ',' if depth == 0 => active_param += 1,
+                _ => {}
+            }
+        }
+
+        Some((function_name, active_param))
+    }
+
+    fn create_signature_info(&self, symbol: &SymbolInfo) -> SignatureInformation {
+        // Extract function signature from symbol detail
+        let label = symbol.detail.clone().unwrap_or_else(|| {
+            format!("{}(...)", symbol.name)
+        });
+
+        // Parse parameters from the function signature
+        let parameters = self.parse_function_parameters(&label);
+
+        SignatureInformation {
+            label,
+            documentation: symbol.documentation.as_ref().map(|doc| {
+                Documentation::String(doc.clone())
+            }),
+            parameters: if parameters.is_empty() {
+                None
+            } else {
+                Some(parameters)
+            },
+            active_parameter: None,
+        }
+    }
+
+    fn parse_function_parameters(&self, signature: &str) -> Vec<ParameterInformation> {
+        // Parse signature like "function_name = (param1: Type1, param2: Type2) ReturnType"
+        let mut parameters = Vec::new();
+
+        // Find the parameter section between ( and )
+        if let Some(start) = signature.find('(') {
+            if let Some(end) = signature[start..].find(')') {
+                let params_str = &signature[start + 1..start + end];
+
+                // Split by commas (simple for now, could be enhanced for nested types)
+                for param in params_str.split(',') {
+                    let param = param.trim();
+                    if !param.is_empty() {
+                        parameters.push(ParameterInformation {
+                            label: lsp_types::ParameterLabel::Simple(param.to_string()),
+                            documentation: None,
+                        });
+                    }
+                }
+            }
+        }
+
+        parameters
+    }
+
+    fn collect_hints_from_statements(&self, statements: &[Statement], hints: &mut Vec<InlayHint>) {
+        use crate::ast::Statement;
+
+        for stmt in statements {
+            match stmt {
+                Statement::VariableDeclaration { type_, initializer, .. } => {
+                    // Only add hints for variables without explicit type annotations
+                    if type_.is_none() {
+                        if let Some(init) = initializer {
+                            if let Some(inferred_type) = self.infer_expression_type(init) {
+                                // For now, we'll just create a simple hint
+                                // In a real implementation, we'd need to track positions in the AST
+                                hints.push(InlayHint {
+                                    position: Position::new(0, 0), // TODO: Get actual position from AST
+                                    label: InlayHintLabel::String(format!(": {}", inferred_type)),
+                                    kind: Some(InlayHintKind::TYPE),
+                                    text_edits: None,
+                                    tooltip: None,
+                                    padding_left: None,
+                                    padding_right: None,
+                                    data: None,
+                                });
+                            }
+                        }
+                    }
+                }
+                Statement::Loop { body, .. } => {
+                    self.collect_hints_from_statements(body, hints);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn infer_expression_type(&self, expr: &Expression) -> Option<String> {
+        use crate::ast::Expression;
+
+        match expr {
+            Expression::Integer32(_) => Some("i32".to_string()),
+            Expression::Integer64(_) => Some("i64".to_string()),
+            Expression::Float32(_) => Some("f32".to_string()),
+            Expression::Float64(_) => Some("f64".to_string()),
+            Expression::String(_) => Some("StaticString".to_string()),
+            Expression::Boolean(_) => Some("bool".to_string()),
+            Expression::BinaryOp { left, right, .. } => {
+                // Simple type inference for binary operations
+                let left_type = self.infer_expression_type(left)?;
+                let right_type = self.infer_expression_type(right)?;
+
+                if left_type == "f64" || right_type == "f64" {
+                    Some("f64".to_string())
+                } else if left_type == "i64" || right_type == "i64" {
+                    Some("i64".to_string())
+                } else {
+                    Some("i32".to_string())
+                }
+            }
+            Expression::FunctionCall { name, .. } => {
+                // Look up function return type from symbols
+                // For now, return None
+                None
+            }
+            _ => None,
+        }
     }
 }
