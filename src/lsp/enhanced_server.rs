@@ -210,23 +210,22 @@ impl DocumentStore {
 
         let mut diagnostics = Vec::new();
 
-        // PERFORMANCE: Full compilation is expensive (~100ms+)
-        // Only run this on save or when explicitly requested
-        // Check environment variable for now
-        if std::env::var("ZEN_LSP_FULL_ANALYSIS").is_ok() {
-            // Create a temporary LLVM context for analysis
-            let context = Context::create();
-            let compiler = Compiler::new(&context);
+        // Run compiler analysis to get real diagnostics
+        // This provides accurate type checking, undeclared variables, etc.
+        // Create a temporary LLVM context for analysis
+        let context = Context::create();
+        let compiler = Compiler::new(&context);
 
-            // Try to compile - collect all errors
-            match compiler.compile_llvm(program) {
-                Ok(_) => {
-                    // Compilation succeeded - no errors
-                }
-                Err(err) => {
-                    // Convert compiler error to diagnostic
-                    diagnostics.push(self.error_to_diagnostic(err));
-                }
+        // Try to compile - collect all errors
+        match compiler.compile_llvm(program) {
+            Ok(_) => {
+                // Compilation succeeded - no errors
+                eprintln!("[LSP] Compilation successful - no errors");
+            }
+            Err(err) => {
+                // Convert compiler error to diagnostic
+                eprintln!("[LSP] Compilation error: {:?}", err);
+                diagnostics.push(self.error_to_diagnostic(err));
             }
         }
 

@@ -1,0 +1,27 @@
+// Test file for LSP compiler diagnostics
+
+fn test_undeclared_variable() {
+    let x = undeclared_var;  // Should show error: undeclared variable
+    print(x);
+}
+
+fn test_type_mismatch() {
+    let num: i32 = "hello";  // Should show error: type mismatch
+    print(num);
+}
+
+fn test_undeclared_function() {
+    let result = nonexistent_function();  // Should show error: undeclared function
+    print(result);
+}
+
+fn test_missing_allocator() {
+    let map = HashMap<String, i32>();  // Should show error: missing allocator
+    map.insert("key", 42);
+}
+
+fn test_valid_code() {
+    let x: i32 = 42;
+    let y: i32 = x + 10;
+    print(y);
+}
