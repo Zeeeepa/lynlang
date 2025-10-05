@@ -352,4 +352,65 @@ impl<'ctx> Compiler<'ctx> {
             statements: program.statements,
         })
     }
+
+    /// Analyze a program and collect all errors without stopping at the first one.
+    /// This is useful for LSP to show all diagnostics at once.
+    #[allow(dead_code)]
+    pub fn analyze_for_diagnostics(&self, program: &Program) -> Vec<CompileError> {
+        let mut errors = Vec::new();
+
+        // Try to process imports
+        let processed_program = match self.process_imports(program) {
+            Ok(p) => p,
+            Err(err) => {
+                errors.push(err);
+                return errors; // Can't continue without imports
+            }
+        };
+
+        // Try to execute comptime blocks
+        let processed_program = match self.execute_comptime(processed_program) {
+            Ok(p) => p,
+            Err(err) => {
+                errors.push(err);
+                return errors; // Can't continue without comptime
+            }
+        };
+
+        // Try to resolve Self types
+        let processed_program = match self.resolve_self_types(processed_program) {
+            Ok(p) => p,
+            Err(err) => {
+                errors.push(err);
+                return errors; // Can't continue without Self resolution
+            }
+        };
+
+        // Try to monomorphize
+        let mut monomorphizer = Monomorphizer::new();
+        let monomorphized_program = match monomorphizer.monomorphize_program(&processed_program) {
+            Ok(p) => p,
+            Err(err) => {
+                errors.push(CompileError::InternalError(err, None));
+                return errors; // Can't continue without monomorphization
+            }
+        };
+
+        // Try to compile to LLVM
+        let mut llvm_compiler = LLVMCompiler::new(self.context);
+        if let Err(err) = llvm_compiler.compile_program(&monomorphized_program) {
+            errors.push(err);
+            return errors; // Compilation failed
+        }
+
+        // Try to verify LLVM module
+        if let Err(e) = llvm_compiler.module.verify() {
+            errors.push(CompileError::InternalError(
+                format!("LLVM verification error: {}", e.to_string()),
+                None,
+            ));
+        }
+
+        errors
+    }
 }

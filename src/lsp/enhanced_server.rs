@@ -216,15 +216,15 @@ impl DocumentStore {
         let context = Context::create();
         let compiler = Compiler::new(&context);
 
-        // Try to compile - collect all errors
-        match compiler.compile_llvm(program) {
-            Ok(_) => {
-                // Compilation succeeded - no errors
-                eprintln!("[LSP] Compilation successful - no errors");
-            }
-            Err(err) => {
-                // Convert compiler error to diagnostic
-                eprintln!("[LSP] Compilation error: {:?}", err);
+        // Collect all errors from compilation
+        let errors = compiler.analyze_for_diagnostics(program);
+
+        if errors.is_empty() {
+            eprintln!("[LSP] ✓ Compilation successful - no errors");
+        } else {
+            eprintln!("[LSP] ✗ Found {} compilation error(s)", errors.len());
+            for err in errors {
+                eprintln!("[LSP]   - {:?}", err);
                 diagnostics.push(self.error_to_diagnostic(err));
             }
         }
