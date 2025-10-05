@@ -54,12 +54,63 @@ enum CompletionContext {
 
 struct DocumentStore {
     documents: HashMap<Url, Document>,
+    stdlib_symbols: HashMap<String, SymbolInfo>,
 }
 
 impl DocumentStore {
     fn new() -> Self {
-        Self {
+        let mut store = Self {
             documents: HashMap::new(),
+            stdlib_symbols: HashMap::new(),
+        };
+
+        // Index stdlib on initialization
+        store.index_stdlib();
+        store
+    }
+
+    fn index_stdlib(&mut self) {
+        // Find stdlib directory relative to the workspace
+        let stdlib_paths = vec![
+            std::path::PathBuf::from("./stdlib"),
+            std::path::PathBuf::from("../stdlib"),
+            std::path::PathBuf::from("../../stdlib"),
+            std::path::PathBuf::from("/home/ubuntu/zenlang/stdlib"),
+        ];
+
+        for stdlib_path in stdlib_paths {
+            if stdlib_path.exists() {
+                self.index_stdlib_directory(&stdlib_path);
+                eprintln!("[LSP] Indexed stdlib from: {}", stdlib_path.display());
+                break;
+            }
+        }
+    }
+
+    fn index_stdlib_directory(&mut self, path: &std::path::Path) {
+        use std::fs;
+
+        if let Ok(entries) = fs::read_dir(path) {
+            for entry in entries.flatten() {
+                let entry_path = entry.path();
+
+                if entry_path.is_file() && entry_path.extension().map_or(false, |e| e == "zen") {
+                    if let Ok(content) = fs::read_to_string(&entry_path) {
+                        let symbols = self.extract_symbols(&content);
+
+                        // Convert path to URI for stdlib symbols
+                        if let Ok(uri) = Url::from_file_path(&entry_path) {
+                            for (name, mut symbol) in symbols {
+                                symbol.definition_uri = Some(uri.clone());
+                                self.stdlib_symbols.insert(name, symbol);
+                            }
+                        }
+                    }
+                } else if entry_path.is_dir() {
+                    // Recursively index subdirectories
+                    self.index_stdlib_directory(&entry_path);
+                }
+            }
         }
     }
 
@@ -135,7 +186,10 @@ impl DocumentStore {
 
         match parser.parse_program() {
             Ok(program) => {
-                // Check for allocator issues
+                // Run full compiler analysis to get real diagnostics
+                diagnostics.extend(self.run_compiler_analysis(&program, content));
+
+                // Check for allocator issues (additional LSP-specific checks)
                 for decl in &program.declarations {
                     if let Declaration::Function(func) = decl {
                         self.check_allocator_usage(&func.body, &mut diagnostics, content);
@@ -144,6 +198,35 @@ impl DocumentStore {
             }
             Err(err) => {
                 diagnostics.push(self.error_to_diagnostic(err));
+            }
+        }
+
+        diagnostics
+    }
+
+    fn run_compiler_analysis(&self, program: &crate::ast::Program, _content: &str) -> Vec<Diagnostic> {
+        use crate::compiler::Compiler;
+        use inkwell::context::Context;
+
+        let mut diagnostics = Vec::new();
+
+        // PERFORMANCE: Full compilation is expensive (~100ms+)
+        // Only run this on save or when explicitly requested
+        // Check environment variable for now
+        if std::env::var("ZEN_LSP_FULL_ANALYSIS").is_ok() {
+            // Create a temporary LLVM context for analysis
+            let context = Context::create();
+            let compiler = Compiler::new(&context);
+
+            // Try to compile - collect all errors
+            match compiler.compile_llvm(program) {
+                Ok(_) => {
+                    // Compilation succeeded - no errors
+                }
+                Err(err) => {
+                    // Convert compiler error to diagnostic
+                    diagnostics.push(self.error_to_diagnostic(err));
+                }
             }
         }
 
@@ -349,25 +432,58 @@ impl DocumentStore {
     }
 
     fn error_to_diagnostic(&self, error: crate::error::CompileError) -> Diagnostic {
-        let (line, character) = match &error {
-            crate::error::CompileError::ParseError(_, Some(span)) |
-            crate::error::CompileError::SyntaxError(_, Some(span)) |
-            crate::error::CompileError::TypeError(_, Some(span)) |
-            crate::error::CompileError::TypeMismatch { span: Some(span), .. } => {
-                (span.line as u32, span.column as u32)
-            }
-            _ => (0, 0),
+        use crate::error::CompileError;
+
+        // Extract span and determine severity
+        let (span, severity, code) = match &error {
+            CompileError::ParseError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("parse-error")),
+            CompileError::SyntaxError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("syntax-error")),
+            CompileError::TypeError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("type-error")),
+            CompileError::TypeMismatch { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, Some("type-mismatch")),
+            CompileError::UndeclaredVariable(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("undeclared-variable")),
+            CompileError::UndeclaredFunction(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("undeclared-function")),
+            CompileError::UnexpectedToken { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, Some("unexpected-token")),
+            CompileError::InvalidPattern(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("invalid-pattern")),
+            CompileError::InvalidSyntax { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, Some("invalid-syntax")),
+            CompileError::MissingTypeAnnotation(_, span) => (span.clone(), DiagnosticSeverity::WARNING, Some("missing-type")),
+            CompileError::DuplicateDeclaration { duplicate_location, .. } => (duplicate_location.clone(), DiagnosticSeverity::ERROR, Some("duplicate-declaration")),
+            CompileError::ImportError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("import-error")),
+            CompileError::FFIError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("ffi-error")),
+            CompileError::InvalidLoopCondition(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("invalid-loop")),
+            CompileError::MissingReturnStatement(_, span) => (span.clone(), DiagnosticSeverity::WARNING, Some("missing-return")),
+            CompileError::InternalError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("internal-error")),
+            CompileError::UnsupportedFeature(_, span) => (span.clone(), DiagnosticSeverity::WARNING, Some("unsupported-feature")),
+            CompileError::FileNotFound(_, _) => (None, DiagnosticSeverity::ERROR, Some("file-not-found")),
+            CompileError::ComptimeError(_) => (None, DiagnosticSeverity::ERROR, Some("comptime-error")),
+            CompileError::BuildError(_) => (None, DiagnosticSeverity::ERROR, Some("build-error")),
+            CompileError::FileError(_) => (None, DiagnosticSeverity::ERROR, Some("file-error")),
+            CompileError::CyclicDependency(_) => (None, DiagnosticSeverity::ERROR, Some("cyclic-dependency")),
+        };
+
+        // Convert span to LSP range
+        let (start_pos, end_pos) = if let Some(span) = span {
+            let start = Position {
+                line: if span.line > 0 { span.line as u32 - 1 } else { 0 },
+                character: span.column as u32,
+            };
+            let end = Position {
+                line: if span.line > 0 { span.line as u32 - 1 } else { 0 },
+                character: (span.column + (span.end - span.start).max(1)) as u32,
+            };
+            (start, end)
+        } else {
+            (Position { line: 0, character: 0 }, Position { line: 0, character: 1 })
         };
 
         Diagnostic {
             range: Range {
-                start: Position { line, character },
-                end: Position { line, character: character + 1 },
+                start: start_pos,
+                end: end_pos,
             },
-            severity: Some(DiagnosticSeverity::ERROR),
-            code: None,
+            severity: Some(severity),
+            code: code.map(|c| lsp_types::NumberOrString::String(c.to_string())),
             code_description: None,
-            source: Some("zen".to_string()),
+            source: Some("zen-compiler".to_string()),
             message: format!("{}", error),
             related_information: None,
             tags: None,
@@ -947,7 +1063,40 @@ impl ZenLanguageServer {
                     };
                 }
 
-                // Check stdlib or other documents
+                // Check stdlib symbols
+                if let Some(symbol_info) = store.stdlib_symbols.get(&symbol_name) {
+                    let mut hover_content = Vec::new();
+
+                    if let Some(detail) = &symbol_info.detail {
+                        hover_content.push(format!("```zen\n{}\n```", detail));
+                    }
+
+                    if let Some(doc) = &symbol_info.documentation {
+                        hover_content.push(doc.clone());
+                    }
+
+                    if let Some(type_info) = &symbol_info.type_info {
+                        hover_content.push(format!("**Type:** `{}`", format_type(type_info)));
+                    }
+
+                    hover_content.push("**Source:** Standard Library".to_string());
+
+                    let contents = HoverContents::Markup(MarkupContent {
+                        kind: MarkupKind::Markdown,
+                        value: hover_content.join("\n\n"),
+                    });
+
+                    return Response {
+                        id: req.id,
+                        result: Some(serde_json::to_value(Hover {
+                            contents,
+                            range: None,
+                        }).unwrap_or(Value::Null)),
+                        error: None,
+                    };
+                }
+
+                // Check other open documents
                 for (_uri, other_doc) in &store.documents {
                     if let Some(symbol_info) = other_doc.symbols.get(&symbol_name) {
                         let mut hover_content = Vec::new();
@@ -1236,8 +1385,23 @@ impl ZenLanguageServer {
                     };
                 }
 
-                // TODO: Check stdlib and imported symbols
-                // For now, we'll search for the symbol in all open documents
+                // Check stdlib symbols
+                if let Some(symbol_info) = store.stdlib_symbols.get(&symbol_name) {
+                    if let Some(uri) = &symbol_info.definition_uri {
+                        let location = Location {
+                            uri: uri.clone(),
+                            range: symbol_info.range.clone(),
+                        };
+
+                        return Response {
+                            id: req.id,
+                            result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                            error: None,
+                        };
+                    }
+                }
+
+                // Search for the symbol in all open documents
                 for (uri, other_doc) in &store.documents {
                     if let Some(symbol_info) = other_doc.symbols.get(&symbol_name) {
                         let location = Location {
