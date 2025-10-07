@@ -1096,14 +1096,14 @@ impl ZenLanguageServer {
     }
 
     pub fn run(mut self) -> Result<(), Box<dyn Error>> {
-        eprintln!("Starting Enhanced Zen Language Server...");
+        // Starting Enhanced Zen Language Server
 
         let server_capabilities = serde_json::to_value(&self.capabilities)?;
         let initialization_params = self.connection.initialize(server_capabilities)?;
 
         if let Ok(params) = serde_json::from_value::<InitializeParams>(initialization_params) {
             if let Some(root_uri) = params.root_uri {
-                eprintln!("[LSP] Setting workspace root: {}", root_uri);
+                // Setting workspace root
                 self.store.lock().unwrap().set_workspace_root(root_uri);
             }
         }
@@ -1120,18 +1120,17 @@ impl ZenLanguageServer {
             Self::background_analysis_worker(analysis_rx, result_tx);
         });
 
-        eprintln!("Zen LSP initialized with enhanced capabilities");
-        eprintln!("[LSP] Background analysis thread started");
+        // Zen LSP initialized with enhanced capabilities
 
         // Start main loop with result receiver for async diagnostics
         self.main_loop_with_background(result_rx)?;
 
-        eprintln!("Zen Language Server shutting down");
+        // Zen Language Server shutting down
         Ok(())
     }
 
     fn background_analysis_worker(job_rx: Receiver<AnalysisJob>, result_tx: Sender<AnalysisResult>) {
-        eprintln!("[LSP-BG] Background analysis worker started");
+        // Background analysis worker started
 
         // Create LLVM context and compiler (reused for all analyses)
         use inkwell::context::Context;
@@ -1139,13 +1138,13 @@ impl ZenLanguageServer {
         let compiler = Compiler::new(&context);
 
         while let Ok(job) = job_rx.recv() {
-            eprintln!("[LSP-BG] Analyzing {} v{}", job.uri, job.version);
+            // Analyzing document
 
             let start = Instant::now();
             let errors = compiler.analyze_for_diagnostics(&job.program);
             let duration = start.elapsed();
 
-            eprintln!("[LSP-BG] Analysis complete in {:?}, found {} errors", duration, errors.len());
+            // Analysis complete
 
             // Convert compiler errors to LSP diagnostics using the shared function
             let diagnostics: Vec<Diagnostic> = errors
@@ -1163,7 +1162,7 @@ impl ZenLanguageServer {
             let _ = result_tx.send(result);
         }
 
-        eprintln!("[LSP-BG] Background analysis worker stopped");
+        // Background analysis worker stopped
     }
 
     fn main_loop_with_background(&mut self, result_rx: Receiver<AnalysisResult>) -> Result<(), Box<dyn Error>> {
@@ -1173,14 +1172,14 @@ impl ZenLanguageServer {
             // Check for background analysis results (non-blocking)
             match result_rx.try_recv() {
                 Ok(result) => {
-                    eprintln!("[LSP] Publishing background diagnostics for {}", result.uri);
+                    // Publishing background diagnostics
                     self.publish_diagnostics(result.uri, result.diagnostics)?;
                 }
                 Err(TryRecvError::Empty) => {
                     // No results ready, continue
                 }
                 Err(TryRecvError::Disconnected) => {
-                    eprintln!("[LSP] Background analysis thread disconnected");
+                    // Background analysis thread disconnected
                     break;
                 }
             }
@@ -1227,7 +1226,7 @@ impl ZenLanguageServer {
     }
 
     fn handle_request(&self, req: Request) -> Result<(), Box<dyn Error>> {
-        eprintln!("[LSP] Handling request: {}", req.method);
+        // Handling request
         let response = match req.method.as_str() {
             "textDocument/hover" => self.handle_hover(req.clone()),
             "textDocument/completion" => self.handle_completion(req.clone()),
@@ -1252,9 +1251,7 @@ impl ZenLanguageServer {
             },
         };
 
-        eprintln!("[LSP] Sending response for {}", req.method);
         self.connection.sender.send(Message::Response(response))?;
-        eprintln!("[LSP] Response sent for {}", req.method);
         Ok(())
     }
 
@@ -1281,7 +1278,7 @@ impl ZenLanguageServer {
                 }
             }
             "initialized" => {
-                eprintln!("Client initialized");
+                // Client initialized
             }
             _ => {}
         }
@@ -1289,10 +1286,9 @@ impl ZenLanguageServer {
     }
 
     fn publish_diagnostics(&self, uri: Url, diagnostics: Vec<Diagnostic>) -> Result<(), Box<dyn Error>> {
-        eprintln!("[LSP] Publishing {} diagnostics for {}", diagnostics.len(), uri);
-        for (i, diag) in diagnostics.iter().enumerate() {
-            eprintln!("[LSP] Diagnostic {}: {:?} at line {} - {}",
-                i + 1, diag.severity, diag.range.start.line, diag.message);
+        // Publishing diagnostics
+        for (_i, _diag) in diagnostics.iter().enumerate() {
+            // Diagnostic logged
         }
 
         let params = PublishDiagnosticsParams {
@@ -2546,11 +2542,9 @@ impl ZenLanguageServer {
     }
 
     fn handle_code_lens(&self, req: Request) -> Response {
-        eprintln!("[LSP] Code lens request received");
         let params: CodeLensParams = match serde_json::from_value(req.params) {
             Ok(p) => p,
             Err(_) => {
-                eprintln!("[LSP] Failed to parse code lens params");
                 return Response {
                     id: req.id,
                     result: Some(Value::Null),
@@ -2559,13 +2553,10 @@ impl ZenLanguageServer {
             }
         };
 
-        eprintln!("[LSP] Acquiring lock for code lens...");
         let store = self.store.lock().unwrap();
-        eprintln!("[LSP] Lock acquired, looking up document");
         let doc = match store.documents.get(&params.text_document.uri) {
             Some(d) => d,
             None => {
-                eprintln!("[LSP] Document not found for code lens");
                 return Response {
                     id: req.id,
                     result: Some(Value::Null),
@@ -2576,10 +2567,8 @@ impl ZenLanguageServer {
 
         let mut lenses = Vec::new();
 
-        eprintln!("[LSP] Processing code lens for document");
         // Find test functions and add "Run Test" code lens
         if let Some(ast) = &doc.ast {
-            eprintln!("[LSP] Found AST with {} declarations", ast.len());
             for (idx, decl) in ast.iter().enumerate() {
                 if let Declaration::Function(func) = decl {
                     let func_name = &func.name;
@@ -2617,7 +2606,6 @@ impl ZenLanguageServer {
             }
         }
 
-        eprintln!("[LSP] Returning {} code lenses", lenses.len());
         Response {
             id: req.id,
             result: serde_json::to_value(lenses).ok(),
