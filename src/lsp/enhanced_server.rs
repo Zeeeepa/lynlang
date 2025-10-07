@@ -4836,32 +4836,40 @@ impl ZenLanguageServer {
         func_name: &str,
         all_docs: &HashMap<Url, Document>
     ) -> (Option<String>, Option<String>) {
-        // Try to find the function and extract Result<T, E> or Option<T> from its return type
+        use crate::ast::Declaration;
 
-        // Check local symbols first
-        if let Some(symbol_info) = local_symbols.get(func_name) {
-            if let Some(detail) = &symbol_info.detail {
-                return Self::parse_return_type_generics(detail);
-            }
-        }
-
-        // Check stdlib
-        if let Some(symbol_info) = stdlib_symbols.get(func_name) {
-            if let Some(detail) = &symbol_info.detail {
-                return Self::parse_return_type_generics(detail);
-            }
-        }
-
-        // Check all open documents
+        // Search all documents for the function AST
         for (_uri, doc) in all_docs {
-            if let Some(symbol_info) = doc.symbols.get(func_name) {
-                if let Some(detail) = &symbol_info.detail {
-                    return Self::parse_return_type_generics(detail);
+            if let Some(ast) = &doc.ast {
+                for decl in ast {
+                    if let Declaration::Function(func) = decl {
+                        if func.name == func_name {
+                            // Found it! Extract types from the return type
+                            return Self::extract_generic_types(&func.return_type);
+                        }
+                    }
                 }
             }
         }
 
         (None, None)
+    }
+
+    fn extract_generic_types(ast_type: &AstType) -> (Option<String>, Option<String>) {
+        match ast_type {
+            // Result<T, E>
+            AstType::Generic { name, type_args } if name == "Result" && type_args.len() == 2 => {
+                let ok_type = format_type(&type_args[0]);
+                let err_type = format_type(&type_args[1]);
+                (Some(ok_type), Some(err_type))
+            }
+            // Option<T>
+            AstType::Generic { name, type_args } if name == "Option" && type_args.len() == 1 => {
+                let inner_type = format_type(&type_args[0]);
+                (Some(inner_type), None)
+            }
+            _ => (None, None)
+        }
     }
 
     fn parse_return_type_generics(signature: &str) -> (Option<String>, Option<String>) {
@@ -4878,13 +4886,13 @@ impl ZenLanguageServer {
                     if let Some(end) = after_paren.rfind('>') {
                         let generics = &after_paren[start+1..end];
 
-                        // Split by comma to get T and E
-                        let parts: Vec<&str> = generics.split(',').map(|s| s.trim()).collect();
+                        // Smart split by comma - handle nested generics
+                        let parts = Self::split_generic_args(generics);
                         if parts.len() == 2 {
                             return (Some(parts[0].to_string()), Some(parts[1].to_string()));
                         } else if parts.len() == 1 {
-                            // Option<T> case
-                            return (Some(parts[0].to_string()), None);
+                            // Single type param (shouldn't happen for Result)
+                            return (Some(parts[0].to_string()), Some("unknown".to_string()));
                         }
                     }
                 }
@@ -4901,6 +4909,39 @@ impl ZenLanguageServer {
         }
 
         (None, None)
+    }
+
+    fn split_generic_args(args: &str) -> Vec<String> {
+        // Split generic arguments by comma, respecting nested <>
+        let mut result = Vec::new();
+        let mut current = String::new();
+        let mut depth = 0;
+
+        for ch in args.chars() {
+            match ch {
+                '<' => {
+                    depth += 1;
+                    current.push(ch);
+                }
+                '>' => {
+                    depth -= 1;
+                    current.push(ch);
+                }
+                ',' if depth == 0 => {
+                    result.push(current.trim().to_string());
+                    current.clear();
+                }
+                _ => {
+                    current.push(ch);
+                }
+            }
+        }
+
+        if !current.trim().is_empty() {
+            result.push(current.trim().to_string());
+        }
+
+        result
     }
 
     fn get_pattern_match_hover(
