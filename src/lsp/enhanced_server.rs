@@ -918,11 +918,28 @@ fn format_type(ast_type: &AstType) -> String {
         AstType::F32 => "f32".to_string(),
         AstType::F64 => "f64".to_string(),
         AstType::Bool => "bool".to_string(),
+        AstType::StaticLiteral => "str".to_string(),  // Internal string literal type
+        AstType::StaticString => "StaticString".to_string(),
         AstType::String => "String".to_string(),
         AstType::Void => "void".to_string(),
         AstType::Ptr(inner) => format!("Ptr<{}>", format_type(inner)),
         AstType::MutPtr(inner) => format!("MutPtr<{}>", format_type(inner)),
         AstType::RawPtr(inner) => format!("RawPtr<{}>", format_type(inner)),
+        AstType::Ref(inner) => format!("&{}", format_type(inner)),
+        AstType::Range { start_type, end_type, inclusive } => {
+            if *inclusive {
+                format!("{}..={}", format_type(start_type), format_type(end_type))
+            } else {
+                format!("{}..{}", format_type(start_type), format_type(end_type))
+            }
+        }
+        AstType::FunctionPointer { param_types, return_type } => {
+            format!("fn({}) {}",
+                param_types.iter().map(|p| format_type(p)).collect::<Vec<_>>().join(", "),
+                format_type(return_type))
+        }
+        AstType::EnumType { name } => name.clone(),
+        AstType::StdModule => "module".to_string(),
         AstType::Array(elem) => format!("Array<{}>", format_type(elem)),
         AstType::Vec { element_type, size } => format!("Vec<{}, {}>", format_type(element_type), size),
         AstType::DynVec { element_types, .. } => {
