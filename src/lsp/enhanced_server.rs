@@ -1451,6 +1451,22 @@ impl ZenLanguageServer {
                     }
                 }
 
+                // Try to infer type from variable assignment in the current file
+                if let Some(inferred_type) = self.infer_variable_type(&doc.content, &symbol_name, &doc.symbols, &store.stdlib_symbols, &store.workspace_symbols) {
+                    let contents = HoverContents::Markup(MarkupContent {
+                        kind: MarkupKind::Markdown,
+                        value: inferred_type,
+                    });
+                    return Response {
+                        id: req.id,
+                        result: Some(serde_json::to_value(Hover {
+                            contents,
+                            range: None,
+                        }).unwrap_or(Value::Null)),
+                        error: None,
+                    };
+                }
+
                 // Provide hover for built-in types and keywords
                 let hover_text = match symbol_name.as_str() {
                     // Primitive integer types
@@ -3204,6 +3220,114 @@ impl ZenLanguageServer {
         } else {
             (type_str.to_string(), Vec::new())
         }
+    }
+
+    fn infer_variable_type(
+        &self,
+        content: &str,
+        var_name: &str,
+        local_symbols: &HashMap<String, SymbolInfo>,
+        stdlib_symbols: &HashMap<String, SymbolInfo>,
+        workspace_symbols: &HashMap<String, SymbolInfo>
+    ) -> Option<String> {
+        // Look for variable assignment: var_name = function_call() or var_name: Type = ...
+        let lines: Vec<&str> = content.lines().collect();
+
+        for line in lines {
+            // Pattern: var_name = function_call()
+            if line.contains(&format!("{} =", var_name)) || line.contains(&format!("{}=", var_name)) {
+                // Check for type annotation first: var_name: Type = ...
+                if let Some(colon_pos) = line.find(':') {
+                    if let Some(eq_pos) = line.find('=') {
+                        if colon_pos < eq_pos {
+                            // Extract type between : and =
+                            let type_str = line[colon_pos + 1..eq_pos].trim();
+                            if !type_str.is_empty() {
+                                return Some(format!("```zen\n{}: {}\n```\n\n**Type:** `{}`", var_name, type_str, type_str));
+                            }
+                        }
+                    }
+                }
+
+                // Try to find function call and infer return type
+                if let Some(eq_pos) = line.find('=') {
+                    let rhs = &line[eq_pos + 1..].trim();
+
+                    // Check if it's a function call
+                    if let Some(paren_pos) = rhs.find('(') {
+                        let func_name = rhs[..paren_pos].trim();
+
+                        // Look up function in symbols
+                        if let Some(func_info) = local_symbols.get(func_name)
+                            .or_else(|| stdlib_symbols.get(func_name))
+                            .or_else(|| workspace_symbols.get(func_name)) {
+
+                            if let Some(type_info) = &func_info.type_info {
+                                let type_str = format_type(type_info);
+                                return Some(format!(
+                                    "```zen\n{} = {}()\n```\n\n**Type:** `{}`\n\n**Inferred from:** `{}` function return type",
+                                    var_name, func_name, type_str, func_name
+                                ));
+                            }
+
+                            // Try to parse from detail string
+                            if let Some(detail) = &func_info.detail {
+                                // Parse "func_name = (args) return_type"
+                                if let Some(arrow_or_paren_close) = detail.rfind(')') {
+                                    let return_part = detail[arrow_or_paren_close + 1..].trim();
+                                    if !return_part.is_empty() && return_part != "void" {
+                                        return Some(format!(
+                                            "```zen\n{} = {}()\n```\n\n**Type:** `{}`\n\n**Inferred from:** `{}` function return type",
+                                            var_name, func_name, return_part, func_name
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Check for constructor calls (Type { ... } or Type(...))
+                    if let Some(brace_pos) = rhs.find('{') {
+                        let type_name = rhs[..brace_pos].trim();
+                        if !type_name.is_empty() && type_name.chars().next().unwrap().is_uppercase() {
+                            return Some(format!(
+                                "```zen\n{} = {} {{ ... }}\n```\n\n**Type:** `{}`\n\n**Inferred from:** constructor",
+                                var_name, type_name, type_name
+                            ));
+                        }
+                    }
+
+                    // Check for literals
+                    let trimmed = rhs.trim();
+                    if trimmed.starts_with('"') || trimmed.starts_with('\'') {
+                        return Some(format!(
+                            "```zen\n{} = {}\n```\n\n**Type:** `StaticString`",
+                            var_name, trimmed
+                        ));
+                    }
+                    if trimmed.parse::<i32>().is_ok() {
+                        return Some(format!(
+                            "```zen\n{} = {}\n```\n\n**Type:** `i32`",
+                            var_name, trimmed
+                        ));
+                    }
+                    if trimmed.parse::<f64>().is_ok() && trimmed.contains('.') {
+                        return Some(format!(
+                            "```zen\n{} = {}\n```\n\n**Type:** `f64`",
+                            var_name, trimmed
+                        ));
+                    }
+                    if trimmed == "true" || trimmed == "false" {
+                        return Some(format!(
+                            "```zen\n{} = {}\n```\n\n**Type:** `bool`",
+                            var_name, trimmed
+                        ));
+                    }
+                }
+            }
+        }
+
+        None
     }
 
     fn infer_receiver_type(&self, receiver: &str, store: &DocumentStore) -> Option<String> {
