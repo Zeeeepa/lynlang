@@ -5,13 +5,10 @@
   "version": "0.1.0",
   "publisher": "zen-lang",
   "engines": {
-    "vscode": "^1.74.0"
+    "vscode": "^1.75.0"
   },
   "categories": [
     "Programming Languages"
-  ],
-  "activationEvents": [
-    "onLanguage:zen"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -57,7 +54,7 @@
     "vscode-languageclient": "^8.1.0"
   },
   "devDependencies": {
-    "@types/vscode": "^1.74.0",
+    "@types/vscode": "^1.75.0",
     "@types/node": "^18.x",
     "typescript": "^5.0.0"
   }

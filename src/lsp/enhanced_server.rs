@@ -930,6 +930,7 @@ impl ZenLanguageServer {
             })),
             folding_range_provider: Some(FoldingRangeProviderCapability::Simple(true)),
             inlay_hint_provider: Some(OneOf::Left(true)),
+            call_hierarchy_provider: Some(CallHierarchyServerCapability::Simple(true)),
             semantic_tokens_provider: Some(
                 SemanticTokensServerCapabilities::SemanticTokensRegistrationOptions(
                     SemanticTokensRegistrationOptions {
@@ -1162,6 +1163,9 @@ impl ZenLanguageServer {
             "textDocument/inlayHint" => self.handle_inlay_hints(req.clone()),
             "textDocument/codeLens" => self.handle_code_lens(req.clone()),
             "workspace/symbol" => self.handle_workspace_symbol(req.clone()),
+            "textDocument/prepareCallHierarchy" => self.handle_prepare_call_hierarchy(req.clone()),
+            "callHierarchy/incomingCalls" => self.handle_incoming_calls(req.clone()),
+            "callHierarchy/outgoingCalls" => self.handle_outgoing_calls(req.clone()),
             _ => Response {
                 id: req.id,
                 result: Some(Value::Null),
@@ -2464,6 +2468,11 @@ impl ZenLanguageServer {
             // Extract variable - only if there's a selection
             if params.range.start != params.range.end {
                 if let Some(action) = self.create_extract_variable_action(&params.range, &params.text_document.uri, &doc.content) {
+                    actions.push(action);
+                }
+
+                // Extract function - only if there's a multi-line selection or complex expression
+                if let Some(action) = self.create_extract_function_action(&params.range, &params.text_document.uri, &doc.content) {
                     actions.push(action);
                 }
             }
@@ -4094,6 +4103,289 @@ impl ZenLanguageServer {
         }
     }
 
+    fn handle_prepare_call_hierarchy(&self, req: Request) -> Response {
+        let params: CallHierarchyPrepareParams = match serde_json::from_value(req.params) {
+            Ok(p) => p,
+            Err(_) => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: Some(ResponseError {
+                        code: ErrorCode::InvalidParams as i32,
+                        message: "Invalid parameters".to_string(),
+                        data: None,
+                    }),
+                }
+            }
+        };
+
+        let store = self.store.lock().unwrap();
+        let doc = match store.documents.get(&params.text_document_position_params.text_document.uri) {
+            Some(doc) => doc,
+            None => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: None,
+                }
+            }
+        };
+
+        // Find function at position
+        let position = params.text_document_position_params.position;
+        if let Some(symbol_name) = self.find_symbol_at_position(&doc.content, position) {
+            if let Some(symbol_info) = doc.symbols.get(&symbol_name) {
+                if symbol_info.kind == SymbolKind::FUNCTION || symbol_info.kind == SymbolKind::METHOD {
+                    let call_item = CallHierarchyItem {
+                        name: symbol_info.name.clone(),
+                        kind: symbol_info.kind,
+                        tags: None,
+                        detail: symbol_info.detail.clone(),
+                        uri: params.text_document_position_params.text_document.uri.clone(),
+                        range: symbol_info.range,
+                        selection_range: symbol_info.selection_range,
+                        data: None,
+                    };
+
+                    return Response {
+                        id: req.id,
+                        result: Some(serde_json::to_value(vec![call_item]).unwrap_or(Value::Null)),
+                        error: None,
+                    };
+                }
+            }
+        }
+
+        Response {
+            id: req.id,
+            result: Some(Value::Null),
+            error: None,
+        }
+    }
+
+    fn handle_incoming_calls(&self, req: Request) -> Response {
+        let params: CallHierarchyIncomingCallsParams = match serde_json::from_value(req.params) {
+            Ok(p) => p,
+            Err(_) => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: Some(ResponseError {
+                        code: ErrorCode::InvalidParams as i32,
+                        message: "Invalid parameters".to_string(),
+                        data: None,
+                    }),
+                }
+            }
+        };
+
+        let store = self.store.lock().unwrap();
+        let mut incoming_calls = Vec::new();
+
+        // Find all call sites of this function across all documents
+        let target_func_name = &params.item.name;
+
+        for (uri, doc) in &store.documents {
+            // Search for function calls in the AST
+            if let Some(ast) = &doc.ast {
+                for decl in ast {
+                    if let Declaration::Function(func) = decl {
+                        // Check if this function calls the target function
+                        let calls_target = self.function_calls_target(&func.body, target_func_name);
+                        if calls_target {
+                            // Find the function symbol
+                            if let Some(caller_info) = doc.symbols.get(&func.name) {
+                                let caller_item = CallHierarchyItem {
+                                    name: caller_info.name.clone(),
+                                    kind: SymbolKind::FUNCTION,
+                                    tags: None,
+                                    detail: caller_info.detail.clone(),
+                                    uri: uri.clone(),
+                                    range: caller_info.range,
+                                    selection_range: caller_info.selection_range,
+                                    data: None,
+                                };
+
+                                // Find all call ranges (simplified - using caller function range)
+                                incoming_calls.push(CallHierarchyIncomingCall {
+                                    from: caller_item,
+                                    from_ranges: vec![caller_info.range],
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Response {
+            id: req.id,
+            result: Some(serde_json::to_value(incoming_calls).unwrap_or(Value::Null)),
+            error: None,
+        }
+    }
+
+    fn handle_outgoing_calls(&self, req: Request) -> Response {
+        let params: CallHierarchyOutgoingCallsParams = match serde_json::from_value(req.params) {
+            Ok(p) => p,
+            Err(_) => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: Some(ResponseError {
+                        code: ErrorCode::InvalidParams as i32,
+                        message: "Invalid parameters".to_string(),
+                        data: None,
+                    }),
+                }
+            }
+        };
+
+        let store = self.store.lock().unwrap();
+        let mut outgoing_calls = Vec::new();
+
+        // Find the function in the document
+        let uri = &params.item.uri;
+        if let Some(doc) = store.documents.get(uri) {
+            if let Some(ast) = &doc.ast {
+                for decl in ast {
+                    if let Declaration::Function(func) = decl {
+                        if &func.name == &params.item.name {
+                            // Find all function calls in this function
+                            let called_functions = self.find_called_functions(&func.body);
+
+                            for called_func in called_functions {
+                                // Try to find the called function in symbols
+                                if let Some(callee_info) = doc.symbols.get(&called_func)
+                                    .or_else(|| store.stdlib_symbols.get(&called_func)) {
+
+                                    let callee_uri = callee_info.definition_uri.clone()
+                                        .unwrap_or_else(|| uri.clone());
+
+                                    let callee_item = CallHierarchyItem {
+                                        name: callee_info.name.clone(),
+                                        kind: SymbolKind::FUNCTION,
+                                        tags: None,
+                                        detail: callee_info.detail.clone(),
+                                        uri: callee_uri,
+                                        range: callee_info.range,
+                                        selection_range: callee_info.selection_range,
+                                        data: None,
+                                    };
+
+                                    outgoing_calls.push(CallHierarchyOutgoingCall {
+                                        to: callee_item,
+                                        from_ranges: vec![params.item.range],
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Response {
+            id: req.id,
+            result: Some(serde_json::to_value(outgoing_calls).unwrap_or(Value::Null)),
+            error: None,
+        }
+    }
+
+    // Helper: Check if a function body calls a target function
+    fn function_calls_target(&self, statements: &[Statement], target: &str) -> bool {
+        for stmt in statements {
+            match stmt {
+                Statement::Expression(expr) => {
+                    if self.expression_calls_function(expr, target) {
+                        return true;
+                    }
+                }
+                Statement::Return(expr) => {
+                    if self.expression_calls_function(expr, target) {
+                        return true;
+                    }
+                }
+                _ => {}
+            }
+        }
+        false
+    }
+
+    // Helper: Check if an expression calls a function
+    fn expression_calls_function(&self, expr: &Expression, target: &str) -> bool {
+        match expr {
+            Expression::FunctionCall { name, args } => {
+                if name == target {
+                    return true;
+                }
+                // Check arguments recursively
+                for arg in args {
+                    if self.expression_calls_function(arg, target) {
+                        return true;
+                    }
+                }
+                false
+            }
+            Expression::MethodCall { object, method: _, args } => {
+                if self.expression_calls_function(object, target) {
+                    return true;
+                }
+                for arg in args {
+                    if self.expression_calls_function(arg, target) {
+                        return true;
+                    }
+                }
+                false
+            }
+            Expression::BinaryOp { left, right, .. } => {
+                self.expression_calls_function(left, target) ||
+                self.expression_calls_function(right, target)
+            }
+            _ => false,
+        }
+    }
+
+    // Helper: Find all functions called in a function body
+    fn find_called_functions(&self, statements: &[Statement]) -> Vec<String> {
+        let mut functions = Vec::new();
+        for stmt in statements {
+            match stmt {
+                Statement::Expression(expr) => {
+                    self.collect_called_functions(expr, &mut functions);
+                }
+                Statement::Return(expr) => {
+                    self.collect_called_functions(expr, &mut functions);
+                }
+                _ => {}
+            }
+        }
+        functions
+    }
+
+    // Helper: Collect function names from an expression
+    fn collect_called_functions(&self, expr: &Expression, functions: &mut Vec<String>) {
+        match expr {
+            Expression::FunctionCall { name, args } => {
+                functions.push(name.clone());
+                for arg in args {
+                    self.collect_called_functions(arg, functions);
+                }
+            }
+            Expression::MethodCall { object, method: _, args } => {
+                self.collect_called_functions(object, functions);
+                for arg in args {
+                    self.collect_called_functions(arg, functions);
+                }
+            }
+            Expression::BinaryOp { left, right, .. } => {
+                self.collect_called_functions(left, functions);
+                self.collect_called_functions(right, functions);
+            }
+            _ => {}
+        }
+    }
+
     fn create_extract_variable_action(&self, range: &Range, uri: &Url, content: &str) -> Option<CodeAction> {
         // Extract the selected text
         let lines: Vec<&str> = content.lines().collect();
@@ -4195,6 +4487,184 @@ impl ZenLanguageServer {
             disabled: None,
             data: None,
         })
+    }
+
+    fn create_extract_function_action(&self, range: &Range, uri: &Url, content: &str) -> Option<CodeAction> {
+        // Extract the selected text
+        let lines: Vec<&str> = content.lines().collect();
+        let mut selected_text = String::new();
+
+        if range.start.line == range.end.line {
+            // Single line selection - only extract if it's a substantial expression
+            if let Some(line) = lines.get(range.start.line as usize) {
+                let start_char = range.start.character as usize;
+                let end_char = range.end.character as usize;
+                if start_char < line.len() && end_char <= line.len() {
+                    selected_text = line[start_char..end_char].to_string();
+                }
+            }
+            // For single-line, only suggest if it's a complex expression (contains operators or calls)
+            if !selected_text.contains('(') && !selected_text.contains('+') &&
+               !selected_text.contains('-') && !selected_text.contains('*') {
+                return None;
+            }
+        } else {
+            // Multi-line selection
+            for line_idx in range.start.line..=range.end.line {
+                if let Some(line) = lines.get(line_idx as usize) {
+                    if line_idx == range.start.line {
+                        selected_text.push_str(&line[range.start.character as usize..]);
+                    } else if line_idx == range.end.line {
+                        selected_text.push_str(&line[..range.end.character as usize]);
+                    } else {
+                        selected_text.push_str(line);
+                    }
+                    if line_idx < range.end.line {
+                        selected_text.push('\n');
+                    }
+                }
+            }
+        }
+
+        // Skip if selection is empty or just whitespace
+        if selected_text.trim().is_empty() {
+            return None;
+        }
+
+        // Generate function name based on selected code
+        let func_name = self.generate_function_name(&selected_text);
+
+        // Find appropriate indentation
+        let base_indent = if let Some(line) = lines.get(range.start.line as usize) {
+            line.chars().take_while(|c| c.is_whitespace()).collect::<String>()
+        } else {
+            "".to_string()
+        };
+
+        // Create function with proper Zen formatting (name = () type { body })
+        let func_body_indent = format!("{}    ", base_indent);
+        let formatted_body: Vec<String> = selected_text
+            .lines()
+            .map(|line| {
+                if line.trim().is_empty() {
+                    String::new()
+                } else {
+                    format!("{}{}", func_body_indent, line.trim())
+                }
+            })
+            .collect();
+
+        // Detect if code has a return statement to infer return type
+        let return_type = if selected_text.contains("return ") {
+            "void"  // Placeholder - could be smarter with AST analysis
+        } else {
+            "void"
+        };
+
+        let new_function = format!(
+            "{}{} = () {} {{\n{}\n{}}}\n\n",
+            base_indent,
+            func_name,
+            return_type,
+            formatted_body.join("\n"),
+            base_indent
+        );
+
+        // Find where to insert the new function (before the current function)
+        let insert_line = self.find_function_start(content, range.start.line);
+
+        let mut changes = Vec::new();
+
+        // Insert new function
+        changes.push(TextEdit {
+            range: Range {
+                start: Position {
+                    line: insert_line,
+                    character: 0,
+                },
+                end: Position {
+                    line: insert_line,
+                    character: 0,
+                },
+            },
+            new_text: new_function,
+        });
+
+        // Replace selected code with function call
+        changes.push(TextEdit {
+            range: range.clone(),
+            new_text: format!("{}()", func_name),
+        });
+
+        let workspace_edit = WorkspaceEdit {
+            changes: Some({
+                let mut change_map = HashMap::new();
+                change_map.insert(uri.clone(), changes);
+                change_map
+            }),
+            document_changes: None,
+            change_annotations: None,
+        };
+
+        Some(CodeAction {
+            title: format!("Extract to function '{}'", func_name),
+            kind: Some(CodeActionKind::REFACTOR_EXTRACT),
+            diagnostics: None,
+            edit: Some(workspace_edit),
+            command: None,
+            is_preferred: Some(false),
+            disabled: None,
+            data: None,
+        })
+    }
+
+    fn find_function_start(&self, content: &str, from_line: u32) -> u32 {
+        // Find the start of the enclosing function by looking backwards
+        // Zen uses: name = (params) return_type { }
+        let lines: Vec<&str> = content.lines().collect();
+        for i in (0..=from_line).rev() {
+            if let Some(line) = lines.get(i as usize) {
+                let trimmed = line.trim_start();
+                // Match Zen function syntax: identifier = (...) type {
+                if trimmed.contains(" = (") && trimmed.contains('{') {
+                    return i;
+                }
+            }
+        }
+        // If no function found, insert at the beginning
+        0
+    }
+
+    fn generate_function_name(&self, code: &str) -> String {
+        // Generate a descriptive function name based on the code content
+        let code_trimmed = code.trim();
+
+        // If it contains a method call, use that as a hint
+        if let Some(dot_pos) = code_trimmed.find('.') {
+            if let Some(paren_pos) = code_trimmed[dot_pos..].find('(') {
+                let method_part = &code_trimmed[dot_pos+1..dot_pos+paren_pos];
+                if !method_part.is_empty() && method_part.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    return format!("do_{}", method_part);
+                }
+            }
+        }
+
+        // If it contains specific keywords, use them as hints
+        if code_trimmed.contains("loop") {
+            return "process_loop".to_string();
+        }
+        if code_trimmed.contains("println") || code_trimmed.contains("print") {
+            return "print_output".to_string();
+        }
+        if code_trimmed.contains("push") {
+            return "add_items".to_string();
+        }
+        if code_trimmed.contains("get") {
+            return "get_value".to_string();
+        }
+
+        // Default name
+        "extracted_fn".to_string()
     }
 
     fn generate_variable_name(&self, expression: &str) -> String {

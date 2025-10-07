@@ -30,19 +30,15 @@
             "patterns": [
                 {
                     "name": "keyword.control.zen",
-                    "match": "\\b(if|else|loop|while|for|return|break|continue|match)\\b"
+                    "match": "\\b(loop|return|break|continue)\\b"
                 },
                 {
                     "name": "keyword.other.zen",
-                    "match": "\\b(struct|enum|behavior|trait|comptime|inline)\\b"
-                },
-                {
-                    "name": "keyword.operator.zen",
-                    "match": "\\b(and|or|not)\\b"
+                    "match": "\\b(defer|type|void)\\b"
                 },
                 {
                     "name": "constant.language.zen",
-                    "match": "\\b(true|false|null|None|Some|Ok|Err)\\b"
+                    "match": "\\b(true|false|None|Some|Ok|Err)\\b"
                 }
             ]
         },
@@ -121,7 +117,11 @@
             "patterns": [
                 {
                     "name": "keyword.operator.assignment.zen",
-                    "match": "(=|::=|:=)"
+                    "match": "(::=|:=|::)"
+                },
+                {
+                    "name": "keyword.operator.assignment.immutable.zen",
+                    "match": "(?<!:)=(?!=)"
                 },
                 {
                     "name": "keyword.operator.comparison.zen",
@@ -137,7 +137,7 @@
                 },
                 {
                     "name": "keyword.operator.zen",
-                    "match": "(\\?|\\.|->|=>|\\|)"
+                    "match": "(\\?|\\.|->|=>|\\||\\.\\.)"
                 }
             ]
         },
@@ -158,6 +158,10 @@
                 {
                     "name": "keyword.control.import.zen",
                     "match": "@(std|this|meta)\\b"
+                },
+                {
+                    "name": "support.type.module.zen",
+                    "match": "\\bmodule\\.(exports|import)\\b"
                 }
             ]
         }
