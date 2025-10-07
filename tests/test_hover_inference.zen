@@ -1,0 +1,15 @@
+{ Result } = @std
+
+divide = (a: f64, b: f64) Result<f64, StaticString> {
+    b == 0.0 ? {
+        return Result.Err("Division by zero")
+    }
+    return Result.Ok(a / b)
+}
+
+main = () i32 {
+    result = divide(10.0, 2.0)
+    // Hovering over "result" should show: Result<f64, StaticString>
+    // Hovering over "divide" should show function signature
+    return 0
+}
