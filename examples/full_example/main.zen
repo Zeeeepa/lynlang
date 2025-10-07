@@ -27,15 +27,15 @@ Point: {
 // ============================================================================
 
 Status:
-    Active: i64,
+    Active: {user_id: i64},
     Inactive,
-    Banned: StaticString
+    Banned: {reason: StaticString, until: i64}
 
 Color:
     Red,
     Green,
     Blue,
-    Custom: i32
+    RGB: {r: i8, g: i8, b: i8}
 
 // ============================================================================
 // 3. FUNCTIONS - Various function patterns

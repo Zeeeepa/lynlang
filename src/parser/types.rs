@@ -429,6 +429,61 @@ impl<'a> Parser<'a> {
                 let referenced_type = self.parse_type()?;
                 Ok(AstType::Ref(Box::new(referenced_type)))
             }
+            Token::Symbol('{') => {
+                // Anonymous struct type: {field1: Type1, field2: Type2}
+                self.next_token(); // consume '{'
+
+                let mut fields = Vec::new();
+
+                while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
+                    // Parse field name
+                    let field_name = if let Token::Identifier(name) = &self.current_token {
+                        name.clone()
+                    } else {
+                        return Err(CompileError::SyntaxError(
+                            "Expected field name in anonymous struct type".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    };
+                    self.next_token();
+
+                    // Expect ':'
+                    if self.current_token != Token::Symbol(':') {
+                        return Err(CompileError::SyntaxError(
+                            "Expected ':' after field name in anonymous struct type".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                    self.next_token();
+
+                    // Parse field type
+                    let field_type = self.parse_type()?;
+                    fields.push((field_name, field_type));
+
+                    // Check for comma or end of struct
+                    if self.current_token == Token::Symbol(',') {
+                        self.next_token();
+                    } else if self.current_token != Token::Symbol('}') {
+                        return Err(CompileError::SyntaxError(
+                            "Expected ',' or '}' in anonymous struct type".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                }
+
+                if self.current_token != Token::Symbol('}') {
+                    return Err(CompileError::SyntaxError(
+                        "Expected '}' to close anonymous struct type".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+                self.next_token(); // consume '}'
+
+                Ok(AstType::Struct {
+                    name: String::new(), // Anonymous struct has no name
+                    fields,
+                })
+            }
             _ => Err(CompileError::SyntaxError(
                 format!("Unexpected token in type: {:?}", self.current_token),
                 Some(self.current_span.clone()),
