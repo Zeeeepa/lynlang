@@ -1634,19 +1634,41 @@ impl ZenLanguageServer {
                 }
 
                 // Search for the symbol in all open documents
+                // Prioritize non-test files over test files
+                let mut test_match: Option<(Url, Range)> = None;
+
                 for (uri, other_doc) in &store.documents {
                     if let Some(symbol_info) = other_doc.symbols.get(&symbol_name) {
-                        let location = Location {
-                            uri: uri.clone(),
-                            range: symbol_info.range.clone(),
-                        };
+                        let uri_str = uri.as_str();
+                        let is_test = uri_str.contains("/tests/") || uri_str.contains("_test.zen") || uri_str.contains("test_");
 
-                        return Response {
-                            id: req.id,
-                            result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
-                            error: None,
-                        };
+                        if is_test {
+                            // Save test match but keep looking for non-test
+                            test_match = Some((uri.clone(), symbol_info.range.clone()));
+                        } else {
+                            // Found in non-test file - return immediately
+                            let location = Location {
+                                uri: uri.clone(),
+                                range: symbol_info.range.clone(),
+                            };
+
+                            return Response {
+                                id: req.id,
+                                result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                                error: None,
+                            };
+                        }
                     }
+                }
+
+                // If we only found test matches, use that
+                if let Some((uri, range)) = test_match {
+                    let location = Location { uri, range };
+                    return Response {
+                        id: req.id,
+                        result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                        error: None,
+                    };
                 }
 
                 // Search the entire workspace for the symbol

@@ -1,0 +1,93 @@
+// working_example.zen - Demonstrating working Zen features
+// This focuses on features that currently parse and compile
+
+{ io } = @std
+{ Option, Result, get_default_allocator } = @std
+{ HashMap } = @std.collections
+{ DynVec } = @std
+
+// ============================================================================
+// STRUCTS - Custom data types
+// ============================================================================
+
+Person: {
+    name: StaticString,
+    age: i32
+}
+
+Point: {
+    x: f64,
+    y: f64
+}
+
+// ============================================================================
+// FUNCTIONS
+// ============================================================================
+
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+multiply = (a: i32, b: i32) i32 {
+    return a * b
+}
+
+divide = (a: f64, b: f64) Result<f64, StaticString> {
+    b == 0.0 ? {
+        return Result.Err("Division by zero")
+    }
+    return Result.Ok(a / b)
+}
+
+greet = (name: StaticString) void {
+    io.println("Hello, ${name}!")
+}
+
+// ============================================================================
+// MAIN FUNCTION
+// ============================================================================
+
+main = () void {
+    // Test arithmetic
+    sum = add(5, 3)
+    io.println("5 + 3 = ${sum}")
+
+    product = multiply(4, 7)
+    io.println("4 * 7 = ${product}")
+
+    // Test Result type
+    result = divide(10.0, 2.0)
+    result ?
+        | Ok(val) { io.println("10.0 / 2.0 = ${val}") }
+        | Err(msg) { io.println("Error: ${msg}") }
+
+    // Test division by zero
+    bad_result = divide(10.0, 0.0)
+    bad_result ?
+        | Ok(val) { io.println("Result: ${val}") }
+        | Err(msg) { io.println("Error: ${msg}") }
+
+    // Test struct
+    person = Person {
+        name: "Alice",
+        age: 30
+    }
+    io.println("Person: ${person.name}, age ${person.age}")
+
+    // Test Option
+    maybe_value = Option.Some(42)
+    maybe_value ?
+        | Some(val) { io.println("Got value: ${val}") }
+        | None { io.println("No value") }
+
+    // Test collections with allocator
+    alloc = get_default_allocator()
+    numbers = DynVec<i32>(alloc)
+    numbers.push(1)
+    numbers.push(2)
+    numbers.push(3)
+
+    io.println("Added ${numbers.len()} numbers to vector")
+
+    greet("World")
+}
