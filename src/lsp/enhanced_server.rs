@@ -75,6 +75,67 @@ struct AnalysisResult {
     diagnostics: Vec<Diagnostic>,
 }
 
+// Convert CompileError to LSP Diagnostic (standalone function for reuse)
+fn compile_error_to_diagnostic(error: crate::error::CompileError) -> Diagnostic {
+    use crate::error::CompileError;
+
+    // Extract span and determine severity
+    let (span, severity, code) = match &error {
+        CompileError::ParseError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("parse-error")),
+        CompileError::SyntaxError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("syntax-error")),
+        CompileError::TypeError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("type-error")),
+        CompileError::TypeMismatch { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, Some("type-mismatch")),
+        CompileError::UndeclaredVariable(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("undeclared-variable")),
+        CompileError::UndeclaredFunction(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("undeclared-function")),
+        CompileError::UnexpectedToken { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, Some("unexpected-token")),
+        CompileError::InvalidPattern(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("invalid-pattern")),
+        CompileError::InvalidSyntax { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, Some("invalid-syntax")),
+        CompileError::MissingTypeAnnotation(_, span) => (span.clone(), DiagnosticSeverity::WARNING, Some("missing-type")),
+        CompileError::DuplicateDeclaration { duplicate_location, .. } => (duplicate_location.clone(), DiagnosticSeverity::ERROR, Some("duplicate-declaration")),
+        CompileError::ImportError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("import-error")),
+        CompileError::FFIError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("ffi-error")),
+        CompileError::InvalidLoopCondition(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("invalid-loop")),
+        CompileError::MissingReturnStatement(_, span) => (span.clone(), DiagnosticSeverity::WARNING, Some("missing-return")),
+        CompileError::InternalError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("internal-error")),
+        CompileError::UnsupportedFeature(_, span) => (span.clone(), DiagnosticSeverity::WARNING, Some("unsupported-feature")),
+        CompileError::FileNotFound(_, _) => (None, DiagnosticSeverity::ERROR, Some("file-not-found")),
+        CompileError::ComptimeError(_) => (None, DiagnosticSeverity::ERROR, Some("comptime-error")),
+        CompileError::BuildError(_) => (None, DiagnosticSeverity::ERROR, Some("build-error")),
+        CompileError::FileError(_) => (None, DiagnosticSeverity::ERROR, Some("file-error")),
+        CompileError::CyclicDependency(_) => (None, DiagnosticSeverity::ERROR, Some("cyclic-dependency")),
+    };
+
+    // Convert span to LSP range
+    let (start_pos, end_pos) = if let Some(span) = span {
+        let start = Position {
+            line: if span.line > 0 { span.line as u32 - 1 } else { 0 },
+            character: span.column as u32,
+        };
+        let end = Position {
+            line: if span.line > 0 { span.line as u32 - 1 } else { 0 },
+            character: (span.column + (span.end - span.start).max(1)) as u32,
+        };
+        (start, end)
+    } else {
+        (Position { line: 0, character: 0 }, Position { line: 0, character: 1 })
+    };
+
+    Diagnostic {
+        range: Range {
+            start: start_pos,
+            end: end_pos,
+        },
+        severity: Some(severity),
+        code: code.map(|c| lsp_types::NumberOrString::String(c.to_string())),
+        code_description: None,
+        source: Some("zen-compiler".to_string()),
+        message: format!("{}", error),
+        related_information: None,
+        tags: None,
+        data: None,
+    }
+}
+
 struct DocumentStore {
     documents: HashMap<Url, Document>,
     stdlib_symbols: HashMap<String, SymbolInfo>,
@@ -485,63 +546,7 @@ impl DocumentStore {
     }
 
     fn error_to_diagnostic(&self, error: crate::error::CompileError) -> Diagnostic {
-        use crate::error::CompileError;
-
-        // Extract span and determine severity
-        let (span, severity, code) = match &error {
-            CompileError::ParseError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("parse-error")),
-            CompileError::SyntaxError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("syntax-error")),
-            CompileError::TypeError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("type-error")),
-            CompileError::TypeMismatch { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, Some("type-mismatch")),
-            CompileError::UndeclaredVariable(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("undeclared-variable")),
-            CompileError::UndeclaredFunction(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("undeclared-function")),
-            CompileError::UnexpectedToken { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, Some("unexpected-token")),
-            CompileError::InvalidPattern(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("invalid-pattern")),
-            CompileError::InvalidSyntax { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, Some("invalid-syntax")),
-            CompileError::MissingTypeAnnotation(_, span) => (span.clone(), DiagnosticSeverity::WARNING, Some("missing-type")),
-            CompileError::DuplicateDeclaration { duplicate_location, .. } => (duplicate_location.clone(), DiagnosticSeverity::ERROR, Some("duplicate-declaration")),
-            CompileError::ImportError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("import-error")),
-            CompileError::FFIError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("ffi-error")),
-            CompileError::InvalidLoopCondition(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("invalid-loop")),
-            CompileError::MissingReturnStatement(_, span) => (span.clone(), DiagnosticSeverity::WARNING, Some("missing-return")),
-            CompileError::InternalError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("internal-error")),
-            CompileError::UnsupportedFeature(_, span) => (span.clone(), DiagnosticSeverity::WARNING, Some("unsupported-feature")),
-            CompileError::FileNotFound(_, _) => (None, DiagnosticSeverity::ERROR, Some("file-not-found")),
-            CompileError::ComptimeError(_) => (None, DiagnosticSeverity::ERROR, Some("comptime-error")),
-            CompileError::BuildError(_) => (None, DiagnosticSeverity::ERROR, Some("build-error")),
-            CompileError::FileError(_) => (None, DiagnosticSeverity::ERROR, Some("file-error")),
-            CompileError::CyclicDependency(_) => (None, DiagnosticSeverity::ERROR, Some("cyclic-dependency")),
-        };
-
-        // Convert span to LSP range
-        let (start_pos, end_pos) = if let Some(span) = span {
-            let start = Position {
-                line: if span.line > 0 { span.line as u32 - 1 } else { 0 },
-                character: span.column as u32,
-            };
-            let end = Position {
-                line: if span.line > 0 { span.line as u32 - 1 } else { 0 },
-                character: (span.column + (span.end - span.start).max(1)) as u32,
-            };
-            (start, end)
-        } else {
-            (Position { line: 0, character: 0 }, Position { line: 0, character: 1 })
-        };
-
-        Diagnostic {
-            range: Range {
-                start: start_pos,
-                end: end_pos,
-            },
-            severity: Some(severity),
-            code: code.map(|c| lsp_types::NumberOrString::String(c.to_string())),
-            code_description: None,
-            source: Some("zen-compiler".to_string()),
-            message: format!("{}", error),
-            related_information: None,
-            tags: None,
-            data: None,
-        }
+        compile_error_to_diagnostic(error)
     }
 
     fn extract_symbols(&self, content: &str) -> HashMap<String, SymbolInfo> {
@@ -1057,26 +1062,10 @@ impl ZenLanguageServer {
 
             eprintln!("[LSP-BG] Analysis complete in {:?}, found {} errors", duration, errors.len());
 
-            // Convert compiler errors to LSP diagnostics
+            // Convert compiler errors to LSP diagnostics using the shared function
             let diagnostics: Vec<Diagnostic> = errors
                 .into_iter()
-                .map(|err| {
-                    let (line, col) = err.span()
-                        .map(|s| (s.line as u32, s.column as u32))
-                        .unwrap_or((0, 0));
-
-                    Diagnostic {
-                        range: Range {
-                            start: Position { line, character: col },
-                            end: Position { line, character: col + 10 },
-                        },
-                        severity: Some(DiagnosticSeverity::ERROR),
-                        code: Some(NumberOrString::String("compiler-error".to_string())),
-                        source: Some("zen-compiler".to_string()),
-                        message: err.message(),
-                        ..Default::default()
-                    }
-                })
+                .map(compile_error_to_diagnostic)
                 .collect();
 
             let result = AnalysisResult {
