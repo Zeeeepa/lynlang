@@ -1249,6 +1249,22 @@ impl ZenLanguageServer {
 
             // Find the symbol at the cursor position
             if let Some(symbol_name) = self.find_symbol_at_position(&doc.content, position) {
+                // Check if we're hovering over an enum variant definition
+                if let Some(enum_hover) = self.get_enum_variant_hover(&doc.content, position, &symbol_name) {
+                    let contents = HoverContents::Markup(MarkupContent {
+                        kind: MarkupKind::Markdown,
+                        value: enum_hover,
+                    });
+                    return Response {
+                        id: req.id,
+                        result: Some(serde_json::to_value(Hover {
+                            contents,
+                            range: None,
+                        }).unwrap_or(Value::Null)),
+                        error: None,
+                    };
+                }
+
                 // Check for symbol info in current document
                 if let Some(symbol_info) = doc.symbols.get(&symbol_name) {
                     let mut hover_content = Vec::new();
@@ -1359,15 +1375,50 @@ impl ZenLanguageServer {
 
                 // Provide hover for built-in types and keywords
                 let hover_text = match symbol_name.as_str() {
-                    "Option" => "```zen\nenum Option<T> {\n    Some(T),\n    None,\n}\n```\n\nOptional value type",
-                    "Result" => "```zen\nenum Result<T, E> {\n    Ok(T),\n    Err(E),\n}\n```\n\nResult type for error handling",
-                    "HashMap" => "```zen\nHashMap<K, V>\n```\n\nHash map collection (requires allocator)",
-                    "DynVec" => "```zen\nDynVec<T>\n```\n\nDynamic vector (requires allocator)",
-                    "Array" => "```zen\nArray<T>\n```\n\nDynamic array (requires allocator)",
-                    "String" => "```zen\nString\n```\n\nDynamic string type (requires allocator)",
-                    "StaticString" => "```zen\nStaticString\n```\n\nStatic string type (compile-time, no allocator)",
-                    "loop" => "```zen\nloop() { ... }\nloop((handle) { ... })\n(range).loop((i) { ... })\n```\n\nLoop construct with internal state management",
-                    "raise" => "```zen\nexpr.raise()\n```\n\nPropagate errors from Result types",
+                    // Primitive integer types
+                    "i8" => "```zen\ni8\n```\n\n**Signed 8-bit integer**\n- Range: -128 to 127\n- Size: 1 byte",
+                    "i16" => "```zen\ni16\n```\n\n**Signed 16-bit integer**\n- Range: -32,768 to 32,767\n- Size: 2 bytes",
+                    "i32" => "```zen\ni32\n```\n\n**Signed 32-bit integer**\n- Range: -2,147,483,648 to 2,147,483,647\n- Size: 4 bytes",
+                    "i64" => "```zen\ni64\n```\n\n**Signed 64-bit integer**\n- Range: -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807\n- Size: 8 bytes",
+                    "u8" => "```zen\nu8\n```\n\n**Unsigned 8-bit integer**\n- Range: 0 to 255\n- Size: 1 byte",
+                    "u16" => "```zen\nu16\n```\n\n**Unsigned 16-bit integer**\n- Range: 0 to 65,535\n- Size: 2 bytes",
+                    "u32" => "```zen\nu32\n```\n\n**Unsigned 32-bit integer**\n- Range: 0 to 4,294,967,295\n- Size: 4 bytes",
+                    "u64" => "```zen\nu64\n```\n\n**Unsigned 64-bit integer**\n- Range: 0 to 18,446,744,073,709,551,615\n- Size: 8 bytes",
+                    "usize" => "```zen\nusize\n```\n\n**Pointer-sized unsigned integer**\n- Size: Platform dependent (4 or 8 bytes)\n- Used for array indexing and memory offsets",
+
+                    // Floating point types
+                    "f32" => "```zen\nf32\n```\n\n**32-bit floating point**\n- Precision: ~7 decimal digits\n- Size: 4 bytes\n- IEEE 754 single precision",
+                    "f64" => "```zen\nf64\n```\n\n**64-bit floating point**\n- Precision: ~15 decimal digits\n- Size: 8 bytes\n- IEEE 754 double precision",
+
+                    // Boolean
+                    "bool" => "```zen\nbool\n```\n\n**Boolean type**\n- Values: `true` or `false`\n- Size: 1 byte",
+
+                    // Void
+                    "void" => "```zen\nvoid\n```\n\n**Void type**\n- Represents the absence of a value\n- Used as return type for functions with no return",
+
+                    // Option and Result
+                    "Option" => "```zen\nOption<T>:\n    Some: T,\n    None\n```\n\n**Optional value type**\n- Represents a value that may or may not exist\n- No null/nil in Zen!",
+                    "Result" => "```zen\nResult<T, E>:\n    Ok: T,\n    Err: E\n```\n\n**Result type for error handling**\n- Represents success (Ok) or failure (Err)\n- Use `.raise()` for error propagation",
+
+                    // Collections
+                    "HashMap" => "```zen\nHashMap<K, V>\n```\n\n**Hash map collection**\n- Key-value storage with O(1) average lookup\n- Requires allocator",
+                    "DynVec" => "```zen\nDynVec<T>\n```\n\n**Dynamic vector**\n- Growable array\n- Requires allocator",
+                    "Vec" => "```zen\nVec<T, size>\n```\n\n**Fixed-size vector**\n- Stack-allocated\n- Compile-time size\n- No allocator needed",
+                    "Array" => "```zen\nArray<T>\n```\n\n**Dynamic array**\n- Requires allocator",
+
+                    // String types
+                    "String" => "```zen\nString\n```\n\n**Dynamic string type**\n- Mutable, heap-allocated\n- Requires allocator",
+                    "StaticString" => "```zen\nStaticString\n```\n\n**Static string type**\n- Immutable, compile-time\n- No allocator needed",
+
+                    // Keywords
+                    "loop" => "```zen\nloop() { ... }\nloop((handle) { ... })\n(range).loop((i) { ... })\n```\n\n**Loop construct**\n- Internal state management\n- Can provide control handle or iteration values",
+                    "return" => "```zen\nreturn expr\n```\n\n**Return statement**\n- Returns a value from a function",
+                    "break" => "```zen\nbreak\n```\n\n**Break statement**\n- Exits the current loop",
+                    "continue" => "```zen\ncontinue\n```\n\n**Continue statement**\n- Skips to the next loop iteration",
+
+                    // Error handling
+                    "raise" => "```zen\nexpr.raise()\n```\n\n**Error propagation**\n- Unwraps Result<T, E> or returns Err early\n- Equivalent to Rust's `?` operator",
+
                     _ => "Zen language element",
                 };
 
@@ -4760,5 +4811,73 @@ impl ZenLanguageServer {
             }),
             data: None,
         })
+    }
+
+    fn get_enum_variant_hover(&self, content: &str, position: Position, symbol_name: &str) -> Option<String> {
+        let lines: Vec<&str> = content.lines().collect();
+        if position.line as usize >= lines.len() {
+            return None;
+        }
+
+        let current_line = lines[position.line as usize];
+
+        // Check if this line is an enum variant (has ':' after the symbol)
+        if !current_line.contains(&format!("{}:", symbol_name)) && !current_line.contains(&format!("{},", symbol_name)) {
+            return None;
+        }
+
+        // Find the enum name by looking backwards
+        let mut enum_name = None;
+        for i in (0..position.line).rev() {
+            let line = lines[i as usize].trim();
+            if line.is_empty() || line.starts_with("//") {
+                continue;
+            }
+            // Check if this line is an enum definition (identifier followed by ':' at end)
+            if line.ends_with(':') && !line.contains("::") {
+                let name = line.trim_end_matches(':').trim();
+                if name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '<' || c == '>' || c == ',') {
+                    enum_name = Some(name.to_string());
+                    break;
+                }
+            }
+            // If we hit something that's not a variant, stop
+            if !line.contains(':') && !line.contains(',') {
+                break;
+            }
+        }
+
+        if let Some(enum_name) = enum_name {
+            // Extract variant payload info from current line
+            let payload_info = if current_line.contains('{') {
+                // Struct-like payload
+                let start = current_line.find('{')?;
+                let end = current_line.rfind('}')?;
+                let fields = &current_line[start+1..end];
+                format!(" with fields: `{}`", fields.trim())
+            } else if current_line.contains(": ") {
+                // Type payload
+                let parts: Vec<&str> = current_line.split(':').collect();
+                if parts.len() >= 2 {
+                    let type_part = parts[1].trim().trim_end_matches(',');
+                    format!(" of type `{}`", type_part)
+                } else {
+                    String::new()
+                }
+            } else {
+                String::new()
+            };
+
+            Some(format!(
+                "```zen\n{}\n    {}...\n```\n\n**Enum variant** `{}`{}\n\nPart of enum `{}`",
+                enum_name,
+                symbol_name,
+                symbol_name,
+                payload_info,
+                enum_name.split('<').next().unwrap_or(&enum_name)
+            ))
+        } else {
+            None
+        }
     }
 }
