@@ -139,6 +139,7 @@ fn compile_error_to_diagnostic(error: crate::error::CompileError) -> Diagnostic 
 struct DocumentStore {
     documents: HashMap<Url, Document>,
     stdlib_symbols: HashMap<String, SymbolInfo>,
+    workspace_symbols: HashMap<String, SymbolInfo>,  // Indexed workspace symbols
     workspace_root: Option<Url>,
     analysis_sender: Option<Sender<AnalysisJob>>,
 }
@@ -148,6 +149,7 @@ impl DocumentStore {
         let mut store = Self {
             documents: HashMap::new(),
             stdlib_symbols: HashMap::new(),
+            workspace_symbols: HashMap::new(),
             workspace_root: None,
             analysis_sender: None,
         };
@@ -162,7 +164,73 @@ impl DocumentStore {
     }
 
     fn set_workspace_root(&mut self, root_uri: Url) {
-        self.workspace_root = Some(root_uri);
+        self.workspace_root = Some(root_uri.clone());
+        // Index workspace symbols after setting root
+        self.index_workspace(&root_uri);
+    }
+
+    fn index_workspace(&mut self, root_uri: &Url) {
+        use std::path::Path;
+
+        if let Ok(root_path) = root_uri.to_file_path() {
+            eprintln!("[LSP] Indexing workspace: {}", root_path.display());
+            let start = Instant::now();
+
+            let count = self.index_workspace_directory(&root_path);
+
+            let duration = start.elapsed();
+            eprintln!("[LSP] Indexed {} symbols from workspace in {:?}", count, duration);
+        }
+    }
+
+    fn index_workspace_directory(&mut self, path: &std::path::Path) -> usize {
+        use std::fs;
+
+        let mut symbol_count = 0;
+
+        // Skip common directories we don't want to index
+        if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
+            if dir_name == "target" || dir_name == "node_modules" || dir_name == ".git"
+                || dir_name == "tests" || dir_name.starts_with('.') {
+                return 0;
+            }
+        }
+
+        if let Ok(entries) = fs::read_dir(path) {
+            for entry in entries.flatten() {
+                let entry_path = entry.path();
+
+                if entry_path.is_file() && entry_path.extension().map_or(false, |e| e == "zen") {
+                    // Skip test files
+                    if let Some(file_name) = entry_path.file_name().and_then(|n| n.to_str()) {
+                        if file_name.starts_with("test_") || file_name.contains("_test.zen") {
+                            continue;
+                        }
+                    }
+
+                    if let Ok(content) = fs::read_to_string(&entry_path) {
+                        let symbols = self.extract_symbols(&content);
+
+                        // Convert path to URI for workspace symbols
+                        if let Ok(uri) = Url::from_file_path(&entry_path) {
+                            for (name, mut symbol) in symbols {
+                                symbol.definition_uri = Some(uri.clone());
+                                // Only add if not already in stdlib (stdlib takes priority)
+                                if !self.stdlib_symbols.contains_key(&name) {
+                                    self.workspace_symbols.insert(name, symbol);
+                                    symbol_count += 1;
+                                }
+                            }
+                        }
+                    }
+                } else if entry_path.is_dir() {
+                    // Recursively index subdirectories
+                    symbol_count += self.index_workspace_directory(&entry_path);
+                }
+            }
+        }
+
+        symbol_count
     }
 
     fn index_stdlib(&mut self) {
@@ -1680,6 +1748,22 @@ impl ZenLanguageServer {
 
                 // Check stdlib symbols
                 if let Some(symbol_info) = store.stdlib_symbols.get(&symbol_name) {
+                    if let Some(uri) = &symbol_info.definition_uri {
+                        let location = Location {
+                            uri: uri.clone(),
+                            range: symbol_info.range.clone(),
+                        };
+
+                        return Response {
+                            id: req.id,
+                            result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                            error: None,
+                        };
+                    }
+                }
+
+                // Check workspace symbols (indexed from all files)
+                if let Some(symbol_info) = store.workspace_symbols.get(&symbol_name) {
                     if let Some(uri) = &symbol_info.definition_uri {
                         let location = Location {
                             uri: uri.clone(),
