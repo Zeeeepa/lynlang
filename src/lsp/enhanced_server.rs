@@ -1249,6 +1249,22 @@ impl ZenLanguageServer {
 
             // Find the symbol at the cursor position
             if let Some(symbol_name) = self.find_symbol_at_position(&doc.content, position) {
+                // Check if we're hovering over a pattern match variable
+                if let Some(pattern_hover) = self.get_pattern_match_hover(&doc.content, position, &symbol_name) {
+                    let contents = HoverContents::Markup(MarkupContent {
+                        kind: MarkupKind::Markdown,
+                        value: pattern_hover,
+                    });
+                    return Response {
+                        id: req.id,
+                        result: Some(serde_json::to_value(Hover {
+                            contents,
+                            range: None,
+                        }).unwrap_or(Value::Null)),
+                        error: None,
+                    };
+                }
+
                 // Check if we're hovering over an enum variant definition
                 if let Some(enum_hover) = self.get_enum_variant_hover(&doc.content, position, &symbol_name) {
                     let contents = HoverContents::Markup(MarkupContent {
@@ -4811,6 +4827,99 @@ impl ZenLanguageServer {
             }),
             data: None,
         })
+    }
+
+    fn get_pattern_match_hover(&self, content: &str, position: Position, symbol_name: &str) -> Option<String> {
+        let lines: Vec<&str> = content.lines().collect();
+        if position.line as usize >= lines.len() {
+            return None;
+        }
+
+        let current_line = lines[position.line as usize];
+
+        // Check if we're in a pattern match arm (contains '|' and '{')
+        if !current_line.contains('|') {
+            return None;
+        }
+
+        // Find the scrutinee by looking backwards for 'variable ?'
+        let mut scrutinee_name = None;
+        let mut scrutinee_line = None;
+        for i in (0..=position.line).rev() {
+            let line = lines[i as usize].trim();
+            if line.contains('?') && !line.starts_with("//") {
+                // Found the pattern match - extract variable name
+                if let Some(q_pos) = line.find('?') {
+                    let before_q = line[..q_pos].trim();
+                    // Get the last word before '?'
+                    if let Some(var) = before_q.split_whitespace().last() {
+                        scrutinee_name = Some(var.to_string());
+                        scrutinee_line = Some(i);
+                        break;
+                    }
+                }
+            }
+            // Don't search too far back
+            if position.line - i > 10 {
+                break;
+            }
+        }
+
+        if let Some(scrutinee) = scrutinee_name {
+            // Try to infer the type of the scrutinee by looking at its definition
+            if let Some(scrutinee_line_num) = scrutinee_line {
+                // Look backwards from scrutinee for its definition
+                for i in (0..scrutinee_line_num).rev() {
+                    let line = lines[i as usize];
+                    // Check if this line defines the scrutinee
+                    if line.contains(&format!("{} =", scrutinee)) {
+                        // Try to infer type from the assignment
+                        // Example: result = divide(10.0, 2.0)
+                        if let Some(eq_pos) = line.find('=') {
+                            let rhs = line[eq_pos+1..].trim();
+
+                            // Check if it's a function call
+                            if let Some(paren_pos) = rhs.find('(') {
+                                let func_name = rhs[..paren_pos].trim();
+
+                                // Now determine what pattern variable we're hovering over
+                                // Example: | Ok(val) or | Err(msg)
+                                let pattern_arm = current_line.trim();
+
+                                if pattern_arm.contains(&format!("Ok({}", symbol_name)) || pattern_arm.contains(&format!("Ok({})", symbol_name)) {
+                                    // This is the Ok variant - extract the success type
+                                    return Some(format!(
+                                        "```zen\n{}: T\n```\n\n**Pattern match variable**\n\nExtracted from `Result<T, E>` where `{}` has type `Result<T, E>`\n\nThis is the success value from the `Ok` variant.",
+                                        symbol_name,
+                                        scrutinee
+                                    ));
+                                } else if pattern_arm.contains(&format!("Err({}", symbol_name)) || pattern_arm.contains(&format!("Err({})", symbol_name)) {
+                                    // This is the Err variant - extract the error type
+                                    return Some(format!(
+                                        "```zen\n{}: E\n```\n\n**Pattern match variable**\n\nExtracted from `Result<T, E>` where `{}` has type `Result<T, E>`\n\nThis is the error value from the `Err` variant.",
+                                        symbol_name,
+                                        scrutinee
+                                    ));
+                                } else if pattern_arm.contains(&format!("Some({}", symbol_name)) || pattern_arm.contains(&format!("Some({})", symbol_name)) {
+                                    // This is Option.Some
+                                    return Some(format!(
+                                        "```zen\n{}: T\n```\n\n**Pattern match variable**\n\nExtracted from `Option<T>` where `{}` has type `Option<T>`\n\nThis is the value from the `Some` variant.",
+                                        symbol_name,
+                                        scrutinee
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                    // Don't search too far back
+                    if scrutinee_line_num - i > 20 {
+                        break;
+                    }
+                }
+            }
+        }
+
+        None
     }
 
     fn get_enum_variant_hover(&self, content: &str, position: Position, symbol_name: &str) -> Option<String> {
