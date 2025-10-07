@@ -46,10 +46,10 @@ add = (a: i32, b: i32) i32 {
     return a + b
 }
 
-// Generic function
-swap = <T>(a: T, b: T) {a: T, b: T} {
-    return (b, a)
-}
+// TODO: Generic functions not fully supported yet
+// swap<T> = (a: T, b: T) {a: T, b: T} {
+//     return (b, a)
+// }
 
 // Function returning Result
 divide = (a: f64, b: f64) Result<f64, StaticString> {
@@ -63,11 +63,11 @@ divide = (a: f64, b: f64) Result<f64, StaticString> {
 find_person = (id: i64) Option<Person> {
     // Simulated lookup
     id == 1 ? {
-        return Option.Some(Person(
+        return Option.Some(Person {
             name: "Alice",
             age: 30,
             email: Option.Some("alice@example.com")
-        ))
+        })
     }
     return Option.None
 }
