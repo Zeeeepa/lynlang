@@ -2590,7 +2590,7 @@ impl ZenLanguageServer {
         if let Some(ast) = &doc.ast {
             for decl in ast {
                 if let Declaration::Function(func) = decl {
-                    self.collect_hints_from_statements(&func.body, &doc.content, &mut hints);
+                    self.collect_hints_from_statements(&func.body, &doc.content, doc, &mut hints);
                 }
             }
         }
@@ -4325,7 +4325,7 @@ impl ZenLanguageServer {
         parameters
     }
 
-    fn collect_hints_from_statements(&self, statements: &[Statement], content: &str, hints: &mut Vec<InlayHint>) {
+    fn collect_hints_from_statements(&self, statements: &[Statement], content: &str, doc: &Document, hints: &mut Vec<InlayHint>) {
         use crate::ast::Statement;
 
         for stmt in statements {
@@ -4334,7 +4334,7 @@ impl ZenLanguageServer {
                     // Only add hints for variables without explicit type annotations
                     if type_.is_none() {
                         if let Some(init) = initializer {
-                            if let Some(inferred_type) = self.infer_expression_type(init) {
+                            if let Some(inferred_type) = self.infer_expression_type(init, doc) {
                                 // Find the position of this variable declaration in the source
                                 if let Some(position) = self.find_variable_position(content, name) {
                                     hints.push(InlayHint {
@@ -4353,7 +4353,7 @@ impl ZenLanguageServer {
                     }
                 }
                 Statement::Loop { body, .. } => {
-                    self.collect_hints_from_statements(body, content, hints);
+                    self.collect_hints_from_statements(body, content, doc, hints);
                 }
                 _ => {}
             }
@@ -4364,28 +4364,40 @@ impl ZenLanguageServer {
         let lines: Vec<&str> = content.lines().collect();
 
         for (line_num, line) in lines.iter().enumerate() {
-            // Look for patterns like "let var_name" or "const var_name"
-            if let Some(pos) = line.find(&format!("let {}", var_name)) {
-                // Position after the variable name
-                let char_pos = pos + 4 + var_name.len(); // "let " is 4 chars
-                return Some(Position {
-                    line: line_num as u32,
-                    character: char_pos as u32,
-                });
-            } else if let Some(pos) = line.find(&format!("const {}", var_name)) {
-                // Position after the variable name
-                let char_pos = pos + 6 + var_name.len(); // "const " is 6 chars
-                return Some(Position {
-                    line: line_num as u32,
-                    character: char_pos as u32,
-                });
+            // Look for Zen variable declaration patterns:
+            // "var_name = " or "var_name := " or "var_name ::= " or "var_name : Type ="
+
+            // First, check if line contains the variable name
+            if let Some(name_pos) = line.find(var_name) {
+                // Check if this is actually a variable declaration
+                // Must be at start of line or after whitespace
+                let before_ok = name_pos == 0 ||
+                    line.chars().nth(name_pos - 1).map_or(true, |c| c.is_whitespace());
+
+                if before_ok {
+                    // Check what comes after the variable name
+                    let after_name = &line[name_pos + var_name.len()..].trim_start();
+
+                    // Check for Zen assignment patterns
+                    if after_name.starts_with("=") ||
+                       after_name.starts_with(":=") ||
+                       after_name.starts_with("::=") ||
+                       after_name.starts_with(":") {
+                        // Position after the variable name (where type hint should go)
+                        let char_pos = name_pos + var_name.len();
+                        return Some(Position {
+                            line: line_num as u32,
+                            character: char_pos as u32,
+                        });
+                    }
+                }
             }
         }
 
         None
     }
 
-    fn infer_expression_type(&self, expr: &Expression) -> Option<String> {
+    fn infer_expression_type(&self, expr: &Expression, doc: &Document) -> Option<String> {
         use crate::ast::Expression;
 
         match expr {
@@ -4397,8 +4409,8 @@ impl ZenLanguageServer {
             Expression::Boolean(_) => Some("bool".to_string()),
             Expression::BinaryOp { left, right, .. } => {
                 // Simple type inference for binary operations
-                let left_type = self.infer_expression_type(left)?;
-                let right_type = self.infer_expression_type(right)?;
+                let left_type = self.infer_expression_type(left, doc)?;
+                let right_type = self.infer_expression_type(right, doc)?;
 
                 if left_type == "f64" || right_type == "f64" {
                     Some("f64".to_string())
@@ -4409,12 +4421,29 @@ impl ZenLanguageServer {
                 }
             }
             Expression::FunctionCall { name, .. } => {
-                // Look up function return type from symbols
-                // For now, return None
+                // Look up function return type from document symbols
+                if let Some(symbol) = doc.symbols.get(name) {
+                    // Extract return type from function signature like "add = (a: i32, b: i32) i32"
+                    if let Some(detail) = &symbol.detail {
+                        return self.extract_return_type_from_signature(detail);
+                    }
+                }
                 None
             }
             _ => None,
         }
+    }
+
+    fn extract_return_type_from_signature(&self, signature: &str) -> Option<String> {
+        // Parse signature like "function_name = (params) ReturnType"
+        // Find the closing paren, then take everything after it
+        if let Some(close_paren) = signature.rfind(')') {
+            let return_type = signature[close_paren + 1..].trim();
+            if !return_type.is_empty() {
+                return Some(return_type.to_string());
+            }
+        }
+        None
     }
 
     fn handle_workspace_symbol(&self, req: Request) -> Response {
