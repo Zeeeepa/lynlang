@@ -4260,6 +4260,25 @@ impl ZenLanguageServer {
             }
         }
 
+        // Search in workspace symbols (indexed from all files)
+        for (name, symbol_info) in &store.workspace_symbols {
+            if name.to_lowercase().contains(&query) {
+                if let Some(def_uri) = &symbol_info.definition_uri {
+                    symbols.push(SymbolInformation {
+                        name: symbol_info.name.clone(),
+                        kind: symbol_info.kind,
+                        tags: None,
+                        deprecated: None,
+                        location: Location {
+                            uri: def_uri.clone(),
+                            range: symbol_info.range,
+                        },
+                        container_name: Some("workspace".to_string()),
+                    });
+                }
+            }
+        }
+
         // Limit results to avoid overwhelming the client
         symbols.truncate(100);
 
