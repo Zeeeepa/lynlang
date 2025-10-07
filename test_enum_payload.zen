@@ -1,8 +1,0 @@
-// Test enum with struct-like payload
-Status:
-    Active: {user_id: i64},
-    Inactive
-
-main = () i32 {
-    return 0
-}
