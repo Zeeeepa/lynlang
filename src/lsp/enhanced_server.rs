@@ -4843,14 +4843,58 @@ impl ZenLanguageServer {
     ) -> (Option<String>, Option<String>) {
         use crate::ast::Declaration;
 
-        // Search all documents for the function AST
+        // Try AST first (most accurate)
         for (_uri, doc) in all_docs {
             if let Some(ast) = &doc.ast {
                 for decl in ast {
                     if let Declaration::Function(func) = decl {
                         if func.name == func_name {
                             // Found it! Extract types from the return type
-                            return Self::extract_generic_types(&func.return_type);
+                            let result = Self::extract_generic_types(&func.return_type);
+                            if result.0.is_some() {
+                                return result;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fallback: parse from source code if AST unavailable (e.g., parse errors)
+        for (_uri, doc) in all_docs {
+            let result = Self::parse_function_from_source(&doc.content, func_name);
+            if result.0.is_some() && result.1.is_some() {
+                return result;
+            }
+        }
+
+        (None, None)
+    }
+
+    fn parse_function_from_source(content: &str, func_name: &str) -> (Option<String>, Option<String>) {
+        // Find the function definition line
+        // Example: "divide = (a: f64, b: f64) Result<f64, StaticString> {"
+
+        for line in content.lines() {
+            if line.contains(&format!("{} =", func_name)) || line.contains(&format!("{}=", func_name)) {
+                // Found the function definition
+                if let Some(result_pos) = line.find("Result<") {
+                    // Extract Result<T, E>
+                    if let Some(start) = line[result_pos..].find('<') {
+                        if let Some(end) = line[result_pos..].rfind('>') {
+                            let generics = &line[result_pos + start + 1..result_pos + end];
+                            let parts = Self::split_generic_args(generics);
+                            if parts.len() >= 2 {
+                                return (Some(parts[0].clone()), Some(parts[1].clone()));
+                            }
+                        }
+                    }
+                } else if let Some(option_pos) = line.find("Option<") {
+                    // Extract Option<T>
+                    if let Some(start) = line[option_pos..].find('<') {
+                        if let Some(end) = line[option_pos..].rfind('>') {
+                            let inner = line[option_pos + start + 1..option_pos + end].trim();
+                            return (Some(inner.to_string()), None);
                         }
                     }
                 }
