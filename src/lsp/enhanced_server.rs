@@ -170,8 +170,6 @@ impl DocumentStore {
     }
 
     fn index_workspace(&mut self, root_uri: &Url) {
-        use std::path::Path;
-
         if let Ok(root_path) = root_uri.to_file_path() {
             eprintln!("[LSP] Indexing workspace: {}", root_path.display());
             let start = Instant::now();
@@ -2366,11 +2364,64 @@ impl ZenLanguageServer {
             let position = params.text_document_position.position;
 
             if let Some(symbol_name) = self.find_symbol_at_position(&doc.content, position) {
+                eprintln!("[LSP] Rename: symbol='{}' -> '{}'", symbol_name, new_name);
+
                 let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
 
-                for (uri, doc) in &store.documents {
+                // Collect all files that might contain this symbol
+                let mut files_to_search: Vec<Url> = Vec::new();
+
+                // 1. Add all open documents
+                for file_uri in store.documents.keys() {
+                    files_to_search.push(file_uri.clone());
+                }
+
+                // 2. Add workspace files that contain this symbol (from workspace index)
+                if let Some(symbol_info) = store.workspace_symbols.get(&symbol_name) {
+                    if let Some(def_uri) = &symbol_info.definition_uri {
+                        if !files_to_search.contains(def_uri) {
+                            files_to_search.push(def_uri.clone());
+                        }
+                    }
+                }
+
+                // 3. Search all .zen files in workspace if we have workspace_root
+                if let Some(workspace_root) = &store.workspace_root {
+                    if let Ok(root_path) = workspace_root.to_file_path() {
+                        if let Ok(workspace_files) = self.find_zen_files_in_workspace(&root_path) {
+                            for file_path in workspace_files {
+                                if let Ok(file_uri) = Url::from_file_path(&file_path) {
+                                    if !files_to_search.contains(&file_uri) {
+                                        files_to_search.push(file_uri);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                eprintln!("[LSP] Searching {} files for references", files_to_search.len());
+
+                // Search each file for the symbol
+                for file_uri in files_to_search {
+                    let content = if let Some(doc) = store.documents.get(&file_uri) {
+                        // Use in-memory content for open documents
+                        doc.content.clone()
+                    } else {
+                        // Read from disk for non-open files
+                        if let Ok(path) = file_uri.to_file_path() {
+                            if let Ok(content) = std::fs::read_to_string(&path) {
+                                content
+                            } else {
+                                continue;
+                            }
+                        } else {
+                            continue;
+                        }
+                    };
+
                     let mut edits = Vec::new();
-                    let lines: Vec<&str> = doc.content.lines().collect();
+                    let lines: Vec<&str> = content.lines().collect();
 
                     for (line_num, line) in lines.iter().enumerate() {
                         let mut start_col = 0;
@@ -2402,9 +2453,12 @@ impl ZenLanguageServer {
                     }
 
                     if !edits.is_empty() {
-                        changes.insert(uri.clone(), edits);
+                        eprintln!("[LSP] Found {} occurrences in {}", edits.len(), file_uri);
+                        changes.insert(file_uri.clone(), edits);
                     }
                 }
+
+                eprintln!("[LSP] Rename will affect {} files", changes.len());
 
                 let workspace_edit = WorkspaceEdit {
                     changes: Some(changes),
@@ -2457,10 +2511,10 @@ impl ZenLanguageServer {
 
         let signature_help = match function_call {
             Some((function_name, active_param)) => {
-                // Look up function in symbols (both document and stdlib)
+                // Look up function in symbols (document, stdlib, workspace)
                 let mut signature_info = None;
 
-                // Check document symbols first
+                // Check document symbols first (highest priority)
                 if let Some(symbol) = doc.symbols.get(&function_name) {
                     signature_info = Some(self.create_signature_info(symbol));
                 }
@@ -2468,6 +2522,13 @@ impl ZenLanguageServer {
                 // Check stdlib symbols if not found
                 if signature_info.is_none() {
                     if let Some(symbol) = store.stdlib_symbols.get(&function_name) {
+                        signature_info = Some(self.create_signature_info(symbol));
+                    }
+                }
+
+                // Check workspace symbols if not found
+                if signature_info.is_none() {
+                    if let Some(symbol) = store.workspace_symbols.get(&function_name) {
                         signature_info = Some(self.create_signature_info(symbol));
                     }
                 }
@@ -2525,11 +2586,11 @@ impl ZenLanguageServer {
 
         let mut hints = Vec::new();
 
-        // Parse the AST and extract variable declarations
+        // Parse the AST and extract variable declarations with position tracking
         if let Some(ast) = &doc.ast {
             for decl in ast {
                 if let Declaration::Function(func) = decl {
-                    self.collect_hints_from_statements(&func.body, &mut hints);
+                    self.collect_hints_from_statements(&func.body, &doc.content, &mut hints);
                 }
             }
         }
@@ -4264,38 +4325,64 @@ impl ZenLanguageServer {
         parameters
     }
 
-    fn collect_hints_from_statements(&self, statements: &[Statement], hints: &mut Vec<InlayHint>) {
+    fn collect_hints_from_statements(&self, statements: &[Statement], content: &str, hints: &mut Vec<InlayHint>) {
         use crate::ast::Statement;
 
         for stmt in statements {
             match stmt {
-                Statement::VariableDeclaration { type_, initializer, .. } => {
+                Statement::VariableDeclaration { name, type_, initializer, .. } => {
                     // Only add hints for variables without explicit type annotations
                     if type_.is_none() {
                         if let Some(init) = initializer {
                             if let Some(inferred_type) = self.infer_expression_type(init) {
-                                // For now, we'll just create a simple hint
-                                // In a real implementation, we'd need to track positions in the AST
-                                hints.push(InlayHint {
-                                    position: Position::new(0, 0), // TODO: Get actual position from AST
-                                    label: InlayHintLabel::String(format!(": {}", inferred_type)),
-                                    kind: Some(InlayHintKind::TYPE),
-                                    text_edits: None,
-                                    tooltip: None,
-                                    padding_left: None,
-                                    padding_right: None,
-                                    data: None,
-                                });
+                                // Find the position of this variable declaration in the source
+                                if let Some(position) = self.find_variable_position(content, name) {
+                                    hints.push(InlayHint {
+                                        position,
+                                        label: InlayHintLabel::String(format!(": {}", inferred_type)),
+                                        kind: Some(InlayHintKind::TYPE),
+                                        text_edits: None,
+                                        tooltip: None,
+                                        padding_left: None,
+                                        padding_right: None,
+                                        data: None,
+                                    });
+                                }
                             }
                         }
                     }
                 }
                 Statement::Loop { body, .. } => {
-                    self.collect_hints_from_statements(body, hints);
+                    self.collect_hints_from_statements(body, content, hints);
                 }
                 _ => {}
             }
         }
+    }
+
+    fn find_variable_position(&self, content: &str, var_name: &str) -> Option<Position> {
+        let lines: Vec<&str> = content.lines().collect();
+
+        for (line_num, line) in lines.iter().enumerate() {
+            // Look for patterns like "let var_name" or "const var_name"
+            if let Some(pos) = line.find(&format!("let {}", var_name)) {
+                // Position after the variable name
+                let char_pos = pos + 4 + var_name.len(); // "let " is 4 chars
+                return Some(Position {
+                    line: line_num as u32,
+                    character: char_pos as u32,
+                });
+            } else if let Some(pos) = line.find(&format!("const {}", var_name)) {
+                // Position after the variable name
+                let char_pos = pos + 6 + var_name.len(); // "const " is 6 chars
+                return Some(Position {
+                    line: line_num as u32,
+                    character: char_pos as u32,
+                });
+            }
+        }
+
+        None
     }
 
     fn infer_expression_type(&self, expr: &Expression) -> Option<String> {
@@ -5426,5 +5513,42 @@ impl ZenLanguageServer {
         } else {
             None
         }
+    }
+
+    fn find_zen_files_in_workspace(&self, root_path: &std::path::Path) -> Result<Vec<std::path::PathBuf>, std::io::Error> {
+        let mut zen_files = Vec::new();
+        self.collect_zen_files_recursive(root_path, &mut zen_files)?;
+        Ok(zen_files)
+    }
+
+    fn collect_zen_files_recursive(&self, path: &std::path::Path, zen_files: &mut Vec<std::path::PathBuf>) -> Result<(), std::io::Error> {
+        use std::fs;
+
+        if !path.is_dir() {
+            return Ok(());
+        }
+
+        // Skip common directories we don't want to search
+        if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
+            if dir_name == "target" || dir_name == "node_modules" || dir_name == ".git"
+                || dir_name.starts_with('.') {
+                return Ok(());
+            }
+        }
+
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            let entry_path = entry.path();
+
+            if entry_path.is_dir() {
+                self.collect_zen_files_recursive(&entry_path, zen_files)?;
+            } else if let Some(ext) = entry_path.extension() {
+                if ext == "zen" {
+                    zen_files.push(entry_path);
+                }
+            }
+        }
+
+        Ok(())
     }
 }
