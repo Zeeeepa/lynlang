@@ -373,9 +373,13 @@ impl DocumentStore {
                 let is_string_method = string_allocating_methods.contains(&method.as_str());
 
                 if is_collection_method || is_string_method {
-                    // Warn about allocating methods
-                    let warning_type = if is_string_method { "String operation" } else { "Collection method" };
-                    if let Some(position) = self.find_text_position(method, content) {
+                    // TODO: Track variable initialization to avoid false positives
+                    // For now, only warn if we can determine the object wasn't initialized with allocator
+                    // This is too aggressive without flow analysis, so disable for now
+                    let _should_warn = false;
+                    if false { // Disabled until we have proper flow analysis
+                        let warning_type = if is_string_method { "String operation" } else { "Collection method" };
+                        if let Some(position) = self.find_text_position(method, content) {
                         diagnostics.push(Diagnostic {
                             range: Range {
                                 start: position,
@@ -407,6 +411,7 @@ impl DocumentStore {
                             tags: None,
                             data: None,
                         });
+                        }
                     }
                 }
                 self.check_allocator_in_expression(object, diagnostics, content);
