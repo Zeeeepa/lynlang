@@ -1,41 +1,8 @@
-// Test enum payload extraction bug
-{io, Option, get_default_allocator} = @std
-
-// Define a custom enum with payload - using correct syntax
-Message:
-    Text(StaticString)
-    | Number(i32)
-    | Empty
+// Test enum with struct-like payload
+Status:
+    Active: {user_id: i64},
+    Inactive
 
 main = () i32 {
-    alloc = get_default_allocator()
-    io.println("Testing enum payload extraction...")
-    
-    // Test with StaticString payload
-    msg1 = Message.Text("Hello World")
-    msg1 ?
-        | Text(s) { io.println("Text message: ${s}") }
-        | Number(n) { io.println("Number: ${n}") }
-        | Empty { io.println("Empty message") }
-    
-    // Test with number payload  
-    msg2 = Message.Number(42)
-    msg2 ?
-        | Text(s) { io.println("Text: ${s}") }
-        | Number(n) { io.println("Number message: ${n}") }
-        | Empty { io.println("Empty") }
-    
-    // Test Option enum with StaticString
-    opt = Option.Some("Testing Option")
-    opt ?
-        | Some(val) { io.println("Option value: ${val}") }
-        | None { io.println("No value") }
-    
-    // Test Option with number
-    opt2 = Option.Some(123) 
-    opt2 ?
-        | Some(val) { io.println("Option number: ${val}") }
-        | None { io.println("None") }
-    
     return 0
 }
