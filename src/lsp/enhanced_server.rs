@@ -5095,13 +5095,34 @@ impl ZenLanguageServer {
             if line.contains(&format!("{} =", func_name)) || line.contains(&format!("{}=", func_name)) {
                 // Found the function definition
                 if let Some(result_pos) = line.find("Result<") {
-                    // Extract Result<T, E>
-                    if let Some(start) = line[result_pos..].find('<') {
-                        if let Some(end) = line[result_pos..].rfind('>') {
-                            let generics = &line[result_pos + start + 1..result_pos + end];
+                    // Extract Result<T, E> by finding the matching >
+                    let after_result = &line[result_pos..];
+                    if let Some(start) = after_result.find('<') {
+                        // Find the matching closing >
+                        let mut depth = 0;
+                        let mut end_pos = start;
+                        for (i, ch) in after_result[start..].chars().enumerate() {
+                            match ch {
+                                '<' => depth += 1,
+                                '>' => {
+                                    depth -= 1;
+                                    if depth == 0 {
+                                        end_pos = start + i;
+                                        break;
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+
+                        if end_pos > start {
+                            let generics = &after_result[start + 1..end_pos];
                             let parts = Self::split_generic_args(generics);
                             if parts.len() >= 2 {
-                                return (Some(parts[0].clone()), Some(parts[1].clone()));
+                                return (Some(parts[0].trim().to_string()), Some(parts[1].trim().to_string()));
+                            } else if parts.len() == 1 {
+                                // Only one part found - maybe parsing error
+                                return (Some(parts[0].trim().to_string()), Some("E".to_string()));
                             }
                         }
                     }
