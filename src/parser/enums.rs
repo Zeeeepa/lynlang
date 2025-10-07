@@ -74,7 +74,17 @@ impl<'a> Parser<'a> {
             };
 
             // Check for payload type
-            let payload = if self.current_token == Token::Symbol('(') {
+            // Support three syntaxes:
+            // 1. VariantName: Type  (Zen standard)
+            // 2. VariantName(Type)  (Rust-style)
+            // 3. VariantName: {fields} (Struct-like)
+            let payload = if self.current_token == Token::Symbol(':') {
+                self.next_token(); // consume ':'
+
+                // Parse the payload type (could be a simple type or struct type)
+                let payload_type = self.parse_type()?;
+                Some(payload_type)
+            } else if self.current_token == Token::Symbol('(') {
                 self.next_token();
 
                 // Check if this is a named field (field: type) or just a type
