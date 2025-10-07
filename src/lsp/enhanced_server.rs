@@ -1250,7 +1250,7 @@ impl ZenLanguageServer {
             // Find the symbol at the cursor position
             if let Some(symbol_name) = self.find_symbol_at_position(&doc.content, position) {
                 // Check if we're hovering over a pattern match variable
-                if let Some(pattern_hover) = self.get_pattern_match_hover(&doc.content, position, &symbol_name) {
+                if let Some(pattern_hover) = self.get_pattern_match_hover(&doc.content, position, &symbol_name, &doc.symbols, &store.stdlib_symbols, &store.documents) {
                     let contents = HoverContents::Markup(MarkupContent {
                         kind: MarkupKind::Markdown,
                         value: pattern_hover,
@@ -4829,7 +4829,89 @@ impl ZenLanguageServer {
         })
     }
 
-    fn get_pattern_match_hover(&self, content: &str, position: Position, symbol_name: &str) -> Option<String> {
+    fn infer_function_return_types(
+        &self,
+        local_symbols: &HashMap<String, SymbolInfo>,
+        stdlib_symbols: &HashMap<String, SymbolInfo>,
+        func_name: &str,
+        all_docs: &HashMap<Url, Document>
+    ) -> (Option<String>, Option<String>) {
+        // Try to find the function and extract Result<T, E> or Option<T> from its return type
+
+        // Check local symbols first
+        if let Some(symbol_info) = local_symbols.get(func_name) {
+            if let Some(detail) = &symbol_info.detail {
+                return Self::parse_return_type_generics(detail);
+            }
+        }
+
+        // Check stdlib
+        if let Some(symbol_info) = stdlib_symbols.get(func_name) {
+            if let Some(detail) = &symbol_info.detail {
+                return Self::parse_return_type_generics(detail);
+            }
+        }
+
+        // Check all open documents
+        for (_uri, doc) in all_docs {
+            if let Some(symbol_info) = doc.symbols.get(func_name) {
+                if let Some(detail) = &symbol_info.detail {
+                    return Self::parse_return_type_generics(detail);
+                }
+            }
+        }
+
+        (None, None)
+    }
+
+    fn parse_return_type_generics(signature: &str) -> (Option<String>, Option<String>) {
+        // Parse function signature to extract Result<T, E> or Option<T>
+        // Example: "divide = (a: f64, b: f64) Result<f64, StaticString>"
+
+        // Find the return type (after the closing paren)
+        if let Some(paren_pos) = signature.rfind(')') {
+            let after_paren = signature[paren_pos+1..].trim();
+
+            // Check for Result<T, E>
+            if after_paren.starts_with("Result<") {
+                if let Some(start) = after_paren.find('<') {
+                    if let Some(end) = after_paren.rfind('>') {
+                        let generics = &after_paren[start+1..end];
+
+                        // Split by comma to get T and E
+                        let parts: Vec<&str> = generics.split(',').map(|s| s.trim()).collect();
+                        if parts.len() == 2 {
+                            return (Some(parts[0].to_string()), Some(parts[1].to_string()));
+                        } else if parts.len() == 1 {
+                            // Option<T> case
+                            return (Some(parts[0].to_string()), None);
+                        }
+                    }
+                }
+            }
+            // Check for Option<T>
+            else if after_paren.starts_with("Option<") {
+                if let Some(start) = after_paren.find('<') {
+                    if let Some(end) = after_paren.rfind('>') {
+                        let inner_type = after_paren[start+1..end].trim();
+                        return (Some(inner_type.to_string()), None);
+                    }
+                }
+            }
+        }
+
+        (None, None)
+    }
+
+    fn get_pattern_match_hover(
+        &self,
+        content: &str,
+        position: Position,
+        symbol_name: &str,
+        local_symbols: &HashMap<String, SymbolInfo>,
+        stdlib_symbols: &HashMap<String, SymbolInfo>,
+        all_docs: &HashMap<Url, Document>
+    ) -> Option<String> {
         let lines: Vec<&str> = content.lines().collect();
         if position.line as usize >= lines.len() {
             return None;
@@ -4882,30 +4964,54 @@ impl ZenLanguageServer {
                             if let Some(paren_pos) = rhs.find('(') {
                                 let func_name = rhs[..paren_pos].trim();
 
+                                // Try to find the function definition and extract its return type
+                                let (concrete_ok_type, concrete_err_type) = self.infer_function_return_types(local_symbols, stdlib_symbols, func_name, all_docs);
+
                                 // Now determine what pattern variable we're hovering over
                                 // Example: | Ok(val) or | Err(msg)
                                 let pattern_arm = current_line.trim();
 
                                 if pattern_arm.contains(&format!("Ok({}", symbol_name)) || pattern_arm.contains(&format!("Ok({})", symbol_name)) {
                                     // This is the Ok variant - extract the success type
+                                    let type_display = concrete_ok_type.clone().unwrap_or_else(|| "T".to_string());
+                                    let full_result_type = if let (Some(ok), Some(err)) = (&concrete_ok_type, &concrete_err_type) {
+                                        format!("Result<{}, {}>", ok, err)
+                                    } else {
+                                        "Result<T, E>".to_string()
+                                    };
+
                                     return Some(format!(
-                                        "```zen\n{}: T\n```\n\n**Pattern match variable**\n\nExtracted from `Result<T, E>` where `{}` has type `Result<T, E>`\n\nThis is the success value from the `Ok` variant.",
+                                        "```zen\n{}: {}\n```\n\n**Pattern match variable**\n\nExtracted from `{}` (assigned from `{}()`)\n\nThis is the success value from the `Ok` variant.",
                                         symbol_name,
-                                        scrutinee
+                                        type_display,
+                                        full_result_type,
+                                        func_name
                                     ));
                                 } else if pattern_arm.contains(&format!("Err({}", symbol_name)) || pattern_arm.contains(&format!("Err({})", symbol_name)) {
                                     // This is the Err variant - extract the error type
+                                    let type_display = concrete_err_type.clone().unwrap_or_else(|| "E".to_string());
+                                    let full_result_type = if let (Some(ok), Some(err)) = (&concrete_ok_type, &concrete_err_type) {
+                                        format!("Result<{}, {}>", ok, err)
+                                    } else {
+                                        "Result<T, E>".to_string()
+                                    };
+
                                     return Some(format!(
-                                        "```zen\n{}: E\n```\n\n**Pattern match variable**\n\nExtracted from `Result<T, E>` where `{}` has type `Result<T, E>`\n\nThis is the error value from the `Err` variant.",
+                                        "```zen\n{}: {}\n```\n\n**Pattern match variable**\n\nExtracted from `{}` (assigned from `{}()`)\n\nThis is the error value from the `Err` variant.",
                                         symbol_name,
-                                        scrutinee
+                                        type_display,
+                                        full_result_type,
+                                        func_name
                                     ));
                                 } else if pattern_arm.contains(&format!("Some({}", symbol_name)) || pattern_arm.contains(&format!("Some({})", symbol_name)) {
                                     // This is Option.Some
+                                    let inner_type = concrete_ok_type.clone().unwrap_or_else(|| "T".to_string());
                                     return Some(format!(
-                                        "```zen\n{}: T\n```\n\n**Pattern match variable**\n\nExtracted from `Option<T>` where `{}` has type `Option<T>`\n\nThis is the value from the `Some` variant.",
+                                        "```zen\n{}: {}\n```\n\n**Pattern match variable**\n\nExtracted from `Option<{}>` (assigned from `{}()`)\n\nThis is the value from the `Some` variant.",
                                         symbol_name,
-                                        scrutinee
+                                        inner_type,
+                                        inner_type,
+                                        func_name
                                     ));
                                 }
                             }
