@@ -111,7 +111,7 @@ impl GenericTypeTracker {
                     }
                 }
             }
-            AstType::EnumType { name } | AstType::Enum { name, .. } => {
+            AstType::EnumType { name: _ } | AstType::Enum { name: _, .. } => {
                 // Track custom enum types specially
                 self.insert(format!("{}_type", prefix), type_.clone());
                 self.insert(format!("{}_enum_name", prefix), type_.clone());

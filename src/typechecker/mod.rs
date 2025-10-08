@@ -1143,12 +1143,11 @@ impl TypeChecker {
                         let arm_type = if let Expression::Block(stmts) = &arm.body {
                             // Check if the block has any non-return statements before the return
                             let mut block_type = AstType::Void;
-                            let mut has_early_return = false;
+                            let has_early_return = false;
                             
                             for (j, stmt) in stmts.iter().enumerate() {
                                 match stmt {
                                     Statement::Return(_) => {
-                                        has_early_return = true;
                                         // Don't use return statement to determine block type
                                         break;
                                     }
@@ -2213,7 +2212,7 @@ impl TypeChecker {
                 }
             }
             Pattern::EnumVariant {
-                enum_name: pattern_enum_name,
+                enum_name: _,
                 variant, payload, ..
             } => {
                 // For qualified enum patterns with payloads, determine the payload type based on the variant

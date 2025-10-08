@@ -26,7 +26,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let value = self.compile_expression(&args[0])?;
                 
                 // Debug: Check if we're storing a struct type
-                let element_ast_type = if let Some(var_info) = self.variables.get(obj_name) {
+                let _element_ast_type = if let Some(var_info) = self.variables.get(obj_name) {
                     if let AstType::Vec { element_type, .. } = &var_info.ast_type {
                         element_type.as_ref().clone()
                     } else {

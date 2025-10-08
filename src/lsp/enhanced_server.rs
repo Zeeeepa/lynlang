@@ -1856,7 +1856,6 @@ impl ZenLanguageServer {
         };
 
         let store = self.store.lock().unwrap();
-        let mut completions = Vec::new();
 
         // Check if we're completing after a dot (UFC method call)
         if let Some(doc) = store.documents.get(&params.text_document_position.text_document.uri) {
@@ -1866,7 +1865,7 @@ impl ZenLanguageServer {
                 match context {
                     CompletionContext::UfcMethod { receiver_type } => {
                         // Provide UFC method completions
-                        completions = self.get_ufc_method_completions(&receiver_type);
+                        let completions = self.get_ufc_method_completions(&receiver_type);
 
                         let response = CompletionResponse::Array(completions);
                         return Response {
@@ -1883,7 +1882,7 @@ impl ZenLanguageServer {
         }
 
         // Provide general completions
-        completions = vec![
+        let mut completions = vec![
             // Keywords
             CompletionItem {
                 label: "main".to_string(),
@@ -3424,8 +3423,8 @@ impl ZenLanguageServer {
 
         // Track context for better token classification
         let mut in_function = false;
-        let mut in_struct = false;
-        let mut in_allocator_context = false;
+        let mut _in_struct = false;
+        let mut _in_allocator_context = false;
 
         for (line_idx, line) in lines.iter().enumerate() {
             let mut char_idx = 0;
@@ -3561,7 +3560,7 @@ impl ZenLanguageServer {
                             (TYPE_KEYWORD, 0)
                         }
                         "struct" => {
-                            in_struct = true;
+                            _in_struct = true;
                             (TYPE_KEYWORD, 0)
                         }
                         "enum" => (TYPE_KEYWORD, 0),
@@ -3581,7 +3580,7 @@ impl ZenLanguageServer {
                         "String" | "StaticString" => (TYPE_TYPE, MOD_DEFAULT_LIBRARY),
                         "Option" | "Result" => (TYPE_ENUM, MOD_DEFAULT_LIBRARY),
                         "HashMap" | "DynVec" | "Vec" | "Array" | "HashSet" => {
-                            in_allocator_context = true; // These types need allocators
+                            _in_allocator_context = true; // These types need allocators
                             (TYPE_CLASS, MOD_DEFAULT_LIBRARY)
                         }
                         "Allocator" => (TYPE_INTERFACE, MOD_DEFAULT_LIBRARY | MOD_ABSTRACT),
@@ -5861,7 +5860,7 @@ impl ZenLanguageServer {
         }
 
         // Determine what to import
-        let import_statement = if needs_io && needs_allocator {
+        let _import_statement = if needs_io && needs_allocator {
             "{ io, GPA, AsyncPool } = @std\n"
         } else if needs_io {
             "{ io } = @std\n"
@@ -5892,8 +5891,8 @@ impl ZenLanguageServer {
 
     fn infer_function_return_types(
         &self,
-        local_symbols: &HashMap<String, SymbolInfo>,
-        stdlib_symbols: &HashMap<String, SymbolInfo>,
+        _local_symbols: &HashMap<String, SymbolInfo>,
+        _stdlib_symbols: &HashMap<String, SymbolInfo>,
         func_name: &str,
         all_docs: &HashMap<Url, Document>
     ) -> (Option<String>, Option<String>) {
@@ -6328,7 +6327,6 @@ impl ZenLanguageServer {
         if let Some(start) = start_line {
             let mut brace_depth = 0;
             let mut found_opening = false;
-            let mut end_line = start;
 
             for (line_num, line) in lines.iter().enumerate().skip(start) {
                 for ch in line.chars() {
@@ -6338,10 +6336,9 @@ impl ZenLanguageServer {
                     } else if ch == '}' {
                         brace_depth -= 1;
                         if found_opening && brace_depth == 0 {
-                            end_line = line_num;
                             return Some(Range {
                                 start: Position { line: start as u32, character: 0 },
-                                end: Position { line: end_line as u32, character: line.len() as u32 }
+                                end: Position { line: line_num as u32, character: line.len() as u32 }
                             });
                         }
                     }

@@ -224,7 +224,7 @@ fn run_file(file_path: &str) -> std::io::Result<()> {
                     0
                 } else {
                     // Unknown return type - try to run it
-                    let result = unsafe { execution_engine.run_function(main_fn, &[]) };
+                    let _result = unsafe { execution_engine.run_function(main_fn, &[]) };
                     0
                 }
             } else {
