@@ -6,6 +6,11 @@ from pathlib import Path
 
 def run_test(test_file):
     """Run a single test file and return (passed, error_msg)"""
+    # Skip tests with intentional errors (used for LSP diagnostic testing)
+    skip_tests = {"test_diagnostics.zen"}
+    if test_file.name in skip_tests:
+        return True, None  # Mark as passed since they're intentionally failing
+
     try:
         # Compile and run the test directly
         result = subprocess.run(
@@ -36,6 +41,14 @@ def run_test(test_file):
             "test_min_max.zen": 45,
             "test_simple_assign.zen": 10,
             "test_direct_min.zen": 10,
+            "test_lsp.zen": 52,
+            "test_lsp_simple.zen": 52,
+            "test_dynvec_manual.zen": 42,
+            "test_dynvec_pattern.zen": 42,
+            "test_simple_get.zen": 42,
+            "test_std_imports_simple.zen": 42,
+            "test_find_references.zen": 100,
+            "test_scope_rename.zen": 100,
         }
         
         test_name = test_file.name
