@@ -5783,7 +5783,7 @@ impl ZenLanguageServer {
                 let after_ok = actual_col + symbol_name.len() >= line.len() ||
                     !line.chars().nth(actual_col + symbol_name.len()).unwrap_or(' ').is_alphanumeric();
 
-                if before_ok && after_ok {
+                if before_ok && after_ok && !self.is_in_string_or_comment(line, actual_col) {
                     references.push(Range {
                         start: Position {
                             line: line_num,
@@ -5803,6 +5803,32 @@ impl ZenLanguageServer {
         Some(references)
     }
 
+    fn is_in_string_or_comment(&self, line: &str, col: usize) -> bool {
+        let mut in_string = false;
+        let mut in_comment = false;
+        let mut prev_char = ' ';
+
+        for (i, ch) in line.chars().enumerate() {
+            if i >= col {
+                break;
+            }
+
+            if in_comment {
+                continue;
+            }
+
+            if ch == '"' && prev_char != '\\' {
+                in_string = !in_string;
+            } else if !in_string && ch == '/' && prev_char == '/' {
+                in_comment = true;
+            }
+
+            prev_char = ch;
+        }
+
+        in_string || in_comment
+    }
+
     fn find_references_in_document(&self, content: &str, symbol_name: &str) -> Vec<Range> {
         let mut references = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
@@ -5818,7 +5844,7 @@ impl ZenLanguageServer {
                 let after_ok = actual_col + symbol_name.len() >= line.len() ||
                     !line.chars().nth(actual_col + symbol_name.len()).unwrap_or(' ').is_alphanumeric();
 
-                if before_ok && after_ok {
+                if before_ok && after_ok && !self.is_in_string_or_comment(line, actual_col) {
                     references.push(Range {
                         start: Position {
                             line: line_num as u32,
