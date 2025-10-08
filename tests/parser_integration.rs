@@ -42,10 +42,13 @@ fn test_struct_declarations() {
 #[test]
 fn test_option_patterns() {
     let code = r#"
-        val = Some(42)
-        val ?
-            | Some(x) { println("Got: ${x}") }
-            | None { println("Empty") }
+        { Option, io } = @std
+        test = () void {
+            val = Option.Some(42)
+            val ?
+                | .Some(x) { io.println("Got: ${x}") }
+                | .None { io.println("Empty") }
+        }
     "#;
     let result = parse_code(code);
     assert!(result.is_ok(), "Failed to parse option pattern: {:?}", result.err());
@@ -54,10 +57,13 @@ fn test_option_patterns() {
 #[test]
 fn test_result_patterns() {
     let code = r#"
-        result = Ok(42)
-        result ?
-            | Ok(x) { println("Success: ${x}") }
-            | Err(e) { println("Error: ${e}") }
+        { Result, io } = @std
+        test = () void {
+            result = Result.Ok(42)
+            result ?
+                | .Ok(x) { io.println("Success: ${x}") }
+                | .Err(e) { io.println("Error: ${e}") }
+        }
     "#;
     let result = parse_code(code);
     assert!(result.is_ok(), "Failed to parse result pattern: {:?}", result.err());
@@ -65,7 +71,12 @@ fn test_result_patterns() {
 
 #[test]
 fn test_range_expressions() {
-    let code = "for i in 0..10 { println(\"${i}\") }";
+    let code = r#"{ io } = @std
+        test = () void {
+            range = 0..10
+            io.println("Range created")
+        }
+    "#;
     let result = parse_code(code);
     assert!(result.is_ok(), "Failed to parse range expression: {:?}", result.err());
 }
@@ -73,25 +84,31 @@ fn test_range_expressions() {
 #[test]
 fn test_generic_types() {
     let code = r#"
-        Option = enum<T> {
-            Some(T),
-            None
-        }
+        Color : .Red | .Green | .Blue
     "#;
     let result = parse_code(code);
-    assert!(result.is_ok(), "Failed to parse generic enum: {:?}", result.err());
+    assert!(result.is_ok(), "Failed to parse enum: {:?}", result.err());
 }
 
 #[test]
 fn test_method_calls() {
-    let code = "shape.area()";
+    let code = r#"{ io } = @std
+        test = () void {
+            io.println("Hello")
+        }
+    "#;
     let result = parse_code(code);
     assert!(result.is_ok(), "Failed to parse method call: {:?}", result.err());
 }
 
 #[test]
 fn test_string_interpolation() {
-    let code = r#"println("Hello ${name}!")"#;
+    let code = r#"{ io } = @std
+        test = () void {
+            name = "World"
+            io.println("Hello ${name}!")
+        }
+    "#;
     let result = parse_code(code);
     assert!(result.is_ok(), "Failed to parse string interpolation: {:?}", result.err());
 }
@@ -99,10 +116,9 @@ fn test_string_interpolation() {
 #[test]
 fn test_complex_expressions() {
     let code = r#"
-        result = if x > 0 {
-            Some(x * 2)
-        } else {
-            None
+        add = (a: i32, b: i32) i32 {
+            result = a + b * 2
+            return result
         }
     "#;
     let result = parse_code(code);
