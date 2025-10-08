@@ -21,10 +21,11 @@ def send_notification(proc, method, params):
     proc.stdin.flush()
 
 lsp = subprocess.Popen(
-    ["../../target/release/zen-lsp"],
+    ["./target/release/zen-lsp"],
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
-    stderr=subprocess.PIPE
+    stderr=subprocess.PIPE,
+    cwd="/home/ubuntu/zenlang"
 )
 
 try:
