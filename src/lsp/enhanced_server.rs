@@ -1087,13 +1087,13 @@ impl DocumentStore {
         match expr {
             Expression::Identifier(name) => {
                 // Track reference to this identifier
-                if let Some(symbol) = symbols.get_mut(name) {
+                if let Some(_symbol) = symbols.get_mut(name) {
                     // Add reference location (would need position info)
                 }
             }
             Expression::FunctionCall { name, args, .. } => {
                 // Track function call reference
-                if let Some(symbol) = symbols.get_mut(name) {
+                if let Some(_symbol) = symbols.get_mut(name) {
                     // Add reference location
                 }
                 // Recurse into arguments
@@ -1250,11 +1250,10 @@ fn format_type(ast_type: &AstType) -> String {
             }
         }
         AstType::Function { args, return_type } => {
-            format!("({}) {}", 
+            format!("({}) {}",
                 args.iter().map(|p| format_type(p)).collect::<Vec<_>>().join(", "),
                 format_type(return_type))
         }
-        _ => "unknown".to_string(),  // Fallback for any unhandled types
     }
 }
 
@@ -1432,9 +1431,7 @@ impl ZenLanguageServer {
         while let Ok(job) = job_rx.recv() {
             // Analyzing document
 
-            let start = Instant::now();
             let errors = compiler.analyze_for_diagnostics(&job.program);
-            let duration = start.elapsed();
 
             // Analysis complete
 
@@ -3114,7 +3111,7 @@ impl ZenLanguageServer {
 
         // Find test functions and add "Run Test" code lens
         if let Some(ast) = &doc.ast {
-            for (idx, decl) in ast.iter().enumerate() {
+            for decl in ast.iter() {
                 if let Declaration::Function(func) = decl {
                     let func_name = &func.name;
 
