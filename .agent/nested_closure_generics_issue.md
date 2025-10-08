@@ -50,6 +50,23 @@ The type context may be getting lost or incorrectly propagated between the neste
 - src/codegen/llvm/statements.rs - variable type tracking for closures
 
 ## Status
-- Issue identified and documented
-- Workaround applied to affected tests
-- Root cause fix pending further investigation
+- ✅ **FIXED** (Verified 2025-10-08)
+- Both nested closure cases now work correctly:
+  - Pattern matching on nested Result types
+  - Using `.raise()` on nested Result types
+- Test files:
+  - `tests/test_nested_closure_result.zen` - Pattern match test (PASSES ✅)
+  - `tests/test_nested_closure_raise.zen` - .raise() test (PASSES ✅)
+  - `tests/test_triple_nested_generics.zen` - Triple nesting (PASSES ✅)
+
+The type checker now correctly infers types for:
+```zen
+outer = () Result<Result<i32, StaticString>, StaticString> {
+    inner = () Result<i32, StaticString> {
+        Result.Ok(42)
+    }
+    Result.Ok(inner())
+}
+result = outer()  // Correctly typed as Result<Result<i32, StaticString>, StaticString>
+inner_result = result.raise()  // Works! ✅
+```
