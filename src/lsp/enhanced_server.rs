@@ -4273,16 +4273,33 @@ impl ZenLanguageServer {
             return None;
         }
 
-        let line = lines[position.line as usize];
-        let cursor_pos = position.character as usize;
+        // Build context string from current line and potential previous lines for multi-line calls
+        let mut context = String::new();
+        let mut line_offset = 0;
+
+        // Look back up to 5 lines for multi-line function calls
+        let start_line = if position.line >= 5 { position.line - 5 } else { 0 };
+        for i in start_line..=position.line {
+            if i as usize >= lines.len() {
+                break;
+            }
+            if i == position.line {
+                line_offset = context.len();
+            }
+            context.push_str(lines[i as usize]);
+            context.push(' ');
+        }
+
+        let cursor_pos = line_offset + position.character as usize;
+        let cursor_pos = cursor_pos.min(context.len());
 
         // Find the function call - look backwards from cursor for opening paren
         let mut paren_count = 0;
-        let mut current_pos = cursor_pos.min(line.len());
+        let mut current_pos = cursor_pos;
 
         // Move to the nearest opening paren
         while current_pos > 0 {
-            let ch = line.chars().nth(current_pos - 1)?;
+            let ch = context.chars().nth(current_pos - 1)?;
             if ch == ')' {
                 paren_count += 1;
             } else if ch == '(' {
@@ -4299,9 +4316,9 @@ impl ZenLanguageServer {
         }
 
         // Extract function name before the opening paren
-        let before_paren = &line[..current_pos - 1];
+        let before_paren = &context[..current_pos - 1];
         let function_name = before_paren
-            .split(|c: char| c.is_whitespace() || c == '=' || c == ',' || c == ';')
+            .split(|c: char| c.is_whitespace() || c == '=' || c == ',' || c == ';' || c == '{' || c == '(')
             .last()?
             .trim()
             .split('.')
@@ -4309,7 +4326,7 @@ impl ZenLanguageServer {
             .to_string();
 
         // Count parameters by counting commas at paren_depth = 0
-        let inside_parens = &line[current_pos..cursor_pos.min(line.len())];
+        let inside_parens = &context[current_pos..cursor_pos];
         let mut active_param = 0;
         let mut depth = 0;
 
@@ -4485,6 +4502,41 @@ impl ZenLanguageServer {
                     // Extract return type from function signature like "add = (a: i32, b: i32) i32"
                     if let Some(detail) = &symbol.detail {
                         return self.extract_return_type_from_signature(detail);
+                    }
+                }
+
+                // Check stdlib and workspace symbols
+                let store = self.store.lock().unwrap();
+                if let Some(symbol) = store.stdlib_symbols.get(name) {
+                    if let Some(detail) = &symbol.detail {
+                        return self.extract_return_type_from_signature(detail);
+                    }
+                }
+                if let Some(symbol) = store.workspace_symbols.get(name) {
+                    if let Some(detail) = &symbol.detail {
+                        return self.extract_return_type_from_signature(detail);
+                    }
+                }
+                None
+            }
+            Expression::StructLiteral { name, .. } => {
+                // Struct literals have the type of the struct
+                Some(name.clone())
+            }
+            Expression::ArrayLiteral(elements) => {
+                // Infer array element type from first element
+                if let Some(first) = elements.first() {
+                    if let Some(elem_type) = self.infer_expression_type(first, doc) {
+                        return Some(format!("[{}]", elem_type));
+                    }
+                }
+                None
+            }
+            Expression::Identifier(var_name) => {
+                // Look up variable type from document symbols
+                if let Some(symbol) = doc.symbols.get(var_name) {
+                    if let Some(detail) = &symbol.detail {
+                        return Some(detail.clone());
                     }
                 }
                 None
