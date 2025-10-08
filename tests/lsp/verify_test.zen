@@ -1,0 +1,9 @@
+compute = (x: i32, y: i32) i32 {
+    let sum = x + y;
+    return sum;
+}
+
+main = () i32 {
+    let result = compute(10, 20);
+    return result;
+}

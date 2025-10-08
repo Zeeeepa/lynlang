@@ -138,7 +138,7 @@ test_array_struct = () void {
     io.println("Struct name: ${struct_with_array.name}")
     io.println("Array length: ${struct_with_array.numbers.len()}")
     
-    (0..struct_with_array.numbers.len()).loop((i) {
+    (0..struct_with_array.numbers.len()).loop((i: i32) {
         val = struct_with_array.numbers.get(i)
         io.println("  numbers[${i}] = ${val}")
     })
@@ -152,12 +152,12 @@ Rectangle : {
 
 // Method to calculate area
 calculate_area = (self: Rectangle) i32 {
-    self.width * self.height
+    return self.width * self.height
 }
 
 // Method to calculate perimeter
 calculate_perimeter = (self: Rectangle) i32 {
-    2 * (self.width + self.height)
+    return 2 * (self.width + self.height)
 }
 
 test_struct_self_methods = () void {
