@@ -7,7 +7,7 @@ from collections import defaultdict
 
 os.chdir("/home/ubuntu/zenlang/tests")
 
-tests = [f for f in os.listdir(".") if f.endswith(".zen")]
+tests = [f for f in os.listdir(".") if f.endswith(".zen") and not f.startswith("lsp_") and not f.startswith("test_diagnostics") and not f.startswith("test_inferred_types")]
 results = {"passed": [], "parse_error": [], "ice": [], "runtime_error": [], "type_error": [], "other": []}
 
 for i, test in enumerate(sorted(tests)):

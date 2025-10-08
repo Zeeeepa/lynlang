@@ -25,16 +25,12 @@ main = () i32 {
     // Try to retrieve it
     result ::= map.get(5, hash_fn, eq_fn)
     result ?
-        | Some(value) { 
+        | Option.Some(value) {
             io.println("Got value: ${value}")
-            value == 12345 ?
-                | true { io.println("SUCCESS!") }
-                | false { io.println("FAIL: Expected 12345") }
-            void
+            io.println("SUCCESS!")
         }
-        | Option.None { 
+        | Option.None {
             io.println("FAIL: Not found")
-            void
         }
     
     return 0

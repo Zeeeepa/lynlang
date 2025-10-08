@@ -1,8 +1,7 @@
 // Test file based on LANGUAGE_SPEC.zen
 // Testing new Zen syntax features
 
-{ io, maths, Option , get_default_allocator} = @std
-{ String, StringBuilder , get_default_allocator} = @std
+{ io, maths, Option, get_default_allocator, String, StringBuilder } = @std
 
 main = () void {
     alloc = get_default_allocator()
