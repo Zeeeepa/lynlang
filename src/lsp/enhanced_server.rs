@@ -11,7 +11,7 @@ use std::time::Instant;
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::thread;
 
-use crate::ast::{Declaration, AstType, Expression, Statement, Program};
+use crate::ast::{Declaration, AstType, Expression, Statement, Program, Pattern, PatternArm, ConditionalArm};
 use crate::lexer::{Lexer, Token};
 use crate::parser::Parser;
 use crate::typechecker::TypeChecker;
@@ -391,6 +391,7 @@ impl DocumentStore {
                     for decl in &program.declarations {
                         if let Declaration::Function(func) = decl {
                             self.check_allocator_usage(&func.body, &mut diagnostics, content);
+                            self.check_pattern_exhaustiveness(&func.body, &mut diagnostics, content);
                         }
                     }
                 }
@@ -603,6 +604,139 @@ impl DocumentStore {
             }
         }
         false
+    }
+
+    fn check_pattern_exhaustiveness(&self, statements: &[Statement], diagnostics: &mut Vec<Diagnostic>, content: &str) {
+        for stmt in statements {
+            match stmt {
+                Statement::Expression(expr) | Statement::Return(expr) => {
+                    self.check_exhaustiveness_in_expression(expr, diagnostics, content);
+                }
+                Statement::VariableDeclaration { initializer: Some(expr), .. } |
+                Statement::VariableAssignment { value: expr, .. } => {
+                    self.check_exhaustiveness_in_expression(expr, diagnostics, content);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn check_exhaustiveness_in_expression(&self, expr: &Expression, diagnostics: &mut Vec<Diagnostic>, content: &str) {
+        match expr {
+            Expression::PatternMatch { scrutinee, arms } => {
+                if let Some(scrutinee_type) = self.infer_expression_type_string(scrutinee) {
+                    let missing_variants = self.find_missing_variants(&scrutinee_type, arms);
+
+                    if !missing_variants.is_empty() {
+                        if let Some(position) = self.find_pattern_match_position(content, scrutinee) {
+                            let variant_list = missing_variants.join(", ");
+                            diagnostics.push(Diagnostic {
+                                range: Range {
+                                    start: position,
+                                    end: Position {
+                                        line: position.line,
+                                        character: position.character + 10,
+                                    },
+                                },
+                                severity: Some(DiagnosticSeverity::WARNING),
+                                code: Some(lsp_types::NumberOrString::String("non-exhaustive-match".to_string())),
+                                source: Some("zen-lsp".to_string()),
+                                message: format!("Non-exhaustive pattern match. Missing variants: {}", variant_list),
+                                related_information: None,
+                                tags: None,
+                                code_description: None,
+                                data: None,
+                            });
+                        }
+                    }
+                }
+
+                self.check_exhaustiveness_in_expression(scrutinee, diagnostics, content);
+                for arm in arms {
+                    self.check_exhaustiveness_in_expression(&arm.body, diagnostics, content);
+                }
+            }
+            Expression::Block(stmts) => {
+                self.check_pattern_exhaustiveness(stmts, diagnostics, content);
+            }
+            Expression::Conditional { scrutinee, arms } => {
+                self.check_exhaustiveness_in_expression(scrutinee, diagnostics, content);
+                for arm in arms {
+                    if let Some(guard) = &arm.guard {
+                        self.check_exhaustiveness_in_expression(guard, diagnostics, content);
+                    }
+                    self.check_exhaustiveness_in_expression(&arm.body, diagnostics, content);
+                }
+            }
+            Expression::BinaryOp { left, right, .. } => {
+                self.check_exhaustiveness_in_expression(left, diagnostics, content);
+                self.check_exhaustiveness_in_expression(right, diagnostics, content);
+            }
+            _ => {}
+        }
+    }
+
+    fn find_missing_variants(&self, scrutinee_type: &str, arms: &[PatternArm]) -> Vec<String> {
+        let known_enum_variants = if scrutinee_type.starts_with("Option") {
+            vec!["Some", "None"]
+        } else if scrutinee_type.starts_with("Result") {
+            vec!["Ok", "Err"]
+        } else {
+            return Vec::new();
+        };
+
+        let mut covered_variants = std::collections::HashSet::new();
+        let mut has_wildcard = false;
+
+        for arm in arms {
+            match &arm.pattern {
+                Pattern::EnumVariant { variant, .. } => {
+                    covered_variants.insert(variant.clone());
+                }
+                Pattern::EnumLiteral { variant, .. } => {
+                    covered_variants.insert(variant.clone());
+                }
+                Pattern::Wildcard => {
+                    has_wildcard = true;
+                }
+                _ => {}
+            }
+        }
+
+        if has_wildcard {
+            return Vec::new();
+        }
+
+        known_enum_variants
+            .into_iter()
+            .filter(|v| !covered_variants.contains(*v))
+            .map(|s| s.to_string())
+            .collect()
+    }
+
+    fn infer_expression_type_string(&self, expr: &Expression) -> Option<String> {
+        match expr {
+            Expression::Identifier(name) => {
+                Some(name.clone())
+            }
+            Expression::FunctionCall { name, .. } => {
+                if name.contains("Result") || name.ends_with("_result") {
+                    Some("Result<T, E>".to_string())
+                } else if name.contains("Option") || name.ends_with("_option") {
+                    Some("Option<T>".to_string())
+                } else {
+                    None
+                }
+            }
+            _ => None
+        }
+    }
+
+    fn find_pattern_match_position(&self, content: &str, scrutinee: &Expression) -> Option<Position> {
+        if let Expression::Identifier(name) = scrutinee {
+            return self.find_text_position(name, content);
+        }
+        None
     }
 
     fn find_text_position(&self, text: &str, content: &str) -> Option<Position> {

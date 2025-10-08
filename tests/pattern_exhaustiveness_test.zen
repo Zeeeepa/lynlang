@@ -1,0 +1,33 @@
+{ Result, Option } = @std
+
+test_incomplete_option = (opt: Option<i32>) i32 {
+    opt ?
+        | Some(val) { val }
+}
+
+test_complete_option = (opt: Option<i32>) i32 {
+    opt ?
+        | Some(val) { val }
+        | None { 0 }
+}
+
+test_incomplete_result = (res: Result<i32, StaticString>) i32 {
+    res ?
+        | Ok(val) { val }
+}
+
+test_complete_result = (res: Result<i32, StaticString>) i32 {
+    res ?
+        | Ok(val) { val }
+        | Err(_) { 0 }
+}
+
+test_wildcard_option = (opt: Option<i32>) i32 {
+    opt ?
+        | Some(val) { val }
+        | _ { 0 }
+}
+
+main = () i32 {
+    return 0
+}
