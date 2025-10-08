@@ -34,7 +34,7 @@ def read_responses(proc, count=1):
     return responses
 
 lsp = subprocess.Popen(
-    ["./target/release/zen-lsp"],
+    ["../../target/release/zen-lsp"],
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
     stderr=subprocess.DEVNULL  # Ignore stderr

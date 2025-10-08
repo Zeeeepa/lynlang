@@ -21,7 +21,7 @@ def send_notification(proc, method, params):
     proc.stdin.flush()
 
 lsp = subprocess.Popen(
-    ["./target/debug/zen-lsp"],
+    ["../../target/release/zen-lsp"],
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE
