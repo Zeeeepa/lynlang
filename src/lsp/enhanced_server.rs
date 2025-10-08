@@ -44,6 +44,7 @@ struct SymbolInfo {
     type_info: Option<AstType>,
     definition_uri: Option<Url>,
     references: Vec<Range>,
+    enum_variants: Option<Vec<String>>,  // For enums: list of variant names
 }
 
 #[derive(Debug, Clone)]
@@ -677,14 +678,59 @@ impl DocumentStore {
     }
 
     fn find_missing_variants(&self, scrutinee_type: &str, arms: &[PatternArm]) -> Vec<String> {
-        let known_enum_variants = if scrutinee_type.starts_with("Option") {
-            vec!["Some", "None"]
+        // First check if it's a built-in enum type
+        let known_enum_variants: Vec<String> = if scrutinee_type.starts_with("Option") {
+            vec!["Some".to_string(), "None".to_string()]
         } else if scrutinee_type.starts_with("Result") {
-            vec!["Ok", "Err"]
+            vec!["Ok".to_string(), "Err".to_string()]
         } else {
-            return Vec::new();
+            // Try to look up custom enum from symbol tables
+            // Extract just the enum name (before any :: or generic params)
+            let enum_name = scrutinee_type.split("::").next()
+                .unwrap_or(scrutinee_type)
+                .split('<').next()
+                .unwrap_or(scrutinee_type)
+                .trim();
+
+            // Search in all available symbol sources
+            let mut found_variants: Option<Vec<String>> = None;
+
+            // 1. Check current document symbols
+            for doc in self.documents.values() {
+                if let Some(symbol) = doc.symbols.get(enum_name) {
+                    if let Some(ref variants) = symbol.enum_variants {
+                        found_variants = Some(variants.clone());
+                        break;
+                    }
+                }
+            }
+
+            // 2. Check workspace symbols if not found
+            if found_variants.is_none() {
+                if let Some(symbol) = self.workspace_symbols.get(enum_name) {
+                    if let Some(ref variants) = symbol.enum_variants {
+                        found_variants = Some(variants.clone());
+                    }
+                }
+            }
+
+            // 3. Check stdlib symbols if not found
+            if found_variants.is_none() {
+                if let Some(symbol) = self.stdlib_symbols.get(enum_name) {
+                    if let Some(ref variants) = symbol.enum_variants {
+                        found_variants = Some(variants.clone());
+                    }
+                }
+            }
+
+            // If we found the enum, use its variants; otherwise return empty
+            match found_variants {
+                Some(variants) => variants,
+                None => return Vec::new(),
+            }
         };
 
+        // Collect covered variants and check for wildcards
         let mut covered_variants = std::collections::HashSet::new();
         let mut has_wildcard = false;
 
@@ -707,16 +753,25 @@ impl DocumentStore {
             return Vec::new();
         }
 
+        // Return missing variants
         known_enum_variants
             .into_iter()
-            .filter(|v| !covered_variants.contains(*v))
-            .map(|s| s.to_string())
+            .filter(|v| !covered_variants.contains(v))
             .collect()
     }
 
     fn infer_expression_type_string(&self, expr: &Expression) -> Option<String> {
         match expr {
             Expression::Identifier(name) => {
+                // Try to infer type from variable declarations in current documents
+                for doc in self.documents.values() {
+                    if let Some(ast) = &doc.ast {
+                        if let Some(type_str) = self.find_variable_type_in_ast(name, ast) {
+                            return Some(type_str);
+                        }
+                    }
+                }
+                // Fallback: just return the name (might be a type itself)
                 Some(name.clone())
             }
             Expression::FunctionCall { name, .. } => {
@@ -727,6 +782,72 @@ impl DocumentStore {
                 } else {
                     None
                 }
+            }
+            _ => None
+        }
+    }
+
+    fn find_variable_type_in_ast(&self, var_name: &str, ast: &[Declaration]) -> Option<String> {
+        for decl in ast {
+            match decl {
+                Declaration::Function(func) => {
+                    // Search in function body
+                    if let Some(type_str) = self.find_variable_type_in_statements(var_name, &func.body) {
+                        return Some(type_str);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    fn find_variable_type_in_statements(&self, var_name: &str, stmts: &[Statement]) -> Option<String> {
+        for stmt in stmts {
+            match stmt {
+                Statement::VariableDeclaration { name, initializer, type_, .. } => {
+                    if name == var_name {
+                        // Use type annotation if available
+                        if let Some(type_ann) = type_ {
+                            return Some(format_type(type_ann));
+                        }
+                        // Otherwise try to infer from initializer
+                        if let Some(init) = initializer {
+                            return self.infer_type_from_expression(init);
+                        }
+                    }
+                }
+                Statement::Expression(expr) | Statement::Return(expr) => {
+                    if let Some(type_str) = self.find_variable_in_expression(var_name, expr) {
+                        return Some(type_str);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    fn find_variable_in_expression(&self, var_name: &str, expr: &Expression) -> Option<String> {
+        match expr {
+            Expression::Block(stmts) => {
+                self.find_variable_type_in_statements(var_name, stmts)
+            }
+            _ => None
+        }
+    }
+
+    fn infer_type_from_expression(&self, expr: &Expression) -> Option<String> {
+        match expr {
+            Expression::FunctionCall { name, .. } => {
+                // Check if this is an enum constructor like TestEnum::Variant1
+                if name.contains("::") {
+                    let parts: Vec<&str> = name.split("::").collect();
+                    if parts.len() == 2 {
+                        return Some(parts[0].to_string());
+                    }
+                }
+                None
             }
             _ => None
         }
@@ -789,6 +910,7 @@ impl DocumentStore {
                             type_info: Some(func.return_type.clone()),
                             definition_uri: None,
                             references: Vec::new(),
+                            enum_variants: None,
                         });
                     }
                     Declaration::Struct(struct_def) => {
@@ -804,10 +926,15 @@ impl DocumentStore {
                             type_info: None,
                             definition_uri: None,
                             references: Vec::new(),
+                            enum_variants: None,
                         });
                     }
                     Declaration::Enum(enum_def) => {
                         let detail = format!("{} enum with {} variants", enum_def.name, enum_def.variants.len());
+
+                        let variant_names: Vec<String> = enum_def.variants.iter()
+                            .map(|v| v.name.clone())
+                            .collect();
 
                         symbols.insert(enum_def.name.clone(), SymbolInfo {
                             name: enum_def.name.clone(),
@@ -819,6 +946,7 @@ impl DocumentStore {
                             type_info: None,
                             definition_uri: None,
                             references: Vec::new(),
+                            enum_variants: Some(variant_names),
                         });
 
                         // Add enum variants as symbols
@@ -834,6 +962,7 @@ impl DocumentStore {
                                 type_info: None,
                                 definition_uri: None,
                                 references: Vec::new(),
+                                enum_variants: None,
                             });
                         }
                     }
@@ -848,6 +977,7 @@ impl DocumentStore {
                             type_info: type_.clone(),
                             definition_uri: None,
                             references: Vec::new(),
+                            enum_variants: None,
                         });
                     }
                     _ => {}
