@@ -362,7 +362,7 @@ mod tests {
         let mut methods = HashMap::new();
         methods.insert(
             "compare".to_string(),
-            Arc::new(|args: &[Expression]| Expression::Integer32(0))
+            Arc::new(|_args: &[Expression]| Expression::Integer32(0))
                 as Arc<dyn Fn(&[Expression]) -> Expression + Send + Sync>,
         );
 
