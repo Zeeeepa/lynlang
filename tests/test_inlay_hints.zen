@@ -1,0 +1,6 @@
+
+main = () void {
+    x ::= 42
+    y ::= 3.14
+    msg ::= "hello"
+}
