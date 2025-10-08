@@ -3044,6 +3044,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         // Clear variables from previous function by entering a new scope
         self.symbols.enter_scope();
+        self.variables.clear(); // Clear variables from previous function
 
         // Extract generic type information from the function's return type
         // This helps with proper payload extraction in pattern matching

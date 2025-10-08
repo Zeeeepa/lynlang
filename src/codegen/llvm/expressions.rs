@@ -6835,6 +6835,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Enter a new scope for the loop body
         self.symbols.enter_scope();
 
+        // Save variables before loop body to restore after (prevents variable leakage)
+        let prev_variables = self.variables.clone();
+
         // Store the loop variable in symbols table (AFTER entering scope)
         use crate::codegen::llvm::symbols::Symbol;
         self.symbols.insert(&param_name, Symbol::Variable(loop_var));
@@ -6846,7 +6849,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         } else {
             crate::ast::AstType::I32
         };
-        
+
         self.variables.insert(
             param_name.clone(),
             super::VariableInfo {
@@ -6869,8 +6872,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
 
-        // Exit the scope but DON'T remove from variables map yet
+        // Exit the scope and restore variables to prevent leakage
         self.symbols.exit_scope();
+        self.variables = prev_variables;
 
         // Increment the loop variable (still needs to access loop_var)
         let current = self
@@ -6891,8 +6895,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.loop_stack.pop();
         self.builder.position_at_end(after_loop);
 
-        // NOW remove the loop variable from variables map
-        self.variables.remove(&param_name);
+        // Variables were already restored after loop body (line 6877)
+        // No need to manually remove param - it's already gone
 
         // Return void value
         Ok(self.context.i32_type().const_int(0, false).into())
@@ -9018,6 +9022,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Enter a new scope for the loop body
         self.symbols.enter_scope();
 
+        // Save variables before loop body to restore after (prevents variable leakage)
+        let prev_variables = self.variables.clone();
+
         // Store the loop variable in symbols table (AFTER entering scope)
         use crate::codegen::llvm::symbols::Symbol;
         self.symbols.insert(param, Symbol::Variable(loop_var));
@@ -9029,7 +9036,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         } else {
             crate::ast::AstType::I32
         };
-        
+
         self.variables.insert(
             param.to_string(),
             super::VariableInfo {
@@ -9052,8 +9059,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
 
-        // Exit the scope but DON'T remove from variables map yet
+        // Exit the scope and restore variables to prevent leakage
         self.symbols.exit_scope();
+        self.variables = prev_variables;
 
         // Increment the loop variable (still needs to access loop_var)
         let current = self
@@ -9074,8 +9082,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Pop loop stack
         self.loop_stack.pop();
 
-        // NOW remove from variables map (after we're done using the loop variable)
-        self.variables.remove(param);
+        // Variables were already restored after loop body (line 9062)
+        // No need to manually remove param - it's already gone
 
         // Return unit value
         Ok(self.context.i32_type().const_int(0, false).into())

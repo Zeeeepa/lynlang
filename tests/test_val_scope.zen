@@ -1,0 +1,30 @@
+{io, Array, get_default_allocator} = @std
+
+test1 = () void {
+    alloc = get_default_allocator()
+    arr: Array<i32> = Array.new(alloc, 3, 0)
+    arr.push(1)
+    arr.push(2)
+
+    (0..arr.len()).loop((i) {
+        val = arr.get(i)
+        io.println("val1: ${val}")
+    })
+}
+
+test2 = () void {
+    alloc = get_default_allocator()
+    arr: Array<i32> = Array.new(alloc, 3, 0)
+    arr.push(10)
+    arr.push(20)
+
+    (0..arr.len()).loop((i) {
+        val = arr.get(i)
+        io.println("val2: ${val}")
+    })
+}
+
+main = () void {
+    test1()
+    test2()
+}
