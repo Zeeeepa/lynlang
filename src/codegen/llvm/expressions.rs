@@ -2220,7 +2220,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             } else {
                                 None
                             };
-                            
+
+                            // Track the generic type context for pattern matching
+                            // This ensures pattern match variables like `| Some(v)` have correct type
+                            if let Some(ref ast_type) = element_ast_type {
+                                self.track_generic_type("Option_Some_Type".to_string(), ast_type.clone());
+                            }
+
                             let element_llvm_type = if let Some(ast_type) = element_ast_type {
                                 match self.to_llvm_type(&ast_type)? {
                                     Type::Basic(basic_type) => basic_type,
