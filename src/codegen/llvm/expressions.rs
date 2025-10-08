@@ -2883,7 +2883,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     // Cast to struct type and store the value
                                     let value_mem_typed = self.builder.build_pointer_cast(
                                         value_mem,
-                                        struct_type.ptr_type(AddressSpace::default()),
+                                        self.context.ptr_type(AddressSpace::default()),
                                         "value_mem_typed"
                                     )?;
                                     self.builder.build_store(value_mem_typed, struct_val)?;
@@ -3570,7 +3570,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         // Cast to correct type and store
                                         let inner_mem_typed = self.builder.build_pointer_cast(
                                             inner_mem,
-                                            inner_struct_type.ptr_type(AddressSpace::default()),
+                                            self.context.ptr_type(AddressSpace::default()),
                                             "inner_enum_typed"
                                         )?;
                                         self.builder.build_store(inner_mem_typed, inner_struct_val)?;
@@ -6138,7 +6138,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // Cast to the correct enum struct type
             self.builder.build_pointer_cast(
                 heap_ptr,
-                enum_struct_type.ptr_type(inkwell::AddressSpace::default()),
+                self.context.ptr_type(inkwell::AddressSpace::default()),
                 &format!("{}_{}_enum_heap", enum_name, variant)
             )?
         } else {
@@ -6212,7 +6212,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // Cast the pointer to the correct struct type before storing
                         let typed_ptr = self.builder.build_pointer_cast(
                             heap_ptr,
-                            struct_type.ptr_type(inkwell::AddressSpace::default()),
+                            self.context.ptr_type(inkwell::AddressSpace::default()),
                             "typed_struct_ptr"
                         )?;
                         
@@ -8203,7 +8203,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     }
                 }
             }
-            Expression::MethodCall { object, method, .. } => {
+            Expression::MethodCall { object,  .. } => {
                 // Special handling for chained method calls like get_chained().raise()
                 // We need to compile the object first to get its type
                 // For raise() on a method call result, we need to track the types properly
