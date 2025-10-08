@@ -7417,6 +7417,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 } else if value.is_float_value() {
                     let float_val = value.into_float_value();
                     self.builder.build_bit_cast(float_val, self.context.i64_type(), "float_as_i64")?.into_int_value()
+                } else if value.is_pointer_value() {
+                    // For pointer types (like String), convert pointer to i64
+                    let ptr_val = value.into_pointer_value();
+                    self.builder.build_ptr_to_int(ptr_val, self.context.i64_type(), "ptr_as_i64")?
                 } else if value.is_struct_value() {
                     // For struct types (like Option<T>), allocate memory and store pointer
                     let struct_val = value.into_struct_value();
@@ -7572,7 +7576,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             self.context.ptr_type(inkwell::AddressSpace::default()),
                             "option_ptr"
                         )?;
-                        
+
                         // Load the Option struct from the pointer
                         // Option struct type: { discriminant: i64, payload: ptr }
                         let option_type = self.context.struct_type(
@@ -7582,9 +7586,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             ],
                             false,
                         );
-                        
+
                         let loaded = self.builder.build_load(option_type, ptr, "loaded_option")?;
                         loaded
+                    }
+                    AstType::StaticString | AstType::String | AstType::StaticLiteral => {
+                        // String types are stored as pointers (i64)
+                        // Convert i64 back to pointer
+                        let ptr = self.builder.build_int_to_ptr(
+                            stored_value.into_int_value(),
+                            self.context.ptr_type(inkwell::AddressSpace::default()),
+                            "string_ptr"
+                        )?;
+                        ptr.into()
                     }
                     _ => {
                         // Default: truncate to i32
