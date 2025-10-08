@@ -1,0 +1,8 @@
+{
+  "zenLanguage.server.path": "/home/ubuntu/zenlang/target/release/zen-lsp",
+  "zenLanguage.trace.server": "verbose",
+  "[zen]": {
+    "editor.semanticHighlighting.enabled": true,
+    "editor.formatOnSave": true
+  }
+}

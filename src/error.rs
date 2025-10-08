@@ -104,6 +104,7 @@ impl CompileError {
         }
     }
 
+    #[allow(dead_code)]
     pub fn message(&self) -> String {
         match self {
             CompileError::SyntaxError(msg, _) => msg.clone(),
@@ -337,6 +338,7 @@ impl fmt::Display for CompileError {
 
 impl CompileError {
     /// Extract position information from the error if available
+    #[allow(dead_code)]
     pub fn position(&self) -> Option<&Span> {
         match self {
             CompileError::SyntaxError(_, span)
@@ -367,6 +369,7 @@ impl CompileError {
     }
 
     /// Get a detailed error message with suggestions for fixing
+    #[allow(dead_code)]
     pub fn detailed_message(&self, source_lines: &[&str]) -> String {
         let mut result = self.to_string();
 

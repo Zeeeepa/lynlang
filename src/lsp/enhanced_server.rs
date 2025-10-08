@@ -3286,7 +3286,7 @@ impl ZenLanguageServer {
         }
     }
 
-    fn create_string_conversion_action(&self, diagnostic: &Diagnostic, uri: &Url, content: &str) -> Option<CodeAction> {
+    fn create_string_conversion_action(&self, diagnostic: &Diagnostic, _uri: &Url, _content: &str) -> Option<CodeAction> {
         // Determine conversion direction
         let title = if diagnostic.message.contains("expected StaticString") {
             "Convert to StaticString"
@@ -3314,7 +3314,7 @@ impl ZenLanguageServer {
         })
     }
 
-    fn create_error_handling_action(&self, diagnostic: &Diagnostic, uri: &Url) -> Option<CodeAction> {
+    fn create_error_handling_action(&self, diagnostic: &Diagnostic, _uri: &Url) -> Option<CodeAction> {
         let title = "Add proper error handling";
 
         let workspace_edit = WorkspaceEdit {
@@ -3380,7 +3380,7 @@ impl ZenLanguageServer {
 
     fn generate_semantic_tokens(&self, content: &str) -> Vec<SemanticToken> {
         let mut tokens = Vec::new();
-        let lexer = Lexer::new(content);
+        let _lexer = Lexer::new(content);
 
         // Token type indices (must match the legend in server capabilities)
         const TYPE_NAMESPACE: u32 = 0;
