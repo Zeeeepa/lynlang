@@ -27,8 +27,10 @@ main = () void {
         stderr=subprocess.PIPE
     )
 
+    msg_id_counter = [0]
     def send_request(method, params):
-        msg_id = 1
+        msg_id_counter[0] += 1
+        msg_id = msg_id_counter[0]
         request = {
             "jsonrpc": "2.0",
             "id": msg_id,
@@ -71,17 +73,32 @@ main = () void {
 
     # Open document
     test_uri = "file:///tmp/test_inlay.zen"
-    send_request("textDocument/didOpen", {
-        "textDocument": {
-            "uri": test_uri,
-            "languageId": "zen",
-            "version": 1,
-            "text": test_code
+    notif = {
+        "jsonrpc": "2.0",
+        "method": "textDocument/didOpen",
+        "params": {
+            "textDocument": {
+                "uri": test_uri,
+                "languageId": "zen",
+                "version": 1,
+                "text": test_code
+            }
         }
-    })
+    }
+    msg = json.dumps(notif)
+    header = f"Content-Length: {len(msg)}\r\n\r\n"
+    lsp.stdin.write((header + msg).encode())
+    lsp.stdin.flush()
 
     import time
     time.sleep(0.3)
+
+    # Drain any diagnostic notifications
+    import select
+    while select.select([lsp.stdout], [], [], 0.1)[0]:
+        resp = read_response()
+        if resp and resp.get("method") == "textDocument/publishDiagnostics":
+            pass  # Ignore diagnostics
 
     # Request inlay hints
     req_id = send_request("textDocument/inlayHint", {
@@ -95,6 +112,8 @@ main = () void {
     # Read responses
     for _ in range(10):
         resp = read_response()
+        if not resp:
+            continue
         if "id" in resp and resp["id"] == req_id:
             if "result" in resp:
                 hints = resp["result"]
