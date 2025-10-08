@@ -1,8 +1,0 @@
-
-divide = (a: f64, b: f64) Result<f64, StaticString> {
-    return Ok(a / b)
-}
-
-main = () void {
-    result ::= divide(10.0,
-}
