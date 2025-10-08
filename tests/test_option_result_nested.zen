@@ -6,7 +6,7 @@ main = () void {
     io.println("=== Testing Option<Result<i32, StaticString>> ===")
     
     // Test Option.Some with Result.Ok
-    opt1 = Option.Some(Result.Ok(42))
+    opt1: Option<Result<i32, StaticString>> = Option.Some(Result.Ok(42))
     io.println("Created Option.Some(Result.Ok(42))")
     
     opt1 ?
@@ -24,7 +24,7 @@ main = () void {
         | Option.None { io.println("✗ Got None but expected Some") }
     
     // Test Option.Some with Result.Err
-    opt2 = Option.Some(Result.Err("error msg"))
+    opt2: Option<Result<i32, StaticString>> = Option.Some(Result.Err("error msg"))
     io.println("\nCreated Option.Some(Result.Err(\"error msg\"))")
     
     opt2 ?
@@ -42,7 +42,7 @@ main = () void {
         | Option.None { io.println("✗ Got None but expected Some") }
     
     // Test Option.None
-    opt3 = Option.None
+    opt3: Option<Result<i32, StaticString>> = Option.None
     io.println("\nCreated Option.None")
     
     opt3 ?
