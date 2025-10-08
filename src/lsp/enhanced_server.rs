@@ -751,7 +751,6 @@ impl DocumentStore {
     }
 
     fn search_workspace_for_symbol(&self, symbol_name: &str) -> Option<(Url, SymbolInfo)> {
-        use std::fs;
         use std::path::Path;
 
         let workspace_root = self.workspace_root.as_ref()?;
@@ -1126,8 +1125,13 @@ impl ZenLanguageServer {
         let initialization_params = self.connection.initialize(server_capabilities)?;
 
         if let Ok(params) = serde_json::from_value::<InitializeParams>(initialization_params) {
-            if let Some(root_uri) = params.root_uri {
-                // Setting workspace root
+            // Try workspace_folders first (preferred), fall back to root_uri for compatibility
+            #[allow(deprecated)]
+            if let Some(folders) = params.workspace_folders {
+                if let Some(first_folder) = folders.first() {
+                    self.store.lock().unwrap().set_workspace_root(first_folder.uri.clone());
+                }
+            } else if let Some(root_uri) = params.root_uri {
                 self.store.lock().unwrap().set_workspace_root(root_uri);
             }
         }
@@ -2321,6 +2325,7 @@ impl ZenLanguageServer {
                     detail: sym.detail.clone(),
                     kind: sym.kind,
                     tags: None,
+                    #[allow(deprecated)]
                     deprecated: None,
                     range: sym.range,
                     selection_range: sym.range,
@@ -4758,6 +4763,7 @@ impl ZenLanguageServer {
                         name: symbol_info.name.clone(),
                         kind: symbol_info.kind,
                         tags: None,
+                        #[allow(deprecated)]
                         deprecated: None,
                         location: Location {
                             uri: uri.clone(),
@@ -4777,6 +4783,7 @@ impl ZenLanguageServer {
                         name: symbol_info.name.clone(),
                         kind: symbol_info.kind,
                         tags: None,
+                        #[allow(deprecated)]
                         deprecated: None,
                         location: Location {
                             uri: def_uri.clone(),
@@ -4796,6 +4803,7 @@ impl ZenLanguageServer {
                         name: symbol_info.name.clone(),
                         kind: symbol_info.kind,
                         tags: None,
+                        #[allow(deprecated)]
                         deprecated: None,
                         location: Location {
                             uri: def_uri.clone(),
