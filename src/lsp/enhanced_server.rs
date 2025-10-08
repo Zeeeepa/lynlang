@@ -4397,8 +4397,19 @@ impl ZenLanguageServer {
                                     });
                                 }
                             }
+
+                            // Also collect parameter hints from function calls in initializer
+                            self.collect_param_hints_from_expression(init, content, doc, hints);
                         }
                     }
+                }
+                Statement::Expression(expr) => {
+                    // Collect parameter hints from standalone expressions
+                    self.collect_param_hints_from_expression(expr, content, doc, hints);
+                }
+                Statement::Return(expr) => {
+                    // Collect parameter hints from return expressions
+                    self.collect_param_hints_from_expression(expr, content, doc, hints);
                 }
                 Statement::Loop { body, .. } => {
                     self.collect_hints_from_statements(body, content, doc, hints);
@@ -4491,6 +4502,178 @@ impl ZenLanguageServer {
                 return Some(return_type.to_string());
             }
         }
+        None
+    }
+
+    fn collect_param_hints_from_expression(&self, expr: &Expression, content: &str, doc: &Document, hints: &mut Vec<InlayHint>) {
+        use crate::ast::Expression;
+
+        match expr {
+            Expression::FunctionCall { name, args } => {
+                // Look up function signature to get parameter names
+                if let Some(param_names) = self.get_function_param_names(name, doc) {
+                    // Add parameter name hints for each argument (if we have enough names)
+                    for (idx, arg) in args.iter().enumerate() {
+                        if let Some(param_name) = param_names.get(idx) {
+                            // Find the position of this argument in the source
+                            if let Some(arg_pos) = self.find_function_arg_position(content, name, idx) {
+                                hints.push(InlayHint {
+                                    position: arg_pos,
+                                    label: InlayHintLabel::String(format!("{}: ", param_name)),
+                                    kind: Some(InlayHintKind::PARAMETER),
+                                    text_edits: None,
+                                    tooltip: None,
+                                    padding_left: None,
+                                    padding_right: Some(true),
+                                    data: None,
+                                });
+                            }
+                        }
+
+                        // Recursively collect from nested function calls
+                        self.collect_param_hints_from_expression(arg, content, doc, hints);
+                    }
+                }
+            }
+            Expression::BinaryOp { left, right, .. } => {
+                self.collect_param_hints_from_expression(left, content, doc, hints);
+                self.collect_param_hints_from_expression(right, content, doc, hints);
+            }
+            Expression::QuestionMatch { scrutinee, arms } => {
+                self.collect_param_hints_from_expression(scrutinee, content, doc, hints);
+                for arm in arms {
+                    self.collect_param_hints_from_expression(&arm.body, content, doc, hints);
+                }
+            }
+            Expression::StructLiteral { fields, .. } => {
+                for (_, field_expr) in fields {
+                    self.collect_param_hints_from_expression(field_expr, content, doc, hints);
+                }
+            }
+            Expression::ArrayLiteral(elements) => {
+                for elem in elements {
+                    self.collect_param_hints_from_expression(elem, content, doc, hints);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn get_function_param_names(&self, func_name: &str, doc: &Document) -> Option<Vec<String>> {
+        // First, try to find function in the document's AST
+        if let Some(ast) = &doc.ast {
+            for decl in ast {
+                if let Declaration::Function(func) = decl {
+                    if &func.name == func_name {
+                        return Some(func.args.iter().map(|(name, _)| name.clone()).collect());
+                    }
+                }
+            }
+        }
+
+        // Check stdlib symbols
+        let store = self.store.lock().unwrap();
+        if let Some(symbol) = store.stdlib_symbols.get(func_name) {
+            if let Some(detail) = &symbol.detail {
+                return self.extract_param_names_from_signature(detail);
+            }
+        }
+
+        // Check workspace symbols
+        if let Some(symbol) = store.workspace_symbols.get(func_name) {
+            if let Some(detail) = &symbol.detail {
+                return self.extract_param_names_from_signature(detail);
+            }
+        }
+
+        None
+    }
+
+    fn extract_param_names_from_signature(&self, signature: &str) -> Option<Vec<String>> {
+        // Parse signature like "function_name = (a: i32, b: i32) ReturnType"
+        let open_paren = signature.find('(')?;
+        let close_paren = signature.find(')')?;
+
+        let params_str = &signature[open_paren + 1..close_paren];
+        if params_str.trim().is_empty() {
+            return Some(vec![]);
+        }
+
+        let param_names: Vec<String> = params_str
+            .split(',')
+            .filter_map(|param| {
+                // Each param is like "name: Type"
+                let parts: Vec<&str> = param.trim().split(':').collect();
+                if !parts.is_empty() {
+                    Some(parts[0].trim().to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        Some(param_names)
+    }
+
+    fn find_function_arg_position(&self, content: &str, func_name: &str, arg_index: usize) -> Option<Position> {
+        let lines: Vec<&str> = content.lines().collect();
+
+        for (line_num, line) in lines.iter().enumerate() {
+            // Look for function call pattern: "func_name("
+            if let Some(func_pos) = line.find(func_name) {
+                // Check if this is actually a function call (followed by '(')
+                let after_func = &line[func_pos + func_name.len()..].trim_start();
+                if after_func.starts_with('(') {
+                    // Find the opening paren position
+                    let paren_pos = func_pos + func_name.len() + (line[func_pos + func_name.len()..].find('(').unwrap_or(0));
+
+                    // Find the nth argument by counting commas
+                    let mut current_arg = 0;
+                    let mut depth = 0;
+                    let mut i = paren_pos + 1;
+
+                    while i < line.len() {
+                        let c = line.chars().nth(i).unwrap_or('\0');
+
+                        if c == '(' {
+                            depth += 1;
+                        } else if c == ')' {
+                            if depth == 0 {
+                                break;
+                            }
+                            depth -= 1;
+                        } else if c == ',' && depth == 0 {
+                            current_arg += 1;
+                        }
+
+                        if current_arg == arg_index && !c.is_whitespace() && c != '(' {
+                            return Some(Position {
+                                line: line_num as u32,
+                                character: i as u32,
+                            });
+                        }
+
+                        i += 1;
+                    }
+
+                    // If we're looking for arg 0, return position right after opening paren
+                    if arg_index == 0 && current_arg == 0 {
+                        let mut j = paren_pos + 1;
+                        while j < line.len() {
+                            let c = line.chars().nth(j).unwrap_or('\0');
+                            if !c.is_whitespace() {
+                                return Some(Position {
+                                    line: line_num as u32,
+                                    character: j as u32,
+                                });
+                            }
+                            j += 1;
+                        }
+                    }
+                }
+            }
+        }
+
         None
     }
 
