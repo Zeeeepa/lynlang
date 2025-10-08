@@ -1,0 +1,19 @@
+{
+  "contributes": {
+    "languages": [
+      {
+        "id": "zen",
+        "aliases": ["Zen", "zen"],
+        "extensions": [".zen"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "zen",
+        "scopeName": "source.zen",
+        "path": "./syntaxes/zen.tmLanguage.json"
+      }
+    ]
+  }
+}

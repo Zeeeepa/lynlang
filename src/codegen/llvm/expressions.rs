@@ -967,7 +967,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     );
                                     
                                     let capacity_value = 16u64;
-                                    let bucket_array_type = bucket_type.array_type(capacity_value as u32);
+                                    let _bucket_array_type = bucket_type.array_type(capacity_value as u32);
                                     
                                     // Allocate memory for buckets
                                     let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
@@ -3557,7 +3557,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         
                                         // Allocate memory for the inner enum struct
                                         let inner_struct_val = actual_value.into_struct_value();
-                                        let inner_struct_type = inner_struct_val.get_type();
+                                        let _inner_struct_type = inner_struct_val.get_type();
                                         let struct_size = self.context.i64_type().const_int(24, false); // Conservative size
                                         
                                         let malloc_fn = self.module.get_function("malloc").unwrap();
@@ -4944,26 +4944,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     2,
                                     "capacity_ptr"
                                 )?;
-                                let capacity = self.builder.build_load(
+                                let _capacity = self.builder.build_load(
                                     self.context.i64_type(),
                                     capacity_ptr,
                                     "capacity"
                                 )?.into_int_value();
-                                
+
                                 let buckets_ptr_ptr = self.builder.build_struct_gep(
                                     object_value.get_type(),
                                     hashset_ptr,
                                     0,
                                     "buckets_ptr_ptr"
                                 )?;
-                                let buckets_ptr = self.builder.build_load(
+                                let _buckets_ptr = self.builder.build_load(
                                     self.context.ptr_type(AddressSpace::default()),
                                     buckets_ptr_ptr,
                                     "buckets_ptr"
                                 )?.into_pointer_value();
-                                
+
                                 // Clear each bucket
-                                let bucket_type = self.context.struct_type(
+                                let _bucket_type = self.context.struct_type(
                                     &[
                                         self.context.i64_type().into(), // hash
                                         self.context.ptr_type(AddressSpace::default()).into(), // value_ptr
@@ -5030,7 +5030,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
 
                         // Map method names to their internal function names
-                        let internal_name = format!("HashMap_{}", method);
+                        let _internal_name = format!("HashMap_{}", method);
 
                         // For now, just use UFC which will work if methods are properly registered
                         return self.compile_function_call(method, &ufc_args);
@@ -7419,7 +7419,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
     /// Compile Array<T>() constructor
     fn compile_array_constructor(
         &mut self,
-        element_type: &crate::ast::AstType,
+        _element_type: &crate::ast::AstType,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         // Array struct is { data: *T, len: i64, capacity: i64 }
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
@@ -7505,7 +7505,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         obj_name: &str,
         method: &str,
         args: &[Expression],
-        array_value: BasicValueEnum<'ctx>,
+        _array_value: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         // Get the pointer to the array variable
         let (array_ptr, _) = self.get_variable(obj_name)?;
@@ -8834,7 +8834,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 .build_load(load_type, ptr_val, "ok_value_deref")?;
                         
         // eprintln!("[DEBUG] Loaded value type: {:?}", loaded_value.get_type());
-                        if let Some(ast_type) = self.generic_type_context.get("Result_Ok_Type") {
+                        if let Some(_ast_type) = self.generic_type_context.get("Result_Ok_Type") {
         // eprintln!("[DEBUG] Result_Ok_Type: {:?}", ast_type);
                         }
                         

@@ -10,7 +10,7 @@ use inkwell::{
 
 impl<'ctx> LLVMCompiler<'ctx> {
     /// Helper to check if an expression is an allocator type
-    fn is_allocator_type(&self, expr: &ast::Expression) -> bool {
+    fn is_allocator_type(&self, _expr: &ast::Expression) -> bool {
         // Check if expression type is Allocator
         // For now, return false - this needs proper type checking
         false
