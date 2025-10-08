@@ -1,0 +1,33 @@
+// Test for nested closure generic type tracking with .raise()
+{ io, Result, get_default_allocator } = @std
+
+main = () void {
+    alloc = get_default_allocator()
+
+    io.println("=== Testing Nested Closure with .raise() ===")
+
+    // The exact case from the issue
+    outer = () Result<Result<i32, StaticString>, StaticString> {
+        // This inner closure was causing the issue
+        inner = () Result<i32, StaticString> {
+            Result.Ok(42)
+        }
+        Result.Ok(inner())
+    }
+
+    // Type checker should correctly infer 'result' as Result<Result<i32, StaticString>, StaticString>
+    result = outer()
+
+    // The issue was that .raise() failed because result was typed as Void
+    // This should now work correctly
+    inner_result = result.raise()
+
+    io.println("Successfully called .raise() on result")
+
+    // Now call .raise() on the inner result
+    value = inner_result.raise()
+
+    io.println("SUCCESS: Got value = ${value} (should be 42)")
+
+    io.println("=== Test Complete ===")
+}

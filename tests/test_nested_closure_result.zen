@@ -1,0 +1,38 @@
+// Test for nested closure generic type tracking issue
+{ io, Result, get_default_allocator } = @std
+
+main = () void {
+    alloc = get_default_allocator()
+
+    io.println("=== Testing Nested Closure with Result Types ===")
+
+    // This is the problematic case from the issue
+    outer = () Result<Result<i32, StaticString>, StaticString> {
+        // This inner closure causes the issue
+        inner = () Result<i32, StaticString> {
+            Result.Ok(42)
+        }
+        Result.Ok(inner())
+    }
+
+    // Type checker should correctly infer 'result' as Result<Result<i32, StaticString>, StaticString>
+    result = outer()
+
+    // This should work if type inference is correct
+    result ?
+        | Result.Ok(inner_result) {
+            io.println("Got outer Ok, inner result type is correct")
+            inner_result ?
+                | Result.Ok(value) {
+                    io.println("SUCCESS: Got inner value = ${value}")
+                }
+                | Result.Err(e) {
+                    io.println("Inner error: ${e}")
+                }
+        }
+        | Result.Err(e) {
+            io.println("Outer error: ${e}")
+        }
+
+    io.println("=== Test Complete ===")
+}
