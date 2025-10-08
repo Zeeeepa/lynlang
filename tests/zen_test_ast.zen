@@ -9,8 +9,8 @@ main = () void {
         io.println("Direct: ${i}")
     })
     
-    // Test 2: assigned (works once)
-    result = (0..2).loop((j) {
+    // Test 2: assigned (works once) - Note: loop returns void so we don't assign
+    (0..2).loop((j) {
         io.println("Assigned: ${j}")
     })
 }
