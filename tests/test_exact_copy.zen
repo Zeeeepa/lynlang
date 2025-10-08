@@ -1,14 +1,14 @@
 // Test structs with methods (simplified version)
 { io , get_default_allocator} = @std
 
-Point: {
+Point = struct {
     x: f64,
-    y: f64,
+    y: f64
 }
 
-Circle: {
+Circle = struct {
     center: Point,
-    radius: f64,
+    radius: f64
 }
 
 // Define area method for Circle
@@ -16,5 +16,18 @@ circle_area = (c: Circle) f64 {
     return 3.14159 * c.radius * c.radius
 }
 
-// Define perimeter method for Circle  
+// Define perimeter method for Circle
 circle_perimeter = (c: Circle) f64 {
+    return 2.0 * 3.14159 * c.radius
+}
+
+main = () i32 {
+    alloc = get_default_allocator()
+    p = Point { x: 1.0, y: 2.0 }
+    c = Circle { center: p, radius: 5.0 }
+    area = circle_area(c)
+    perim = circle_perimeter(c)
+    io.println("Circle area: ${area}")
+    io.println("Circle perimeter: ${perim}")
+    return 0
+}
