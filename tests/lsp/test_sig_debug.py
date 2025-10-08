@@ -17,7 +17,7 @@ def send_notification(proc, method, params):
 
 with open("/tmp/lsp_stderr.log", "w") as stderr_file:
     lsp = subprocess.Popen(
-        ["./target/release/zen-lsp"],
+        ["../../target/release/zen-lsp"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=stderr_file
