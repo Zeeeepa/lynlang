@@ -5548,8 +5548,8 @@ impl ZenLanguageServer {
             // Single line selection
             if let Some(line) = lines.get(range.start.line as usize) {
                 let start_char = range.start.character as usize;
-                let end_char = range.end.character as usize;
-                if start_char < line.len() && end_char <= line.len() {
+                let end_char = (range.end.character as usize).min(line.len());
+                if start_char < line.len() && start_char < end_char {
                     selected_text = line[start_char..end_char].to_string();
                 }
             }
@@ -5651,8 +5651,8 @@ impl ZenLanguageServer {
             // Single line selection - only extract if it's a substantial expression
             if let Some(line) = lines.get(range.start.line as usize) {
                 let start_char = range.start.character as usize;
-                let end_char = range.end.character as usize;
-                if start_char < line.len() && end_char <= line.len() {
+                let end_char = (range.end.character as usize).min(line.len());
+                if start_char < line.len() && start_char < end_char {
                     selected_text = line[start_char..end_char].to_string();
                 }
             }
