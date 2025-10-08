@@ -1,79 +1,40 @@
-// Test file for LSP features
-// This file tests goto definition, find references, and hover functionality
+// Test file for verifying LSP features
 
-// Test function definition
-test_function = (x: i32, y: i32) i32 {
-    result := x + y
-    return result
+// Test 1: Rename Symbol - rename this function
+fn calculate_sum(a: i32, b: i32) i32 {
+    return a + b;
 }
 
-// Test struct definition
-TestStruct struct {
-    field1: i32
-    field2: String
+// Test 2: Signature Help - trigger on opening paren
+fn test_signature_help() void {
+    let result = calculate_sum(10, 20);
 }
 
-// Test enum definition
-TestEnum enum {
-    Variant1
-    Variant2(i32)
-    Variant3 { data: String }
+// Test 3: Inlay Hints - should show type for x
+fn test_inlay_hints() void {
+    let x = calculate_sum(5, 15);  // x should show as i32
 }
 
-// Main function that uses the above definitions
-main = () i32 {
-    // Test function reference (goto definition should jump to line 5)
-    value := test_function(10, 20)
-
-    // Test struct usage (hover should show struct info)
-    my_struct := TestStruct {
-        field1: 42,
-        field2: "test"
+// Test 4: Hover - hover over Result type
+fn divide(a: f64, b: f64) Result<f64, StaticString> {
+    if b == 0.0 {
+        return Result.Err("Division by zero");
     }
-
-    // Test enum usage (hover should show enum info)
-    my_enum := TestEnum::Variant1
-
-    // Test pattern matching with enum
-    result := my_enum ? {
-        TestEnum::Variant1 => 1,
-        TestEnum::Variant2(n) => n,
-        TestEnum::Variant3 { data } => data.len()
-    }
-
-    // Test Option type (hover should show built-in info)
-    opt := Option::Some(100)
-
-    // Test Result type
-    res := Result::Ok(200)
-
-    // Test loop construct (hover should show loop syntax)
-    sum := 0
-    (0..10).loop((i) {
-        sum = sum + i
-    })
-
-    // Test string types
-    static_str: StaticString = "compile-time string"
-    dynamic_str: String = "runtime string"
-
-    return result
+    return Result.Ok(a / b);
 }
 
-// Another function that calls test_function (for find references)
-helper_function = () i32 {
-    // This is another reference to test_function
-    return test_function(5, 10)
+// Test 5: Find References - find all uses of divide
+fn test_find_references() void {
+    let result1 = divide(10.0, 2.0);
+    let result2 = divide(20.0, 4.0);
 }
 
-// Test UFC syntax
-ufc_test = () void {
-    arr := [1, 2, 3, 4, 5]
+// Test 6: Goto Definition - click on calculate_sum
+fn test_goto_definition() void {
+    calculate_sum(1, 2);
+}
 
-    // UFC method calls (hover should explain UFC)
-    filtered := arr
-        .filter((x) { x > 2 })
-        .map((x) { x * 2 })
-
-    return
+// Test 7: Code Actions - extract this expression
+fn test_code_actions() void {
+    let value = 42 * 2 + 10;
 }
