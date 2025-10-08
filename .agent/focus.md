@@ -2,6 +2,45 @@
 
 ## Mission: Build the World's Best LSP for Zen ✅ **100% VERIFIED FEATURE PARITY - WORLD-CLASS!** 🎉
 
+## Session 25 (2025-10-08): TypeDefinition & DocumentHighlight ✅
+
+**Status**: ✅ **BUG FIX - IMPLEMENTED ADVERTISED BUT MISSING FEATURES!**
+
+### 🎯 ACHIEVEMENTS
+
+#### 1. **Fixed LSP Capability Bug** - ✅ **COMPLETED!**
+Discovered and fixed a bug where two LSP capabilities were advertised but not implemented:
+
+**Features Added**:
+1. ✅ **textDocument/typeDefinition** - Navigate from variable to its type definition
+   - Extracts type name from variable declarations (e.g., "val: Result<f64, E>")
+   - Resolves type across document, stdlib, and workspace symbols
+   - Handles generic types by extracting base type name
+   - Integrated into request handler at line 1526
+
+2. ✅ **textDocument/documentHighlight** - Highlight symbol occurrences in current file
+   - Uses whole-word matching to find all occurrences
+   - Returns DocumentHighlight ranges for editor highlighting
+   - Useful for "find in file" visual feedback
+   - Integrated into request handler at line 1528
+
+**Bug Fix Details**:
+- ServerCapabilities advertised `type_definition_provider` and `document_highlight_provider`
+- But request handlers for `textDocument/typeDefinition` and `textDocument/documentHighlight` were missing
+- This caused silent failures when LSP clients tried to use these features
+- Now both features are fully implemented with ~170 lines of new code
+
+**Code Changes**:
+- Added `handle_type_definition()` method (lines 2212-2286)
+- Added `extract_type_name()` helper (lines 2288-2303)
+- Added `handle_document_highlight()` method (lines 2305-2338)
+- Added `find_symbol_occurrences()` helper (lines 2340-2375)
+- Updated request handler routing to dispatch to new handlers
+
+**Commit**: `a88bf4d` - "Add TypeDefinition and DocumentHighlight LSP features"
+
+---
+
 ## Session 24 (2025-10-08): Custom Enum Exhaustiveness Checking ✅
 
 **Status**: ✅ **ENHANCED FEATURE - CUSTOM ENUM SUPPORT ADDED!**
