@@ -1,0 +1,25 @@
+// Quick LSP verification test
+{ Result } = @std
+
+// Test hover and goto definition
+divide = (a: f64, b: f64) Result<f64, StaticString> {
+    if b == 0.0 {
+        return Result.Err("Division by zero")
+    }
+    return Result.Ok(a / b)
+}
+
+// Test variable type inference
+test_types = () i32 {
+    x = 42
+    y = 3.14
+    name = "Alice"
+
+    result = divide(10.0, 2.0)
+    return 0
+}
+
+main = () i32 {
+    value = 100
+    return value
+}

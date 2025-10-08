@@ -2175,31 +2175,40 @@ impl ZenLanguageServer {
 
             // Find the symbol at the cursor position
             if let Some(symbol_name) = self.find_symbol_at_position(&doc.content, position) {
-                // Search for references in all open documents
-                for (uri, doc) in &store.documents {
-                    // Find all occurrences of the symbol in the document
-                    let lines: Vec<&str> = doc.content.lines().collect();
-                    for (line_num, line) in lines.iter().enumerate() {
-                        // Simple text search - could be improved with proper AST traversal
-                        if let Some(col) = line.find(&symbol_name) {
-                            // Verify it's a whole word match
-                            let before_ok = col == 0 || !line.chars().nth(col - 1).unwrap_or(' ').is_alphanumeric();
-                            let after_ok = col + symbol_name.len() >= line.len() ||
-                                !line.chars().nth(col + symbol_name.len()).unwrap_or(' ').is_alphanumeric();
+                eprintln!("[LSP] Find references for symbol: '{}'", symbol_name);
 
-                            if before_ok && after_ok {
+                // Determine the scope of the symbol
+                let symbol_scope = self.determine_symbol_scope(&doc, &symbol_name, position);
+                eprintln!("[LSP] Symbol scope: {:?}", symbol_scope);
+
+                match symbol_scope {
+                    SymbolScope::Local { ref function_name } => {
+                        // Local variable - only find references within the function
+                        let current_uri = params.text_document_position.text_document.uri.clone();
+                        if let Some(refs) = self.find_local_references(
+                            &doc.content,
+                            &symbol_name,
+                            function_name,
+                        ) {
+                            for range in refs {
+                                locations.push(Location {
+                                    uri: current_uri.clone(),
+                                    range,
+                                });
+                            }
+                        }
+                    }
+                    SymbolScope::ModuleLevel | SymbolScope::Unknown => {
+                        // Module-level symbol - search across all documents
+                        for (uri, search_doc) in &store.documents {
+                            let refs = self.find_references_in_document(
+                                &search_doc.content,
+                                &symbol_name,
+                            );
+                            for range in refs {
                                 locations.push(Location {
                                     uri: uri.clone(),
-                                    range: Range {
-                                        start: Position {
-                                            line: line_num as u32,
-                                            character: col as u32,
-                                        },
-                                        end: Position {
-                                            line: line_num as u32,
-                                            character: (col + symbol_name.len()) as u32,
-                                        },
-                                    },
+                                    range,
                                 });
                             }
                         }
@@ -2215,6 +2224,8 @@ impl ZenLanguageServer {
                         });
                     }
                 }
+
+                eprintln!("[LSP] Found {} reference(s)", locations.len());
             }
         }
 
@@ -5717,6 +5728,82 @@ impl ZenLanguageServer {
         }
 
         Some(edits)
+    }
+
+    fn find_local_references(&self, content: &str, symbol_name: &str, function_name: &str) -> Option<Vec<Range>> {
+        let func_range = self.find_function_range(content, function_name)?;
+        let mut references = Vec::new();
+        let lines: Vec<&str> = content.lines().collect();
+
+        for line_num in func_range.start.line..=func_range.end.line {
+            if line_num as usize >= lines.len() {
+                break;
+            }
+
+            let line = lines[line_num as usize];
+            let mut start_col = 0;
+
+            while let Some(col) = line[start_col..].find(symbol_name) {
+                let actual_col = start_col + col;
+
+                let before_ok = actual_col == 0 ||
+                    !line.chars().nth(actual_col - 1).unwrap_or(' ').is_alphanumeric();
+                let after_ok = actual_col + symbol_name.len() >= line.len() ||
+                    !line.chars().nth(actual_col + symbol_name.len()).unwrap_or(' ').is_alphanumeric();
+
+                if before_ok && after_ok {
+                    references.push(Range {
+                        start: Position {
+                            line: line_num,
+                            character: actual_col as u32,
+                        },
+                        end: Position {
+                            line: line_num,
+                            character: (actual_col + symbol_name.len()) as u32,
+                        },
+                    });
+                }
+
+                start_col = actual_col + 1;
+            }
+        }
+
+        Some(references)
+    }
+
+    fn find_references_in_document(&self, content: &str, symbol_name: &str) -> Vec<Range> {
+        let mut references = Vec::new();
+        let lines: Vec<&str> = content.lines().collect();
+
+        for (line_num, line) in lines.iter().enumerate() {
+            let mut start_col = 0;
+
+            while let Some(col) = line[start_col..].find(symbol_name) {
+                let actual_col = start_col + col;
+
+                let before_ok = actual_col == 0 ||
+                    !line.chars().nth(actual_col - 1).unwrap_or(' ').is_alphanumeric();
+                let after_ok = actual_col + symbol_name.len() >= line.len() ||
+                    !line.chars().nth(actual_col + symbol_name.len()).unwrap_or(' ').is_alphanumeric();
+
+                if before_ok && after_ok {
+                    references.push(Range {
+                        start: Position {
+                            line: line_num as u32,
+                            character: actual_col as u32,
+                        },
+                        end: Position {
+                            line: line_num as u32,
+                            character: (actual_col + symbol_name.len()) as u32,
+                        },
+                    });
+                }
+
+                start_col = actual_col + 1;
+            }
+        }
+
+        references
     }
 
     fn find_zen_files_in_workspace(&self, root_path: &std::path::Path) -> Result<Vec<std::path::PathBuf>, std::io::Error> {
