@@ -346,7 +346,7 @@ mod tests {
 
     #[test]
     fn test_behavior_registration() {
-        let mut registry = BehaviorRegistry::new();
+        let registry = BehaviorRegistry::new();
 
         // Check built-in behaviors are registered
         assert!(registry.behaviors.contains_key("Comparable"));

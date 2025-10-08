@@ -3380,7 +3380,7 @@ impl ZenLanguageServer {
 
     fn generate_semantic_tokens(&self, content: &str) -> Vec<SemanticToken> {
         let mut tokens = Vec::new();
-        let mut lexer = Lexer::new(content);
+        let lexer = Lexer::new(content);
 
         // Token type indices (must match the legend in server capabilities)
         const TYPE_NAMESPACE: u32 = 0;
