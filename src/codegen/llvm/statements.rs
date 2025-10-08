@@ -98,7 +98,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let mut inferred_ast_type: Option<AstType> = None;
                 
                 // Save generic context before compiling to handle raise() correctly
-                let saved_ok_type = self.generic_type_context.get("Result_Ok_Type").cloned();
+                let _saved_ok_type = self.generic_type_context.get("Result_Ok_Type").cloned();
 
                 let llvm_type = match type_ {
                     Some(type_) => {

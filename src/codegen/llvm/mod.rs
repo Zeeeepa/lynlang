@@ -314,7 +314,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             let marker_int = i64_type.const_int(1, false);
             let marker_ptr = self.builder.build_int_to_ptr(marker_int, ptr_type, "allocator_marker")
                 .unwrap_or_else(|_| ptr_type.const_null());
-            self.builder.build_return(Some(&marker_ptr));
+            let _ = self.builder.build_return(Some(&marker_ptr));
             
             // Restore builder position
             if let Some(block) = current_block {

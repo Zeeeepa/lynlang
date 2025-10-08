@@ -5157,7 +5157,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
             "capacity_field",
         )?;
         self.builder.build_store(capacity_field, initial_capacity)?;
-        
+
+        // Store allocator pointer
+        let allocator_field = self.builder.build_struct_gep(
+            hashset_struct_type,
+            hashset_alloca,
+            3,
+            "allocator_field",
+        )?;
+        self.builder.build_store(allocator_field, allocator_ptr)?;
+
         // Load and return the hashset struct
         let result = self.builder.build_load(hashset_struct_type, hashset_alloca, "hashset_value")?;
         Ok(result)

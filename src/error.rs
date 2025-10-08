@@ -81,6 +81,7 @@ impl From<String> for CompileError {
 }
 
 impl CompileError {
+    #[allow(dead_code)]
     pub fn span(&self) -> Option<&Span> {
         match self {
             CompileError::SyntaxError(_, span) => span.as_ref(),
