@@ -909,6 +909,25 @@ fn format_symbol_kind(kind: SymbolKind) -> &'static str {
     }
 }
 
+fn symbol_kind_to_completion_kind(kind: SymbolKind) -> CompletionItemKind {
+    match kind {
+        SymbolKind::FUNCTION | SymbolKind::METHOD => CompletionItemKind::FUNCTION,
+        SymbolKind::STRUCT | SymbolKind::CLASS => CompletionItemKind::STRUCT,
+        SymbolKind::ENUM => CompletionItemKind::ENUM,
+        SymbolKind::ENUM_MEMBER => CompletionItemKind::ENUM_MEMBER,
+        SymbolKind::VARIABLE => CompletionItemKind::VARIABLE,
+        SymbolKind::CONSTANT => CompletionItemKind::CONSTANT,
+        SymbolKind::FIELD | SymbolKind::PROPERTY => CompletionItemKind::FIELD,
+        SymbolKind::INTERFACE => CompletionItemKind::INTERFACE,
+        SymbolKind::MODULE | SymbolKind::NAMESPACE => CompletionItemKind::MODULE,
+        SymbolKind::TYPE_PARAMETER => CompletionItemKind::TYPE_PARAMETER,
+        SymbolKind::CONSTRUCTOR => CompletionItemKind::CONSTRUCTOR,
+        SymbolKind::EVENT => CompletionItemKind::EVENT,
+        SymbolKind::OPERATOR => CompletionItemKind::OPERATOR,
+        _ => CompletionItemKind::TEXT,
+    }
+}
+
 fn format_type(ast_type: &AstType) -> String {
     match ast_type {
         AstType::I8 => "i8".to_string(),
@@ -1726,7 +1745,54 @@ impl ZenLanguageServer {
                 ..Default::default()
             });
         }
-        
+
+        // Add document symbols (functions, structs, enums defined in current file)
+        if let Some(doc) = store.documents.get(&params.text_document_position.text_document.uri) {
+            for (name, symbol) in &doc.symbols {
+                completions.push(CompletionItem {
+                    label: name.clone(),
+                    kind: Some(symbol_kind_to_completion_kind(symbol.kind)),
+                    detail: symbol.detail.clone(),
+                    documentation: None,
+                    ..Default::default()
+                });
+            }
+        }
+
+        // Add stdlib symbols (functions and types from standard library)
+        for (name, symbol) in &store.stdlib_symbols {
+            completions.push(CompletionItem {
+                label: name.clone(),
+                kind: Some(symbol_kind_to_completion_kind(symbol.kind)),
+                detail: symbol.detail.clone(),
+                documentation: None,
+                ..Default::default()
+            });
+        }
+
+        // Add workspace symbols (from other files in the project)
+        // Limit to prevent overwhelming the user
+        let mut workspace_count = 0;
+        const MAX_WORKSPACE_COMPLETIONS: usize = 50;
+
+        for (name, symbol) in &store.workspace_symbols {
+            if workspace_count >= MAX_WORKSPACE_COMPLETIONS {
+                break;
+            }
+
+            // Only add if not already in completions (avoid duplicates)
+            if !completions.iter().any(|c| c.label == *name) {
+                completions.push(CompletionItem {
+                    label: name.clone(),
+                    kind: Some(symbol_kind_to_completion_kind(symbol.kind)),
+                    detail: symbol.detail.clone(),
+                    documentation: None,
+                    ..Default::default()
+                });
+                workspace_count += 1;
+            }
+        }
+
         let response = CompletionResponse::Array(completions);
         
         Response {
