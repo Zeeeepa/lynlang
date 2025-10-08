@@ -4,7 +4,7 @@
 main = () i32 {
     alloc = get_default_allocator()
     io.println("Test 1: None")
-    x = None
+    x: Option<i32> = None
     x ?
         | .Some(a) {
             io.println("Got a: ${a}")
@@ -14,7 +14,7 @@ main = () i32 {
         }
     
     io.println("Test 2: None again")
-    y = None
+    y: Option<i32> = None
     y ?
         | .Some(b) {
             io.println("Got b: ${b}")

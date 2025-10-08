@@ -45,6 +45,37 @@ r.top_left.y      // Returns 10.0 instead of 0.0
 
 ---
 
+### 2. Method Resolution on References
+**File**: `test_hashmap_dynvec_get.zen`
+**Status**: Unresolved
+**Severity**: Medium
+
+**Description**:
+Cannot call methods on references returned from generic types. When `HashMap.get()` returns `Option<&V>`, we cannot call methods on the `&V` reference inside the pattern match.
+
+**Example**:
+```zen
+list = map.get(1)  // Returns Option<&DynVec<String>>
+list ?
+    | Some(vec_ref) {
+        first = vec_ref.get(0)  // ERROR: Undeclared function: 'get'
+    }
+```
+
+**Expected**: Should resolve `get` method on `DynVec<String>` through the reference.
+
+**Actual**: Error: "Undeclared function: 'get'"
+
+**Impact**: Cannot chain method calls when working with HashMap values.
+
+**Workaround**: None currently. Would need to dereference or copy the value.
+
+**Root Cause**: Method resolution (UFC - Uniform Function Call) doesn't work through references for generic type parameters.
+
+**Fix Required**: Enhance method resolution in typechecker to handle references to generic types.
+
+---
+
 ## Bug Resolution Process
 
 1. When a bug is fixed, move the test file from `tests/known_bugs/` back to `tests/`

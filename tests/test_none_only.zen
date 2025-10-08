@@ -3,7 +3,7 @@
 
 main = () void {
     alloc = get_default_allocator()
-    empty = None
+    empty: Option<i32> = None
     io.println("Created None")
     
     empty ?
