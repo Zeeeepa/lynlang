@@ -1,8 +1,8 @@
 // Test simple import of Option types
-{ Option, Some, None } = @std
+{ Option } = @std
 
 main = () i32 {
-    opt = Some(42)
+    opt = Option.Some(42)
     opt ?
         | .Some(val) { return val }
         | .None { return 0 }

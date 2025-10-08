@@ -1,13 +1,27 @@
-test_type_mismatch: () void = {
-    x: i32 = "hello"
+// Test file for LSP diagnostics
+
+// Type mismatch error
+test_type_mismatch = () void {
+    x: i32 = "string"  // Should error: type mismatch
 }
 
-test_valid_code: () void = {
-    x: i32 = 42
-    y: i32 = x + 10
+// Undeclared variable
+test_undeclared = () void {
+    y = undefined_var + 10  // Should error: undefined_var not declared
 }
 
-main: () void = {
-    test_type_mismatch()
-    test_valid_code()
+// Undeclared function
+test_undeclared_func = () void {
+    result = missing_function()  // Should error: function not declared
+}
+
+// Type error in expression
+test_type_error = () void {
+    a: i32 = 5
+    b: StaticString = "hello"
+    c = a + b  // Should error: cannot add i32 and string
+}
+
+main = () i32 {
+    return 0
 }
