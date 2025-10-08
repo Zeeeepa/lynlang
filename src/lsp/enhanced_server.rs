@@ -374,7 +374,10 @@ impl DocumentStore {
 
         match parser.parse_program() {
             Ok(program) => Some(program.declarations),
-            Err(_) => None,
+            Err(e) => {
+                eprintln!("[LSP] Parse error: {:?}", e);
+                None
+            }
         }
     }
 
@@ -2380,13 +2383,18 @@ impl ZenLanguageServer {
         let char_pos = position.character as usize;
 
         // Find word boundaries around the cursor position
-        let mut start = char_pos;
-        let mut end = char_pos;
-
         let chars: Vec<char> = line.chars().collect();
 
+        // Check if position is valid
+        if chars.is_empty() || char_pos > chars.len() {
+            return None;
+        }
+
+        let mut start = char_pos.min(chars.len());
+        let mut end = char_pos.min(chars.len());
+
         // Move start backwards to find word beginning
-        while start > 0 && (chars[start - 1].is_alphanumeric() || chars[start - 1] == '_') {
+        while start > 0 && start <= chars.len() && (chars[start - 1].is_alphanumeric() || chars[start - 1] == '_') {
             start -= 1;
         }
 
@@ -2989,13 +2997,20 @@ impl ZenLanguageServer {
         let position = params.text_document_position_params.position;
         let function_call = self.find_function_call_at_position(&doc.content, position);
 
+        eprintln!("[LSP] Signature help at {}:{} - function_call: {:?}",
+            position.line, position.character, function_call);
+
         let signature_help = match function_call {
             Some((function_name, active_param)) => {
+                eprintln!("[LSP] Looking for function '{}' in {} doc symbols",
+                    function_name, doc.symbols.len());
+
                 // Look up function in symbols (document, stdlib, workspace)
                 let mut signature_info = None;
 
                 // Check document symbols first (highest priority)
                 if let Some(symbol) = doc.symbols.get(&function_name) {
+                    eprintln!("[LSP] Found '{}' in document symbols", function_name);
                     signature_info = Some(self.create_signature_info(symbol));
                 }
 
