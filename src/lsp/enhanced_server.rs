@@ -2409,46 +2409,19 @@ impl ZenLanguageServer {
                         }
                     }
                     SymbolScope::ModuleLevel => {
-                        // Module-level symbol (function, struct, enum) - rename in current file only
-                        // unless it's exported/imported
-                        eprintln!("[LSP] Renaming module-level symbol");
+                        // Module-level symbol (function, struct, enum) - rename across workspace
+                        eprintln!("[LSP] Renaming module-level symbol across workspace");
 
-                        // Check if this symbol is in the document's symbol table
-                        if doc.symbols.contains_key(&symbol_name) {
-                            // It's defined in this file, rename here
-                            if let Some(edits) = self.rename_in_file(&doc.content, &symbol_name, &new_name) {
+                        // Find all workspace files that might reference this symbol
+                        let workspace_files = self.collect_workspace_files(&store);
+
+                        eprintln!("[LSP] Scanning {} workspace files for references", workspace_files.len());
+
+                        for (file_uri, file_content) in workspace_files {
+                            if let Some(edits) = self.rename_in_file(&file_content, &symbol_name, &new_name) {
                                 if !edits.is_empty() {
-                                    changes.insert(uri.clone(), edits);
-                                }
-                            }
-                        } else {
-                            // Check if it's a workspace or stdlib symbol
-                            if let Some(symbol_info) = store.workspace_symbols.get(&symbol_name) {
-                                // Rename in the definition file and any files that reference it
-                                if let Some(def_uri) = &symbol_info.definition_uri {
-                                    // Rename in definition file
-                                    let content = if let Some(def_doc) = store.documents.get(def_uri) {
-                                        def_doc.content.clone()
-                                    } else if let Ok(path) = def_uri.to_file_path() {
-                                        std::fs::read_to_string(&path).unwrap_or_default()
-                                    } else {
-                                        String::new()
-                                    };
-
-                                    if !content.is_empty() {
-                                        if let Some(edits) = self.rename_in_file(&content, &symbol_name, &new_name) {
-                                            if !edits.is_empty() {
-                                                changes.insert(def_uri.clone(), edits);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Also rename in current file if it uses the symbol
-                            if let Some(edits) = self.rename_in_file(&doc.content, &symbol_name, &new_name) {
-                                if !edits.is_empty() {
-                                    changes.insert(uri.clone(), edits);
+                                    eprintln!("[LSP] Found {} occurrences in {}", edits.len(), file_uri.path());
+                                    changes.insert(file_uri, edits);
                                 }
                             }
                         }
@@ -5690,6 +5663,65 @@ impl ZenLanguageServer {
         }
 
         Some(edits)
+    }
+
+    fn collect_workspace_files(&self, store: &DocumentStore) -> Vec<(Url, String)> {
+        use std::path::PathBuf;
+
+        fn collect_zen_files_recursive(dir: &std::path::Path, files: &mut Vec<PathBuf>, max_depth: usize) {
+            if max_depth == 0 {
+                return;
+            }
+
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+
+                    // Skip hidden directories and target/
+                    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                        if name.starts_with('.') || name == "target" {
+                            continue;
+                        }
+                    }
+
+                    if path.is_dir() {
+                        collect_zen_files_recursive(&path, files, max_depth - 1);
+                    } else if path.extension().and_then(|e| e.to_str()) == Some("zen") {
+                        if let Ok(canonical) = path.canonicalize() {
+                            files.push(canonical);
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut result = Vec::new();
+
+        // Add all open documents
+        for (uri, doc) in &store.documents {
+            result.push((uri.clone(), doc.content.clone()));
+        }
+
+        // Add all workspace files recursively
+        if let Some(workspace_root) = &store.workspace_root {
+            if let Ok(root_path) = workspace_root.to_file_path() {
+                let mut zen_files = Vec::new();
+                collect_zen_files_recursive(&root_path, &mut zen_files, 5);
+
+                for path in zen_files {
+                    if let Ok(content) = std::fs::read_to_string(&path) {
+                        if let Ok(uri) = Url::from_file_path(&path) {
+                            // Only add if not already in open documents
+                            if !store.documents.contains_key(&uri) {
+                                result.push((uri, content));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result
     }
 
     fn rename_in_file(&self, content: &str, symbol_name: &str, new_name: &str) -> Option<Vec<TextEdit>> {
