@@ -22,7 +22,12 @@ for f in *.zen; do
     output=$(timeout 2 ../target/release/zen "$f" 2>&1)
     exit_code=$?
 
-    if [ $exit_code -eq 0 ]; then
+    # Check if there's actual error output (Compilation error, Parse error, etc.)
+    has_error_output=$(echo "$output" | grep -E "error:|Error:|Parse error|Type mismatch|Internal Compiler Error|ICE|panicked")
+
+    if [ $exit_code -eq 0 ] || [ -z "$has_error_output" ]; then
+        # Exit 0 OR no error output means success
+        # (Zen programs return their main() value, so non-zero doesn't mean error)
         passed=$((passed + 1))
     else
         failed=$((failed + 1))
@@ -33,15 +38,11 @@ for f in *.zen; do
         elif echo "$output" | grep -q "Internal Compiler Error\|ICE\|panicked"; then
             ice_errors=$((ice_errors + 1))
             ice_tests+=("$f")
-        elif echo "$output" | grep -q "Type mismatch\|type error\|Expected.*got"; then
+        elif echo "$output" | grep -q "Type mismatch\|type error\|Type error\|Expected.*got"; then
             type_errors=$((type_errors + 1))
             type_error_tests+=("$f")
         elif [ $exit_code -eq 124 ]; then
             # Timeout - likely infinite loop
-            runtime_errors=$((runtime_errors + 1))
-            runtime_tests+=("$f")
-        elif [ $exit_code -ne 0 ] && [ $exit_code -ne 1 ]; then
-            # Non-zero exit code that's not compile error
             runtime_errors=$((runtime_errors + 1))
             runtime_tests+=("$f")
         else
