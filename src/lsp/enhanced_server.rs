@@ -58,6 +58,13 @@ enum CompletionContext {
     UfcMethod { receiver_type: String },
 }
 
+#[derive(Debug)]
+enum SymbolScope {
+    Local { function_name: String },
+    ModuleLevel,
+    Unknown,
+}
+
 // Background analysis job
 #[derive(Debug, Clone)]
 struct AnalysisJob {
@@ -2364,101 +2371,92 @@ impl ZenLanguageServer {
             let position = params.text_document_position.position;
 
             if let Some(symbol_name) = self.find_symbol_at_position(&doc.content, position) {
-                eprintln!("[LSP] Rename: symbol='{}' -> '{}'", symbol_name, new_name);
+                eprintln!("[LSP] Rename: symbol='{}' -> '{}' at {}:{}",
+                    symbol_name, new_name, position.line, position.character);
+
+                // Determine the scope of the symbol
+                let symbol_scope = self.determine_symbol_scope(&doc, &symbol_name, position);
+
+                eprintln!("[LSP] Symbol scope: {:?}", symbol_scope);
 
                 let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
 
-                // Collect all files that might contain this symbol
-                let mut files_to_search: Vec<Url> = Vec::new();
+                match symbol_scope {
+                    SymbolScope::Local { function_name } => {
+                        // Local variable or parameter - only rename in current file, within function
+                        eprintln!("[LSP] Renaming local symbol in function '{}'", function_name);
 
-                // 1. Add all open documents
-                for file_uri in store.documents.keys() {
-                    files_to_search.push(file_uri.clone());
-                }
-
-                // 2. Add workspace files that contain this symbol (from workspace index)
-                if let Some(symbol_info) = store.workspace_symbols.get(&symbol_name) {
-                    if let Some(def_uri) = &symbol_info.definition_uri {
-                        if !files_to_search.contains(def_uri) {
-                            files_to_search.push(def_uri.clone());
+                        if let Some(edits) = self.rename_local_symbol(
+                            &doc.content,
+                            &symbol_name,
+                            &new_name,
+                            &function_name
+                        ) {
+                            if !edits.is_empty() {
+                                changes.insert(uri.clone(), edits);
+                            }
                         }
                     }
-                }
+                    SymbolScope::ModuleLevel => {
+                        // Module-level symbol (function, struct, enum) - rename in current file only
+                        // unless it's exported/imported
+                        eprintln!("[LSP] Renaming module-level symbol");
 
-                // 3. Search all .zen files in workspace if we have workspace_root
-                if let Some(workspace_root) = &store.workspace_root {
-                    if let Ok(root_path) = workspace_root.to_file_path() {
-                        if let Ok(workspace_files) = self.find_zen_files_in_workspace(&root_path) {
-                            for file_path in workspace_files {
-                                if let Ok(file_uri) = Url::from_file_path(&file_path) {
-                                    if !files_to_search.contains(&file_uri) {
-                                        files_to_search.push(file_uri);
+                        // Check if this symbol is in the document's symbol table
+                        if doc.symbols.contains_key(&symbol_name) {
+                            // It's defined in this file, rename here
+                            if let Some(edits) = self.rename_in_file(&doc.content, &symbol_name, &new_name) {
+                                if !edits.is_empty() {
+                                    changes.insert(uri.clone(), edits);
+                                }
+                            }
+                        } else {
+                            // Check if it's a workspace or stdlib symbol
+                            if let Some(symbol_info) = store.workspace_symbols.get(&symbol_name) {
+                                // Rename in the definition file and any files that reference it
+                                if let Some(def_uri) = &symbol_info.definition_uri {
+                                    // Rename in definition file
+                                    let content = if let Some(def_doc) = store.documents.get(def_uri) {
+                                        def_doc.content.clone()
+                                    } else if let Ok(path) = def_uri.to_file_path() {
+                                        std::fs::read_to_string(&path).unwrap_or_default()
+                                    } else {
+                                        String::new()
+                                    };
+
+                                    if !content.is_empty() {
+                                        if let Some(edits) = self.rename_in_file(&content, &symbol_name, &new_name) {
+                                            if !edits.is_empty() {
+                                                changes.insert(def_uri.clone(), edits);
+                                            }
+                                        }
                                     }
+                                }
+                            }
+
+                            // Also rename in current file if it uses the symbol
+                            if let Some(edits) = self.rename_in_file(&doc.content, &symbol_name, &new_name) {
+                                if !edits.is_empty() {
+                                    changes.insert(uri.clone(), edits);
                                 }
                             }
                         }
                     }
-                }
+                    SymbolScope::Unknown => {
+                        // Fallback: only rename in current file
+                        eprintln!("[LSP] Unknown scope, renaming only in current file");
 
-                eprintln!("[LSP] Searching {} files for references", files_to_search.len());
-
-                // Search each file for the symbol
-                for file_uri in files_to_search {
-                    let content = if let Some(doc) = store.documents.get(&file_uri) {
-                        // Use in-memory content for open documents
-                        doc.content.clone()
-                    } else {
-                        // Read from disk for non-open files
-                        if let Ok(path) = file_uri.to_file_path() {
-                            if let Ok(content) = std::fs::read_to_string(&path) {
-                                content
-                            } else {
-                                continue;
+                        if let Some(edits) = self.rename_in_file(&doc.content, &symbol_name, &new_name) {
+                            if !edits.is_empty() {
+                                changes.insert(uri.clone(), edits);
                             }
-                        } else {
-                            continue;
                         }
-                    };
-
-                    let mut edits = Vec::new();
-                    let lines: Vec<&str> = content.lines().collect();
-
-                    for (line_num, line) in lines.iter().enumerate() {
-                        let mut start_col = 0;
-                        while let Some(col) = line[start_col..].find(&symbol_name) {
-                            let actual_col = start_col + col;
-
-                            let before_ok = actual_col == 0 || !line.chars().nth(actual_col - 1).unwrap_or(' ').is_alphanumeric();
-                            let after_ok = actual_col + symbol_name.len() >= line.len() ||
-                                !line.chars().nth(actual_col + symbol_name.len()).unwrap_or(' ').is_alphanumeric();
-
-                            if before_ok && after_ok {
-                                edits.push(TextEdit {
-                                    range: Range {
-                                        start: Position {
-                                            line: line_num as u32,
-                                            character: actual_col as u32,
-                                        },
-                                        end: Position {
-                                            line: line_num as u32,
-                                            character: (actual_col + symbol_name.len()) as u32,
-                                        },
-                                    },
-                                    new_text: new_name.clone(),
-                                });
-                            }
-
-                            start_col = actual_col + 1;
-                        }
-                    }
-
-                    if !edits.is_empty() {
-                        eprintln!("[LSP] Found {} occurrences in {}", edits.len(), file_uri);
-                        changes.insert(file_uri.clone(), edits);
                     }
                 }
 
-                eprintln!("[LSP] Rename will affect {} files", changes.len());
+                eprintln!("[LSP] Rename will affect {} files with {} total edits",
+                    changes.len(),
+                    changes.values().map(|v| v.len()).sum::<usize>());
 
                 let workspace_edit = WorkspaceEdit {
                     changes: Some(changes),
@@ -5542,6 +5540,183 @@ impl ZenLanguageServer {
         } else {
             None
         }
+    }
+
+    fn determine_symbol_scope(&self, doc: &Document, symbol_name: &str, position: Position) -> SymbolScope {
+        if let Some(ast) = &doc.ast {
+            for decl in ast {
+                if let Declaration::Function(func) = decl {
+                    if let Some(func_range) = self.find_function_range(&doc.content, &func.name) {
+                        if position.line >= func_range.start.line && position.line <= func_range.end.line {
+                            if self.is_local_symbol_in_function(func, symbol_name) {
+                                return SymbolScope::Local {
+                                    function_name: func.name.clone()
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if doc.symbols.contains_key(symbol_name) {
+            return SymbolScope::ModuleLevel;
+        }
+
+        SymbolScope::Unknown
+    }
+
+    fn is_local_symbol_in_function(&self, func: &crate::ast::Function, symbol_name: &str) -> bool {
+        for (param_name, _param_type) in &func.args {
+            if param_name == symbol_name {
+                return true;
+            }
+        }
+
+        self.is_symbol_in_statements(&func.body, symbol_name)
+    }
+
+    fn is_symbol_in_statements(&self, statements: &[Statement], symbol_name: &str) -> bool {
+        for stmt in statements {
+            match stmt {
+                Statement::VariableDeclaration { name, .. } if name == symbol_name => {
+                    return true;
+                }
+                Statement::Loop { body, .. } => {
+                    if self.is_symbol_in_statements(body, symbol_name) {
+                        return true;
+                    }
+                }
+                _ => {}
+            }
+        }
+        false
+    }
+
+    fn find_function_range(&self, content: &str, func_name: &str) -> Option<Range> {
+        let lines: Vec<&str> = content.lines().collect();
+        let mut start_line = None;
+
+        for (line_num, line) in lines.iter().enumerate() {
+            if line.contains(&format!("{} =", func_name)) {
+                start_line = Some(line_num);
+                break;
+            }
+        }
+
+        if let Some(start) = start_line {
+            let mut brace_depth = 0;
+            let mut found_opening = false;
+            let mut end_line = start;
+
+            for (line_num, line) in lines.iter().enumerate().skip(start) {
+                for ch in line.chars() {
+                    if ch == '{' {
+                        brace_depth += 1;
+                        found_opening = true;
+                    } else if ch == '}' {
+                        brace_depth -= 1;
+                        if found_opening && brace_depth == 0 {
+                            end_line = line_num;
+                            return Some(Range {
+                                start: Position { line: start as u32, character: 0 },
+                                end: Position { line: end_line as u32, character: line.len() as u32 }
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    fn rename_local_symbol(
+        &self,
+        content: &str,
+        symbol_name: &str,
+        new_name: &str,
+        function_name: &str
+    ) -> Option<Vec<TextEdit>> {
+        let func_range = self.find_function_range(content, function_name)?;
+        let mut edits = Vec::new();
+        let lines: Vec<&str> = content.lines().collect();
+
+        for line_num in func_range.start.line..=func_range.end.line {
+            if line_num as usize >= lines.len() {
+                break;
+            }
+
+            let line = lines[line_num as usize];
+            let mut start_col = 0;
+
+            while let Some(col) = line[start_col..].find(symbol_name) {
+                let actual_col = start_col + col;
+
+                let before_ok = actual_col == 0 ||
+                    !line.chars().nth(actual_col - 1).unwrap_or(' ').is_alphanumeric();
+                let after_ok = actual_col + symbol_name.len() >= line.len() ||
+                    !line.chars().nth(actual_col + symbol_name.len()).unwrap_or(' ').is_alphanumeric();
+
+                if before_ok && after_ok {
+                    edits.push(TextEdit {
+                        range: Range {
+                            start: Position {
+                                line: line_num,
+                                character: actual_col as u32,
+                            },
+                            end: Position {
+                                line: line_num,
+                                character: (actual_col + symbol_name.len()) as u32,
+                            },
+                        },
+                        new_text: new_name.to_string(),
+                    });
+                }
+
+                start_col = actual_col + 1;
+            }
+        }
+
+        Some(edits)
+    }
+
+    fn rename_in_file(&self, content: &str, symbol_name: &str, new_name: &str) -> Option<Vec<TextEdit>> {
+        let mut edits = Vec::new();
+        let lines: Vec<&str> = content.lines().collect();
+
+        for (line_num, line) in lines.iter().enumerate() {
+            let mut start_col = 0;
+
+            while let Some(col) = line[start_col..].find(symbol_name) {
+                let actual_col = start_col + col;
+
+                let before_ok = actual_col == 0 ||
+                    !line.chars().nth(actual_col - 1).unwrap_or(' ').is_alphanumeric();
+                let after_ok = actual_col + symbol_name.len() >= line.len() ||
+                    !line.chars().nth(actual_col + symbol_name.len()).unwrap_or(' ').is_alphanumeric();
+
+                if before_ok && after_ok {
+                    edits.push(TextEdit {
+                        range: Range {
+                            start: Position {
+                                line: line_num as u32,
+                                character: actual_col as u32,
+                            },
+                            end: Position {
+                                line: line_num as u32,
+                                character: (actual_col + symbol_name.len()) as u32,
+                            },
+                        },
+                        new_text: new_name.to_string(),
+                    });
+                }
+
+                start_col = actual_col + 1;
+            }
+        }
+
+        Some(edits)
     }
 
     fn find_zen_files_in_workspace(&self, root_path: &std::path::Path) -> Result<Vec<std::path::PathBuf>, std::io::Error> {
