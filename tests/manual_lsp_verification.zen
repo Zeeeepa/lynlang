@@ -1,0 +1,47 @@
+// Manual LSP Verification Test
+// Open this file in VSCode/Cursor to test LSP features
+
+{ Result, Option } = @std
+
+// TEST 1: Hover - hover over 'divide' to see signature
+divide = (a: f64, b: f64) Result<f64, StaticString> {
+    if b == 0.0 {
+        return Result.Err("Division by zero")
+    }
+    return Result.Ok(a / b)
+}
+
+// TEST 2: Signature Help - type '(' after function name
+calculate = (x: i32, y: i32, z: i32) i32 {
+    return x + y * z
+}
+
+// TEST 3: Rename Symbol - right-click 'greet' and rename it
+greet = (name: StaticString) void {
+    println("Hello, {}", name)
+}
+
+// TEST 4: Inlay Hints - these variables should show type hints
+test_inlay_hints = () i32 {
+    x = 42
+    y = 3.14
+    message = "Hello"
+    sum = calculate(1, 2, 3)
+    return 0
+}
+
+// TEST 5: Pattern Matching - hover over 'val' and 'msg'
+test_pattern = () i32 {
+    result = divide(10.0, 2.0)
+    result ?
+        | Ok(val) { println("Success: {}", val) }
+        | Err(msg) { println("Error: {}", msg) }
+    return 0
+}
+
+// TEST 6: Goto Definition - Ctrl+Click on 'greet' should jump to definition
+main = () i32 {
+    greet("World")
+    greet("Alice")
+    return 0
+}
