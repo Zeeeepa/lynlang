@@ -1523,7 +1523,9 @@ impl ZenLanguageServer {
             "textDocument/hover" => self.handle_hover(req.clone()),
             "textDocument/completion" => self.handle_completion(req.clone()),
             "textDocument/definition" => self.handle_definition(req.clone()),
+            "textDocument/typeDefinition" => self.handle_type_definition(req.clone()),
             "textDocument/references" => self.handle_references(req.clone()),
+            "textDocument/documentHighlight" => self.handle_document_highlight(req.clone()),
             "textDocument/documentSymbol" => self.handle_document_symbols(req.clone()),
             "textDocument/formatting" => self.handle_formatting(req.clone()),
             "textDocument/rename" => self.handle_rename(req.clone()),
@@ -2205,6 +2207,171 @@ impl ZenLanguageServer {
             result: Some(Value::Null),
             error: None,
         }
+    }
+
+    fn handle_type_definition(&self, req: Request) -> Response {
+        let params: GotoDefinitionParams = match serde_json::from_value(req.params) {
+            Ok(p) => p,
+            Err(_) => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: None,
+                };
+            }
+        };
+
+        let store = self.store.lock().unwrap();
+        if let Some(doc) = store.documents.get(&params.text_document_position_params.text_document.uri) {
+            let position = params.text_document_position_params.position;
+
+            if let Some(symbol_name) = self.find_symbol_at_position(&doc.content, position) {
+                // For type definition, we want to find the definition of the type, not the variable
+                // First, check if it's a variable and get its type
+                if let Some(symbol_info) = doc.symbols.get(&symbol_name) {
+                    // If it's a variable/parameter, extract the type name from its detail
+                    if let Some(detail) = &symbol_info.detail {
+                        // Extract type name from patterns like "name: Type" or "val: Result<f64, E>"
+                        if let Some(type_name) = self.extract_type_name(detail) {
+                            // Now find the definition of this type
+                            if let Some(type_symbol) = doc.symbols.get(&type_name)
+                                .or_else(|| store.stdlib_symbols.get(&type_name))
+                                .or_else(|| store.workspace_symbols.get(&type_name)) {
+
+                                let uri = type_symbol.definition_uri.as_ref()
+                                    .unwrap_or(&params.text_document_position_params.text_document.uri);
+
+                                let location = Location {
+                                    uri: uri.clone(),
+                                    range: type_symbol.range.clone(),
+                                };
+
+                                return Response {
+                                    id: req.id,
+                                    result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                                    error: None,
+                                };
+                            }
+                        }
+                    }
+                }
+
+                // If the symbol itself is a type, just use handle_definition logic
+                if let Some(symbol_info) = doc.symbols.get(&symbol_name)
+                    .or_else(|| store.stdlib_symbols.get(&symbol_name))
+                    .or_else(|| store.workspace_symbols.get(&symbol_name)) {
+
+                    let uri = symbol_info.definition_uri.as_ref()
+                        .unwrap_or(&params.text_document_position_params.text_document.uri);
+
+                    let location = Location {
+                        uri: uri.clone(),
+                        range: symbol_info.range.clone(),
+                    };
+
+                    return Response {
+                        id: req.id,
+                        result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                        error: None,
+                    };
+                }
+            }
+        }
+
+        Response {
+            id: req.id,
+            result: Some(Value::Null),
+            error: None,
+        }
+    }
+
+    fn extract_type_name(&self, detail: &str) -> Option<String> {
+        // Extract type from patterns like "name: Type" or "val: Result<f64, E>"
+        if let Some(colon_pos) = detail.find(':') {
+            let type_part = detail[colon_pos + 1..].trim();
+            // Extract the base type name (before any generic parameters)
+            let type_name = if let Some(generic_start) = type_part.find('<') {
+                &type_part[..generic_start]
+            } else if let Some(space_pos) = type_part.find(' ') {
+                &type_part[..space_pos]
+            } else {
+                type_part
+            };
+            return Some(type_name.trim().to_string());
+        }
+        None
+    }
+
+    fn handle_document_highlight(&self, req: Request) -> Response {
+        let params: DocumentHighlightParams = match serde_json::from_value(req.params) {
+            Ok(p) => p,
+            Err(_) => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: None,
+                };
+            }
+        };
+
+        let store = self.store.lock().unwrap();
+        if let Some(doc) = store.documents.get(&params.text_document_position_params.text_document.uri) {
+            let position = params.text_document_position_params.position;
+
+            if let Some(symbol_name) = self.find_symbol_at_position(&doc.content, position) {
+                // Find all occurrences of this symbol in the current document
+                let highlights = self.find_symbol_occurrences(&doc.content, &symbol_name);
+
+                return Response {
+                    id: req.id,
+                    result: Some(serde_json::to_value(highlights).unwrap_or(Value::Null)),
+                    error: None,
+                };
+            }
+        }
+
+        Response {
+            id: req.id,
+            result: Some(Value::Null),
+            error: None,
+        }
+    }
+
+    fn find_symbol_occurrences(&self, content: &str, symbol_name: &str) -> Vec<DocumentHighlight> {
+        let mut highlights = Vec::new();
+        let lines: Vec<&str> = content.lines().collect();
+
+        for (line_idx, line) in lines.iter().enumerate() {
+            let mut start_pos = 0;
+            while let Some(pos) = line[start_pos..].find(symbol_name) {
+                let actual_pos = start_pos + pos;
+
+                // Check if this is a whole word match (not part of another identifier)
+                let is_word_start = actual_pos == 0 || !line.chars().nth(actual_pos - 1).unwrap_or(' ').is_alphanumeric();
+                let end_pos = actual_pos + symbol_name.len();
+                let is_word_end = end_pos >= line.len() || !line.chars().nth(end_pos).unwrap_or(' ').is_alphanumeric();
+
+                if is_word_start && is_word_end {
+                    highlights.push(DocumentHighlight {
+                        range: Range {
+                            start: Position {
+                                line: line_idx as u32,
+                                character: actual_pos as u32,
+                            },
+                            end: Position {
+                                line: line_idx as u32,
+                                character: end_pos as u32,
+                            },
+                        },
+                        kind: Some(DocumentHighlightKind::TEXT),
+                    });
+                }
+
+                start_pos = actual_pos + 1;
+            }
+        }
+
+        highlights
     }
 
     fn find_symbol_at_position(&self, content: &str, position: Position) -> Option<String> {
