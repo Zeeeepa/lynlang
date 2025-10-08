@@ -60,18 +60,15 @@ def test_signature_and_inlay():
     return a + b
 }
 
-divide = (a: f64, b: f64) Result<f64, StaticString> {
-    if b == 0.0 {
-        return Result.Err("Division by zero")
-    }
-    return Result.Ok(a / b)
+multiply = (a: f64, b: f64) f64 {
+    return a * b
 }
 
 main = () void {
     x = 42
     y = 3.14
     sum = add(10, 20)
-    quotient = divide(100.0, 5.0)
+    product = multiply(100.0, 5.0)
 }
 """
 
@@ -124,7 +121,7 @@ main = () void {
         print("\n📝 Test 1: Signature Help for 'add(10, 20)'")
         req_id = send_request(lsp, msg_id_counter, "textDocument/signatureHelp", {
             "textDocument": {"uri": test_uri},
-            "position": {"line": 14, "character": 15}  # Inside add(10, 20)
+            "position": {"line": 11, "character": 15}  # Inside add(10, 20)
         })
 
         sig_help = None
@@ -145,11 +142,11 @@ main = () void {
             lsp.terminate()
             return 1
 
-        # Test 2: Signature Help for "divide" function
-        print("\n📝 Test 2: Signature Help for 'divide(100.0, 5.0)'")
+        # Test 2: Signature Help for "multiply" function
+        print("\n📝 Test 2: Signature Help for 'multiply(100.0, 5.0)'")
         req_id = send_request(lsp, msg_id_counter, "textDocument/signatureHelp", {
             "textDocument": {"uri": test_uri},
-            "position": {"line": 15, "character": 28}  # Inside divide(100.0, 5.0)
+            "position": {"line": 12, "character": 28}  # Inside multiply(100.0, 5.0)
         })
 
         sig_help = None
