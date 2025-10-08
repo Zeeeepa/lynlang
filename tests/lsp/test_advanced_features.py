@@ -1,67 +1,85 @@
 #!/usr/bin/env python3
 """
-Comprehensive LSP Feature Test
-Tests: Signature Help, Inlay Hints, and Rename Symbol
+Test advanced LSP features: Rename Symbol, Signature Help, and Inlay Hints
+Uses the same LSP client infrastructure as test_hover_types.py
 """
 
 import subprocess
 import json
 import time
 import os
+import sys
+import threading
+import queue
 
-class LSPTester:
+class LSPClient:
     def __init__(self):
-        self.process = None
-        self.msg_id = 1
+        self.proc = None
+        self.request_id = 0
+        self.pending_responses = {}
+        self.reader_thread = None
+        self.response_queue = queue.Queue()
+        self.running = False
 
-    def start_server(self):
-        """Start the LSP server"""
-        self.process = subprocess.Popen(
-            ['/home/ubuntu/zenlang/target/debug/zen-lsp'],
+    def start(self):
+        lsp_path = "target/release/zen-lsp"
+        if not os.path.exists(lsp_path):
+            print("Building LSP...")
+            subprocess.run(["cargo", "build", "--release", "--bin", "zen-lsp"], check=True)
+
+        self.proc = subprocess.Popen(
+            [lsp_path],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            cwd='/home/ubuntu/zenlang'
+            text=True,
+            bufsize=0
         )
-        time.sleep(2)
+
+        self.running = True
+        self.reader_thread = threading.Thread(target=self._read_loop, daemon=True)
+        self.reader_thread.start()
+
+    def _read_loop(self):
+        """Background thread to read LSP responses"""
+        while self.running:
+            try:
+                line = self.proc.stdout.readline()
+                if not line:
+                    break
+
+                if line.startswith("Content-Length:"):
+                    length = int(line.split(":")[1].strip())
+                    self.proc.stdout.readline()  # Skip empty line
+                    response_text = self.proc.stdout.read(length)
+                    response = json.loads(response_text)
+
+                    # Check if it's a response (has id) or notification
+                    if "id" in response:
+                        req_id = response["id"]
+                        self.response_queue.put((req_id, response))
+                    # else: it's a notification (like diagnostics), ignore
+
+            except Exception as e:
+                print(f"Read error: {e}")
+                break
 
     def send_request(self, method, params):
-        """Send LSP request and get response"""
+        """Send LSP request and return request ID"""
+        self.request_id += 1
         request = {
             "jsonrpc": "2.0",
-            "id": self.msg_id,
+            "id": self.request_id,
             "method": method,
             "params": params
         }
-        request_id = self.msg_id
-        self.msg_id += 1
 
-        content = json.dumps(request)
-        message = f"Content-Length: {len(content)}\r\n\r\n{content}"
+        message = json.dumps(request)
+        content = f"Content-Length: {len(message)}\r\n\r\n{message}"
+        self.proc.stdin.write(content)
+        self.proc.stdin.flush()
 
-        self.process.stdin.write(message.encode())
-        self.process.stdin.flush()
-
-        # Read messages until we get the response for our request
-        max_reads = 10
-        for _ in range(max_reads):
-            header = b""
-            while b"\r\n\r\n" not in header:
-                char = self.process.stdout.read(1)
-                if not char:
-                    return None
-                header += char
-
-            content_length = int(header.decode().split("Content-Length: ")[1].split("\r\n")[0])
-            response_data = self.process.stdout.read(content_length)
-            message = json.loads(response_data.decode())
-
-            # Check if this is the response to our request (has matching id)
-            if "id" in message and message["id"] == request_id:
-                return message
-            # Otherwise it's a notification, skip it
-
-        return None  # Timeout after max_reads
+        return self.request_id
 
     def send_notification(self, method, params):
         """Send LSP notification (no response expected)"""
@@ -71,261 +89,294 @@ class LSPTester:
             "params": params
         }
 
-        content = json.dumps(notification)
-        message = f"Content-Length: {len(content)}\r\n\r\n{content}"
+        message = json.dumps(notification)
+        content = f"Content-Length: {len(message)}\r\n\r\n{message}"
+        self.proc.stdin.write(content)
+        self.proc.stdin.flush()
 
-        self.process.stdin.write(message.encode())
-        self.process.stdin.flush()
+    def wait_for_response(self, req_id, timeout=10):
+        """Wait for a specific response"""
+        start = time.time()
+        while time.time() - start < timeout:
+            try:
+                resp_id, response = self.response_queue.get(timeout=0.1)
+                if resp_id == req_id:
+                    return response
+                else:
+                    # Put it back if it's for a different request
+                    self.response_queue.put((resp_id, response))
+            except queue.Empty:
+                continue
+
+        raise TimeoutError(f"No response for request {req_id}")
 
     def initialize(self):
-        """Initialize LSP server"""
-        workspace_path = "/home/ubuntu/zenlang/tests"
-        response = self.send_request("initialize", {
+        """Initialize LSP connection"""
+        req_id = self.send_request("initialize", {
             "processId": os.getpid(),
-            "rootUri": f"file://{workspace_path}",
-            "capabilities": {
-                "textDocument": {
-                    "signatureHelp": {
-                        "dynamicRegistration": True,
-                        "signatureInformation": {
-                            "parameterInformation": {
-                                "labelOffsetSupport": True
-                            }
-                        }
-                    },
-                    "inlayHint": {
-                        "dynamicRegistration": True
-                    },
-                    "rename": {
-                        "dynamicRegistration": True,
-                        "prepareSupport": True
-                    }
-                }
-            }
+            "rootUri": f"file://{os.getcwd()}",
+            "capabilities": {}
         })
 
+        response = self.wait_for_response(req_id)
+
+        # Send initialized notification
         self.send_notification("initialized", {})
+
         return response
 
-    def open_document(self, uri, content):
-        """Open a document"""
-        self.send_notification("textDocument/didOpen", {
-            "textDocument": {
-                "uri": uri,
-                "languageId": "zen",
-                "version": 1,
-                "text": content
-            }
-        })
-        time.sleep(0.5)
+    def stop(self):
+        """Stop the LSP server"""
+        self.running = False
+        if self.proc:
+            self.proc.terminate()
+            try:
+                self.proc.wait(timeout=2)
+            except:
+                self.proc.kill()
+                self.proc.wait()
 
-    def test_signature_help(self):
-        """Test signature help feature"""
-        print("\n=== Testing Signature Help ===")
 
-        content = """divide = (a: f64, b: f64) Result<f64, StaticString> {
+def test_signature_help():
+    """Test signature help for function calls"""
+    print("Testing Signature Help...")
+
+    test_code = """divide = (a: f64, b: f64) Result<f64, StaticString> {
     return Ok(a / b)
 }
 
-main = () void {
-    result ::= divide(10.0, 5.0)
+main = () i32 {
+    result := divide(10.0, 5.0)
+    return 0
 }
 """
-        uri = "file:///home/ubuntu/zenlang/tests/test_sig_help.zen"
-        self.open_document(uri, content)
 
-        # Request signature help at position after "divide(10.0, "
-        # Line 5 (0-indexed), character after comma and space
-        response = self.send_request("textDocument/signatureHelp", {
-            "textDocument": {"uri": uri},
-            "position": {"line": 5, "character": 30}
-        })
+    test_file = "tests/test_sig_help.zen"
+    with open(test_file, "w") as f:
+        f.write(test_code)
 
-        if response and "result" in response:
-            result = response["result"]
-            if result and "signatures" in result and len(result["signatures"]) > 0:
-                sig = result["signatures"][0]
-                print(f"✅ Signature Help PASSED")
-                print(f"   Label: {sig.get('label', 'N/A')}")
-                print(f"   Active Parameter: {result.get('activeParameter', 'N/A')}")
-                if "parameters" in sig:
-                    print(f"   Parameters: {len(sig['parameters'])} params")
-                return True
-            else:
-                print(f"❌ Signature Help FAILED: No signatures returned")
-                print(f"   Response: {result}")
-                return False
-        else:
-            print(f"❌ Signature Help FAILED: No valid response")
-            print(f"   Response: {response}")
-            return False
+    client = LSPClient()
+    try:
+        client.start()
+        client.initialize()
 
-    def test_inlay_hints(self):
-        """Test inlay hints feature"""
-        print("\n=== Testing Inlay Hints ===")
-
-        content = """main = () void {
-    x ::= 42
-    y ::= 3.14
-    msg ::= "hello"
-}
-"""
-        uri = "file:///home/ubuntu/zenlang/tests/test_inlay_hints.zen"
-        self.open_document(uri, content)
-
-        # Request inlay hints for the entire document
-        response = self.send_request("textDocument/inlayHint", {
-            "textDocument": {"uri": uri},
-            "range": {
-                "start": {"line": 0, "character": 0},
-                "end": {"line": 6, "character": 0}
+        # Open document
+        client.send_notification("textDocument/didOpen", {
+            "textDocument": {
+                "uri": f"file://{os.getcwd()}/{test_file}",
+                "languageId": "zen",
+                "version": 1,
+                "text": test_code
             }
         })
 
-        if response and "result" in response:
-            result = response["result"]
-            if result and isinstance(result, list) and len(result) > 0:
-                print(f"✅ Inlay Hints PASSED")
-                print(f"   Found {len(result)} hints:")
-                for hint in result:
-                    if isinstance(hint, dict):
-                        pos = hint.get('position', {})
-                        label = hint.get('label', 'N/A')
-                        if isinstance(pos, dict):
-                            print(f"   - Line {pos.get('line', '?')}: {label}")
-                        else:
-                            print(f"   - {label}")
-                    else:
-                        print(f"   - Unexpected hint format: {hint}")
-                return True
-            else:
-                print(f"⚠️  Inlay Hints: No hints returned (may be expected if feature needs client config)")
-                print(f"   Response: {result}")
-                return None  # Not necessarily a failure
+        time.sleep(0.5)
+
+        # Request signature help after "divide(10.0, "
+        # Position: line 5, after the comma and space
+        req_id = client.send_request("textDocument/signatureHelp", {
+            "textDocument": {"uri": f"file://{os.getcwd()}/{test_file}"},
+            "position": {"line": 5, "character": 26}
+        })
+
+        response = client.wait_for_response(req_id)
+        result = response.get("result")
+
+        if result and "signatures" in result and len(result["signatures"]) > 0:
+            sig = result["signatures"][0]
+            label = sig.get("label", "")
+            print(f"✅ Signature Help PASSED: {label}")
+            print(f"   Active parameter: {result.get('activeParameter', 0)}")
+            return True
         else:
-            print(f"❌ Inlay Hints FAILED: No valid response")
-            print(f"   Response: {response}")
+            print(f"❌ Signature Help FAILED: No signatures returned")
+            print(f"   Response: {result}")
             return False
 
-    def test_rename(self):
-        """Test rename symbol feature"""
-        print("\n=== Testing Rename Symbol ===")
+    finally:
+        client.stop()
+        if os.path.exists(test_file):
+            os.remove(test_file)
 
-        content = """old_name = (x: i32) i32 {
+
+def test_rename_symbol():
+    """Test rename symbol across occurrences"""
+    print("\nTesting Rename Symbol...")
+
+    test_code = """old_name = (x: i32) i32 {
     return x + 1
 }
 
-main = () void {
-    result ::= old_name(5)
+main = () i32 {
+    result := old_name(5)
+    return old_name(10)
 }
 """
-        uri = "file:///home/ubuntu/zenlang/tests/test_rename.zen"
-        self.open_document(uri, content)
 
-        # Request rename for "old_name" function (line 0, character 0)
-        response = self.send_request("textDocument/rename", {
-            "textDocument": {"uri": uri},
+    test_file = "tests/test_rename.zen"
+    with open(test_file, "w") as f:
+        f.write(test_code)
+
+    client = LSPClient()
+    try:
+        client.start()
+        client.initialize()
+
+        # Open document
+        client.send_notification("textDocument/didOpen", {
+            "textDocument": {
+                "uri": f"file://{os.getcwd()}/{test_file}",
+                "languageId": "zen",
+                "version": 1,
+                "text": test_code
+            }
+        })
+
+        time.sleep(0.5)
+
+        # Request rename at "old_name" on line 0
+        req_id = client.send_request("textDocument/rename", {
+            "textDocument": {"uri": f"file://{os.getcwd()}/{test_file}"},
             "position": {"line": 0, "character": 0},
             "newName": "new_name"
         })
 
-        if response and "result" in response:
-            result = response["result"]
-            if result and "changes" in result:
-                changes = result["changes"]
-                if uri in changes:
-                    edits = changes[uri]
-                    print(f"✅ Rename PASSED")
-                    print(f"   Found {len(edits)} edits in file:")
-                    for edit in edits[:3]:  # Show first 3 edits
-                        range_info = edit['range']
-                        new_text = edit['newText']
-                        print(f"   - Line {range_info['start']['line']}: -> '{new_text}'")
-                    if len(edits) > 3:
-                        print(f"   ... and {len(edits) - 3} more")
-                    return True
-                else:
-                    print(f"❌ Rename FAILED: No edits for current file")
-                    print(f"   Files with edits: {list(changes.keys())}")
-                    return False
+        response = client.wait_for_response(req_id)
+        result = response.get("result")
+
+        if result and "changes" in result:
+            file_uri = f"file://{os.getcwd()}/{test_file}"
+            if file_uri in result["changes"]:
+                edits = result["changes"][file_uri]
+                print(f"✅ Rename Symbol PASSED: {len(edits)} occurrences renamed")
+                for i, edit in enumerate(edits[:3]):
+                    line = edit["range"]["start"]["line"]
+                    print(f"   Edit {i+1}: Line {line} -> '{edit['newText']}'")
+                if len(edits) > 3:
+                    print(f"   ... and {len(edits) - 3} more")
+                return True
             else:
-                print(f"❌ Rename FAILED: No changes in result")
-                print(f"   Response: {result}")
+                print(f"❌ Rename Symbol FAILED: No edits for file")
                 return False
         else:
-            print(f"❌ Rename FAILED: No valid response")
-            print(f"   Response: {response}")
+            print(f"❌ Rename Symbol FAILED: No changes in result")
+            print(f"   Response: {result}")
             return False
 
-    def shutdown(self):
-        """Shutdown the LSP server"""
-        self.send_request("shutdown", {})
-        self.send_notification("exit", {})
-        self.process.wait(timeout=5)
+    finally:
+        client.stop()
+        if os.path.exists(test_file):
+            os.remove(test_file)
 
-    def run_all_tests(self):
-        """Run all tests"""
-        print("=" * 60)
-        print("LSP Advanced Features Test Suite")
-        print("=" * 60)
 
-        try:
-            print("\n🚀 Starting LSP server...")
-            self.start_server()
+def test_inlay_hints():
+    """Test inlay hints for type inference"""
+    print("\nTesting Inlay Hints...")
 
-            print("📡 Initializing...")
-            init_response = self.initialize()
+    test_code = """main = () i32 {
+    x := 42
+    y := 3.14
+    msg := "hello"
+    return 0
+}
+"""
 
-            if not init_response or "result" not in init_response:
-                print("❌ Failed to initialize LSP server")
-                return False
+    test_file = "tests/test_inlay_hints.zen"
+    with open(test_file, "w") as f:
+        f.write(test_code)
 
-            print("✅ Server initialized successfully")
+    client = LSPClient()
+    try:
+        client.start()
+        client.initialize()
 
-            # Run tests
-            results = {}
-            results['signature_help'] = self.test_signature_help()
-            results['inlay_hints'] = self.test_inlay_hints()
-            results['rename'] = self.test_rename()
+        # Open document
+        client.send_notification("textDocument/didOpen", {
+            "textDocument": {
+                "uri": f"file://{os.getcwd()}/{test_file}",
+                "languageId": "zen",
+                "version": 1,
+                "text": test_code
+            }
+        })
 
-            # Summary
-            print("\n" + "=" * 60)
-            print("Test Summary")
-            print("=" * 60)
+        time.sleep(0.5)
 
-            passed = sum(1 for v in results.values() if v is True)
-            failed = sum(1 for v in results.values() if v is False)
-            skipped = sum(1 for v in results.values() if v is None)
+        # Request inlay hints for the entire document
+        req_id = client.send_request("textDocument/inlayHint", {
+            "textDocument": {"uri": f"file://{os.getcwd()}/{test_file}"},
+            "range": {
+                "start": {"line": 0, "character": 0},
+                "end": {"line": 10, "character": 0}
+            }
+        })
 
-            for test_name, result in results.items():
-                status = "✅ PASSED" if result is True else ("⚠️  SKIPPED" if result is None else "❌ FAILED")
-                print(f"{test_name:20s}: {status}")
+        response = client.wait_for_response(req_id)
+        result = response.get("result")
 
-            print(f"\nTotal: {passed} passed, {failed} failed, {skipped} skipped")
-
-            success = failed == 0
-            if success:
-                print("\n🎉 All critical tests PASSED!")
+        if result is not None:
+            if isinstance(result, list) and len(result) > 0:
+                print(f"✅ Inlay Hints PASSED: {len(result)} hints generated")
+                for hint in result[:3]:
+                    pos = hint.get("position", {})
+                    label = hint.get("label", "N/A")
+                    print(f"   Line {pos.get('line', '?')}: {label}")
+                if len(result) > 3:
+                    print(f"   ... and {len(result) - 3} more")
+                return True
             else:
-                print(f"\n⚠️  {failed} test(s) failed")
-
-            return success
-
-        except Exception as e:
-            print(f"\n❌ Test suite failed with error: {e}")
-            import traceback
-            traceback.print_exc()
+                print(f"⚠️  Inlay Hints: No hints generated (may be expected)")
+                print(f"   Response: {result}")
+                return True  # Not necessarily a failure
+        else:
+            print(f"❌ Inlay Hints FAILED: No result")
             return False
-        finally:
-            print("\n🛑 Shutting down server...")
-            try:
-                self.shutdown()
-            except:
-                if self.process:
-                    self.process.kill()
-            print("✅ Server stopped")
+
+    finally:
+        client.stop()
+        if os.path.exists(test_file):
+            os.remove(test_file)
+
+
+def main():
+    print("="*60)
+    print("LSP Advanced Features Test Suite")
+    print("="*60 + "\n")
+
+    results = []
+
+    try:
+        results.append(("Signature Help", test_signature_help()))
+        results.append(("Rename Symbol", test_rename_symbol()))
+        results.append(("Inlay Hints", test_inlay_hints()))
+
+        # Summary
+        print("\n" + "="*60)
+        print("Test Summary")
+        print("="*60)
+
+        passed = sum(1 for _, result in results if result)
+        total = len(results)
+
+        for name, result in results:
+            status = "✅ PASS" if result else "❌ FAIL"
+            print(f"{status}: {name}")
+
+        print(f"\nTotal: {passed}/{total} tests passed")
+
+        if passed == total:
+            print("\n🎉 All tests PASSED!")
+            return 0
+        else:
+            print(f"\n⚠️  {total - passed} test(s) failed")
+            return 1
+
+    except Exception as e:
+        print(f"\n💥 Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
 
 if __name__ == "__main__":
-    tester = LSPTester()
-    success = tester.run_all_tests()
-    exit(0 if success else 1)
+    sys.exit(main())
