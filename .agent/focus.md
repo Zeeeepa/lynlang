@@ -32,7 +32,42 @@
 2. ✗ `test_hashset_comprehensive.zen` - Segfault (exit code -6)
 3. ✗ `zen_test_hashmap.zen` - Segfault (exit code -8)
 
-**Root Cause**: HashMap/HashSet memory management issues
+**Root Cause Analysis** (Session 44 - 2025-10-08):
+
+**FOUND THE BUG!** HashMap.remove() stub implementation in compiler UFC code (`src/codegen/llvm/expressions.rs:3939`):
+- **Line 3939**: `let test_value = self.context.i32_type().const_int(30, false);`
+- The UFC special case for HashMap.remove() has a **hardcoded stub** that always returns `Some(30)`
+- It only decrements the size counter without actually removing the key from the bucket chain
+- It doesn't check if the key exists, so removes "succeed" even for non-existent keys
+
+**Test Evidence**:
+```bash
+$ ./zen tests/test_hashmap_remove.zen
+Size before remove: 3
+Removed key 10 with value: 30   # WRONG! Should be 200
+Size after remove: 2
+ERROR: Key 10 still exists with value: 200   # Not actually removed!
+ERROR: Removed non-existent key 999 with value: 30  # Should be None!
+Final size: 1   # WRONG! Should be 2
+```
+
+**Why The Bug Exists**:
+- HashMap methods (`insert`, `get`, `contains`, `remove`) have inline LLVM implementations in the compiler
+- These implementations auto-generate `hash_i32_default()` and `eq_i32_default()` functions
+- The `remove` implementation is **incomplete** - it's a placeholder stub
+- Proper fix requires implementing full bucket chain search/removal logic in LLVM IR
+
+**Fix Attempts & Challenges**:
+1. ❌ Tried to disable special case and fall through to stdlib - but UFC fallback doesn't auto-inject hash_fn/eq_fn
+2. ❌ Tried to add UFC auto-injection logic - complex type conversion issues (BasicValueEnum → Expression)
+3. ❌ Proper inline implementation - requires complex LLVM code to search/unlink bucket chains
+
+**Conclusion**: Fixing this bug requires either:
+- **Option A**: Complete the inline LLVM implementation (complex, ~100+ lines of LLVM IR generation)
+- **Option B**: Refactor UFC system to support function pointer injection (architectural change)
+- **Option C**: Document as known limitation and deprioritize (recommended for now)
+
+**Recommendation**: **Prioritize other work**. This affects only 3 tests (99.0% pass rate). LSP is at 100%. Focus on higher-impact features.
 
 ### ✅ Type Inference Issues Investigated (2 tests - DISABLED)
 
