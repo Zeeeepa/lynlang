@@ -3816,14 +3816,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         None,
                                     ));
                                 }
-                                
+
                                 // Get the pointer to the original HashMap variable
                                 let (hashmap_ptr, _) = self.get_variable(obj_name)?;
-                                
+
                                 let key = self.compile_expression(&args[0])?;
-                                
+
                                 // Handle hash and equality functions
-                                let (hash_fn, _eq_fn) = if args.len() == 3 {
+                                let (hash_fn, eq_fn) = if args.len() == 3 {
                                     let hash = self.compile_expression(&args[1])?;
                                     let eq = self.compile_expression(&args[2])?;
                                     (hash, eq)
@@ -3843,7 +3843,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             builder.build_return(Some(&extended))?;
                                             hash_fn.as_global_value().as_pointer_value().into()
                                         };
-                                        
+
                                         let eq_fn = if let Some(func) = self.module.get_function("eq_i32_default") {
                                             func.as_global_value().as_pointer_value().into()
                                         } else {
@@ -3859,7 +3859,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             builder.build_return(Some(&result))?;
                                             eq_fn.as_global_value().as_pointer_value().into()
                                         };
-                                        
+
                                         (hash_fn, eq_fn)
                                     } else {
                                         return Err(CompileError::TypeError(
@@ -3868,16 +3868,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         ));
                                     }
                                 };
-                                
-                                // Step 1: Call hash_fn(key) to get hash value
+
+                                // Call hash_fn(key) to get hash value
                                 let hash_fn_ptr = if hash_fn.is_pointer_value() {
                                     hash_fn.into_pointer_value()
                                 } else {
                                     return Err(CompileError::TypeError("hash_fn must be a function pointer".to_string(), None));
                                 };
-                                
+
+                                let eq_fn_ptr = if eq_fn.is_pointer_value() {
+                                    eq_fn.into_pointer_value()
+                                } else {
+                                    return Err(CompileError::TypeError("eq_fn must be a function pointer".to_string(), None));
+                                };
+
                                 let hash_fn_type = self.context.i64_type().fn_type(&[key.get_type().into()], false);
-                                let _hash_value = self.builder.build_indirect_call(
+                                let hash_value = self.builder.build_indirect_call(
                                     hash_fn_type,
                                     hash_fn_ptr,
                                     &[key.into()],
@@ -3886,7 +3892,84 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 .try_as_basic_value()
                                 .left()
                                 .ok_or_else(|| CompileError::TypeError("hash function must return a value".to_string(), None))?;
-                                
+
+                                // Load capacity from HashMap
+                                let capacity_ptr = self.builder.build_struct_gep(
+                                    object_value.get_type(),
+                                    hashmap_ptr,
+                                    2, // capacity is at index 2
+                                    "capacity_ptr",
+                                )?;
+                                let capacity = self.builder.build_load(
+                                    self.context.i64_type(),
+                                    capacity_ptr,
+                                    "capacity"
+                                )?.into_int_value();
+
+                                // Calculate bucket index: hash % capacity
+                                let bucket_index = self.builder.build_int_unsigned_rem(
+                                    hash_value.into_int_value(),
+                                    capacity,
+                                    "bucket_index"
+                                )?;
+
+                                // Load buckets pointer from HashMap
+                                let buckets_ptr_ptr = self.builder.build_struct_gep(
+                                    object_value.get_type(),
+                                    hashmap_ptr,
+                                    0, // buckets_ptr is at index 0
+                                    "buckets_ptr_ptr",
+                                )?;
+                                let buckets_ptr = self.builder.build_load(
+                                    self.context.ptr_type(inkwell::AddressSpace::default()),
+                                    buckets_ptr_ptr,
+                                    "buckets_ptr"
+                                )?.into_pointer_value();
+
+                                // Each bucket has 4 fields: [key_hash, key_ptr, value_ptr, occupied]
+                                let i64_ptr_type = self.context.ptr_type(AddressSpace::default());
+                                let buckets_as_i64_ptr = self.builder.build_pointer_cast(
+                                    buckets_ptr,
+                                    i64_ptr_type,
+                                    "buckets_as_i64"
+                                )?;
+
+                                // Multiply bucket_index by 4 to get the starting position
+                                let bucket_offset = self.builder.build_int_mul(
+                                    bucket_index,
+                                    self.context.i64_type().const_int(4, false),
+                                    "bucket_offset"
+                                )?;
+
+                                // Get pointer to occupied flag (at offset 3)
+                                let occupied_offset = self.builder.build_int_add(
+                                    bucket_offset,
+                                    self.context.i64_type().const_int(3, false),
+                                    "occupied_offset"
+                                )?;
+                                let occupied_ptr = unsafe {
+                                    self.builder.build_gep(
+                                        self.context.i64_type(),
+                                        buckets_as_i64_ptr,
+                                        &[occupied_offset],
+                                        "occupied_ptr"
+                                    )?
+                                };
+
+                                // Load occupied flag
+                                let occupied = self.builder.build_load(
+                                    self.context.i64_type(),
+                                    occupied_ptr,
+                                    "occupied"
+                                )?.into_int_value();
+
+                                let is_occupied = self.builder.build_int_compare(
+                                    inkwell::IntPredicate::NE,
+                                    occupied,
+                                    self.context.i64_type().const_int(0, false),
+                                    "is_occupied"
+                                )?;
+
                                 // Get the Option enum type
                                 let option_llvm_type = if let Some(symbols::Symbol::EnumType(info)) = self.symbols.lookup("Option") {
                                     info.llvm_type
@@ -3896,8 +3979,185 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         None,
                                     ));
                                 };
-                                
-                                // Check if we have items, and if so, decrement size and return Some
+
+                                // Create basic blocks
+                                let current_fn = self.current_function.unwrap();
+                                let check_key_block = self.context.append_basic_block(current_fn, "check_key");
+                                let found_block = self.context.append_basic_block(current_fn, "remove_found");
+                                let not_found_block = self.context.append_basic_block(current_fn, "remove_not_found");
+                                let merge_block = self.context.append_basic_block(current_fn, "remove_merge");
+
+                                // If bucket is occupied, check if key matches
+                                self.builder.build_conditional_branch(is_occupied, check_key_block, not_found_block)?;
+
+                                // Check if the key in this bucket matches our search key
+                                self.builder.position_at_end(check_key_block);
+
+                                // Get pointer to stored key (at offset 1)
+                                let key_offset = self.builder.build_int_add(
+                                    bucket_offset,
+                                    self.context.i64_type().const_int(1, false),
+                                    "key_offset"
+                                )?;
+                                let stored_key_ptr_ptr = unsafe {
+                                    self.builder.build_gep(
+                                        self.context.i64_type(),
+                                        buckets_as_i64_ptr,
+                                        &[key_offset],
+                                        "stored_key_ptr_ptr"
+                                    )?
+                                };
+                                let stored_key_i64 = self.builder.build_load(
+                                    self.context.i64_type(),
+                                    stored_key_ptr_ptr,
+                                    "stored_key_i64"
+                                )?.into_int_value();
+
+                                // Determine key type and handle accordingly
+                                let (stored_key_for_eq, key_for_eq, eq_fn_type): (BasicValueEnum, BasicValueEnum, _) = if let Some(var_info) = self.variables.get(obj_name) {
+                                    if let AstType::Generic { type_args, .. } = &var_info.ast_type {
+                                        if type_args.len() >= 1 {
+                                            match &type_args[0] {
+                                                AstType::String | AstType::StaticString | AstType::StaticLiteral => {
+                                                    // String key: convert i64 to pointer
+                                                    let stored_key_ptr = self.builder.build_int_to_ptr(
+                                                        stored_key_i64,
+                                                        self.context.ptr_type(AddressSpace::default()),
+                                                        "stored_key_ptr"
+                                                    )?;
+                                                    let fn_type = self.context.i64_type().fn_type(
+                                                        &[
+                                                            self.context.ptr_type(AddressSpace::default()).into(),
+                                                            self.context.ptr_type(AddressSpace::default()).into(),
+                                                        ],
+                                                        false
+                                                    );
+                                                    (stored_key_ptr.into(), key, fn_type)
+                                                }
+                                                AstType::I32 => {
+                                                    // i32 key: truncate i64 to i32
+                                                    let stored_key_i32 = self.builder.build_int_truncate(
+                                                        stored_key_i64,
+                                                        self.context.i32_type(),
+                                                        "stored_key_i32"
+                                                    )?;
+                                                    let fn_type = self.context.i64_type().fn_type(
+                                                        &[
+                                                            self.context.i32_type().into(),
+                                                            self.context.i32_type().into(),
+                                                        ],
+                                                        false
+                                                    );
+                                                    (stored_key_i32.into(), key, fn_type)
+                                                }
+                                                _ => {
+                                                    // Default: use i64
+                                                    let fn_type = self.context.i64_type().fn_type(
+                                                        &[
+                                                            self.context.i64_type().into(),
+                                                            self.context.i64_type().into(),
+                                                        ],
+                                                        false
+                                                    );
+                                                    (stored_key_i64.into(), key, fn_type)
+                                                }
+                                            }
+                                        } else {
+                                            let fn_type = self.context.i64_type().fn_type(
+                                                &[
+                                                    self.context.i64_type().into(),
+                                                    self.context.i64_type().into(),
+                                                ],
+                                                false
+                                            );
+                                            (stored_key_i64.into(), key, fn_type)
+                                        }
+                                    } else {
+                                        let fn_type = self.context.i64_type().fn_type(
+                                            &[
+                                                self.context.i64_type().into(),
+                                                self.context.i64_type().into(),
+                                            ],
+                                            false
+                                        );
+                                        (stored_key_i64.into(), key, fn_type)
+                                    }
+                                } else {
+                                    let fn_type = self.context.i64_type().fn_type(
+                                        &[
+                                            self.context.i64_type().into(),
+                                            self.context.i64_type().into(),
+                                        ],
+                                        false
+                                    );
+                                    (stored_key_i64.into(), key, fn_type)
+                                };
+
+                                // Call eq_fn to check if keys match
+                                let keys_match = self.builder.build_indirect_call(
+                                    eq_fn_type,
+                                    eq_fn_ptr,
+                                    &[stored_key_for_eq.into(), key_for_eq.into()],
+                                    "keys_match"
+                                )?
+                                .try_as_basic_value()
+                                .left()
+                                .ok_or_else(|| CompileError::TypeError("eq function must return a value".to_string(), None))?
+                                .into_int_value();
+
+                                let keys_equal = self.builder.build_int_compare(
+                                    inkwell::IntPredicate::NE,
+                                    keys_match,
+                                    self.context.i64_type().const_int(0, false),
+                                    "keys_equal"
+                                )?;
+
+                                // If keys match, remove the entry
+                                self.builder.build_conditional_branch(keys_equal, found_block, not_found_block)?;
+
+                                // Found block: get value, mark as empty, decrement size, return Some(value)
+                                self.builder.position_at_end(found_block);
+
+                                // Get the stored value (at offset 2)
+                                let value_offset = self.builder.build_int_add(
+                                    bucket_offset,
+                                    self.context.i64_type().const_int(2, false),
+                                    "value_offset"
+                                )?;
+                                let stored_value_ptr_ptr = unsafe {
+                                    self.builder.build_gep(
+                                        self.context.i64_type(),
+                                        buckets_as_i64_ptr,
+                                        &[value_offset],
+                                        "stored_value_ptr_ptr"
+                                    )?
+                                };
+                                let stored_value_i64 = self.builder.build_load(
+                                    self.context.i64_type(),
+                                    stored_value_ptr_ptr,
+                                    "stored_value_i64"
+                                )?.into_int_value();
+
+                                // For i32 values, the i64 is actually a pointer to the heap-allocated value
+                                // Convert the i64 to a pointer, then load the actual i32 value
+                                let value_ptr = self.builder.build_int_to_ptr(
+                                    stored_value_i64,
+                                    self.context.ptr_type(AddressSpace::default()),
+                                    "value_ptr"
+                                )?;
+                                let stored_value = self.builder.build_load(
+                                    self.context.i32_type(),
+                                    value_ptr,
+                                    "stored_value"
+                                )?;
+
+                                // Mark bucket as empty
+                                self.builder.build_store(
+                                    occupied_ptr,
+                                    self.context.i64_type().const_int(0, false)
+                                )?;
+
+                                // Decrement size
                                 let size_ptr = self.builder.build_struct_gep(
                                     object_value.get_type(),
                                     hashmap_ptr,
@@ -3909,56 +4169,30 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     size_ptr,
                                     "current_size"
                                 )?.into_int_value();
-                                
-                                let has_items = self.builder.build_int_compare(
-                                    inkwell::IntPredicate::SGT,
-                                    current_size,
-                                    self.context.i64_type().const_int(0, false),
-                                    "has_items"
-                                )?;
-                                
-                                // Create basic blocks
-                                let current_fn = self.current_function.unwrap();
-                                let then_block = self.context.append_basic_block(current_fn, "remove_found");
-                                let else_block = self.context.append_basic_block(current_fn, "remove_not_found");
-                                let merge_block = self.context.append_basic_block(current_fn, "remove_merge");
-                                
-                                self.builder.build_conditional_branch(has_items, then_block, else_block)?;
-                                
-                                // Found: decrement size and return Some(test_value)
-                                self.builder.position_at_end(then_block);
                                 let new_size = self.builder.build_int_sub(
                                     current_size,
                                     self.context.i64_type().const_int(1, false),
                                     "new_size"
                                 )?;
                                 self.builder.build_store(size_ptr, new_size)?;
-                                
-                                // Return Some with proper heap-allocated payload
-                                // For now, use a test value, but this should be the actual removed value
-                                let test_value = self.context.i32_type().const_int(30, false);
-                                
-                                // Allocate memory for the payload
+
+                                // Create Some(stored_value)
                                 let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
                                     let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                                     let i64_type = self.context.i64_type();
                                     let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
                                     self.module.add_function("malloc", fn_type, Some(inkwell::module::Linkage::External))
                                 });
-                                
-                                // Allocate 8 bytes for i32 (with padding)
+
                                 let alloc_size = self.context.i64_type().const_int(8, false);
                                 let heap_ptr = self.builder.build_call(
                                     malloc_fn,
                                     &[alloc_size.into()],
                                     "payload_heap",
                                 )?.try_as_basic_value().left().unwrap().into_pointer_value();
-                                
-                                // Store the value on heap
-                                self.builder.build_store(heap_ptr, test_value)?;
-                                
-                                let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
-                                // Create struct value (not const)
+
+                                self.builder.build_store(heap_ptr, stored_value)?;
+
                                 let some_alloca = self.builder.build_alloca(option_llvm_type, "some_option")?;
                                 let disc_ptr = self.builder.build_struct_gep(
                                     option_llvm_type,
@@ -3966,7 +4200,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     0,
                                     "disc_ptr"
                                 )?;
-                                self.builder.build_store(disc_ptr, some_discriminant)?;
+                                self.builder.build_store(disc_ptr, self.context.i64_type().const_int(0, false))?; // Some = 0
                                 let payload_ptr = self.builder.build_struct_gep(
                                     option_llvm_type,
                                     some_alloca,
@@ -3976,12 +4210,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 self.builder.build_store(payload_ptr, heap_ptr)?;
                                 let some_value = self.builder.build_load(option_llvm_type, some_alloca, "some_value")?;
                                 self.builder.build_unconditional_branch(merge_block)?;
-                                
-                                // Not found: return None
-                                self.builder.position_at_end(else_block);
-                                let none_discriminant = self.context.i64_type().const_int(1, false); // None = 1
-                                let null_payload = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
-                                // Create struct value (not const)
+
+                                // Not found block: return None
+                                self.builder.position_at_end(not_found_block);
                                 let none_alloca = self.builder.build_alloca(option_llvm_type, "none_option")?;
                                 let disc_ptr = self.builder.build_struct_gep(
                                     option_llvm_type,
@@ -3989,22 +4220,23 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     0,
                                     "disc_ptr"
                                 )?;
-                                self.builder.build_store(disc_ptr, none_discriminant)?;
+                                self.builder.build_store(disc_ptr, self.context.i64_type().const_int(1, false))?; // None = 1
                                 let payload_ptr = self.builder.build_struct_gep(
                                     option_llvm_type,
                                     none_alloca,
                                     1,
                                     "payload_ptr"
                                 )?;
+                                let null_payload = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
                                 self.builder.build_store(payload_ptr, null_payload)?;
                                 let none_value = self.builder.build_load(option_llvm_type, none_alloca, "none_value")?;
                                 self.builder.build_unconditional_branch(merge_block)?;
-                                
-                                // Merge
+
+                                // Merge block
                                 self.builder.position_at_end(merge_block);
                                 let phi = self.builder.build_phi(option_llvm_type, "remove_result")?;
-                                phi.add_incoming(&[(&some_value, then_block), (&none_value, else_block)]);
-                                
+                                phi.add_incoming(&[(&some_value, found_block), (&none_value, not_found_block)]);
+
                                 return Ok(phi.as_basic_value());
                             }
                             "size" | "len" => {
@@ -4795,10 +5027,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // This works because HashMap methods are implemented as functions that take the HashMap as first arg
                         let mut ufc_args = vec![*object.clone()];
                         ufc_args.extend(args.clone());
-                        
+
+
                         // Map method names to their internal function names
                         let internal_name = format!("HashMap_{}", method);
-                        
+
                         // For now, just use UFC which will work if methods are properly registered
                         return self.compile_function_call(method, &ufc_args);
                     }
