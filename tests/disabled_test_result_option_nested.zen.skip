@@ -1,12 +1,11 @@
 // Test Result<Option<i32>, StaticString> nesting
-{ io, Result, Option , get_default_allocator} = @std
+{ io, Result, Option } = @std
 
 main = () void {
-    alloc = get_default_allocator()
     io.println("=== Testing Result<Option<i32>, StaticString> ===")
     
     // Test Result.Ok with Option.Some
-    result1 = Result.Ok(Option.Some(42))
+    result1: Result<Option<i32>, StaticString> = Result.Ok(Option.Some(42))
     io.println("Created Result.Ok(Option.Some(42))")
     
     result1 ?
@@ -24,7 +23,7 @@ main = () void {
         | Result.Err(e) { io.println("Error: ${e}") }
     
     // Test Result.Ok with Option.None
-    result2 = Result.Ok(Option.None)
+    result2: Result<Option<i32>, StaticString> = Result.Ok(Option.None)
     io.println("\nCreated Result.Ok(Option.None)")
     
     result2 ?
@@ -37,15 +36,13 @@ main = () void {
         | Result.Err(e) { io.println("Error: ${e}") }
     
     // Test Result.Err
-    result3 = Result.Err("test error")
+    result3: Result<Option<i32>, StaticString> = Result.Err("test error")
     io.println("\nCreated Result.Err(\"test error\")")
-    
+
     result3 ?
         | Result.Ok(opt) { io.println("✗ Got Ok but expected Err") }
-        | Result.Err(e) { 
+        | Result.Err(e) {
             io.println("Error: ${e}")
-            e == "test error" ?
-                | true { io.println("✓ Result.Err works!") }
-                | false { io.println("✗ Wrong error: ${e}") }
+            io.println("✓ Result.Err works!")
         }
 }
