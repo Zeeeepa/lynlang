@@ -1,16 +1,14 @@
 // Test custom enum exhaustiveness checking
 
-Color enum {
-    Red
-    Green
+Color:
+    Red,
+    Green,
     Blue
-}
 
-Status enum {
-    Active
-    Inactive
+Status:
+    Active,
+    Inactive,
     Pending
-}
 
 test_incomplete_color = (color: Color) i32 {
     // Should warn: missing Green and Blue

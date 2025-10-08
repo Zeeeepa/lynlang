@@ -1,7 +1,7 @@
 // Consolidated struct tests
 // Combines functionality from multiple test_struct_*.zen files
 
-{ io, DynVec, get_default_allocator, Result } = @std
+{ io, DynVec, get_default_allocator, Result, Option } = @std
 
 // Test 1: Basic struct definition and instantiation
 Point : {
@@ -57,7 +57,7 @@ test_generic_struct = () void {
 }
 
 // Test 4: Struct with Option fields
-OptionalPoint = struct {
+OptionalPoint : {
     x: Option<i32>,
     y: Option<i32>
 }
@@ -65,19 +65,19 @@ OptionalPoint = struct {
 test_option_struct = () void {
     io.println("=== Test 4: Struct with Option Fields ===")
     
-    point1 = OptionalPoint { x: Some(10), y: Some(20) }
+    point1 = OptionalPoint { x: Option.Some(10), y: Option.Some(20) }
     point1.x ?
-        | Some(x_val) { io.println("Point1 x: ${x_val}") }
-        | None { io.println("Point1 x: None") }
+        | .Some(x_val) { io.println("Point1 x: ${x_val}") }
+        | .None { io.println("Point1 x: None") }
     
-    point2 = OptionalPoint { x: None, y: Some(30) }
+    point2 = OptionalPoint { x: Option.None, y: Option.Some(30) }
     point2.x ?
-        | Some(x_val) { io.println("Point2 x: ${x_val}") }
-        | None { io.println("Point2 x: None (correct)") }
+        | .Some(x_val) { io.println("Point2 x: ${x_val}") }
+        | .None { io.println("Point2 x: None (correct)") }
 }
 
 // Test 5: Struct with Result fields
-ResultPoint = struct {
+ResultPoint : {
     x: Result<i32, StaticString>,
     y: Result<i32, StaticString>
 }
@@ -97,12 +97,12 @@ test_result_struct = () void {
 }
 
 // Test 6: Nested structs
-Address = struct {
+Address : {
     street: StaticString,
     city: StaticString
 }
 
-Employee = struct {
+Employee : {
     name: StaticString,
     address: Address,
     salary: i32

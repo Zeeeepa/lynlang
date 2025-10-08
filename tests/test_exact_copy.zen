@@ -1,12 +1,12 @@
 // Test structs with methods (simplified version)
 { io , get_default_allocator} = @std
 
-Point = struct {
+Point : {
     x: f64,
     y: f64
 }
 
-Circle = struct {
+Circle : {
     center: Point,
     radius: f64
 }
