@@ -11,7 +11,7 @@ use std::time::Instant;
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::thread;
 
-use crate::ast::{Declaration, AstType, Expression, Statement, Program, Pattern, PatternArm, ConditionalArm};
+use crate::ast::{Declaration, AstType, Expression, Statement, Program, Pattern, PatternArm};
 use crate::lexer::{Lexer, Token};
 use crate::parser::Parser;
 use crate::typechecker::TypeChecker;
