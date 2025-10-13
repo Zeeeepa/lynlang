@@ -146,7 +146,7 @@ def analyze_python(file_or_dir: str) -> AnalysisResult:
                     ),
                     code=item["code"],
                     source="ruff",
-                    suggestion=item.get("fix", {}).get("message")
+                    suggestion=item.get("fix", {}).get("message") if item.get("fix") else None
                 ))
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
@@ -557,4 +557,3 @@ if __name__ == "__main__":
                 print(f"   💡 Suggestion: {diag.suggestion}")
     
     print(f"\n{'='*70}")
-

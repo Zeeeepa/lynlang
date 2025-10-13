@@ -1,0 +1,164 @@
+{
+  "test_categories": {
+    "TP": {
+      "tests": [
+        {
+          "name": "py_undefined_variable",
+          "description": "Undefined variable should be caught",
+          "expected_errors": 1,
+          "expected_warnings": 0,
+          "actual_errors": 1,
+          "actual_warnings": 0,
+          "passed": true,
+          "diagnostics_count": 1
+        },
+        {
+          "name": "py_type_error",
+          "description": "Type mismatch should be detected",
+          "expected_errors": 1,
+          "expected_warnings": 0,
+          "actual_errors": 2,
+          "actual_warnings": 0,
+          "passed": false,
+          "diagnostics_count": 2
+        },
+        {
+          "name": "py_sql_injection",
+          "description": "SQL injection vulnerability should be detected",
+          "expected_errors": 0,
+          "expected_warnings": 1,
+          "actual_errors": 0,
+          "actual_warnings": 1,
+          "passed": true,
+          "diagnostics_count": 1
+        },
+        {
+          "name": "ts_type_error",
+          "description": "Type error should be caught",
+          "expected_errors": 1,
+          "expected_warnings": 0,
+          "actual_errors": 0,
+          "actual_warnings": 0,
+          "passed": false,
+          "diagnostics_count": 0
+        },
+        {
+          "name": "ts_unused_variable",
+          "description": "Unused variable should be warned",
+          "expected_errors": 0,
+          "expected_warnings": 1,
+          "actual_errors": 0,
+          "actual_warnings": 0,
+          "passed": false,
+          "diagnostics_count": 0
+        }
+      ],
+      "passed": 2,
+      "failed": 3
+    },
+    "TN": {
+      "tests": [
+        {
+          "name": "py_valid_function",
+          "description": "Valid Python code should pass",
+          "expected_errors": 0,
+          "expected_warnings": 0,
+          "actual_errors": 0,
+          "actual_warnings": 0,
+          "passed": true,
+          "diagnostics_count": 0
+        },
+        {
+          "name": "py_valid_typed",
+          "description": "Valid typed Python should pass",
+          "expected_errors": 0,
+          "expected_warnings": 0,
+          "actual_errors": 0,
+          "actual_warnings": 0,
+          "passed": true,
+          "diagnostics_count": 0
+        },
+        {
+          "name": "ts_valid_function",
+          "description": "Valid TypeScript should pass",
+          "expected_errors": 0,
+          "expected_warnings": 0,
+          "actual_errors": 0,
+          "actual_warnings": 0,
+          "passed": true,
+          "diagnostics_count": 0
+        }
+      ],
+      "passed": 3,
+      "failed": 0
+    },
+    "FP": {
+      "tests": [
+        {
+          "name": "py_dynamic_typing",
+          "description": "Valid dynamic typing should not be flagged",
+          "expected_errors": 0,
+          "expected_warnings": 0,
+          "actual_errors": 0,
+          "actual_warnings": 0,
+          "passed": true,
+          "diagnostics_count": 0
+        },
+        {
+          "name": "py_conditional_import",
+          "description": "Conditional imports are valid",
+          "expected_errors": 0,
+          "expected_warnings": 0,
+          "actual_errors": 0,
+          "actual_warnings": 0,
+          "passed": true,
+          "diagnostics_count": 0
+        }
+      ],
+      "passed": 2,
+      "failed": 0
+    },
+    "FN": {
+      "tests": [
+        {
+          "name": "py_logic_error",
+          "description": "Logic errors are difficult to detect",
+          "expected_errors": 0,
+          "expected_warnings": 0,
+          "actual_errors": 0,
+          "actual_warnings": 0,
+          "passed": true,
+          "diagnostics_count": 0
+        },
+        {
+          "name": "py_runtime_error",
+          "description": "Runtime errors require execution to detect",
+          "expected_errors": 0,
+          "expected_warnings": 0,
+          "actual_errors": 0,
+          "actual_warnings": 0,
+          "passed": true,
+          "diagnostics_count": 0
+        },
+        {
+          "name": "ts_type_coercion",
+          "description": "Subtle type coercion issues",
+          "expected_errors": 0,
+          "expected_warnings": 0,
+          "actual_errors": 0,
+          "actual_warnings": 0,
+          "passed": true,
+          "diagnostics_count": 0
+        }
+      ],
+      "passed": 3,
+      "failed": 0
+    }
+  },
+  "summary": {
+    "total_tests": 13,
+    "passed": 10,
+    "failed": 3,
+    "pass_rate": "76%"
+  }
+}
