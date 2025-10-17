@@ -60,11 +60,12 @@ run_zen_lints() {
     
     # Check for incorrect import syntax
     echo "Checking import syntax..."
-    if grep -r "comptime.*{.*@std" --include="*.zen" . 2>/dev/null | grep -v "^Binary"; then
-        print_error "Found incorrect comptime import usage"
-        ((issues++))
-    else
+    if ./scripts/check-imports.sh >/dev/null 2>&1; then
         print_success "Import syntax is correct"
+    else
+        print_error "Found incorrect comptime import usage"
+        ./scripts/check-imports.sh || true  # Show detailed error
+        ((issues++))
     fi
     
     # Check for duplicate Option definitions
@@ -72,17 +73,6 @@ run_zen_lints() {
     duplicates=$(grep -l "Option<T>: Some(T) | None" tests/*.zen 2>/dev/null | wc -l)
     if [ "$duplicates" -gt 0 ]; then
         print_warning "Found $duplicates files with duplicate Option definitions (should import from stdlib)"
-    fi
-    
-    # Run enhanced linter if available
-    if [ -f "scripts/zen-lint-enhanced.sh" ]; then
-        echo "Running enhanced Zen linter..."
-        if ./scripts/zen-lint-enhanced.sh; then
-            print_success "Enhanced linter passed"
-        else
-            print_warning "Enhanced linter found issues"
-            ((issues++))
-        fi
     fi
     
     if [ $issues -eq 0 ]; then

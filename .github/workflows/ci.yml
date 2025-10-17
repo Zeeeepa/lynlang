@@ -35,14 +35,7 @@ jobs:
       run: cargo clippy -- -W clippy::all
     
     - name: Check Import Syntax
-      run: |
-        echo "Verifying import syntax compliance..."
-        if grep -r "comptime.*{.*@std" --include="*.zen" . 2>/dev/null | grep -v "^Binary"; then
-          echo "Error: Found incorrect comptime import usage!"
-          exit 1
-        else
-          echo "✓ Import syntax is correct"
-        fi
+      run: ./scripts/check-imports.sh
 
   # Main build job
   build:

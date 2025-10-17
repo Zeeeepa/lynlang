@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Zen Test Runner - Root Directory
-# Delegates to the proper test runner
+# Zen Test Runner Wrapper
+# Delegates to the unified Python test runner
 
 echo "=== Zen Language Test Runner ==="
 
@@ -12,6 +12,5 @@ if [ ! -f "target/release/zen" ]; then
     cargo build --release || exit 1
 fi
 
-# Use the Python test runner (moved to scripts)
-echo "Running test suite..."
-python3 scripts/run_tests.py
+# Run the unified Python test runner
+exec python3 scripts/run_tests.py "$@"
