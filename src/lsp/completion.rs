@@ -6,10 +6,8 @@ use lsp_types::*;
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::ast::AstType;
-
 // Import from other LSP modules
-use super::types::{Document, SymbolInfo, ZenCompletionContext};
+use super::types::{SymbolInfo, ZenCompletionContext};
 use super::document_store::DocumentStore;
 use super::utils::{symbol_kind_to_completion_kind, format_type};
 
