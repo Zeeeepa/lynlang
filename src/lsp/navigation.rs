@@ -4,7 +4,6 @@
 use lsp_server::{Request, Response};
 use lsp_types::*;
 use serde_json::Value;
-use std::collections::HashMap;
 
 use crate::ast::{Declaration, Statement};
 use super::types::*;
@@ -359,7 +358,7 @@ pub fn handle_document_highlight(req: Request, store: &std::sync::Arc<std::sync:
 // ============================================================================
 
 /// Find the symbol (identifier) at the given position in the document
-fn find_symbol_at_position(content: &str, position: Position) -> Option<String> {
+pub fn find_symbol_at_position(content: &str, position: Position) -> Option<String> {
     let lines: Vec<&str> = content.lines().collect();
     if position.line as usize >= lines.len() {
         return None;

@@ -6,7 +6,6 @@ use crate::ast::{*, Pattern as AstPattern};
 use crate::lexer::{Lexer, Token};
 use crate::parser::Parser;
 use crate::typechecker::TypeChecker;
-use crate::compiler::Compiler;
 use super::types::{Document, SymbolInfo, AnalysisJob};
 use super::utils::{compile_error_to_diagnostic, format_type};
 

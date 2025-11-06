@@ -9,6 +9,14 @@ pub mod symbols;
 pub mod navigation;
 pub mod completion;
 pub mod formatting;
+pub mod hover;
+pub mod semantic_tokens;
+pub mod call_hierarchy;
+pub mod rename;
+pub mod signature_help;
+pub mod inlay_hints;
+pub mod code_lens;
+pub mod code_action;
 pub mod server;
 
 pub use server::ZenLanguageServer;

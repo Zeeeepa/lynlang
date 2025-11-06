@@ -3,7 +3,6 @@
 
 use lsp_types::*;
 use std::collections::HashMap;
-use crate::ast::AstType;
 use super::types::{Document, SymbolInfo};
 use super::utils::format_type;
 
@@ -428,4 +427,199 @@ pub fn find_stdlib_location(stdlib_path: &str, method_name: &str, documents: &Ha
     // If not found in open documents, we could potentially open and parse the stdlib file
     // For now, return None to indicate it's a built-in method
     None
+}
+
+// Wrapper functions that work with DocumentStore
+use super::document_store::DocumentStore;
+
+pub fn infer_receiver_type_from_store(receiver: &str, store: &DocumentStore) -> Option<String> {
+    infer_receiver_type(receiver, &store.documents)
+}
+
+pub fn infer_chained_method_type_from_store(receiver: &str, store: &DocumentStore) -> Option<String> {
+    infer_chained_method_type(receiver, &store.documents)
+}
+
+pub fn infer_base_expression_type_from_store(expr: &str, store: &DocumentStore) -> Option<String> {
+    infer_base_expression_type(expr, &store.documents)
+}
+
+// Additional parsing and extraction functions
+use crate::ast::AstType;
+
+pub fn extract_generic_types(ast_type: &AstType) -> (Option<String>, Option<String>) {
+    match ast_type {
+        // Result<T, E>
+        AstType::Generic { name, type_args } if name == "Result" && type_args.len() == 2 => {
+            let ok_type = format_type(&type_args[0]);
+            let err_type = format_type(&type_args[1]);
+            (Some(ok_type), Some(err_type))
+        }
+        // Option<T>
+        AstType::Generic { name, type_args } if name == "Option" && type_args.len() == 1 => {
+            let inner_type = format_type(&type_args[0]);
+            (Some(inner_type), None)
+        }
+        _ => (None, None)
+    }
+}
+
+pub fn parse_function_from_source(content: &str, func_name: &str) -> (Option<String>, Option<String>) {
+    // Find the function definition line
+    // Example: "divide = (a: f64, b: f64) Result<f64, StaticString> {"
+
+    for line in content.lines() {
+        if line.contains(&format!("{} =", func_name)) || line.contains(&format!("{}=", func_name)) {
+            // Found the function definition
+            if let Some(result_pos) = line.find("Result<") {
+                // Extract Result<T, E> by finding the matching >
+                let after_result = &line[result_pos..];
+                if let Some(start) = after_result.find('<') {
+                    // Find the matching closing >
+                    let mut depth = 0;
+                    let mut end_pos = start;
+                    for (i, ch) in after_result[start..].chars().enumerate() {
+                        match ch {
+                            '<' => depth += 1,
+                            '>' => {
+                                depth -= 1;
+                                if depth == 0 {
+                                    end_pos = start + i;
+                                    break;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+
+                    if end_pos > start {
+                        let generics = &after_result[start + 1..end_pos];
+                        let parts = split_generic_args(generics);
+                        if parts.len() >= 2 {
+                            return (Some(parts[0].trim().to_string()), Some(parts[1].trim().to_string()));
+                        } else if parts.len() == 1 {
+                            // Only one part found - maybe parsing error
+                            return (Some(parts[0].trim().to_string()), Some("E".to_string()));
+                        }
+                    }
+                }
+            } else if let Some(option_pos) = line.find("Option<") {
+                // Extract Option<T>
+                if let Some(start) = line[option_pos..].find('<') {
+                    if let Some(end) = line[option_pos..].rfind('>') {
+                        let inner = line[option_pos + start + 1..option_pos + end].trim();
+                        return (Some(inner.to_string()), None);
+                    }
+                }
+            }
+        }
+    }
+
+    (None, None)
+}
+
+pub fn parse_return_type_generics(signature: &str) -> (Option<String>, Option<String>) {
+    // Parse function signature to extract Result<T, E> or Option<T>
+    // Example: "divide = (a: f64, b: f64) Result<f64, StaticString>"
+
+    // Find the return type (after the closing paren)
+    if let Some(paren_pos) = signature.rfind(')') {
+        let after_paren = signature[paren_pos+1..].trim();
+
+        // Check for Result<T, E>
+        if after_paren.starts_with("Result<") {
+            if let Some(start) = after_paren.find('<') {
+                if let Some(end) = after_paren.rfind('>') {
+                    let generics = &after_paren[start+1..end];
+
+                    // Smart split by comma - handle nested generics
+                    let parts = split_generic_args(generics);
+                    if parts.len() == 2 {
+                        return (Some(parts[0].to_string()), Some(parts[1].to_string()));
+                    } else if parts.len() == 1 {
+                        // Single type param (shouldn't happen for Result)
+                        return (Some(parts[0].to_string()), Some("unknown".to_string()));
+                    }
+                }
+            }
+        }
+        // Check for Option<T>
+        else if after_paren.starts_with("Option<") {
+            if let Some(start) = after_paren.find('<') {
+                if let Some(end) = after_paren.rfind('>') {
+                    let inner_type = after_paren[start+1..end].trim();
+                    return (Some(inner_type.to_string()), None);
+                }
+            }
+        }
+    }
+
+    (None, None)
+}
+
+pub fn split_generic_args(args: &str) -> Vec<String> {
+    // Split generic arguments by comma, respecting nested <>
+    let mut result = Vec::new();
+    let mut current = String::new();
+    let mut depth = 0;
+
+    for ch in args.chars() {
+        match ch {
+            '<' => {
+                depth += 1;
+                current.push(ch);
+            }
+            '>' => {
+                depth -= 1;
+                current.push(ch);
+            }
+            ',' if depth == 0 => {
+                result.push(current.trim().to_string());
+                current.clear();
+            }
+            _ => {
+                current.push(ch);
+            }
+        }
+    }
+
+    if !current.trim().is_empty() {
+        result.push(current.trim().to_string());
+    }
+
+    result
+}
+
+pub fn infer_function_return_types(
+    func_name: &str,
+    all_docs: &HashMap<Url, Document>
+) -> (Option<String>, Option<String>) {
+    use crate::ast::Declaration;
+    
+    // Try AST first (most accurate)
+    for (_uri, doc) in all_docs {
+        if let Some(ast) = &doc.ast {
+            for decl in ast {
+                if let Declaration::Function(func) = decl {
+                    if func.name == func_name {
+                        // Found it! Extract types from the return type
+                        let result = extract_generic_types(&func.return_type);
+                        if result.0.is_some() {
+                            return result;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: parse from source code if AST unavailable (e.g., parse errors)
+    for (_uri, doc) in all_docs {
+        let result = parse_function_from_source(&doc.content, func_name);
+        if result.0.is_some() && result.1.is_some() {
+            return result;
+        }
+    }
+
+    (None, None)
 }

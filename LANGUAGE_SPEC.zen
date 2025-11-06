@@ -8,6 +8,7 @@
 // - No null/nil - only `Option<T>` with `.Some(T)` and `.None`
 // - No unions, no tuples - only structs and enums
 // - Assignment operators: `=` (immutable), `::=` (mutable), `:` (type definition)
+// - Constant declaration: `:=` (constant with explicit type, e.g., `x : u8 := 10`)
 // - Error propagation with `.raise()` not exceptions
 // - Loops: `loop()` for infinite, `.loop()` for collections, ranges like `(0..10)`
 // - Traits via `.implements()` and `.requires()` from `@std.meta`
