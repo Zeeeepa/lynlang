@@ -8,6 +8,7 @@ use crate::parser::Parser;
 use crate::typechecker::TypeChecker;
 use super::types::{Document, SymbolInfo, AnalysisJob};
 use super::utils::{compile_error_to_diagnostic, format_type};
+use super::compiler_integration::CompilerIntegration;
 
 pub struct DocumentStore {
     pub documents: HashMap<Url, Document>,
@@ -15,6 +16,7 @@ pub struct DocumentStore {
     pub workspace_symbols: HashMap<String, SymbolInfo>,  // Indexed workspace symbols
     pub workspace_root: Option<Url>,
     pub analysis_sender: Option<Sender<AnalysisJob>>,
+    pub compiler: CompilerIntegration,
 }
 
 impl DocumentStore {
@@ -25,6 +27,7 @@ impl DocumentStore {
             workspace_symbols: HashMap::new(),
             workspace_root: None,
             analysis_sender: None,
+            compiler: CompilerIntegration::new(),
         };
 
         // Index stdlib on initialization

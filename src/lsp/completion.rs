@@ -16,7 +16,9 @@ use super::utils::{symbol_kind_to_completion_kind, format_type};
 // ============================================================================
 
 /// Main completion request handler
-pub fn handle_completion(req: Request, store: &DocumentStore) -> Response {
+pub fn handle_completion(req: Request, store: &std::sync::Arc<std::sync::Mutex<DocumentStore>>) -> Response {
+    let store_guard = store.lock().unwrap();
+    let store = &*store_guard;
     let params: CompletionParams = match serde_json::from_value(req.params) {
         Ok(p) => p,
         Err(_) => {
@@ -36,7 +38,7 @@ pub fn handle_completion(req: Request, store: &DocumentStore) -> Response {
             match context {
                 ZenCompletionContext::UfcMethod { receiver_type } => {
                     // Provide UFC method completions
-                    let completions = get_ufc_method_completions(&receiver_type);
+                    let completions = get_ufc_method_completions(&receiver_type, store);
 
                     let response = CompletionResponse::Array(completions);
                     return Response {
@@ -725,8 +727,24 @@ pub fn find_stdlib_location(stdlib_path: &str, method_name: &str, store: &Docume
 // UFC METHOD COMPLETIONS
 // ============================================================================
 
-fn get_ufc_method_completions(_receiver_type: &str) -> Vec<CompletionItem> {
-    // TODO: Query real method definitions from compiler/AST instead of hardcoded data
-    // For now, return empty until we implement proper method introspection
-    Vec::new()
+fn get_ufc_method_completions(receiver_type: &str, store: &DocumentStore) -> Vec<CompletionItem> {
+    let mut items = Vec::new();
+
+    // Query compiler integration for actual methods
+    for sig in store.compiler.get_methods_for_type(receiver_type) {
+        let mut item = CompletionItem::default();
+        item.label = sig.name.clone();
+        item.kind = Some(CompletionItemKind::METHOD);
+        item.detail = Some(format!("({}) -> {}",
+            sig.params
+                .iter()
+                .map(|(n, t)| format!("{}: {}", n, super::utils::format_type(t)))
+                .collect::<Vec<_>>()
+                .join(", "),
+            super::utils::format_type(&sig.return_type)
+        ));
+        items.push(item);
+    }
+
+    items
 }

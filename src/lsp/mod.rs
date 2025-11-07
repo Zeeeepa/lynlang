@@ -17,6 +17,8 @@ pub mod signature_help;
 pub mod inlay_hints;
 pub mod code_lens;
 pub mod code_action;
+pub mod workspace;
+pub mod compiler_integration;
 pub mod server;
 
 pub use server::ZenLanguageServer;

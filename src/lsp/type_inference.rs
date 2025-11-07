@@ -5,9 +5,30 @@ use lsp_types::*;
 use std::collections::HashMap;
 use super::types::{Document, SymbolInfo};
 use super::utils::format_type;
+use super::document_store::DocumentStore;
 
 pub fn parse_generic_type(type_str: &str) -> (String, Vec<String>) {
-    // Parse a generic type like HashMap<K, V> into ("HashMap", ["K", "V"])
+    // First, try parsing using the real Parser
+    if let Ok(ast) = (|| {
+        let lexer = crate::lexer::Lexer::new(type_str);
+        let mut parser = crate::parser::Parser::new(lexer);
+        parser.parse_type()
+    })() {
+        match ast {
+            crate::ast::AstType::Generic { name, type_args } => {
+                let args = type_args
+                    .iter()
+                    .map(|t| super::utils::format_type(t))
+                    .collect::<Vec<_>>();
+                return (name, args);
+            }
+            other => {
+                return (super::utils::format_type(&other), Vec::new());
+            }
+        }
+    }
+
+    // Fallback: manual parsing
     if let Some(angle_pos) = type_str.find('<') {
         let base = type_str[..angle_pos].to_string();
         let params_end = type_str.rfind('>').unwrap_or(type_str.len());
@@ -192,15 +213,29 @@ pub fn infer_receiver_type(receiver: &str, documents: &HashMap<Url, Document>) -
                     if let Some(return_type) = detail.split(" = ").nth(1) {
                         if let Some(ret) = return_type.split(')').nth(1).map(|s| s.trim()) {
                             if !ret.is_empty() && ret != "void" {
-                                return Some(ret.to_string());
+                                // Try parser-based generic handling
+                                let (base, _args) = parse_generic_type(ret);
+                                return Some(base);
                             }
                         }
                     }
                 }
-                // Check for collection types with generics
-                if let Some(cap) = regex::Regex::new(r"(HashMap|DynVec|Vec|Array|Option|Result)<[^>]+>")
-                    .ok()?.captures(detail) {
-                    return Some(cap[1].to_string());
+                // Try to extract a base type token after ':' or after ')'
+                if let Some(colon_pos) = detail.find(':') {
+                    let after = detail[colon_pos + 1..].trim();
+                    let (base, _args) = parse_generic_type(after);
+                    if !base.is_empty() {
+                        return Some(base);
+                    }
+                }
+                if let Some(close_paren) = detail.rfind(')') {
+                    let after = detail[close_paren + 1..].trim();
+                    if !after.is_empty() && after != "void" {
+                        let (base, _args) = parse_generic_type(after);
+                        if !base.is_empty() {
+                            return Some(base);
+                        }
+                    }
                 }
                 // Fallback to simple contains checks
                 for type_name in ["HashMap", "DynVec", "Vec", "Array", "Option", "Result", "String", "StaticString"] {
@@ -212,34 +247,19 @@ pub fn infer_receiver_type(receiver: &str, documents: &HashMap<Url, Document>) -
         }
     }
 
-    // Enhanced pattern matching for function calls and constructors
-    let patterns = [
-        (r"HashMap\s*\(", "HashMap"),
-        (r"DynVec\s*\(", "DynVec"),
-        (r"Vec\s*[<(]", "Vec"),
-        (r"Array\s*\(", "Array"),
-        (r"Some\s*\(", "Option"),
-        (r"None", "Option"),
-        (r"Ok\s*\(", "Result"),
-        (r"Err\s*\(", "Result"),
-        (r"Result\.", "Result"),
-        (r"Option\.", "Option"),
-        (r"get_default_allocator\s*\(\)", "Allocator"),
-        (r"\[\s*\d+\s*;\s*\d+\s*\]", "Array"), // Fixed array syntax
-    ];
-
-    for (pattern, type_name) in patterns {
-        if let Ok(re) = regex::Regex::new(pattern) {
-            if re.is_match(receiver) {
-                return Some(type_name.to_string());
-            }
-        }
-    }
-
-    // Enhanced support for method call chains (e.g., foo.bar().baz())
-    if receiver.contains('.') && receiver.contains('(') {
-        return infer_chained_method_type(receiver, documents);
-    }
+    // Enhanced pattern matching for function calls and constructors (no regex)
+    let receiver_trim = receiver.trim();
+    if receiver_trim.starts_with("HashMap(") { return Some("HashMap".to_string()); }
+    if receiver_trim.starts_with("DynVec(") { return Some("DynVec".to_string()); }
+    if receiver_trim.starts_with("Vec(") || receiver_trim.starts_with("Vec<") { return Some("Vec".to_string()); }
+    if receiver_trim.starts_with("Array(") { return Some("Array".to_string()); }
+    if receiver_trim.starts_with("Some(") { return Some("Option".to_string()); }
+    if receiver_trim == "None" { return Some("Option".to_string()); }
+    if receiver_trim.starts_with("Ok(") || receiver_trim.starts_with("Err(") { return Some("Result".to_string()); }
+    if receiver_trim.starts_with("Result.") { return Some("Result".to_string()); }
+    if receiver_trim.starts_with("Option.") { return Some("Option".to_string()); }
+    if receiver_trim.starts_with("get_default_allocator()") { return Some("Allocator".to_string()); }
+    if receiver_trim.starts_with('[') && receiver_trim.contains(';') && receiver_trim.ends_with(']') { return Some("Array".to_string()); }
 
     None
 }
@@ -247,38 +267,7 @@ pub fn infer_receiver_type(receiver: &str, documents: &HashMap<Url, Document>) -
 pub fn infer_chained_method_type(receiver: &str, documents: &HashMap<Url, Document>) -> Option<String> {
     // Parse method chains from left to right, tracking type through each call
     let mut current_type: Option<String> = None;
-    let mut parts = Vec::new();
-    let mut current = String::new();
-    let mut paren_depth = 0;
-    let mut in_string = false;
-
-    // Split by dots, respecting parentheses and strings
-    for ch in receiver.chars() {
-        match ch {
-            '"' => {
-                in_string = !in_string;
-                current.push(ch);
-            }
-            '(' if !in_string => {
-                paren_depth += 1;
-                current.push(ch);
-            }
-            ')' if !in_string => {
-                paren_depth -= 1;
-                current.push(ch);
-            }
-            '.' if !in_string && paren_depth == 0 => {
-                if !current.is_empty() {
-                    parts.push(current.clone());
-                    current.clear();
-                }
-            }
-            _ => current.push(ch),
-        }
-    }
-    if !current.is_empty() {
-        parts.push(current);
-    }
+    let parts = split_method_chain(receiver);
 
     // Process each part of the chain
     for (i, part) in parts.iter().enumerate() {
@@ -288,7 +277,7 @@ pub fn infer_chained_method_type(receiver: &str, documents: &HashMap<Url, Docume
         } else if let Some(ref curr_type) = current_type {
             // Subsequent parts are method calls on the current type
             if let Some(method_name) = part.split('(').next() {
-                current_type = get_method_return_type(curr_type, method_name);
+                current_type = legacy_get_method_return_type(curr_type, method_name);
             }
         }
     }
@@ -351,7 +340,7 @@ pub fn infer_base_expression_type(expr: &str, documents: &HashMap<Url, Document>
     None
 }
 
-pub fn get_method_return_type(receiver_type: &str, method_name: &str) -> Option<String> {
+fn legacy_get_method_return_type(receiver_type: &str, method_name: &str) -> Option<String> {
     // Comprehensive method return type mapping
     match receiver_type {
         "String" | "StaticString" | "str" => match method_name {
@@ -409,6 +398,47 @@ pub fn get_method_return_type(receiver_type: &str, method_name: &str) -> Option<
     }
 }
 
+pub fn get_method_return_type(receiver_type: &str, method_name: &str, store: &DocumentStore) -> Option<String> {
+    // Prefer compiler integration data
+    if let Some(ast_type) = store.compiler.get_method_return_type(receiver_type, method_name) {
+        return Some(format_type(&ast_type));
+    }
+
+    // Fallback: use symbol tables if compiler doesn't know this method yet
+    if let Some(symbol) = store
+        .stdlib_symbols
+        .get(method_name)
+        .or_else(|| store.workspace_symbols.get(method_name))
+    {
+        if let Some(type_info) = &symbol.type_info {
+            return Some(format_type(type_info));
+        }
+
+        if let Some(detail) = &symbol.detail {
+            if let Some(return_type) = extract_return_type_from_detail(detail) {
+                return Some(return_type);
+            }
+        }
+    }
+
+    // Final fallback: legacy hardcoded mappings
+    legacy_get_method_return_type(receiver_type, method_name)
+}
+
+fn extract_return_type_from_detail(detail: &str) -> Option<String> {
+    if let Some(close_paren) = detail.rfind(')') {
+        let after = detail[close_paren + 1..].trim();
+        if !after.is_empty() && after != "void" {
+            // Strip trailing block braces if present (e.g., "String {" -> "String")
+            let cleaned = after.trim_end_matches('{').trim();
+            if !cleaned.is_empty() {
+                return Some(cleaned.to_string());
+            }
+        }
+    }
+    None
+}
+
 pub fn find_stdlib_location(stdlib_path: &str, method_name: &str, documents: &HashMap<Url, Document>) -> Option<Location> {
     // Try to find the method in the stdlib file
     // First check if we have the stdlib file open
@@ -429,15 +459,73 @@ pub fn find_stdlib_location(stdlib_path: &str, method_name: &str, documents: &Ha
     None
 }
 
+fn split_method_chain(receiver: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    let mut paren_depth: usize = 0;
+    let mut in_string = false;
+
+    for ch in receiver.chars() {
+        match ch {
+            '"' => {
+                in_string = !in_string;
+                current.push(ch);
+            }
+            '(' if !in_string => {
+                paren_depth += 1;
+                current.push(ch);
+            }
+            ')' if !in_string => {
+                if paren_depth > 0 {
+                    paren_depth -= 1;
+                }
+                current.push(ch);
+            }
+            '.' if !in_string && paren_depth == 0 => {
+                if !current.is_empty() {
+                    parts.push(current.clone());
+                    current.clear();
+                }
+            }
+            _ => current.push(ch),
+        }
+    }
+
+    if !current.is_empty() {
+        parts.push(current);
+    }
+
+    parts
+}
+
 // Wrapper functions that work with DocumentStore
-use super::document_store::DocumentStore;
 
 pub fn infer_receiver_type_from_store(receiver: &str, store: &DocumentStore) -> Option<String> {
+    if receiver.contains('.') && receiver.contains('(') {
+        if let Some(ty) = infer_chained_method_type_from_store(receiver, store) {
+            return Some(ty);
+        }
+    }
+
     infer_receiver_type(receiver, &store.documents)
 }
 
 pub fn infer_chained_method_type_from_store(receiver: &str, store: &DocumentStore) -> Option<String> {
-    infer_chained_method_type(receiver, &store.documents)
+    let mut current_type: Option<String> = None;
+    let parts = split_method_chain(receiver);
+
+    for (i, part) in parts.iter().enumerate() {
+        if i == 0 {
+            current_type = infer_base_expression_type_from_store(part, store);
+        } else if let Some(ref curr_type) = current_type {
+            if let Some(method_name) = part.split('(').next() {
+                let method_name = method_name.trim();
+                current_type = get_method_return_type(curr_type, method_name, store);
+            }
+        }
+    }
+
+    current_type
 }
 
 pub fn infer_base_expression_type_from_store(expr: &str, store: &DocumentStore) -> Option<String> {
