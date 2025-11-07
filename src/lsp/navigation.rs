@@ -509,6 +509,19 @@ fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) -> Opt
     // Enhanced UFC method resolution with improved generic type handling
     let receiver_type = infer_receiver_type(&method_info.receiver, store);
 
+    // First, try to find the method in stdlib_symbols (indexed from actual stdlib files)
+    // This queries the actual stdlib AST instead of hardcoded lists
+    if let Some(symbol) = store.stdlib_symbols.get(&method_info.method_name) {
+        if let Some(def_uri) = &symbol.definition_uri {
+            // Check if this method is compatible with the receiver type
+            // For now, if it's in stdlib, assume it's valid (we could add type checking later)
+            return Some(Location {
+                uri: def_uri.clone(),
+                range: symbol.range.clone(),
+            });
+        }
+    }
+
     // Extract base type and generic parameters for better matching
     let (base_type, _generic_params) = if let Some(ref typ) = receiver_type {
         parse_generic_type(typ)
@@ -516,10 +529,24 @@ fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) -> Opt
         (String::new(), Vec::new())
     };
 
-    // Handle built-in methods based on base type
+    // Fallback: Try to find method by searching stdlib symbols with receiver type prefix
+    // This is a heuristic - methods might be named like "string_len" or "result_unwrap"
+    if !base_type.is_empty() {
+        let prefixed_name = format!("{}_{}", base_type.to_lowercase(), method_info.method_name);
+        if let Some(symbol) = store.stdlib_symbols.get(&prefixed_name) {
+            if let Some(def_uri) = &symbol.definition_uri {
+                return Some(Location {
+                    uri: def_uri.clone(),
+                    range: symbol.range.clone(),
+                });
+            }
+        }
+    }
+
+    // Legacy fallback: Hardcoded method lists (will be removed once stdlib is fully indexed)
+    // This is kept as a temporary fallback for methods not yet indexed
     match base_type.as_str() {
         "Result" => {
-            // Result methods with error propagation
             let result_methods = [
                 "raise", "is_ok", "is_err", "map", "map_err", "unwrap",
                 "unwrap_or", "expect", "unwrap_err", "and_then", "or_else"
@@ -529,7 +556,6 @@ fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) -> Opt
             }
         }
         "Option" => {
-            // Option methods with monadic operations
             let option_methods = [
                 "is_some", "is_none", "unwrap", "unwrap_or", "map",
                 "or", "and", "expect", "and_then", "or_else", "filter"
@@ -539,7 +565,6 @@ fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) -> Opt
             }
         }
         "String" | "StaticString" | "str" => {
-            // String methods - comprehensive list
             let string_methods = [
                 "len", "to_i32", "to_i64", "to_f64", "to_upper", "to_lower",
                 "trim", "split", "substr", "char_at", "contains", "starts_with",
@@ -551,7 +576,6 @@ fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) -> Opt
             }
         }
         "HashMap" => {
-            // HashMap methods - comprehensive list
             let hashmap_methods = [
                 "insert", "get", "remove", "contains_key", "keys", "values",
                 "len", "clear", "is_empty", "iter", "drain", "extend", "merge"
@@ -561,7 +585,6 @@ fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) -> Opt
             }
         }
         "DynVec" => {
-            // DynVec methods - comprehensive list
             let dynvec_methods = [
                 "push", "pop", "get", "set", "len", "clear", "capacity",
                 "insert", "remove", "is_empty", "resize", "extend", "drain",
@@ -572,7 +595,6 @@ fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) -> Opt
             }
         }
         "Vec" => {
-            // Vec (fixed-size) methods
             let vec_methods = [
                 "push", "get", "set", "len", "clear", "capacity", "is_full", "is_empty"
             ];
@@ -581,7 +603,6 @@ fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) -> Opt
             }
         }
         "Array" => {
-            // Array methods
             let array_methods = [
                 "len", "get", "set", "push", "pop", "first", "last",
                 "slice", "contains", "find", "sort", "reverse"
@@ -591,7 +612,6 @@ fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) -> Opt
             }
         }
         "Allocator" => {
-            // Allocator methods
             let allocator_methods = ["alloc", "dealloc", "realloc", "clone"];
             if allocator_methods.contains(&method_info.method_name.as_str()) {
                 return find_stdlib_location("memory_unified.zen", &method_info.method_name, store);
@@ -602,7 +622,6 @@ fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) -> Opt
 
     // Check for generic iterator/collection methods
     if method_info.method_name == "loop" || method_info.method_name == "iter" {
-        // loop/iter is available on all iterable types
         return find_stdlib_location("iterator.zen", &method_info.method_name, store);
     }
 
