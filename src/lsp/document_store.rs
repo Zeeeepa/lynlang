@@ -30,9 +30,80 @@ impl DocumentStore {
             compiler: CompilerIntegration::new(),
         };
 
+        // Register built-in primitive types (always available, no import needed)
+        store.register_builtin_types();
+        
         // Index stdlib on initialization
         store.index_stdlib();
         store
+    }
+    
+    /// Register built-in primitive types that are always available
+    fn register_builtin_types(&mut self) {
+        use crate::ast::AstType;
+        use super::types::SymbolInfo;
+        use lsp_types::{SymbolKind, Range, Position};
+        use super::utils::format_type;
+        
+        // Create a dummy range for built-in types (they don't have a source location)
+        let dummy_range = Range {
+            start: Position { line: 0, character: 0 },
+            end: Position { line: 0, character: 0 },
+        };
+        
+        // Register all primitive types
+        let builtin_types = vec![
+            ("i8", AstType::I8),
+            ("i16", AstType::I16),
+            ("i32", AstType::I32),
+            ("i64", AstType::I64),
+            ("u8", AstType::U8),
+            ("u16", AstType::U16),
+            ("u32", AstType::U32),
+            ("u64", AstType::U64),
+            ("usize", AstType::Usize),
+            ("f32", AstType::F32),
+            ("f64", AstType::F64),
+            ("bool", AstType::Bool),
+            ("StaticString", AstType::StaticString),  // Built-in primitive type
+            ("void", AstType::Void),
+        ];
+        
+        for (name, type_) in builtin_types {
+            self.stdlib_symbols.insert(name.to_string(), SymbolInfo {
+                name: name.to_string(),
+                kind: SymbolKind::TYPE_PARAMETER, // Use TYPE_PARAMETER for primitive types
+                range: dummy_range.clone(),
+                selection_range: dummy_range.clone(),
+                detail: Some(format!("{} - Built-in primitive type", name)),
+                documentation: Some(format!("Built-in primitive type `{}`. Always available, no import needed.", name)),
+                type_info: Some(type_),
+                definition_uri: None,
+                references: Vec::new(),
+                enum_variants: None,
+            });
+        }
+        
+        // Also register built-in generic types (Option, Result)
+        let builtin_generics = vec![
+            ("Option", AstType::Generic { name: "Option".to_string(), type_args: vec![] }),
+            ("Result", AstType::Generic { name: "Result".to_string(), type_args: vec![] }),
+        ];
+        
+        for (name, type_) in builtin_generics {
+            self.stdlib_symbols.insert(name.to_string(), SymbolInfo {
+                name: name.to_string(),
+                kind: SymbolKind::ENUM,
+                range: dummy_range.clone(),
+                selection_range: dummy_range.clone(),
+                detail: Some(format!("{}<T> - Built-in generic type", name)),
+                documentation: Some(format!("Built-in generic type `{}`. Always available, no import needed.", name)),
+                type_info: Some(type_),
+                definition_uri: None,
+                references: Vec::new(),
+                enum_variants: None,
+            });
+        }
     }
 
     pub fn set_analysis_sender(&mut self, sender: Sender<AnalysisJob>) {

@@ -197,13 +197,13 @@ pub fn handle_completion(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
         },
     ];
 
-    // Add primitive types
-    for ty in ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "bool"] {
+    // Add primitive types (including StaticString - always available)
+    for ty in ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "usize", "f32", "f64", "bool", "StaticString", "void"] {
         completions.push(CompletionItem {
             label: ty.to_string(),
             kind: Some(CompletionItemKind::KEYWORD),
-            detail: Some(format!("{} type", ty)),
-            documentation: None,
+            detail: Some(format!("{} - Built-in primitive type", ty)),
+            documentation: Some(Documentation::String(format!("Built-in primitive type `{}`. Always available, no import needed.", ty))),
             ..Default::default()
         });
     }
