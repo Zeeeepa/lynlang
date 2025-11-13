@@ -16,7 +16,7 @@ impl IOModule {
             "print".to_string(),
             StdFunction {
                 name: "print".to_string(),
-                params: vec![("message".to_string(), AstType::String)],
+                params: vec![("message".to_string(), crate::ast::types::resolve_string_struct_type())],
                 return_type: AstType::Void,
                 is_builtin: true,
             },
@@ -26,7 +26,7 @@ impl IOModule {
             "println".to_string(),
             StdFunction {
                 name: "println".to_string(),
-                params: vec![("message".to_string(), AstType::String)],
+                params: vec![("message".to_string(), crate::ast::types::resolve_string_struct_type())],
                 return_type: AstType::Void,
                 is_builtin: true,
             },
@@ -36,7 +36,7 @@ impl IOModule {
             "eprint".to_string(),
             StdFunction {
                 name: "eprint".to_string(),
-                params: vec![("message".to_string(), AstType::String)],
+                params: vec![("message".to_string(), crate::ast::types::resolve_string_struct_type())],
                 return_type: AstType::Void,
                 is_builtin: true,
             },
@@ -46,7 +46,7 @@ impl IOModule {
             "eprintln".to_string(),
             StdFunction {
                 name: "eprintln".to_string(),
-                params: vec![("message".to_string(), AstType::String)],
+                params: vec![("message".to_string(), crate::ast::types::resolve_string_struct_type())],
                 return_type: AstType::Void,
                 is_builtin: true,
             },
@@ -59,8 +59,8 @@ impl IOModule {
                 name: "read_line".to_string(),
                 params: vec![],
                 return_type: AstType::Result {
-                    ok_type: Box::new(AstType::String),
-                    err_type: Box::new(AstType::String),
+                    ok_type: Box::new(crate::ast::types::resolve_string_struct_type()),
+                    err_type: Box::new(crate::ast::types::resolve_string_struct_type()),
                 },
                 is_builtin: true,
             },
@@ -72,8 +72,8 @@ impl IOModule {
                 name: "read_input".to_string(),
                 params: vec![("prompt".to_string(), AstType::String)],
                 return_type: AstType::Result {
-                    ok_type: Box::new(AstType::String),
-                    err_type: Box::new(AstType::String),
+                    ok_type: Box::new(crate::ast::types::resolve_string_struct_type()),
+                    err_type: Box::new(crate::ast::types::resolve_string_struct_type()),
                 },
                 is_builtin: true,
             },

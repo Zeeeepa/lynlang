@@ -32,13 +32,13 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
         (AstType::StaticString, AstType::StaticLiteral) => return true,
         (AstType::StaticLiteral, AstType::StaticString) => return true,
 
-        // StaticString -> String is ok (will need allocator at runtime)
-        (AstType::String, AstType::StaticString) => return true,
-        (AstType::String, AstType::StaticLiteral) => return true,  // Internal literal -> dynamic is ok
+        // StaticString -> String struct is ok (will need allocator at runtime)
+        (AstType::Struct { name, .. }, AstType::StaticString) if name == "String" => return true,
+        (AstType::Struct { name, .. }, AstType::StaticLiteral) if name == "String" => return true,  // Internal literal -> dynamic is ok
 
-        // String -> StaticString is NOT ok (would lose allocator)
-        (AstType::StaticString, AstType::String) => return false,
-        (AstType::StaticLiteral, AstType::String) => return false,
+        // String struct -> StaticString is NOT ok (would lose allocator)
+        (AstType::StaticString, AstType::Struct { name, .. }) if name == "String" => return false,
+        (AstType::StaticLiteral, AstType::Struct { name, .. }) if name == "String" => return false,
         _ => {}
     }
 
@@ -291,7 +291,7 @@ pub fn can_be_indexed(type_: &AstType) -> Option<AstType> {
         AstType::Array(elem_type) => Some((**elem_type).clone()),
         AstType::FixedArray { element_type, .. } => Some((**element_type).clone()),
         AstType::Ptr(elem_type) => Some((**elem_type).clone()),
-        AstType::String => Some(AstType::U8), // Indexing string gives bytes
+        AstType::Struct { name, .. } if name == "String" => Some(AstType::U8), // Indexing string gives bytes
         _ => None,
     }
 }

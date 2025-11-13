@@ -2,6 +2,29 @@
 
 use std::fmt;
 
+/// Resolve String type from stdlib - returns the struct type definition
+/// String is defined in stdlib/string.zen as:
+/// struct String {
+///     data: Ptr<u8>
+///     len: u64
+///     capacity: u64
+///     allocator: Allocator
+/// }
+pub fn resolve_string_struct_type() -> AstType {
+    AstType::Struct {
+        name: "String".to_string(),
+        fields: vec![
+            ("data".to_string(), AstType::Ptr(Box::new(AstType::U8))),
+            ("len".to_string(), AstType::U64),
+            ("capacity".to_string(), AstType::U64),
+            ("allocator".to_string(), AstType::Generic {
+                name: "Allocator".to_string(),
+                type_args: vec![],
+            }),
+        ],
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AstType {
     I8,
@@ -18,7 +41,8 @@ pub enum AstType {
     Bool,
     StaticLiteral, // Internal: Compiler-known string literals (LLVM use only)
     StaticString,  // User-facing: Static strings (compile-time, immutable, no allocator)
-    String,        // User-facing: Dynamic strings (runtime, mutable, requires allocator)
+    // String is defined in stdlib/string.zen as a struct, not a compiler primitive
+    // Use resolve_string_struct_type() helper to get the struct type
     Void,
     // New pointer types as per spec
     Ptr(Box<AstType>),    // Immutable pointer
@@ -120,7 +144,7 @@ impl fmt::Display for AstType {
             AstType::Bool => write!(f, "bool"),
             AstType::StaticLiteral => write!(f, "StaticString"), // Display as StaticString to users
             AstType::StaticString => write!(f, "StaticString"),
-            AstType::String => write!(f, "String"),
+            // String is now a struct type from stdlib, resolved via Struct variant
             AstType::Void => write!(f, "void"),
             AstType::Ptr(inner) => write!(f, "Ptr<{}>", inner),
             AstType::MutPtr(inner) => write!(f, "MutPtr<{}>", inner),

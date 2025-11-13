@@ -187,63 +187,25 @@ pub fn handle_definition(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
         if let Some(symbol_name) = find_symbol_at_position(&doc.content, position) {
             eprintln!("[LSP] Go-to-definition for: '{}'", symbol_name);
             
-            // FIRST: Check if this is an imported symbol (e.g., { io } = @std)
-            // This should take priority to resolve to stdlib
-            if let Some(import_info) = find_import_info(&doc.content, &symbol_name, position) {
-                eprintln!("[LSP] Found import: {} from {}", symbol_name, import_info.source);
-                
-                // Try to resolve the imported symbol from stdlib
-                if let Some(symbol_info) = store.stdlib_symbols.get(&symbol_name) {
-                    if let Some(uri) = &symbol_info.definition_uri {
-                        eprintln!("[LSP] Resolved import to stdlib at {}", uri);
-                        let location = Location {
-                            uri: uri.clone(),
-                            range: symbol_info.range.clone(),
-                        };
-                        return Response {
-                            id: req.id,
-                            result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
-                            error: None,
-                        };
-                    }
-                }
-                
-                // If it's a module import like @std, try to find the module file
-                if import_info.source.starts_with("@std") {
-                    // First, try to find the symbol directly in stdlib_symbols (most reliable)
-                    if let Some(symbol_info) = store.stdlib_symbols.get(&symbol_name) {
-                        if let Some(uri) = &symbol_info.definition_uri {
-                            eprintln!("[LSP] Found imported symbol in stdlib_symbols at {}", uri);
-                            return Response {
-                                id: req.id,
-                                result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(Location {
-                                    uri: uri.clone(),
-                                    range: symbol_info.range.clone(),
-                                })).unwrap_or(Value::Null)),
-                                error: None,
-                            };
-                        }
-                    }
+            // Check if clicking on @std.text or similar module path (e.g., @std.types.StaticString)
+            if symbol_name.starts_with("@std.") {
+                let parts: Vec<&str> = symbol_name.split('.').collect();
+                if parts.len() >= 3 {
+                    // @std.module.symbol format
+                    let module_name = parts[1];
+                    let symbol_name_in_module = parts[2..].join(".");
                     
-                    // Map @std imports to actual stdlib files and search documents
-                    let module_name = if import_info.source == "@std" {
-                        "io"
-                    } else if import_info.source == "@std.types" {
-                        "core"
-                    } else {
-                        import_info.source.strip_prefix("@std.").unwrap_or("io")
-                    };
+                    eprintln!("[LSP] Module path: @std.{} -> symbol: {}", module_name, symbol_name_in_module);
                     
-                    let module_path = format!("{}/{}.zen", module_name, module_name);
-                    eprintln!("[LSP] Looking for stdlib module: {}", module_path);
-                    
-                    // Search for the module in stdlib documents
+                    // Search for the module file
                     for (uri, stdlib_doc) in &store.documents {
                         let uri_path = uri.path();
-                        if uri_path.contains("stdlib") && (uri_path.ends_with(&module_path) || uri_path.contains(&module_path)) {
+                        if uri_path.contains("stdlib") && (uri_path.ends_with(&format!("{}/{}.zen", module_name, module_name)) || 
+                            uri_path.contains(&format!("{}/{}", module_name, module_name))) {
                             eprintln!("[LSP] Found stdlib module at {}", uri_path);
-                            // Try to find the specific symbol in this module
-                            if let Some(symbol_info) = stdlib_doc.symbols.get(&symbol_name) {
+                            
+                            // Try to find the symbol in the module
+                            if let Some(symbol_info) = stdlib_doc.symbols.get(&symbol_name_in_module) {
                                 return Response {
                                     id: req.id,
                                     result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(Location {
@@ -253,7 +215,8 @@ pub fn handle_definition(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
                                     error: None,
                                 };
                             }
-                            // If symbol not found in module, return module file location
+                            
+                            // If symbol not found, return module file location
                             let location = Location {
                                 uri: uri.clone(),
                                 range: Range {
@@ -266,6 +229,184 @@ pub fn handle_definition(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
                                 result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
                                 error: None,
                             };
+                        }
+                    }
+                }
+            }
+            
+            // Check if clicking on @std or std in the import statement itself
+            let line = doc.content.lines().nth(position.line as usize).unwrap_or("");
+            if symbol_name == "@std" || symbol_name == "std" || (symbol_name.starts_with("@std") && symbol_name.contains('.')) {
+                // Check if we're in an import line
+                if line.contains('=') && (line.contains("@std") || line.contains("= @std")) {
+                    // Find the module path from the symbol
+                    let module_path = if symbol_name == "@std" || symbol_name == "std" {
+                        "@std"
+                    } else {
+                        &symbol_name
+                    };
+                    
+                    // Map @std to actual stdlib files
+                    let module_name = if module_path == "@std" {
+                        "io"
+                    } else if module_path == "@std.types" {
+                        "types"
+                    } else {
+                        module_path.strip_prefix("@std.").unwrap_or("io")
+                    };
+                    
+                    let module_file_path = format!("stdlib/{}/{}.zen", module_name, module_name);
+                    eprintln!("[LSP] Looking for stdlib module file: {}", module_file_path);
+                    
+                    // Search for the module file in stdlib documents
+                    for (uri, _stdlib_doc) in &store.documents {
+                        let uri_path = uri.path();
+                        if uri_path.contains("stdlib") && (uri_path.ends_with(&format!("{}/{}.zen", module_name, module_name)) || 
+                            uri_path.contains(&format!("{}/{}", module_name, module_name))) {
+                            eprintln!("[LSP] Found stdlib module at {}", uri_path);
+                            // Return the module file location (start of file)
+                            let location = Location {
+                                uri: uri.clone(),
+                                range: Range {
+                                    start: Position { line: 0, character: 0 },
+                                    end: Position { line: 0, character: 0 },
+                                },
+                            };
+                            return Response {
+                                id: req.id,
+                                result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                                error: None,
+                            };
+                        }
+                    }
+                }
+            }
+            
+            // FIRST: Check if this is an imported symbol (e.g., { io } = @std)
+            // This should take priority to resolve to stdlib
+            if let Some(import_info) = find_import_info(&doc.content, &symbol_name, position) {
+                eprintln!("[LSP] Found import: {} from {}", symbol_name, import_info.source);
+                
+                // If it's a module import like @std, try to find the module file
+                if import_info.source.starts_with("@std") {
+                    // Map @std imports to actual stdlib files
+                    let module_name = if import_info.source == "@std" {
+                        // For @std, the symbol name IS the module name (e.g., { io } = @std means io module)
+                        symbol_name.clone()
+                    } else if import_info.source == "@std.types" {
+                        "types".to_string()
+                    } else {
+                        import_info.source.strip_prefix("@std.").unwrap_or("io").to_string()
+                    };
+                    
+                    eprintln!("[LSP] Resolving module: {} for symbol: {}", module_name, symbol_name);
+                    
+                    // For @std imports, the symbol name IS the module name (e.g., { io } = @std)
+                    // So we should resolve to the module file, not look for a symbol named "io"
+                    if import_info.source == "@std" && symbol_name == module_name {
+                        // This is a module import - resolve to the module file
+                        let module_file_path = format!("stdlib/{}/{}.zen", module_name, module_name);
+                        eprintln!("[LSP] Module import detected: {} -> {}", symbol_name, module_file_path);
+                        
+                        // First try stdlib_symbols - might have module-level symbols
+                        if let Some(symbol_info) = store.stdlib_symbols.get(&symbol_name) {
+                            if let Some(uri) = &symbol_info.definition_uri {
+                                eprintln!("[LSP] Resolved module import to stdlib at {}", uri);
+                                let location = Location {
+                                    uri: uri.clone(),
+                                    range: symbol_info.range.clone(),
+                                };
+                                return Response {
+                                    id: req.id,
+                                    result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                                    error: None,
+                                };
+                            }
+                        }
+                        
+                        // Search for the module file in stdlib documents
+                        for (uri, _stdlib_doc) in &store.documents {
+                            let uri_path = uri.path();
+                            if uri_path.contains("stdlib") && (uri_path.ends_with(&format!("{}/{}.zen", module_name, module_name)) || 
+                                uri_path.contains(&format!("{}/{}", module_name, module_name))) {
+                                eprintln!("[LSP] Found stdlib module file at {}", uri_path);
+                                let location = Location {
+                                    uri: uri.clone(),
+                                    range: Range {
+                                        start: Position { line: 0, character: 0 },
+                                        end: Position { line: 0, character: 0 },
+                                    },
+                                };
+                                return Response {
+                                    id: req.id,
+                                    result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                                    error: None,
+                                };
+                            }
+                        }
+                        
+                        // If not found in open documents, try to construct URI from workspace root
+                        if let Some(workspace_root) = &store.workspace_root {
+                            if let Some(workspace_path) = workspace_root.to_file_path().ok() {
+                                let module_file = workspace_path.join("stdlib").join(&module_name).join(format!("{}.zen", module_name));
+                                if module_file.exists() {
+                                    if let Ok(uri) = Url::from_file_path(&module_file) {
+                                        eprintln!("[LSP] Constructed stdlib module URI: {}", uri);
+                                        let location = Location {
+                                            uri,
+                                            range: Range {
+                                                start: Position { line: 0, character: 0 },
+                                                end: Position { line: 0, character: 0 },
+                                            },
+                                        };
+                                        return Response {
+                                            id: req.id,
+                                            result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                                            error: None,
+                                        };
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Try to find the symbol in stdlib_symbols first
+                        if let Some(symbol_info) = store.stdlib_symbols.get(&symbol_name) {
+                            if let Some(uri) = &symbol_info.definition_uri {
+                                eprintln!("[LSP] Resolved import to stdlib symbol at {}", uri);
+                                let location = Location {
+                                    uri: uri.clone(),
+                                    range: symbol_info.range.clone(),
+                                };
+                                return Response {
+                                    id: req.id,
+                                    result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                                    error: None,
+                                };
+                            }
+                        }
+                        
+                        // Try to find the symbol within the module file
+                        let module_file_path = format!("stdlib/{}/{}.zen", module_name, module_name);
+                        eprintln!("[LSP] Looking for symbol {} in module: {}", symbol_name, module_file_path);
+                        
+                        for (uri, stdlib_doc) in &store.documents {
+                            let uri_path = uri.path();
+                            if uri_path.contains("stdlib") && (uri_path.ends_with(&format!("{}/{}.zen", module_name, module_name)) || 
+                                uri_path.contains(&format!("{}/{}", module_name, module_name))) {
+                                eprintln!("[LSP] Found stdlib module at {}", uri_path);
+                                
+                                // Try to find the specific symbol in this module
+                                if let Some(symbol_info) = stdlib_doc.symbols.get(&symbol_name) {
+                                    return Response {
+                                        id: req.id,
+                                        result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(Location {
+                                            uri: uri.clone(),
+                                            range: symbol_info.range.clone(),
+                                        })).unwrap_or(Value::Null)),
+                                        error: None,
+                                    };
+                                }
+                            }
                         }
                     }
                 }
@@ -628,17 +769,21 @@ pub fn find_symbol_at_position(content: &str, position: Position) -> Option<Stri
     let mut start = char_pos.min(chars.len());
     let mut end = char_pos.min(chars.len());
 
-    // Move start backwards to find word beginning (allow @ for @std)
+    // Move start backwards to find word beginning (allow @ for @std and . for module paths)
     while start > 0 && start <= chars.len() {
         let ch = chars[start - 1];
-        if ch.is_alphanumeric() || ch == '_' || (start == 1 && ch == '@') {
+        if ch.is_alphanumeric() || ch == '_' || ch == '.' || (start == 1 && ch == '@') {
             start -= 1;
+            // If we hit @, stop (don't go before it)
+            if start == 0 && chars.get(0) == Some(&'@') {
+                break;
+            }
         } else {
             break;
         }
     }
 
-    // Move end forward to find word end
+    // Move end forward to find word end (allow . for module paths like @std.text)
     while end < chars.len() {
         let ch = chars[end];
         if ch.is_alphanumeric() || ch == '_' || ch == '.' {

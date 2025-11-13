@@ -1,8 +1,6 @@
-// Hello World
-// The simplest Zen program
-
+// Hello World in Zen 
 { io } = @std
-{ StaticString } = @std.types
+
 
 Person: {
     age: i32,

@@ -18,7 +18,7 @@ impl StringModule {
             "len".to_string(),
             StdFunction {
                 name: "len".to_string(),
-                params: vec![("str".to_string(), AstType::String)],
+                params: vec![("str".to_string(), crate::ast::types::resolve_string_struct_type())],
                 return_type: AstType::I64,
                 is_builtin: true,
             },
@@ -32,7 +32,7 @@ impl StringModule {
                     ("a".to_string(), AstType::String),
                     ("b".to_string(), AstType::String),
                 ],
-                return_type: AstType::String,
+                return_type: crate::ast::types::resolve_string_struct_type(),
                 is_builtin: true,
             },
         );
@@ -46,7 +46,7 @@ impl StringModule {
                     ("start".to_string(), AstType::I64),
                     ("end".to_string(), AstType::I64),
                 ],
-                return_type: AstType::String,
+                return_type: crate::ast::types::resolve_string_struct_type(),
                 is_builtin: true,
             },
         );
@@ -99,7 +99,7 @@ impl StringModule {
                     ("old".to_string(), AstType::String),
                     ("new".to_string(), AstType::String),
                 ],
-                return_type: AstType::String,
+                return_type: crate::ast::types::resolve_string_struct_type(),
                 is_builtin: true,
             },
         );
@@ -114,7 +114,7 @@ impl StringModule {
                 ],
                 return_type: AstType::Generic {
                     name: "Vec".to_string(),
-                    type_args: vec![AstType::String],
+                    type_args: vec![crate::ast::types::resolve_string_struct_type()],
                 },
                 is_builtin: true,
             },
@@ -124,8 +124,8 @@ impl StringModule {
             "trim".to_string(),
             StdFunction {
                 name: "trim".to_string(),
-                params: vec![("str".to_string(), AstType::String)],
-                return_type: AstType::String,
+                params: vec![("str".to_string(), crate::ast::types::resolve_string_struct_type())],
+                return_type: crate::ast::types::resolve_string_struct_type(),
                 is_builtin: true,
             },
         );
@@ -134,8 +134,8 @@ impl StringModule {
             "to_upper".to_string(),
             StdFunction {
                 name: "to_upper".to_string(),
-                params: vec![("str".to_string(), AstType::String)],
-                return_type: AstType::String,
+                params: vec![("str".to_string(), crate::ast::types::resolve_string_struct_type())],
+                return_type: crate::ast::types::resolve_string_struct_type(),
                 is_builtin: true,
             },
         );
@@ -144,8 +144,8 @@ impl StringModule {
             "to_lower".to_string(),
             StdFunction {
                 name: "to_lower".to_string(),
-                params: vec![("str".to_string(), AstType::String)],
-                return_type: AstType::String,
+                params: vec![("str".to_string(), crate::ast::types::resolve_string_struct_type())],
+                return_type: crate::ast::types::resolve_string_struct_type(),
                 is_builtin: true,
             },
         );
@@ -158,7 +158,7 @@ impl StringModule {
                     ("template".to_string(), AstType::String),
                     // Variadic args would be handled specially
                 ],
-                return_type: AstType::String,
+                return_type: crate::ast::types::resolve_string_struct_type(),
                 is_builtin: true,
             },
         );
@@ -168,7 +168,7 @@ impl StringModule {
             "to_i32".to_string(),
             StdFunction {
                 name: "to_i32".to_string(),
-                params: vec![("str".to_string(), AstType::String)],
+                params: vec![("str".to_string(), crate::ast::types::resolve_string_struct_type())],
                 return_type: AstType::Generic {
                     name: "Option".to_string(),
                     type_args: vec![AstType::I32],
@@ -181,7 +181,7 @@ impl StringModule {
             "to_i64".to_string(),
             StdFunction {
                 name: "to_i64".to_string(),
-                params: vec![("str".to_string(), AstType::String)],
+                params: vec![("str".to_string(), crate::ast::types::resolve_string_struct_type())],
                 return_type: AstType::Generic {
                     name: "Option".to_string(),
                     type_args: vec![AstType::I64],
@@ -194,7 +194,7 @@ impl StringModule {
             "to_f32".to_string(),
             StdFunction {
                 name: "to_f32".to_string(),
-                params: vec![("str".to_string(), AstType::String)],
+                params: vec![("str".to_string(), crate::ast::types::resolve_string_struct_type())],
                 return_type: AstType::Generic {
                     name: "Option".to_string(),
                     type_args: vec![AstType::F32],
@@ -207,7 +207,7 @@ impl StringModule {
             "to_f64".to_string(),
             StdFunction {
                 name: "to_f64".to_string(),
-                params: vec![("str".to_string(), AstType::String)],
+                params: vec![("str".to_string(), crate::ast::types::resolve_string_struct_type())],
                 return_type: AstType::Generic {
                     name: "Option".to_string(),
                     type_args: vec![AstType::F64],

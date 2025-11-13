@@ -155,7 +155,7 @@ fn handle_field_hover(
             Some(name.clone())
         } else if !content.is_empty() {
             // Try to infer from variable assignment
-            super::handler::infer_variable_type(content, var_name, local_symbols, &store.stdlib_symbols, &store.workspace_symbols, Some(&store.documents))
+            super::inference::infer_variable_type(content, var_name, local_symbols, &store.stdlib_symbols, &store.workspace_symbols, Some(&store.documents))
                 .and_then(|inferred_type| extract_struct_name_from_type(&inferred_type))
         } else {
             None

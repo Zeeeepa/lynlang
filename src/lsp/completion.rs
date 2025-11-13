@@ -58,6 +58,17 @@ pub fn handle_completion(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
                         error: None,
                     };
                 }
+                ZenCompletionContext::ModulePath { base } => {
+                    // Provide module path completions (e.g., @std.io, @std.types)
+                    let completions = get_module_path_completions(&base, store);
+
+                    let response = CompletionResponse::Array(completions);
+                    return Response {
+                        id: req.id,
+                        result: Some(serde_json::to_value(response).unwrap_or(Value::Null)),
+                        error: None,
+                    };
+                }
                 ZenCompletionContext::General => {
                     // Fall through to provide general completions
                 }
@@ -264,6 +275,23 @@ fn get_completion_context(content: &str, position: Position, store: &DocumentSto
 
     let line = lines[position.line as usize];
     let char_pos = position.character as usize;
+
+    // Check if we're completing after @std. (module path completion)
+    if char_pos > 5 {
+        let before_cursor = &line[..char_pos.min(line.len())];
+        if before_cursor.ends_with("@std.") || before_cursor.contains("@std.") {
+            // Check if we're right after @std.
+            if let Some(std_pos) = before_cursor.rfind("@std.") {
+                let after_std = &before_cursor[std_pos + 5..];
+                // If there's no dot after @std., we're completing module names
+                if !after_std.contains('.') {
+                    return Some(ZenCompletionContext::ModulePath {
+                        base: "@std".to_string(),
+                    });
+                }
+            }
+        }
+    }
 
     // Check if we're after a dot
     if char_pos > 0 && line.chars().nth(char_pos - 1) == Some('.') {
@@ -745,6 +773,93 @@ pub fn find_stdlib_location(stdlib_path: &str, method_name: &str, store: &Docume
     // If not found in open documents, we could potentially open and parse the stdlib file
     // For now, return None to indicate it's a built-in method
     None
+}
+
+// ============================================================================
+// MODULE PATH COMPLETIONS
+// ============================================================================
+
+fn get_module_path_completions(base: &str, _store: &DocumentStore) -> Vec<CompletionItem> {
+    let mut completions = Vec::new();
+    
+    if base == "@std" {
+        // Provide comprehensive stdlib module completions
+        // Organized by category for better UX
+        let modules = vec![
+            // Core modules
+            ("io", "IO module - console I/O operations (println, read, etc.)"),
+            ("types", "Types module - StaticString and other type definitions"),
+            ("core", "Core module - Option, Result, and fundamental types"),
+            
+            // Data structures
+            ("collections", "Collections module - HashMap, List, Queue, Set, Stack"),
+            
+            // System & utilities
+            ("fs", "File system module - file operations"),
+            ("net", "Network module - networking functionality"),
+            ("sys", "System module - system-level operations"),
+            ("process", "Process module - process management"),
+            ("env", "Environment module - environment variables"),
+            ("path", "Path module - path manipulation"),
+            
+            // Math & algorithms
+            ("math", "Math module - mathematical functions"),
+            ("algorithm", "Algorithm module - common algorithms"),
+            ("random", "Random module - random number generation"),
+            
+            // Text & encoding
+            ("string", "String module - string operations"),
+            ("text", "Text module - text processing utilities"),
+            ("regex", "Regex module - regular expressions"),
+            ("encoding", "Encoding module - encoding/decoding"),
+            
+            // Data formats
+            ("json", "JSON module - JSON parsing and generation"),
+            ("url", "URL module - URL parsing and manipulation"),
+            
+            // Time & date
+            ("time", "Time module - time operations"),
+            ("datetime", "DateTime module - date and time handling"),
+            
+            // Concurrency & memory
+            ("memory_unified", "Memory module - unified memory management"),
+            ("memory_virtual", "Memory module - virtual memory"),
+            ("allocator_async", "Async allocator module"),
+            ("concurrent_unified", "Concurrency module - unified concurrency primitives"),
+            
+            // Testing & development
+            ("testing", "Testing module - test framework"),
+            ("assert", "Assert module - assertion utilities"),
+            ("log", "Log module - logging functionality"),
+            
+            // Build & meta
+            ("build", "Build module - build system"),
+            ("build_enhanced", "Enhanced build module"),
+            ("package", "Package module - package management"),
+            ("meta", "Meta module - metaprogramming"),
+            
+            // Other
+            ("error", "Error module - error handling"),
+            ("iterator", "Iterator module - iterator utilities"),
+            ("behaviors", "Behaviors module - behavioral patterns"),
+            ("crypto", "Crypto module - cryptographic functions"),
+            ("http", "HTTP module - HTTP client/server"),
+            ("ffi", "FFI module - foreign function interface"),
+            ("utils", "Utils module - utility functions"),
+        ];
+        
+        for (name, desc) in modules {
+            completions.push(CompletionItem {
+                label: format!("{}.{}", base, name),
+                kind: Some(CompletionItemKind::MODULE),
+                detail: Some(desc.to_string()),
+                documentation: Some(Documentation::String(format!("Import from {} module", name))),
+                ..Default::default()
+            });
+        }
+    }
+    
+    completions
 }
 
 // ============================================================================

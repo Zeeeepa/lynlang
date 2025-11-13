@@ -59,6 +59,7 @@ pub struct UfcMethodInfo {
 pub enum ZenCompletionContext {
     General,
     UfcMethod { receiver_type: String },
+    ModulePath { base: String },
 }
 
 #[derive(Debug)]

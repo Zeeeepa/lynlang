@@ -415,19 +415,31 @@ impl ZenLanguageServer {
             }
             "textDocument/didChange" => {
                 let params: DidChangeTextDocumentParams = serde_json::from_value(notif.params)?;
-                if let Some(change) = params.content_changes.first() {
+                // Handle all content changes (LSP spec allows array)
+                for change in &params.content_changes {
                     let diagnostics = match self.store.lock() {
-                        Ok(mut s) => s.update(
-                            params.text_document.uri.clone(),
-                            params.text_document.version,
-                            change.text.clone(),
-                        ),
-                        Err(_) => Vec::new(),
+                        Ok(mut s) => {
+                            // Use the full text - LSP provides text directly in TextDocumentContentChangeEvent
+                            let content = change.text.clone();
+                            s.update(
+                                params.text_document.uri.clone(),
+                                params.text_document.version,
+                                content,
+                            )
+                        },
+                        Err(e) => {
+                            eprintln!("[LSP] Error locking store for didChange: {:?}", e);
+                            Vec::new()
+                        },
                     };
-                    self.publish_diagnostics(params.text_document.uri.clone(), diagnostics)?;
+                    if let Err(e) = self.publish_diagnostics(params.text_document.uri.clone(), diagnostics) {
+                        eprintln!("[LSP] Error publishing diagnostics: {:?}", e);
+                    }
                     
                     // Notify client to refresh semantic tokens when document changes
-                    self.request_semantic_tokens_refresh()?;
+                    if let Err(e) = self.request_semantic_tokens_refresh() {
+                        eprintln!("[LSP] Error requesting semantic tokens refresh: {:?}", e);
+                    }
                 }
             }
             "initialized" => {
