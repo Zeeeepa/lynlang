@@ -874,7 +874,7 @@ fn get_struct_field_completions(receiver_type: &str, store: &DocumentStore) -> V
     let struct_name = receiver_type.split('<').next().unwrap_or(receiver_type).trim();
     
     // Find struct definition in documents
-    use super::hover::structs::find_struct_definition_in_documents;
+    use super::hover::find_struct_definition_in_documents;
     if let Some(struct_def) = find_struct_definition_in_documents(struct_name, &store.documents) {
         // Add field completions
         for field in &struct_def.fields {
