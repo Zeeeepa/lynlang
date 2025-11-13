@@ -247,9 +247,7 @@ pub fn handle_definition(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
                     };
                     
                     // Use stdlib resolver to find the actual file
-                    // Clone the resolver to avoid borrow checker issues
-                    let resolver = store.stdlib_resolver.clone();
-                    if let Some(file_path) = resolver.resolve_module_path(module_path) {
+                    if let Some(file_path) = store.stdlib_resolver.resolve_module_path(module_path) {
                         // Convert file path to URI
                         if let Ok(uri) = Url::from_file_path(&file_path) {
                             // Check if this file is already open in documents

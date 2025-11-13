@@ -69,15 +69,7 @@ impl StdlibResolver {
         let parts: Vec<&str> = path.split('.').collect();
         
         // Try different resolution strategies
-        let resolved = self.try_resolve_path(&parts);
-        
-        if let Some(path) = &resolved {
-            if path.exists() {
-                self.module_cache.insert(module_path.to_string(), path.clone());
-            }
-        }
-        
-        resolved
+        self.try_resolve_path(&parts)
     }
     
     fn try_resolve_path(&self, parts: &[&str]) -> Option<PathBuf> {

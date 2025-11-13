@@ -880,8 +880,12 @@ fn get_module_path_completions(base: &str, store: &DocumentStore) -> Vec<Complet
         let submodule = base.strip_prefix("@std.").unwrap_or("");
         let submodule_path = format!("@std.{}", submodule);
         
-        // Try to resolve the submodule to see what's inside
-        if let Some(dir_path) = store.stdlib_resolver.resolve_module_path(&submodule_path) {
+        // Try to resolve the submodule to see what's inside  
+        // Note: resolve_module_path returns the file path, but we need the directory
+        // For now, construct the directory path manually
+        let submodule_dir = store.stdlib_resolver.stdlib_root.join(submodule.replace('.', "/"));
+        if submodule_dir.exists() && submodule_dir.is_dir() {
+            let dir_path = &submodule_dir;
             if dir_path.is_dir() {
                 // Scan directory for available modules/files
                 let mut submodules = Vec::new();
