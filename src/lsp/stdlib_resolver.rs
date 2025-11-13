@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 /// - @std.io -> stdlib/io/io.zen or stdlib/io/mod.zen
 /// - @std.collections.hashmap -> stdlib/collections/hashmap.zen
 /// - @std.collections -> stdlib/collections/mod.zen
+#[derive(Clone)]
 pub struct StdlibResolver {
     stdlib_root: PathBuf,
     /// Cache of module paths to file paths
