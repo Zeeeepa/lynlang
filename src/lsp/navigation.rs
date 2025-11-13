@@ -246,37 +246,47 @@ pub fn handle_definition(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
                         &symbol_name
                     };
                     
-                    // Map @std to actual stdlib files
-                    let module_name = if module_path == "@std" {
-                        "io"
-                    } else if module_path == "@std.types" {
-                        "types"
-                    } else {
-                        module_path.strip_prefix("@std.").unwrap_or("io")
-                    };
-                    
-                    let module_file_path = format!("stdlib/{}/{}.zen", module_name, module_name);
-                    eprintln!("[LSP] Looking for stdlib module file: {}", module_file_path);
-                    
-                    // Search for the module file in stdlib documents
-                    for (uri, _stdlib_doc) in &store.documents {
-                        let uri_path = uri.path();
-                        if uri_path.contains("stdlib") && (uri_path.ends_with(&format!("{}/{}.zen", module_name, module_name)) || 
-                            uri_path.contains(&format!("{}/{}", module_name, module_name))) {
-                            eprintln!("[LSP] Found stdlib module at {}", uri_path);
-                            // Return the module file location (start of file)
-                            let location = Location {
-                                uri: uri.clone(),
-                                range: Range {
-                                    start: Position { line: 0, character: 0 },
-                                    end: Position { line: 0, character: 0 },
-                                },
-                            };
-                            return Response {
-                                id: req.id,
-                                result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
-                                error: None,
-                            };
+                    // Use stdlib resolver to find the actual file
+                    if let Some(file_path) = store.stdlib_resolver.resolve_module_path(module_path) {
+                        // Convert file path to URI
+                        if let Ok(uri) = Url::from_file_path(&file_path) {
+                            // Check if this file is already open in documents
+                            if let Some(doc) = store.documents.get(&uri) {
+                                let location = Location {
+                                    uri: uri.clone(),
+                                    range: Range {
+                                        start: Position { line: 0, character: 0 },
+                                        end: Position { line: 0, character: 0 },
+                                    },
+                                };
+                                return Response {
+                                    id: req.id,
+                                    result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                                    error: None,
+                                };
+                            } else {
+                                // File not open, but we found it - construct URI from workspace root
+                                if let Some(workspace_root) = &store.workspace_root {
+                                    if let Ok(workspace_path) = workspace_root.to_file_path() {
+                                        if let Ok(relative) = file_path.strip_prefix(&workspace_path) {
+                                            if let Ok(uri) = Url::from_file_path(&file_path) {
+                                                let location = Location {
+                                                    uri,
+                                                    range: Range {
+                                                        start: Position { line: 0, character: 0 },
+                                                        end: Position { line: 0, character: 0 },
+                                                    },
+                                                };
+                                                return Response {
+                                                    id: req.id,
+                                                    result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                                                    error: None,
+                                                };
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

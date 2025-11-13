@@ -9,6 +9,7 @@ use crate::typechecker::TypeChecker;
 use super::types::{Document, SymbolInfo, AnalysisJob};
 use super::utils::{compile_error_to_diagnostic, format_type};
 use super::compiler_integration::CompilerIntegration;
+use super::stdlib_resolver::StdlibResolver;
 
 pub struct DocumentStore {
     pub documents: HashMap<Url, Document>,
@@ -17,10 +18,14 @@ pub struct DocumentStore {
     pub workspace_root: Option<Url>,
     pub analysis_sender: Option<Sender<AnalysisJob>>,
     pub compiler: CompilerIntegration,
+    pub stdlib_resolver: StdlibResolver,
 }
 
 impl DocumentStore {
     pub fn new() -> Self {
+        let workspace_root_path = None::<&std::path::Path>; // Will be set later
+        let stdlib_resolver = StdlibResolver::new(workspace_root_path);
+        
         let mut store = Self {
             documents: HashMap::new(),
             stdlib_symbols: HashMap::new(),
@@ -28,6 +33,7 @@ impl DocumentStore {
             workspace_root: None,
             analysis_sender: None,
             compiler: CompilerIntegration::new(),
+            stdlib_resolver,
         };
 
         // Register built-in primitive types (always available, no import needed)
@@ -112,6 +118,12 @@ impl DocumentStore {
 
     pub fn set_workspace_root(&mut self, root_uri: Url) {
         self.workspace_root = Some(root_uri.clone());
+        
+        // Update stdlib resolver with workspace root
+        if let Ok(workspace_path) = root_uri.to_file_path() {
+            self.stdlib_resolver = StdlibResolver::new(Some(&workspace_path));
+        }
+        
         // Note: Workspace indexing is now done asynchronously after initialization
         // to avoid blocking the main thread and holding locks for extended periods
     }

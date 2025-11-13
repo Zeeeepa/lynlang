@@ -780,13 +780,28 @@ pub fn find_stdlib_location(stdlib_path: &str, method_name: &str, store: &Docume
 // MODULE PATH COMPLETIONS
 // ============================================================================
 
-fn get_module_path_completions(base: &str, _store: &DocumentStore) -> Vec<CompletionItem> {
+fn get_module_path_completions(base: &str, store: &DocumentStore) -> Vec<CompletionItem> {
     let mut completions = Vec::new();
     
     if base == "@std" {
-        // Provide comprehensive stdlib module completions
-        // Organized by category for better UX
-        let modules = vec![
+        // Get actual modules from stdlib resolver (dynamic based on file structure)
+        let available_modules = store.stdlib_resolver.list_modules();
+        
+        for module_name in available_modules {
+            completions.push(CompletionItem {
+                label: format!("{}.{}", base, module_name),
+                kind: Some(CompletionItemKind::MODULE),
+                detail: Some(format!("Import from {} module", module_name)),
+                documentation: Some(Documentation::String(format!("Standard library module: {}", module_name))),
+                ..Default::default()
+            });
+        }
+        
+        // Fallback to hardcoded list if resolver found nothing (for backwards compatibility)
+        if completions.is_empty() {
+            // Provide comprehensive stdlib module completions
+            // Organized by category for better UX
+            let modules = vec![
             // Core modules
             ("io", "IO module - console I/O operations (println, read, etc.)"),
             ("types", "Types module - StaticString and other type definitions"),
@@ -847,16 +862,40 @@ fn get_module_path_completions(base: &str, _store: &DocumentStore) -> Vec<Comple
             ("http", "HTTP module - HTTP client/server"),
             ("ffi", "FFI module - foreign function interface"),
             ("utils", "Utils module - utility functions"),
-        ];
+            ];
+            
+            for (name, desc) in modules {
+                completions.push(CompletionItem {
+                    label: format!("{}.{}", base, name),
+                    kind: Some(CompletionItemKind::MODULE),
+                    detail: Some(desc.to_string()),
+                    documentation: Some(Documentation::String(format!("Import from {} module", name))),
+                    ..Default::default()
+                });
+            }
+        }
+    } else if base.starts_with("@std.") {
+        // Handle nested paths like @std.collections -> show hashmap, list, etc.
+        let submodule = base.strip_prefix("@std.").unwrap_or("");
+        let submodule_path = format!("@std.{}", submodule);
         
-        for (name, desc) in modules {
-            completions.push(CompletionItem {
-                label: format!("{}.{}", base, name),
-                kind: Some(CompletionItemKind::MODULE),
-                detail: Some(desc.to_string()),
-                documentation: Some(Documentation::String(format!("Import from {} module", name))),
-                ..Default::default()
-            });
+        // Try to resolve the submodule to see what's inside
+        if let Some(dir_path) = store.stdlib_resolver.resolve_module_path(&submodule_path) {
+            if dir_path.is_dir() {
+                // Scan directory for available modules/files
+                let mut submodules = Vec::new();
+                StdlibResolver::scan_directory(&dir_path, &mut submodules, submodule);
+                
+                for submod in submodules {
+                    completions.push(CompletionItem {
+                        label: format!("{}.{}", base, submod),
+                        kind: Some(CompletionItemKind::MODULE),
+                        detail: Some(format!("Nested module: {}", submod)),
+                        documentation: None,
+                        ..Default::default()
+                    });
+                }
+            }
         }
     }
     

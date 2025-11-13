@@ -19,6 +19,7 @@ pub mod code_lens;
 pub mod code_action;
 pub mod workspace;
 pub mod compiler_integration;
+pub mod stdlib_resolver;
 pub mod server;
 
 pub use server::ZenLanguageServer;
