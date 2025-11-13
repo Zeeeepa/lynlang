@@ -1,11 +1,16 @@
 #!/bin/bash
 # Quick feature test for LSP
 
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+cd "$PROJECT_ROOT"
+
 echo "================================"
 echo "QUICK LSP FEATURE TEST"
 echo "================================"
-
-cd /home/ubuntu/zenlang
 
 echo ""
 echo "1. Testing Rename..."

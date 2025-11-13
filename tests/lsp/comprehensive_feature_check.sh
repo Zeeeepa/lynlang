@@ -2,6 +2,13 @@
 # Comprehensive LSP Feature Check
 # Tests all major features that were listed as "missing" for 100% parity
 
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+cd "$PROJECT_ROOT"
+
 echo "============================================================"
 echo "COMPREHENSIVE LSP FEATURE CHECK"
 echo "Testing 4 features that were needed for 100% parity"

@@ -54,5 +54,3 @@ echo "✅ Setup complete! The LSP should now be available."
 echo ""
 echo "🧪 Test it:"
 echo "   $LSP_BINARY --help 2>&1 || echo 'LSP is ready (no --help flag)'"
-
-

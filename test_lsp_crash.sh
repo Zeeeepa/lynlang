@@ -1,7 +1,18 @@
 #!/bin/bash
 # Test LSP to see where it crashes
 
+set -e
+
 export RUST_BACKTRACE=1
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LSP_BINARY="$SCRIPT_DIR/target/debug/zen-lsp"
+
+if [ ! -f "$LSP_BINARY" ]; then
+    echo "Error: LSP binary not found at $LSP_BINARY"
+    echo "Please build it first: cargo build --bin zen-lsp"
+    exit 1
+fi
 
 # Create a test file
 cat > /tmp/test.zen <<'EOF'
@@ -41,4 +52,4 @@ EOF
   echo -e "Content-Length: $LEN\r\n\r\n$MSG"
 
   sleep 2
-) | ./target/debug/zen-lsp 2>&1
+) | "$LSP_BINARY" 2>&1
