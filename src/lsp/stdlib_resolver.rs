@@ -12,8 +12,9 @@ use std::path::{Path, PathBuf};
 /// - @std.collections -> stdlib/collections/mod.zen
 #[derive(Clone)]
 pub struct StdlibResolver {
-    stdlib_root: PathBuf,
-    /// Cache of module paths to file paths
+    pub stdlib_root: PathBuf,
+    /// Cache of module paths to file paths (currently unused due to immutability)
+    #[allow(dead_code)]
     module_cache: HashMap<String, PathBuf>,
 }
 
