@@ -18,7 +18,7 @@ impl BuildModule {
             "import".to_string(),
             StdFunction {
                 name: "import".to_string(),
-                params: vec![("module_name".to_string(), AstType::String)],
+                params: vec![("module_name".to_string(), crate::ast::resolve_string_struct_type())],
                 return_type: AstType::Generic {
                     name: "Module".to_string(),
                     type_args: vec![],
@@ -47,7 +47,7 @@ impl BuildModule {
             StdFunction {
                 name: "compile_file".to_string(),
                 params: vec![
-                    ("path".to_string(), AstType::String),
+                    ("path".to_string(), crate::ast::resolve_string_struct_type()),
                     (
                         "config".to_string(),
                         AstType::Generic {
@@ -90,7 +90,7 @@ impl BuildModule {
             StdFunction {
                 name: "compiler_version".to_string(),
                 params: vec![],
-                return_type: AstType::String,
+                return_type: crate::ast::resolve_string_struct_type(),
                 is_builtin: true,
             },
         );
@@ -101,7 +101,7 @@ impl BuildModule {
             StdFunction {
                 name: "target_triple".to_string(),
                 params: vec![],
-                return_type: AstType::String,
+                return_type: crate::ast::resolve_string_struct_type(),
                 is_builtin: true,
             },
         );
@@ -111,7 +111,7 @@ impl BuildModule {
             "has_feature".to_string(),
             StdFunction {
                 name: "has_feature".to_string(),
-                params: vec![("feature".to_string(), AstType::String)],
+                params: vec![("feature".to_string(), crate::ast::resolve_string_struct_type())],
                 return_type: AstType::Bool,
                 is_builtin: true,
             },

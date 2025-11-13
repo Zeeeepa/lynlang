@@ -532,7 +532,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 .unwrap_or(loaded_payload);
                                             loaded
                                         }
-                                        AstType::String | AstType::StaticString | AstType::StaticLiteral => loaded_payload, // Strings are already pointers, don't load
+                                        AstType::Struct { name, .. } if name == "String" => loaded_payload, // String struct is already a pointer, don't load
+                                        AstType::StaticString | AstType::StaticLiteral => loaded_payload, // Static strings are already pointers, don't load
                                         _ => {
                                             // Try default loading for other types - i32 first
                                             match self.builder.build_load(
@@ -734,7 +735,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 "payload_f64",
                                             )
                                             .unwrap_or(extracted),
-                                        AstType::String | AstType::StaticString | AstType::StaticLiteral => extracted, // Strings are already pointers, don't load
+                                        AstType::Struct { name, .. } if name == "String" => extracted, // String struct is already a pointer, don't load
+                                        AstType::StaticString | AstType::StaticLiteral => extracted, // Static strings are already pointers, don't load
                                         _ => {
                                             // Try default loading - i32 first, then i64
                                             match self.builder.build_load(
@@ -1063,7 +1065,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                             "payload_f64",
                                                         )
                                                         .unwrap_or(loaded_payload),
-                                                    AstType::String | AstType::StaticString | AstType::StaticLiteral => loaded_payload, // Strings are already pointers, don't load
+                                                    AstType::Struct { name, .. } if name == "String" => loaded_payload, // String struct is already a pointer, don't load
+                                        AstType::StaticString | AstType::StaticLiteral => loaded_payload, // Static strings are already pointers, don't load
                                                     AstType::Generic { name, type_args } if name == "Result" || name == "Option" => {
                                                         // For nested generics (Result<Result<T,E>,E2>), 
                                                         // the payload is a struct stored directly
@@ -1264,7 +1267,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         "payload_f64",
                                                     )
                                                     .unwrap_or(extracted),
-                                                AstType::String | AstType::StaticString | AstType::StaticLiteral => extracted, // Strings are already pointers, don't load
+                                                AstType::Struct { name, .. } if name == "String" => extracted, // String struct is already a pointer, don't load
+                                        AstType::StaticString | AstType::StaticLiteral => extracted, // Static strings are already pointers, don't load
                                                 AstType::Generic { name, type_args } if name == "Option" || name == "Result" => {
                                                     // For nested generics (Result<Option<T>, E> or Option<Result<T,E>>),
                                                     // the payload is itself an enum struct. Load it as a struct.

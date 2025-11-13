@@ -265,7 +265,7 @@ pub fn infer_expression_type(compiler: &LLVMCompiler, expr: &Expression) -> Resu
                             }),
                             "HashMap" => Ok(AstType::Generic { 
                                 name: "HashMap".to_string(), 
-                                type_args: vec![AstType::String, AstType::I32]  // Default K,V types
+                                type_args: vec![crate::ast::resolve_string_struct_type(), AstType::I32]  // Default K,V types
                             }),
                             "HashSet" => Ok(AstType::Generic { 
                                 name: "HashSet".to_string(), 
@@ -668,7 +668,7 @@ pub fn infer_closure_return_type(compiler: &LLVMCompiler, body: &Expression) -> 
                     let e_type = if !args.is_empty() {
                         infer_expression_type(compiler, &args[0])?
                     } else {
-                        AstType::String
+                        crate::ast::resolve_string_struct_type()
                     };
                     // For Result.Err, T type is unknown but we can use i32 as placeholder
                     Ok(AstType::Generic {

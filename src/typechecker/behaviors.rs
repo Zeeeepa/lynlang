@@ -376,7 +376,7 @@ mod tests {
                             is_mutable: false,
                         }
                     ],
-                    return_type: AstType::String,
+                    return_type: crate::ast::resolve_string_struct_type(),
                 }
             ],
         };

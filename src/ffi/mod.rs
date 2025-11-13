@@ -568,7 +568,7 @@ impl LibBuilder {
             AstType::Ptr(_) => true,
 
             // Strings need special handling but are allowed
-            AstType::String => true,
+            AstType::Struct { name, .. } if name == "String" => true,
 
             // Arrays with known size are OK
             AstType::Array { .. } => true,
@@ -744,7 +744,10 @@ impl Library {
                 {
                     // Validate that the function returns a string-like type
                     match &version_fn_sig.returns {
-                        AstType::String | AstType::Ptr(_) => {
+                        AstType::Struct { name, .. } if name == "String" => {
+                            // String struct is valid
+                        }
+                        AstType::Ptr(_) => {
                             // Version check would be performed at runtime
                             eprintln!("Version check enabled for: {}", required_version);
                         }
@@ -1293,7 +1296,7 @@ pub mod types {
     }
 
     pub fn string() -> AstType {
-        AstType::String
+        crate::ast::resolve_string_struct_type()
     }
 
     pub fn c_string() -> AstType {

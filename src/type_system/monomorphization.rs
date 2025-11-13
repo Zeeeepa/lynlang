@@ -405,7 +405,7 @@ impl Monomorphizer {
             Expression::Float32(_) => Ok(AstType::F32),
             Expression::Float64(_) => Ok(AstType::F64),
             Expression::Boolean(_) => Ok(AstType::Bool),
-            Expression::String(_) => Ok(AstType::String),
+            Expression::String(_) => Ok(crate::ast::resolve_string_struct_type()),
             Expression::Identifier(_name) => {
                 // Would need access to variable types here
                 // For now, return a placeholder
@@ -619,7 +619,7 @@ fn type_to_string(ast_type: &AstType) -> String {
         AstType::F32 => "f32".to_string(),
         AstType::F64 => "f64".to_string(),
         AstType::Bool => "bool".to_string(),
-        AstType::String => "string".to_string(),
+        AstType::Struct { name, .. } if name == "String" => "string".to_string(),
         AstType::Void => "void".to_string(),
         _ => "unknown".to_string(),
     }

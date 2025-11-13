@@ -306,7 +306,7 @@ fn format_type(ty: &AstType) -> String {
         AstType::F32 => "f32".to_string(),
         AstType::F64 => "f64".to_string(),
         AstType::Bool => "bool".to_string(),
-        AstType::String => "String".to_string(),
+        AstType::Struct { name, .. } if name == "String" => "String".to_string(),
         AstType::StaticString => "StaticString".to_string(),
         AstType::Void => "void".to_string(),
         AstType::Generic { name, type_args } => {

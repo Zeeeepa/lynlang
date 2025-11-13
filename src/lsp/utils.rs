@@ -130,7 +130,7 @@ pub fn format_type(ast_type: &AstType) -> String {
         AstType::Bool => "bool".to_string(),
         AstType::StaticLiteral => "str".to_string(),  // Internal string literal type
         AstType::StaticString => "StaticString".to_string(),
-        AstType::String => "String".to_string(),
+        AstType::Struct { name, .. } if name == "String" => "String".to_string(),
         AstType::Void => "void".to_string(),
         AstType::Ptr(inner) => format!("Ptr<{}>", format_type(inner)),
         AstType::MutPtr(inner) => format!("MutPtr<{}>", format_type(inner)),

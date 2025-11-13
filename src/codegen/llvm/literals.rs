@@ -105,8 +105,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
-                AstType::StaticLiteral | AstType::StaticString | AstType::String => {
-                    // Strings are stored as pointers
+                AstType::StaticLiteral | AstType::StaticString => {
+                    // Static strings are stored as pointers
+                    // Use empty string to let LLVM auto-generate unique names
+                    match self.builder.build_load(
+                        self.context.ptr_type(inkwell::AddressSpace::default()),
+                        ptr,
+                        "",
+                    ) {
+                        Ok(val) => val.into(),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                    }
+                }
+                AstType::Struct { name, .. } if name == "String" => {
+                    // String struct is stored as a pointer
                     // Use empty string to let LLVM auto-generate unique names
                     match self.builder.build_load(
                         self.context.ptr_type(inkwell::AddressSpace::default()),

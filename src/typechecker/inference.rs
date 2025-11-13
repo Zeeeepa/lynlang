@@ -21,7 +21,7 @@ pub fn infer_binary_op_type(
             left_type = AstType::I32;
         } else if name == "E" && type_args.is_empty() {
             // Error types default to String (dynamic with allocator)
-            left_type = crate::ast::types::resolve_string_struct_type();
+            left_type = crate::ast::resolve_string_struct_type();
         }
     }
     if let AstType::Generic { name, type_args } = &right_type {
@@ -29,7 +29,7 @@ pub fn infer_binary_op_type(
             right_type = AstType::I32;
         } else if name == "E" && type_args.is_empty() {
             // Error types default to String (dynamic with allocator)
-            right_type = crate::ast::types::resolve_string_struct_type();
+            right_type = crate::ast::resolve_string_struct_type();
         }
     }
 
@@ -86,11 +86,11 @@ pub fn infer_binary_op_type(
         BinaryOperator::StringConcat => {
             // String concatenation
             // All string types can be concatenated
-            let is_left_string = matches!(left_type, AstType::StaticLiteral | AstType::StaticString) || matches!(left_type, AstType::Struct { name, .. } if name == "String");
-            let is_right_string = matches!(right_type, AstType::StaticLiteral | AstType::StaticString) || matches!(right_type, AstType::Struct { name, .. } if name == "String");
+            let is_left_string = matches!(&left_type, AstType::StaticLiteral | AstType::StaticString) || matches!(&left_type, AstType::Struct { name, .. } if name == "String");
+            let is_right_string = matches!(&right_type, AstType::StaticLiteral | AstType::StaticString) || matches!(&right_type, AstType::Struct { name, .. } if name == "String");
             if is_left_string && is_right_string {
                 // Result is always String (dynamic) when concatenating
-                Ok(crate::ast::types::resolve_string_struct_type())
+                Ok(crate::ast::resolve_string_struct_type())
             } else {
                 Err(CompileError::TypeError(
                     format!(
@@ -286,8 +286,8 @@ fn types_comparable(left: &AstType, right: &AstType) -> bool {
     }
 
     // All string types can be compared with each other
-    let is_left_string = matches!(left, AstType::StaticString | AstType::StaticLiteral) || matches!(left, AstType::Struct { name, .. } if name == "String");
-    let is_right_string = matches!(right, AstType::StaticString | AstType::StaticLiteral) || matches!(right, AstType::Struct { name, .. } if name == "String");
+    let is_left_string = matches!(left, AstType::StaticString | AstType::StaticLiteral) || matches!(left, AstType::Struct { ref name, .. } if name == "String");
+    let is_right_string = matches!(right, AstType::StaticString | AstType::StaticLiteral) || matches!(right, AstType::Struct { ref name, .. } if name == "String");
     if is_left_string && is_right_string {
         return true;
     }

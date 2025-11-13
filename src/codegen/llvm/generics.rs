@@ -179,7 +179,7 @@ impl GenericTypeTracker {
             AstType::F32 => "f32".to_string(),
             AstType::F64 => "f64".to_string(),
             AstType::Bool => "bool".to_string(),
-            AstType::String => "string".to_string(),
+            AstType::Struct { name, .. } if name == "String" => "string".to_string(),
             AstType::Void => "void".to_string(),
             AstType::Generic { name, type_args } => {
                 let mut s = name.clone();
@@ -215,7 +215,7 @@ mod tests {
                     name: "Option".to_string(),
                     type_args: vec![AstType::I32],
                 },
-                AstType::String,
+                crate::ast::resolve_string_struct_type(),
             ],
         };
         
@@ -226,6 +226,6 @@ mod tests {
         assert!(tracker.get("test_Err_Type").is_some());
         assert!(tracker.get("test_Ok_Some_Type").is_some());
         assert_eq!(tracker.get("test_Ok_Some_Type"), Some(&AstType::I32));
-        assert_eq!(tracker.get("test_Err_Type"), Some(&AstType::String));
+        assert_eq!(tracker.get("test_Err_Type"), Some(&crate::ast::resolve_string_struct_type()));
     }
 }

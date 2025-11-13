@@ -38,7 +38,7 @@ impl<'a> Parser<'a> {
                     "f64" => Ok(AstType::F64),
                     "bool" => Ok(AstType::Bool),
                     "StaticString" => Ok(AstType::StaticString),  // User-facing: static strings (compile-time, no allocator)
-                    "String" => Ok(AstType::String),  // Dynamic strings that require allocator
+                    "String" => Ok(crate::ast::resolve_string_struct_type()),  // Dynamic strings that require allocator
                     "void" => Ok(AstType::Void),
                     "ptr" => Ok(AstType::Ptr(Box::new(AstType::Void))),
                     // Zen spec pointer types

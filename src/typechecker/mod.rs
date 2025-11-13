@@ -64,7 +64,7 @@ impl TypeChecker {
     ///     capacity: u64
     ///     allocator: Allocator
     /// }
-    // Use crate::ast::types::resolve_string_struct_type() instead
+    // Use crate::ast::resolve_string_struct_type() instead
 
     /// Get the inferred function signatures
     pub fn get_function_signatures(&self) -> &HashMap<String, FunctionSignature> {
@@ -90,7 +90,7 @@ impl TypeChecker {
                         "bool" => AstType::Bool,
                         "string" => AstType::StaticString,  // lowercase string maps to StaticString
                         "StaticString" => AstType::StaticString,  // explicit static string type
-                        "String" => crate::ast::types::resolve_string_struct_type(),  // String is a struct from stdlib/string.zen
+                        "String" => crate::ast::resolve_string_struct_type(),  // String is a struct from stdlib/string.zen
                         _ => {
                             // Check if it's another generic type
                             if trimmed.contains('<') {
@@ -812,7 +812,7 @@ impl TypeChecker {
                             ("io", "print" | "println" | "print_int" | "print_float") => {
                                 return Ok(AstType::Void)
                             }
-                            ("io", "read_line") => return Ok(crate::ast::types::resolve_string_struct_type()),
+                            ("io", "read_line") => return Ok(crate::ast::resolve_string_struct_type()),
                             ("math", "abs") => return Ok(AstType::I32),
                             ("math", "sqrt") => return Ok(AstType::F64),
                             ("math", "sin" | "cos" | "tan") => return Ok(AstType::F64),
@@ -820,11 +820,11 @@ impl TypeChecker {
                             ("math", "pow") => return Ok(AstType::F64),
                             ("math", "min" | "max") => return Ok(AstType::I32),
                             ("string", "len") => return Ok(AstType::I32),
-                            ("string", "concat") => return Ok(crate::ast::types::resolve_string_struct_type()),
+                            ("string", "concat") => return Ok(crate::ast::resolve_string_struct_type()),
                             ("mem", "alloc") => return Ok(AstType::Ptr(Box::new(AstType::U8))),
                             ("mem", "free") => return Ok(AstType::Void),
                             ("fs", "read_file") => {
-                                let string_type = crate::ast::types::resolve_string_struct_type();
+                                let string_type = crate::ast::resolve_string_struct_type();
                                 return Ok(AstType::Result {
                                     ok_type: Box::new(string_type.clone()),
                                     err_type: Box::new(string_type),
@@ -833,20 +833,20 @@ impl TypeChecker {
                             ("fs", "write_file") => {
                                 return Ok(AstType::Result {
                                     ok_type: Box::new(AstType::Void),
-                                    err_type: Box::new(crate::ast::types::resolve_string_struct_type()),
+                                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
                                 })
                             }
                             ("fs", "exists") => return Ok(AstType::Bool),
                             ("fs", "remove_file") => {
                                 return Ok(AstType::Result {
                                     ok_type: Box::new(AstType::Void),
-                                    err_type: Box::new(crate::ast::types::resolve_string_struct_type()),
+                                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
                                 })
                             }
                             ("fs", "create_dir") => {
                                 return Ok(AstType::Result {
                                     ok_type: Box::new(AstType::Void),
-                                    err_type: Box::new(crate::ast::types::resolve_string_struct_type()),
+                                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
                                 })
                             }
                             _ => {}
@@ -949,7 +949,7 @@ impl TypeChecker {
             }
             Expression::StringInterpolation { .. } => {
                 // String interpolation returns dynamic String (requires allocator)
-                Ok(crate::ast::types::resolve_string_struct_type())
+                Ok(crate::ast::resolve_string_struct_type())
             }
             Expression::Closure { params, return_type, body } => {
                 // Infer closure type - create a FunctionPointer type
@@ -1494,7 +1494,7 @@ impl TypeChecker {
                 }
 
                 // Special handling for string methods (both StaticString and String struct)
-                let is_string_struct = matches!(object_type, AstType::Struct { name, .. } if name == "String");
+                let is_string_struct = matches!(&object_type, AstType::Struct { name, .. } if name == "String");
                 if is_string_struct || object_type == AstType::StaticString || object_type == AstType::StaticLiteral {
                     // Common string methods with hardcoded return types for now
                     match method.as_str() {
@@ -1525,12 +1525,12 @@ impl TypeChecker {
                         }
                         "substr" => {
                             // substr returns same type as input (static stays static, dynamic stays dynamic)
-                            return Ok(if is_string_struct { crate::ast::types::resolve_string_struct_type() } else { AstType::StaticString })
+                            return Ok(if is_string_struct { crate::ast::resolve_string_struct_type() } else { AstType::StaticString })
                         }
                         "char_at" => return Ok(AstType::I32),
                         "split" => {
                             // split returns array of same string type as input
-                            let string_type = if is_string_struct { crate::ast::types::resolve_string_struct_type() } else { AstType::StaticString };
+                            let string_type = if is_string_struct { crate::ast::resolve_string_struct_type() } else { AstType::StaticString };
                             return Ok(AstType::Generic {
                                 name: "Array".to_string(),
                                 type_args: vec![string_type],
@@ -1538,15 +1538,15 @@ impl TypeChecker {
                         }
                         "trim" => {
                             // trim returns same type as input
-                            return Ok(if is_string_struct { crate::ast::types::resolve_string_struct_type() } else { AstType::StaticString })
+                            return Ok(if is_string_struct { crate::ast::resolve_string_struct_type() } else { AstType::StaticString })
                         }
                         "to_upper" => {
                             // to_upper returns same type as input
-                            return Ok(if is_string_struct { crate::ast::types::resolve_string_struct_type() } else { AstType::StaticString })
+                            return Ok(if is_string_struct { crate::ast::resolve_string_struct_type() } else { AstType::StaticString })
                         }
                         "to_lower" => {
                             // to_lower returns same type as input
-                            return Ok(if is_string_struct { crate::ast::types::resolve_string_struct_type() } else { AstType::StaticString })
+                            return Ok(if is_string_struct { crate::ast::resolve_string_struct_type() } else { AstType::StaticString })
                         }
                         "contains" => return Ok(AstType::Bool),
                         "starts_with" => return Ok(AstType::Bool),
@@ -1734,7 +1734,7 @@ impl TypeChecker {
                     // For Result, we don't know the error type yet
                     Ok(AstType::Generic {
                         name: "Result".to_string(),
-                        type_args: vec![ok_type, crate::ast::types::resolve_string_struct_type()], // Default to String for errors
+                        type_args: vec![ok_type, crate::ast::resolve_string_struct_type()], // Default to String for errors
                     })
                 } else if variant == "Err" {
                     let err_type = if let Some(p) = payload {
@@ -1941,7 +1941,7 @@ impl TypeChecker {
             }
             "io" => {
                 // Register io functions - names must match what codegen expects
-                let string_type = crate::ast::types::resolve_string_struct_type();
+                let string_type = crate::ast::resolve_string_struct_type();
                 let io_funcs = vec![
                     ("print", vec![string_type.clone()], AstType::Void),
                     ("print_int", vec![AstType::I64], AstType::Void),
@@ -1978,7 +1978,7 @@ impl TypeChecker {
                 let core_funcs = vec![
                     // sizeof and alignof are compile-time operations, skip for now
                     ("assert", vec![AstType::Bool], AstType::Void),
-                    ("panic", vec![crate::ast::types::resolve_string_struct_type()], AstType::Void),
+                    ("panic", vec![crate::ast::resolve_string_struct_type()], AstType::Void),
                 ];
 
                 for (name, args, ret) in core_funcs {
@@ -2119,7 +2119,7 @@ impl TypeChecker {
                         return Ok(AstType::I32);
                     } else if type_name == "E" && type_args.is_empty() {
                         // Error types default to String
-                        return Ok(crate::ast::types::resolve_string_struct_type());
+                        return Ok(crate::ast::resolve_string_struct_type());
                     }
                 }
                 return Ok(var_info.type_.clone());
@@ -2182,7 +2182,7 @@ impl TypeChecker {
                             "f64" | "F64" => AstType::F64,
                             "bool" | "Bool" => AstType::Bool,
                             "string" => AstType::StaticString,
-                            "String" => crate::ast::types::resolve_string_struct_type(),
+                            "String" => crate::ast::resolve_string_struct_type(),
                             _ => scrutinee_type.clone()
                         }
                     } else {

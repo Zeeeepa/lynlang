@@ -583,7 +583,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 AstType::F32 => self.context.f32_type().as_basic_type_enum(),
                 AstType::F64 => self.context.f64_type().as_basic_type_enum(),
                 AstType::Bool => self.context.bool_type().as_basic_type_enum(),
-                AstType::StaticLiteral | AstType::StaticString | AstType::String => self
+                AstType::StaticLiteral | AstType::StaticString => self
+                    .context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .as_basic_type_enum(),
+                AstType::Struct { name, .. } if name == "String" => self
                     .context
                     .ptr_type(inkwell::AddressSpace::default())
                     .as_basic_type_enum(),
@@ -675,9 +679,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         AstType::I32 | AstType::U32 | AstType::F32 => 32,
                         AstType::I64 | AstType::U64 | AstType::F64 | AstType::Usize => 64,
                         AstType::StaticLiteral
-                        | AstType::StaticString
-                        | AstType::String
-                        | AstType::Ptr(_)
+                        | AstType::StaticString => 64, // pointer size
+                        AstType::Struct { name, .. } if name == "String" => 64, // pointer size
+                        AstType::Ptr(_)
                         | AstType::MutPtr(_)
                         | AstType::RawPtr(_) => 64, // pointer size
                         AstType::Struct { .. } | AstType::Generic { .. } => 64, // for now, use pointer size
@@ -909,7 +913,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 "bool" => AstType::Bool,
                 "string" => AstType::StaticLiteral,
                 "StaticString" => AstType::StaticString,
-                "String" => AstType::String,
+                "String" => crate::ast::resolve_string_struct_type(),
                 "void" => AstType::Void,
                 _ => AstType::I32, // Default fallback
             }

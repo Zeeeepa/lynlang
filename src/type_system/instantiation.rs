@@ -292,7 +292,7 @@ fn type_to_string(ast_type: &AstType) -> String {
         AstType::F32 => "f32".to_string(),
         AstType::F64 => "f64".to_string(),
         AstType::Bool => "bool".to_string(),
-        AstType::String => "string".to_string(),
+        AstType::Struct { name, .. } if name == "String" => "string".to_string(),
         AstType::Void => "void".to_string(),
         AstType::Ptr(inner) => format!("ptr_{}", type_to_string(inner)),
         AstType::Array(inner) => format!("arr_{}", type_to_string(inner)),

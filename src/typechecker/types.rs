@@ -76,7 +76,7 @@ impl AstType {
             AstType::U8 | AstType::U16 | AstType::U32 | AstType::U64 => "0".to_string(),
             AstType::F32 | AstType::F64 => "0.0".to_string(),
             AstType::Bool => "false".to_string(),
-            AstType::String => "\"\"".to_string(),
+            AstType::Struct { name, .. } if name == "String" => "\"\"".to_string(),
             AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_) => "null".to_string(),
             _ => "null".to_string(),
         }

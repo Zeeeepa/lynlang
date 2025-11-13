@@ -307,7 +307,7 @@ fn create_tcp_functions() -> Vec<Declaration> {
             type_params: vec![],
             name: "tcp_connect".to_string(),
             args: vec![
-                ("host".to_string(), crate::ast::types::resolve_string_struct_type()),
+                ("host".to_string(), crate::ast::resolve_string_struct_type()),
                 ("port".to_string(), AstType::U16),
             ],
             return_type: AstType::Struct {
@@ -457,7 +457,7 @@ fn create_udp_functions() -> Vec<Declaration> {
                 ),
                 ("data".to_string(), AstType::Ptr(Box::new(AstType::U8))),
                 ("len".to_string(), AstType::U64),
-                ("host".to_string(), crate::ast::types::resolve_string_struct_type()),
+                ("host".to_string(), crate::ast::resolve_string_struct_type()),
                 ("port".to_string(), AstType::U16),
             ],
             return_type: AstType::I64,
@@ -515,7 +515,7 @@ fn create_helper_functions() -> Vec<Declaration> {
             type_params: vec![],
             name: "make_sockaddr".to_string(),
             args: vec![
-                ("host".to_string(), crate::ast::types::resolve_string_struct_type()),
+                ("host".to_string(), crate::ast::resolve_string_struct_type()),
                 ("port".to_string(), AstType::U16),
             ],
             return_type: AstType::Struct {

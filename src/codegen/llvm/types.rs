@@ -31,7 +31,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             AstType::StaticLiteral | AstType::StaticString => Ok(Type::Basic(
                 self.context.ptr_type(AddressSpace::default()).into(),
             )),
-            AstType::String => {
+            AstType::Struct { name, .. } if name == "String" => {
                 // String is a struct with: data (ptr), len (u64), capacity (u64), allocator (ptr)
                 // For now, treat it as a pointer until we properly implement struct type resolution
                 // TODO: Return proper struct type once String struct is registered

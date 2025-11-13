@@ -89,7 +89,7 @@ impl ComptimeValue {
             ComptimeValue::F32(_) => AstType::F32,
             ComptimeValue::F64(_) => AstType::F64,
             ComptimeValue::Bool(_) => AstType::Bool,
-            ComptimeValue::String(_) => AstType::String,
+            ComptimeValue::String(_) => crate::ast::resolve_string_struct_type(),
             ComptimeValue::Array(v) => {
                 if v.is_empty() {
                     AstType::Array(Box::new(AstType::Void))

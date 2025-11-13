@@ -53,7 +53,7 @@ pub fn parse_single_type_string(compiler: &LLVMCompiler, type_str: &str) -> Resu
             "bool" => Ok(AstType::Bool),
             "string" => Ok(AstType::StaticLiteral),
             "StaticString" => Ok(AstType::StaticString),
-            "String" => Ok(AstType::String),  // Dynamic string type
+            "String" => Ok(crate::ast::resolve_string_struct_type()),  // Dynamic string type
             "void" => Ok(AstType::Void),
             _ => {
                 // Check if it's a generic type like "Option<i32>"
@@ -421,8 +421,12 @@ pub fn compile_raise_expression<'ctx>(
                                 
                                 Ok(loaded)
                             }
-                            AstType::String | AstType::StaticString | AstType::StaticLiteral => {
-                                // String is already a pointer value, just return it directly
+                            AstType::Struct { name, .. } if name == "String" => {
+                                // String struct - already a pointer value
+                                Ok(ptr_val.into())
+                            }
+                            AstType::StaticString | AstType::StaticLiteral => {
+                                // Static strings are already a pointer value, just return it directly
                                 // The ptr_val is already pointing to the string data
                                 Ok(ptr_val.into())
                             }
