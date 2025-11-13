@@ -48,8 +48,9 @@ pub fn handle_completion(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
         if let Some(context) = get_completion_context(&doc.content, position, store) {
             match context {
                 ZenCompletionContext::UfcMethod { receiver_type } => {
-                    // Provide UFC method completions
-                    let completions = get_ufc_method_completions(&receiver_type, store);
+                    // Provide both struct field completions AND UFC method completions
+                    let mut completions = get_struct_field_completions(&receiver_type, store);
+                    completions.extend(get_ufc_method_completions(&receiver_type, store));
 
                     let response = CompletionResponse::Array(completions);
                     return Response {
@@ -860,6 +861,34 @@ fn get_module_path_completions(base: &str, _store: &DocumentStore) -> Vec<Comple
     }
     
     completions
+}
+
+// ============================================================================
+// STRUCT FIELD COMPLETIONS
+// ============================================================================
+
+fn get_struct_field_completions(receiver_type: &str, store: &DocumentStore) -> Vec<CompletionItem> {
+    let mut items = Vec::new();
+    
+    // Extract struct name from type string (handle cases like "Person", "Person<...>", etc.)
+    let struct_name = receiver_type.split('<').next().unwrap_or(receiver_type).trim();
+    
+    // Find struct definition in documents
+    use super::hover::structs::find_struct_definition_in_documents;
+    if let Some(struct_def) = find_struct_definition_in_documents(struct_name, &store.documents) {
+        // Add field completions
+        for field in &struct_def.fields {
+            items.push(CompletionItem {
+                label: field.name.clone(),
+                kind: Some(CompletionItemKind::FIELD),
+                detail: Some(format!("{}: {}", field.name, format_type(&field.type_))),
+                documentation: Some(Documentation::String(format!("Field of `{}` struct", struct_name))),
+                ..Default::default()
+            });
+        }
+    }
+    
+    items
 }
 
 // ============================================================================
