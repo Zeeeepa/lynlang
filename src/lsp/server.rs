@@ -232,10 +232,10 @@ impl ZenLanguageServer {
             #[allow(deprecated)]
             if let Some(folders) = params.workspace_folders {
                 if let Some(first_folder) = folders.first() {
-                    self.store.lock().unwrap().set_workspace_root(first_folder.uri.clone());
+                    if let Ok(mut s) = self.store.lock() { s.set_workspace_root(first_folder.uri.clone()); }
                 }
             } else if let Some(root_uri) = params.root_uri {
-                self.store.lock().unwrap().set_workspace_root(root_uri);
+                if let Ok(mut s) = self.store.lock() { s.set_workspace_root(root_uri); }
             }
         }
 
@@ -244,7 +244,7 @@ impl ZenLanguageServer {
         let (result_tx, result_rx) = mpsc::channel();
 
         // Give the analysis sender to the document store
-        self.store.lock().unwrap().set_analysis_sender(analysis_tx);
+        if let Ok(mut s) = self.store.lock() { s.set_analysis_sender(analysis_tx); }
 
         // Spawn background analysis worker
         let _analysis_thread = thread::spawn(move || {
@@ -364,26 +364,27 @@ impl ZenLanguageServer {
     }
 
     fn handle_request(&self, req: Request) -> Result<(), Box<dyn Error>> {
-        // Handling request
-        let response = match req.method.as_str() {
-            "textDocument/hover" => self.handle_hover(req.clone()),
-            "textDocument/completion" => self.handle_completion(req.clone()),
-            "textDocument/definition" => self.handle_definition(req.clone()),
-            "textDocument/typeDefinition" => self.handle_type_definition(req.clone()),
-            "textDocument/references" => self.handle_references(req.clone()),
-            "textDocument/documentHighlight" => self.handle_document_highlight(req.clone()),
-            "textDocument/documentSymbol" => self.handle_document_symbols(req.clone()),
-            "textDocument/formatting" => self.handle_formatting(req.clone()),
-            "textDocument/rename" => self.handle_rename(req.clone()),
-            "textDocument/codeAction" => self.handle_code_action(req.clone()),
-            "textDocument/semanticTokens/full" => self.handle_semantic_tokens(req.clone()),
-            "textDocument/signatureHelp" => self.handle_signature_help(req.clone()),
-            "textDocument/inlayHint" => self.handle_inlay_hints(req.clone()),
-            "textDocument/codeLens" => self.handle_code_lens(req.clone()),
-            "workspace/symbol" => self.handle_workspace_symbol(req.clone()),
-            "textDocument/prepareCallHierarchy" => self.handle_prepare_call_hierarchy(req.clone()),
-            "callHierarchy/incomingCalls" => self.handle_incoming_calls(req.clone()),
-            "callHierarchy/outgoingCalls" => self.handle_outgoing_calls(req.clone()),
+        // Handling request - optimized: avoid unnecessary clones by matching on method first
+        let method = req.method.as_str();
+        let response = match method {
+            "textDocument/hover" => self.handle_hover(req),
+            "textDocument/completion" => self.handle_completion(req),
+            "textDocument/definition" => self.handle_definition(req),
+            "textDocument/typeDefinition" => self.handle_type_definition(req),
+            "textDocument/references" => self.handle_references(req),
+            "textDocument/documentHighlight" => self.handle_document_highlight(req),
+            "textDocument/documentSymbol" => self.handle_document_symbols(req),
+            "textDocument/formatting" => self.handle_formatting(req),
+            "textDocument/rename" => self.handle_rename(req),
+            "textDocument/codeAction" => self.handle_code_action(req),
+            "textDocument/semanticTokens/full" => self.handle_semantic_tokens(req),
+            "textDocument/signatureHelp" => self.handle_signature_help(req),
+            "textDocument/inlayHint" => self.handle_inlay_hints(req),
+            "textDocument/codeLens" => self.handle_code_lens(req),
+            "workspace/symbol" => self.handle_workspace_symbol(req),
+            "textDocument/prepareCallHierarchy" => self.handle_prepare_call_hierarchy(req),
+            "callHierarchy/incomingCalls" => self.handle_incoming_calls(req),
+            "callHierarchy/outgoingCalls" => self.handle_outgoing_calls(req),
             _ => Response {
                 id: req.id,
                 result: Some(Value::Null),
@@ -399,22 +400,34 @@ impl ZenLanguageServer {
         match notif.method.as_str() {
             "textDocument/didOpen" => {
                 let params: DidOpenTextDocumentParams = serde_json::from_value(notif.params)?;
-                let diagnostics = self.store.lock().unwrap().open(
-                    params.text_document.uri.clone(),
-                    params.text_document.version,
-                    params.text_document.text,
-                );
+                let diagnostics = match self.store.lock() {
+                    Ok(mut s) => s.open(
+                        params.text_document.uri.clone(),
+                        params.text_document.version,
+                        params.text_document.text,
+                    ),
+                    Err(_) => Vec::new(),
+                };
                 self.publish_diagnostics(params.text_document.uri, diagnostics)?;
+                
+                // Notify client to refresh semantic tokens when document opens
+                self.request_semantic_tokens_refresh()?;
             }
             "textDocument/didChange" => {
                 let params: DidChangeTextDocumentParams = serde_json::from_value(notif.params)?;
                 if let Some(change) = params.content_changes.first() {
-                    let diagnostics = self.store.lock().unwrap().update(
-                        params.text_document.uri.clone(),
-                        params.text_document.version,
-                        change.text.clone(),
-                    );
-                    self.publish_diagnostics(params.text_document.uri, diagnostics)?;
+                    let diagnostics = match self.store.lock() {
+                        Ok(mut s) => s.update(
+                            params.text_document.uri.clone(),
+                            params.text_document.version,
+                            change.text.clone(),
+                        ),
+                        Err(_) => Vec::new(),
+                    };
+                    self.publish_diagnostics(params.text_document.uri.clone(), diagnostics)?;
+                    
+                    // Notify client to refresh semantic tokens when document changes
+                    self.request_semantic_tokens_refresh()?;
                 }
             }
             "initialized" => {
@@ -442,6 +455,16 @@ impl ZenLanguageServer {
             params: serde_json::to_value(params)?,
         };
 
+        self.connection.sender.send(Message::Notification(notification))?;
+        Ok(())
+    }
+
+    /// Request the client to refresh semantic tokens when document changes
+    fn request_semantic_tokens_refresh(&self) -> Result<(), Box<dyn Error>> {
+        let notification = ServerNotification {
+            method: "workspace/semanticTokens/refresh".to_string(),
+            params: serde_json::Value::Null,
+        };
         self.connection.sender.send(Message::Notification(notification))?;
         Ok(())
     }

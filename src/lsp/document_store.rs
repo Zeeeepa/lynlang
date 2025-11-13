@@ -217,6 +217,7 @@ impl DocumentStore {
             diagnostics: diagnostics.clone(),
             symbols: self.extract_symbols(&content),
             last_analysis: Some(Instant::now()),
+            cached_lines: None,
         };
 
         self.documents.insert(uri, doc);
@@ -260,11 +261,12 @@ impl DocumentStore {
 
         if let Some(doc) = self.documents.get_mut(&uri) {
             doc.version = version;
-            doc.content = content.clone();
+            doc.content = content; // Move instead of clone - we own content
             doc.tokens = tokens;
             doc.ast = ast;
-            doc.diagnostics = diagnostics.clone();
+            doc.diagnostics = diagnostics.clone(); // Need clone for return value
             doc.symbols = symbols;
+            doc.cached_lines = None; // Invalidate cache on content change
             if should_run_analysis {
                 doc.last_analysis = Some(Instant::now());
             }
@@ -368,11 +370,7 @@ impl DocumentStore {
         match expr {
             Expression::FunctionCall { name, args, .. } => {
                 // Enhanced collection constructors checking with generic support
-                let collections_requiring_allocator = [
-                    "HashMap", "DynVec", "Array", "HashSet", "BTreeMap", "LinkedList"
-                ];
-
-                // Check if this is a collection that requires an allocator
+                // Optimized: use match instead of array contains
                 let base_name = if name.contains('<') {
                     // Extract base type from generic like HashMap<String, i32>
                     name.split('<').next().unwrap_or(name)
@@ -380,7 +378,11 @@ impl DocumentStore {
                     name.as_str()
                 };
 
-                if collections_requiring_allocator.contains(&base_name) {
+                let requires_allocator = matches!(base_name,
+                    "HashMap" | "DynVec" | "Array" | "HashSet" | "BTreeMap" | "LinkedList"
+                );
+
+                if requires_allocator {
                     if args.is_empty() || !self.has_allocator_arg(args) {
                         // Find the position of this function call in the source
                         if let Some(position) = self.find_text_position(name, content) {
@@ -428,17 +430,15 @@ impl DocumentStore {
             }
             Expression::MethodCall { object, method, args } => {
                 // Enhanced checking for methods that require memory allocation
-                let collection_allocating_methods = [
-                    "push", "insert", "extend", "resize", "reserve",
-                    "append", "merge", "clone", "copy", "drain"
-                ];
-
-                let string_allocating_methods = [
-                    "concat", "repeat", "split", "replace", "join"
-                ];
-
-                let is_collection_method = collection_allocating_methods.contains(&method.as_str());
-                let is_string_method = string_allocating_methods.contains(&method.as_str());
+                // Optimized: use match instead of array contains for better performance
+                let method_str = method.as_str();
+                let is_collection_method = matches!(method_str,
+                    "push" | "insert" | "extend" | "resize" | "reserve" |
+                    "append" | "merge" | "clone" | "copy" | "drain"
+                );
+                let is_string_method = matches!(method_str,
+                    "concat" | "repeat" | "split" | "replace" | "join"
+                );
 
                 if is_collection_method || is_string_method {
                     // TODO: Track variable initialization to avoid false positives
@@ -694,10 +694,36 @@ impl DocumentStore {
     }
 
     fn infer_expression_type_string(&self, expr: &Expression) -> Option<String> {
+        // Use TypeChecker for real type inference
+        // Create a temporary program context from current document
+        const MAX_DOCS_TYPE_SEARCH: usize = 10; // Limit for performance
+        
+        for doc in self.documents.values().take(MAX_DOCS_TYPE_SEARCH) {
+            if let Some(ast) = &doc.ast {
+                // Create a program from this document's AST
+                let program = Program {
+                    declarations: ast.clone(),
+                    statements: vec![],
+                };
+                
+                // Use compiler integration for real inference
+                let mut compiler_integration = CompilerIntegration::new();
+                
+                // Try to infer using TypeChecker
+                match compiler_integration.infer_expression_type(&program, expr) {
+                    Ok(ast_type) => {
+                        return Some(format_type(&ast_type));
+                    }
+                    Err(_) => {
+                        // Continue to next document
+                    }
+                }
+            }
+        }
+        
+        // Fallback to AST-based lookup for variables
         match expr {
             Expression::Identifier(name) => {
-                // Try to infer type from variable declarations in current documents (limit for performance)
-                const MAX_DOCS_TYPE_SEARCH: usize = 30;
                 for doc in self.documents.values().take(MAX_DOCS_TYPE_SEARCH) {
                     if let Some(ast) = &doc.ast {
                         if let Some(type_str) = self.find_variable_type_in_ast(name, ast) {
@@ -705,10 +731,15 @@ impl DocumentStore {
                         }
                     }
                 }
-                // Fallback: just return the name (might be a type itself)
-                Some(name.clone())
+                None
             }
             Expression::FunctionCall { name, .. } => {
+                // Check compiler integration for function signatures
+                if let Some(sig) = self.compiler.get_function_signature(name) {
+                    return Some(format_type(&sig.return_type));
+                }
+                
+                // Fallback heuristics
                 if name.contains("Result") || name.ends_with("_result") {
                     Some("Result<T, E>".to_string())
                 } else if name.contains("Option") || name.ends_with("_option") {
@@ -772,9 +803,32 @@ impl DocumentStore {
     }
 
     fn infer_type_from_expression(&self, expr: &Expression) -> Option<String> {
+        // Use TypeChecker for real inference when possible
+        const MAX_DOCS_TYPE_SEARCH: usize = 5;
+        
+        for doc in self.documents.values().take(MAX_DOCS_TYPE_SEARCH) {
+            if let Some(ast) = &doc.ast {
+                let program = Program {
+                    declarations: ast.clone(),
+                    statements: vec![],
+                };
+                
+                let mut compiler_integration = CompilerIntegration::new();
+                if let Ok(ast_type) = compiler_integration.infer_expression_type(&program, expr) {
+                    return Some(format_type(&ast_type));
+                }
+            }
+        }
+        
+        // Fallback to heuristics
         match expr {
             Expression::FunctionCall { name, .. } => {
-                // Check if this is an enum constructor like TestEnum::Variant1
+                // Check compiler integration first
+                if let Some(sig) = self.compiler.get_function_signature(name) {
+                    return Some(format_type(&sig.return_type));
+                }
+                
+                // Check if this is an enum constructor
                 if name.contains("::") {
                     let parts: Vec<&str> = name.split("::").collect();
                     if parts.len() == 2 {
@@ -783,6 +837,12 @@ impl DocumentStore {
                 }
                 None
             }
+            Expression::Integer32(_) => Some("i32".to_string()),
+            Expression::Integer64(_) => Some("i64".to_string()),
+            Expression::Float32(_) => Some("f32".to_string()),
+            Expression::Float64(_) => Some("f64".to_string()),
+            Expression::Boolean(_) => Some("bool".to_string()),
+            Expression::String(_) => Some("StaticString".to_string()),
             _ => None
         }
     }
@@ -938,10 +998,18 @@ impl DocumentStore {
         if let Some(ast) = self.parse_with_path(content, file_path) {
             // First pass: Extract symbol definitions
             for (decl_index, decl) in ast.iter().enumerate() {
-                let (line, _) = self.find_declaration_position(content, &decl, decl_index);
+                let (line, char_pos) = self.find_declaration_position(content, &decl, decl_index);
+                let symbol_name = match decl {
+                    Declaration::Function(f) => &f.name,
+                    Declaration::Struct(s) => &s.name,
+                    Declaration::Enum(e) => &e.name,
+                    Declaration::Constant { name, .. } => name,
+                    _ => continue,
+                };
+                let name_end = char_pos + symbol_name.len();
                 let range = Range {
-                    start: Position { line: line as u32, character: 0 },
-                    end: Position { line: line as u32, character: 100 },
+                    start: Position { line: line as u32, character: char_pos as u32 },
+                    end: Position { line: line as u32, character: name_end as u32 },
                 };
 
                 match decl {
@@ -1039,10 +1107,12 @@ impl DocumentStore {
                 }
             }
 
-            // Second pass: Find references to symbols
+            // Second pass: Find references to symbols and extract variables
             for decl in ast {
                 if let Declaration::Function(func) = decl {
                     self.find_references_in_statements(&func.body, &mut symbols);
+                    // Extract variables from function body
+                    self.extract_variables_from_statements(&func.body, content, &mut symbols);
                 }
             }
         }
@@ -1053,13 +1123,22 @@ impl DocumentStore {
     fn extract_symbols(&self, content: &str) -> HashMap<String, SymbolInfo> {
         let mut symbols = HashMap::new();
 
+        // Try to parse AST first
         if let Some(ast) = self.parse(content) {
             // First pass: Extract symbol definitions
             for (decl_index, decl) in ast.iter().enumerate() {
-                let (line, _) = self.find_declaration_position(content, &decl, decl_index);
+                let (line, char_pos) = self.find_declaration_position(content, &decl, decl_index);
+                let symbol_name = match decl {
+                    Declaration::Function(f) => &f.name,
+                    Declaration::Struct(s) => &s.name,
+                    Declaration::Enum(e) => &e.name,
+                    Declaration::Constant { name, .. } => name,
+                    _ => continue,
+                };
+                let name_end = char_pos + symbol_name.len();
                 let range = Range {
-                    start: Position { line: line as u32, character: 0 },
-                    end: Position { line: line as u32, character: 100 },
+                    start: Position { line: line as u32, character: char_pos as u32 },
+                    end: Position { line: line as u32, character: name_end as u32 },
                 };
 
                 match decl {
@@ -1157,10 +1236,77 @@ impl DocumentStore {
                 }
             }
 
-            // Second pass: Find references to symbols
+            // Second pass: Find references to symbols and extract variables
             for decl in ast {
                 if let Declaration::Function(func) = decl {
                     self.find_references_in_statements(&func.body, &mut symbols);
+                    // Extract variables from function body
+                    self.extract_variables_from_statements(&func.body, content, &mut symbols);
+                }
+            }
+        } else {
+            // Fallback: If parsing fails, try text-based extraction for basic symbols
+            // This helps when there are syntax errors but we still want goto-definition to work
+            eprintln!("[LSP] Parse failed, using text-based symbol extraction fallback");
+            for (line_num, line) in content.lines().enumerate() {
+                let trimmed = line.trim();
+                // Skip comments
+                if trimmed.starts_with("//") {
+                    continue;
+                }
+                
+                // Look for struct definitions: Name: {
+                if let Some(colon_pos) = trimmed.find(':') {
+                    let before_colon = trimmed[..colon_pos].trim();
+                    if !before_colon.is_empty() && before_colon.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                        if trimmed[colon_pos + 1..].trim().starts_with('{') {
+                            // Found struct definition
+                            let char_pos = line.find(before_colon).unwrap_or(0);
+                            let range = Range {
+                                start: Position { line: line_num as u32, character: char_pos as u32 },
+                                end: Position { line: line_num as u32, character: (char_pos + before_colon.len()) as u32 },
+                            };
+                            symbols.insert(before_colon.to_string(), SymbolInfo {
+                                name: before_colon.to_string(),
+                                kind: SymbolKind::STRUCT,
+                                range: range.clone(),
+                                selection_range: range,
+                                detail: Some(format!("{} struct", before_colon)),
+                                documentation: None,
+                                type_info: None,
+                                definition_uri: None,
+                                references: Vec::new(),
+                                enum_variants: None,
+                            });
+                        }
+                    }
+                }
+                
+                // Look for function definitions: name = (
+                if let Some(eq_pos) = trimmed.find('=') {
+                    let before_eq = trimmed[..eq_pos].trim();
+                    if !before_eq.is_empty() && before_eq.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                        if trimmed[eq_pos + 1..].trim().starts_with('(') {
+                            // Found function definition
+                            let char_pos = line.find(before_eq).unwrap_or(0);
+                            let range = Range {
+                                start: Position { line: line_num as u32, character: char_pos as u32 },
+                                end: Position { line: line_num as u32, character: (char_pos + before_eq.len()) as u32 },
+                            };
+                            symbols.insert(before_eq.to_string(), SymbolInfo {
+                                name: before_eq.to_string(),
+                                kind: SymbolKind::FUNCTION,
+                                range: range.clone(),
+                                selection_range: range,
+                                detail: Some(format!("{} = (...) ...", before_eq)),
+                                documentation: None,
+                                type_info: None,
+                                definition_uri: None,
+                                references: Vec::new(),
+                                enum_variants: None,
+                            });
+                        }
+                    }
                 }
             }
         }
@@ -1169,7 +1315,7 @@ impl DocumentStore {
     }
 
     fn find_declaration_position(&self, content: &str, decl: &Declaration, _index: usize) -> (usize, usize) {
-        // Find the line number where the declaration starts
+        // Find the line number and character position where the declaration starts
         let search_str = match decl {
             Declaration::Function(f) => &f.name,
             Declaration::Struct(s) => &s.name,
@@ -1180,11 +1326,46 @@ impl DocumentStore {
 
         let lines: Vec<&str> = content.lines().collect();
         for (line_num, line) in lines.iter().enumerate() {
-            if line.contains(search_str) && line.contains('=') {
-                return (line_num, line.find(search_str).unwrap_or(0));
+            // Look for the symbol name at word boundaries followed by = or :
+            if let Some(pos) = self.find_word_in_line_for_symbol(line, search_str) {
+                // Check if this looks like a definition (has = or : after the name)
+                let after_symbol = &line[pos + search_str.len()..].trim();
+                if after_symbol.starts_with('=') || after_symbol.starts_with(':') || after_symbol.starts_with('(') {
+                    return (line_num, pos);
+                }
             }
         }
         (0, 0)
+    }
+    
+    // Helper to find symbol name in line at word boundaries
+    fn find_word_in_line_for_symbol(&self, line: &str, symbol: &str) -> Option<usize> {
+        let mut search_pos = 0;
+        loop {
+            if let Some(pos) = line[search_pos..].find(symbol) {
+                let actual_pos = search_pos + pos;
+                
+                // Check word boundaries
+                let before_ok = actual_pos == 0 || {
+                    let before = line.chars().nth(actual_pos - 1).unwrap_or(' ');
+                    !before.is_alphanumeric() && before != '_'
+                };
+                let after_pos = actual_pos + symbol.len();
+                let after_ok = after_pos >= line.len() || {
+                    let after = line.chars().nth(after_pos).unwrap_or(' ');
+                    !after.is_alphanumeric() && after != '_'
+                };
+                
+                if before_ok && after_ok {
+                    return Some(actual_pos);
+                }
+                
+                search_pos = actual_pos + 1;
+            } else {
+                break;
+            }
+        }
+        None
     }
 
     pub fn search_workspace_for_symbol(&self, symbol_name: &str) -> Option<(Url, SymbolInfo)> {
@@ -1310,5 +1491,79 @@ impl DocumentStore {
             }
             _ => {}
         }
+    }
+
+    fn extract_variables_from_statements(&self, statements: &[Statement], content: &str, symbols: &mut HashMap<String, SymbolInfo>) {
+        for stmt in statements {
+            match stmt {
+                Statement::VariableDeclaration { name, type_, initializer, .. } => {
+                    // Find the position of this variable in the content
+                    if let Some((line, char_pos)) = self.find_variable_position(content, name) {
+                        let name_end = char_pos + name.len();
+                        let range = Range {
+                            start: Position { line: line as u32, character: char_pos as u32 },
+                            end: Position { line: line as u32, character: name_end as u32 },
+                        };
+
+                        // Determine type information
+                        let type_info = type_.clone();
+                        let detail = if let Some(ref t) = type_ {
+                            Some(format!("{}: {}", name, format_type(t)))
+                        } else if let Some(ref init) = initializer {
+                            // Try to infer type from initializer
+                            if let Some(inferred) = self.infer_type_from_expression(init) {
+                                Some(format!("{}: {}", name, inferred))
+                            } else {
+                                Some(name.clone())
+                            }
+                        } else {
+                            Some(name.clone())
+                        };
+
+                        symbols.insert(name.clone(), SymbolInfo {
+                            name: name.clone(),
+                            kind: SymbolKind::VARIABLE,
+                            range: range.clone(),
+                            selection_range: range,
+                            detail,
+                            documentation: None,
+                            type_info,
+                            definition_uri: None,
+                            references: Vec::new(),
+                            enum_variants: None,
+                        });
+                    }
+                }
+                Statement::Loop { body, .. } => {
+                    self.extract_variables_from_statements(body, content, symbols);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn find_variable_position(&self, content: &str, var_name: &str) -> Option<(usize, usize)> {
+        for (line_num, line) in content.lines().enumerate() {
+            // Look for variable declaration pattern: name = or name: Type =
+            if let Some(eq_pos) = line.find('=') {
+                let before_eq = line[..eq_pos].trim();
+                // Check if it matches our variable name
+                if before_eq == var_name || before_eq.ends_with(&format!(" {}", var_name)) {
+                    if let Some(char_pos) = line.find(var_name) {
+                        return Some((line_num, char_pos));
+                    }
+                }
+            }
+            // Also check for name: Type = pattern
+            if let Some(colon_pos) = line.find(':') {
+                let before_colon = line[..colon_pos].trim();
+                if before_colon == var_name {
+                    if let Some(char_pos) = line.find(var_name) {
+                        return Some((line_num, char_pos));
+                    }
+                }
+            }
+        }
+        None
     }
 }

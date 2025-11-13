@@ -11,12 +11,28 @@ let client: LanguageClient;
 
 export function activate(context: vscode.ExtensionContext) {
     // Get the path to the language server
-    const serverPath = vscode.workspace.getConfiguration('zen').get<string>('serverPath', 'zen-lsp');
+    let serverPath = vscode.workspace.getConfiguration('zen').get<string>('serverPath', 'zen-lsp');
     
-    // If the server path is relative, resolve it relative to the workspace
-    const resolvedServerPath = path.isAbsolute(serverPath) 
-        ? serverPath 
-        : path.join(vscode.workspace.rootPath || '', serverPath);
+    // If not absolute, try to resolve it
+    let resolvedServerPath: string;
+    if (path.isAbsolute(serverPath)) {
+        resolvedServerPath = serverPath;
+    } else {
+        // First try workspace root
+        const workspacePath = path.join(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '', serverPath);
+        if (workspacePath && require('fs').existsSync(workspacePath)) {
+            resolvedServerPath = workspacePath;
+        } else {
+            // Try relative to extension directory (for development)
+            const extPath = path.join(context.extensionPath, '..', '..', 'target', 'release', 'zen-lsp');
+            if (require('fs').existsSync(extPath)) {
+                resolvedServerPath = extPath;
+            } else {
+                // Fall back to PATH lookup
+                resolvedServerPath = serverPath;
+            }
+        }
+    }
 
     // Server options
     const serverOptions: ServerOptions = {

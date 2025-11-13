@@ -2,8 +2,18 @@
 // The simplest Zen program
 
 { io } = @std
+{ StaticString } = @std.types
+
+Person: {
+    age: i32,
+    name: StaticString,
+}
 
 main = () i32 {
-    io.println("Hello, World!")
+    person = Person (
+    age: 20,
+    name: "John"
+    )
+    io.println("Hello, ${person.name}!")
     return 0
 }

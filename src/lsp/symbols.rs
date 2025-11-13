@@ -5,7 +5,7 @@ use lsp_server::{Request, Response, ResponseError, ErrorCode};
 use lsp_types::*;
 use serde_json::Value;
 
-use super::types::SymbolInfo;
+// use super::types::SymbolInfo; // unused
 use super::document_store::DocumentStore;
 
 // ============================================================================
@@ -25,7 +25,7 @@ pub fn handle_document_symbols(req: Request, store: &std::sync::Arc<std::sync::M
         }
     };
 
-    let store = store.lock().unwrap();
+    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(Vec::<SymbolInformation>::new()).unwrap_or(serde_json::Value::Null)), error: None }; } };
     if let Some(doc) = store.documents.get(&params.text_document.uri) {
         let symbols: Vec<DocumentSymbol> = doc.symbols.values().map(|sym| {
             DocumentSymbol {
@@ -72,15 +72,16 @@ pub fn handle_workspace_symbol(req: Request, store: &std::sync::Arc<std::sync::M
         }
     };
 
-    let store = store.lock().unwrap();
-    let query = params.query.to_lowercase();
-    let mut symbols = Vec::new();
+    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(Vec::<WorkspaceSymbol>::new()).unwrap_or(serde_json::Value::Null)), error: None }; } };
+    // Optimized: lowercase query once instead of for every symbol
+    let query_lower = params.query.to_lowercase();
+    let mut symbols = Vec::with_capacity(100); // Pre-allocate for common case
 
     // Search in all open documents
     for (uri, doc) in &store.documents {
         for (name, symbol_info) in &doc.symbols {
-            // Fuzzy match: check if query is a substring of the symbol name
-            if name.to_lowercase().contains(&query) {
+            // Optimized: lowercase name once per symbol instead of in contains check
+            if name.to_lowercase().contains(&query_lower) {
                 symbols.push(SymbolInformation {
                     name: symbol_info.name.clone(),
                     kind: symbol_info.kind,
@@ -99,7 +100,7 @@ pub fn handle_workspace_symbol(req: Request, store: &std::sync::Arc<std::sync::M
 
     // Search in stdlib symbols
     for (name, symbol_info) in &store.stdlib_symbols {
-        if name.to_lowercase().contains(&query) {
+        if name.to_lowercase().contains(&query_lower) {
             if let Some(def_uri) = &symbol_info.definition_uri {
                 symbols.push(SymbolInformation {
                     name: symbol_info.name.clone(),
@@ -119,7 +120,7 @@ pub fn handle_workspace_symbol(req: Request, store: &std::sync::Arc<std::sync::M
 
     // Search in workspace symbols (indexed from all files)
     for (name, symbol_info) in &store.workspace_symbols {
-        if name.to_lowercase().contains(&query) {
+        if name.to_lowercase().contains(&query_lower) {
             if let Some(def_uri) = &symbol_info.definition_uri {
                 symbols.push(SymbolInformation {
                     name: symbol_info.name.clone(),

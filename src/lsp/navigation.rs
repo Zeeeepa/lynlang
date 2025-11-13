@@ -10,6 +10,141 @@ use super::types::*;
 use super::utils::format_type;
 use super::document_store::DocumentStore;
 
+// Helper to find import information for a symbol
+struct ImportInfo {
+    import_line: String,
+    source: String,
+}
+
+fn find_import_info(content: &str, symbol_name: &str, position: Position) -> Option<ImportInfo> {
+    // Optimized: iterate lines directly without collecting
+    let start_line = position.line as usize;
+    
+    // Collect lines up to start_line, then search backwards
+    let lines: Vec<&str> = content.lines().take(start_line + 1).collect();
+    
+    // Search backwards from current position for import statements
+    for (_line_num, line) in lines.iter().enumerate().rev() {
+        let trimmed = line.trim();
+        
+        // Look for pattern: { symbol_name } = @std or { symbol_name, ... } = @std
+        if trimmed.starts_with('{') && trimmed.contains('}') && trimmed.contains('=') {
+            // Extract the import pattern
+            if let Some(brace_end) = trimmed.find('}') {
+                let import_part = &trimmed[1..brace_end];
+                let imports: Vec<&str> = import_part.split(',').map(|s| s.trim()).collect();
+                
+                if imports.contains(&symbol_name) {
+                    // Extract the source (after =)
+                    if let Some(eq_pos) = trimmed.find('=') {
+                        let source = trimmed[eq_pos + 1..].trim();
+                        return Some(ImportInfo {
+                            import_line: trimmed.to_string(),
+                            source: source.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+    
+    None
+}
+
+pub(crate) fn find_symbol_definition_in_content(content: &str, symbol_name: &str) -> Option<Range> {
+    let lines: Vec<&str> = content.lines().collect();
+
+    // First pass: look for actual definitions (function, variable, etc.)
+    for (line_idx, line) in lines.iter().enumerate() {
+        let trimmed = line.trim();
+        
+        // Skip comments
+        if trimmed.starts_with("//") {
+            continue;
+        }
+        
+        // Look for symbol at word boundaries
+        if let Some(pos) = find_word_in_line(line, symbol_name) {
+            // Optimized: use helper function for word boundary checking
+            let is_word_boundary_start = pos == 0 || is_word_boundary_char(line, pos.saturating_sub(1));
+            let end_pos = pos + symbol_name.len();
+            let is_word_boundary_end = end_pos >= line.len() || is_word_boundary_char(line, end_pos);
+
+            if is_word_boundary_start && is_word_boundary_end {
+                // Check if this looks like a definition
+                // Pattern: symbol_name = ... or symbol_name: Type or symbol_name: Type =
+                let after_symbol = &line[pos + symbol_name.len()..].trim();
+                let is_definition = after_symbol.starts_with('=')
+                    || after_symbol.starts_with(':')
+                    || after_symbol.starts_with('(')
+                    || (line[..pos].trim().is_empty() && (after_symbol.starts_with('=') || after_symbol.starts_with(':')));
+                
+                if is_definition {
+                    return Some(Range {
+                        start: Position { line: line_idx as u32, character: pos as u32 },
+                        end: Position { line: line_idx as u32, character: end_pos as u32 },
+                    });
+                }
+            }
+        }
+    }
+
+    None
+}
+
+// Helper to check if a byte position is a word boundary character
+// Optimized for ASCII (most common case in code)
+#[inline]
+fn is_word_boundary_char(line: &str, byte_pos: usize) -> bool {
+    if byte_pos >= line.len() {
+        return true;
+    }
+    // For ASCII characters (most common case), use direct byte access
+    if let Some(&b) = line.as_bytes().get(byte_pos) {
+        // Only valid for ASCII (0-127)
+        if b < 128 {
+            let ch = b as char;
+            return !ch.is_alphanumeric() && ch != '_';
+        }
+    }
+    // For non-ASCII, need to find the char at this byte position
+    // This is slower but correct for UTF-8
+    let mut char_count = 0;
+    for (idx, _) in line.char_indices() {
+        if idx >= byte_pos {
+            break;
+        }
+        char_count += 1;
+    }
+    line.chars().nth(char_count)
+        .map(|c| !c.is_alphanumeric() && c != '_')
+        .unwrap_or(true)
+}
+
+// Helper to find a word in a line, respecting word boundaries better
+fn find_word_in_line(line: &str, word: &str) -> Option<usize> {
+    let mut search_pos = 0;
+    loop {
+        if let Some(pos) = line[search_pos..].find(word) {
+            let actual_pos = search_pos + pos;
+            
+            // Check word boundaries - optimized: use helper function
+            let before_ok = actual_pos == 0 || is_word_boundary_char(line, actual_pos.saturating_sub(1));
+            let after_pos = actual_pos + word.len();
+            let after_ok = after_pos >= line.len() || is_word_boundary_char(line, after_pos);
+            
+            if before_ok && after_ok {
+                return Some(actual_pos);
+            }
+            
+            search_pos = actual_pos + 1;
+        } else {
+            break;
+        }
+    }
+    None
+}
+
 // ============================================================================
 // PUBLIC HANDLER FUNCTIONS
 // ============================================================================
@@ -27,7 +162,12 @@ pub fn handle_definition(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
         }
     };
 
-    let store = store.lock().unwrap();
+    let store = match store.lock() {
+        Ok(s) => s,
+        Err(_) => {
+            return Response { id: req.id, result: Some(Value::Null), error: None };
+        }
+    };
     if let Some(doc) = store.documents.get(&params.text_document_position_params.text_document.uri) {
         let position = params.text_document_position_params.position;
 
@@ -45,8 +185,95 @@ pub fn handle_definition(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
 
         // Find the symbol at the cursor position
         if let Some(symbol_name) = find_symbol_at_position(&doc.content, position) {
-            // Check local document symbols first
+            eprintln!("[LSP] Go-to-definition for: '{}'", symbol_name);
+            
+            // FIRST: Check if this is an imported symbol (e.g., { io } = @std)
+            // This should take priority to resolve to stdlib
+            if let Some(import_info) = find_import_info(&doc.content, &symbol_name, position) {
+                eprintln!("[LSP] Found import: {} from {}", symbol_name, import_info.source);
+                
+                // Try to resolve the imported symbol from stdlib
+                if let Some(symbol_info) = store.stdlib_symbols.get(&symbol_name) {
+                    if let Some(uri) = &symbol_info.definition_uri {
+                        eprintln!("[LSP] Resolved import to stdlib at {}", uri);
+                        let location = Location {
+                            uri: uri.clone(),
+                            range: symbol_info.range.clone(),
+                        };
+                        return Response {
+                            id: req.id,
+                            result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                            error: None,
+                        };
+                    }
+                }
+                
+                // If it's a module import like @std, try to find the module file
+                if import_info.source.starts_with("@std") {
+                    // First, try to find the symbol directly in stdlib_symbols (most reliable)
+                    if let Some(symbol_info) = store.stdlib_symbols.get(&symbol_name) {
+                        if let Some(uri) = &symbol_info.definition_uri {
+                            eprintln!("[LSP] Found imported symbol in stdlib_symbols at {}", uri);
+                            return Response {
+                                id: req.id,
+                                result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(Location {
+                                    uri: uri.clone(),
+                                    range: symbol_info.range.clone(),
+                                })).unwrap_or(Value::Null)),
+                                error: None,
+                            };
+                        }
+                    }
+                    
+                    // Map @std imports to actual stdlib files and search documents
+                    let module_name = if import_info.source == "@std" {
+                        "io"
+                    } else if import_info.source == "@std.types" {
+                        "core"
+                    } else {
+                        import_info.source.strip_prefix("@std.").unwrap_or("io")
+                    };
+                    
+                    let module_path = format!("{}/{}.zen", module_name, module_name);
+                    eprintln!("[LSP] Looking for stdlib module: {}", module_path);
+                    
+                    // Search for the module in stdlib documents
+                    for (uri, stdlib_doc) in &store.documents {
+                        let uri_path = uri.path();
+                        if uri_path.contains("stdlib") && (uri_path.ends_with(&module_path) || uri_path.contains(&module_path)) {
+                            eprintln!("[LSP] Found stdlib module at {}", uri_path);
+                            // Try to find the specific symbol in this module
+                            if let Some(symbol_info) = stdlib_doc.symbols.get(&symbol_name) {
+                                return Response {
+                                    id: req.id,
+                                    result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(Location {
+                                        uri: uri.clone(),
+                                        range: symbol_info.range.clone(),
+                                    })).unwrap_or(Value::Null)),
+                                    error: None,
+                                };
+                            }
+                            // If symbol not found in module, return module file location
+                            let location = Location {
+                                uri: uri.clone(),
+                                range: Range {
+                                    start: Position { line: 0, character: 0 },
+                                    end: Position { line: 0, character: 0 },
+                                },
+                            };
+                            return Response {
+                                id: req.id,
+                                result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                                error: None,
+                            };
+                        }
+                    }
+                }
+            }
+            
+            // SECOND: Check local document symbols (from AST) - prioritize same file
             if let Some(symbol_info) = doc.symbols.get(&symbol_name) {
+                eprintln!("[LSP] Found in document symbols at line {}", symbol_info.range.start.line);
                 let location = Location {
                     uri: params.text_document_position_params.text_document.uri.clone(),
                     range: symbol_info.range.clone(),
@@ -57,22 +284,6 @@ pub fn handle_definition(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
                     result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
                     error: None,
                 };
-            }
-
-            // Check stdlib symbols
-            if let Some(symbol_info) = store.stdlib_symbols.get(&symbol_name) {
-                if let Some(uri) = &symbol_info.definition_uri {
-                    let location = Location {
-                        uri: uri.clone(),
-                        range: symbol_info.range.clone(),
-                    };
-
-                    return Response {
-                        id: req.id,
-                        result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
-                        error: None,
-                    };
-                }
             }
 
             // Check workspace symbols (indexed from all files)
@@ -91,13 +302,19 @@ pub fn handle_definition(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
                 }
             }
 
-            // Search for the symbol in all open documents
+            // FIFTH: Search for the symbol in other open documents (but NOT current file - already checked)
             // Prioritize non-test files over test files
             let mut test_match: Option<(Url, Range)> = None;
+            let current_uri = &params.text_document_position_params.text_document.uri;
 
             // Limit search for performance (prioritize open files)
             const MAX_DOCS_DEFINITION_SEARCH: usize = 50;
             for (uri, other_doc) in store.documents.iter().take(MAX_DOCS_DEFINITION_SEARCH) {
+                // Skip current document - we already checked it above
+                if uri == current_uri {
+                    continue;
+                }
+                
                 if let Some(symbol_info) = other_doc.symbols.get(&symbol_name) {
                     let uri_str = uri.as_str();
                     let is_test = uri_str.contains("/tests/") || uri_str.contains("_test.zen") || uri_str.contains("test_");
@@ -144,6 +361,24 @@ pub fn handle_definition(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
                     error: None,
                 };
             }
+
+            // Fallback: text search within current document (when AST parsing fails)
+            eprintln!("[LSP] Trying text search fallback for: '{}'", symbol_name);
+            if let Some(range) = find_symbol_definition_in_content(&doc.content, &symbol_name) {
+                eprintln!("[LSP] Found via text search at line {}", range.start.line);
+                let location = Location {
+                    uri: params.text_document_position_params.text_document.uri.clone(),
+                    range,
+                };
+
+                return Response {
+                    id: req.id,
+                    result: Some(serde_json::to_value(GotoDefinitionResponse::Scalar(location)).unwrap_or(Value::Null)),
+                    error: None,
+                };
+            }
+            
+            eprintln!("[LSP] No definition found for: '{}'", symbol_name);
         }
     }
 
@@ -167,7 +402,12 @@ pub fn handle_type_definition(req: Request, store: &std::sync::Arc<std::sync::Mu
         }
     };
 
-    let store = store.lock().unwrap();
+    let store = match store.lock() {
+        Ok(s) => s,
+        Err(_) => {
+            return Response { id: req.id, result: Some(Value::Null), error: None };
+        }
+    };
     if let Some(doc) = store.documents.get(&params.text_document_position_params.text_document.uri) {
         let position = params.text_document_position_params.position;
 
@@ -247,7 +487,12 @@ pub fn handle_references(
         }
     };
 
-    let store_lock = store.lock().unwrap();
+    let store_lock = match store.lock() {
+        Ok(s) => s,
+        Err(_) => {
+            return Response { id: req.id, result: Some(serde_json::to_value(Vec::<Location>::new()).unwrap_or(Value::Null)), error: None };
+        }
+    };
     let mut locations = Vec::new();
 
     if let Some(doc) = store_lock.documents.get(&params.text_document_position.text_document.uri) {
@@ -330,7 +575,12 @@ pub fn handle_document_highlight(req: Request, store: &std::sync::Arc<std::sync:
         }
     };
 
-    let store = store.lock().unwrap();
+    let store = match store.lock() {
+        Ok(s) => s,
+        Err(_) => {
+            return Response { id: req.id, result: Some(Value::Null), error: None };
+        }
+    };
     if let Some(doc) = store.documents.get(&params.text_document_position_params.text_document.uri) {
         let position = params.text_document_position_params.position;
 
@@ -378,18 +628,34 @@ pub fn find_symbol_at_position(content: &str, position: Position) -> Option<Stri
     let mut start = char_pos.min(chars.len());
     let mut end = char_pos.min(chars.len());
 
-    // Move start backwards to find word beginning
-    while start > 0 && start <= chars.len() && (chars[start - 1].is_alphanumeric() || chars[start - 1] == '_') {
-        start -= 1;
+    // Move start backwards to find word beginning (allow @ for @std)
+    while start > 0 && start <= chars.len() {
+        let ch = chars[start - 1];
+        if ch.is_alphanumeric() || ch == '_' || (start == 1 && ch == '@') {
+            start -= 1;
+        } else {
+            break;
+        }
     }
 
     // Move end forward to find word end
-    while end < chars.len() && (chars[end].is_alphanumeric() || chars[end] == '_') {
-        end += 1;
+    while end < chars.len() {
+        let ch = chars[end];
+        if ch.is_alphanumeric() || ch == '_' || ch == '.' {
+            end += 1;
+        } else {
+            break;
+        }
     }
 
     if start < end {
-        Some(chars[start..end].iter().collect())
+        let symbol: String = chars[start..end].iter().collect();
+        // Don't return empty or just punctuation
+        if !symbol.is_empty() && symbol.chars().any(|c| c.is_alphanumeric()) {
+            Some(symbol)
+        } else {
+            None
+        }
     } else {
         None
     }
@@ -405,10 +671,10 @@ fn find_symbol_occurrences(content: &str, symbol_name: &str) -> Vec<DocumentHigh
         while let Some(pos) = line[start_pos..].find(symbol_name) {
             let actual_pos = start_pos + pos;
 
-            // Check if this is a whole word match (not part of another identifier)
-            let is_word_start = actual_pos == 0 || !line.chars().nth(actual_pos - 1).unwrap_or(' ').is_alphanumeric();
+            // Check if this is a whole word match (not part of another identifier) - optimized
+            let is_word_start = actual_pos == 0 || is_word_boundary_char(line, actual_pos.saturating_sub(1));
             let end_pos = actual_pos + symbol_name.len();
-            let is_word_end = end_pos >= line.len() || !line.chars().nth(end_pos).unwrap_or(' ').is_alphanumeric();
+            let is_word_end = end_pos >= line.len() || is_word_boundary_char(line, end_pos);
 
             if is_word_start && is_word_end {
                 highlights.push(DocumentHighlight {
@@ -748,10 +1014,11 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
                         }
                     }
                 }
-                // Check for collection types with generics
-                if let Some(cap) = regex::Regex::new(r"(HashMap|DynVec|Vec|Array|Option|Result)<[^>]+>")
-                    .ok()?.captures(detail) {
-                    return Some(cap[1].to_string());
+                // Check for collection types with generics - use simple string matching instead of regex
+                for type_name in ["HashMap<", "DynVec<", "Vec<", "Array<", "Option<", "Result<"] {
+                    if detail.contains(type_name) {
+                        return Some(type_name.trim_end_matches('<').to_string());
+                    }
                 }
                 // Fallback to simple contains checks
                 for type_name in ["HashMap", "DynVec", "Vec", "Array", "Option", "Result", "String", "StaticString"] {
@@ -763,28 +1030,40 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
         }
     }
 
-    // Enhanced pattern matching for function calls and constructors
-    let patterns = [
-        (r"HashMap\s*\(", "HashMap"),
-        (r"DynVec\s*\(", "DynVec"),
-        (r"Vec\s*[<(]", "Vec"),
-        (r"Array\s*\(", "Array"),
-        (r"Some\s*\(", "Option"),
-        (r"None", "Option"),
-        (r"Ok\s*\(", "Result"),
-        (r"Err\s*\(", "Result"),
-        (r"Result\.", "Result"),
-        (r"Option\.", "Option"),
-        (r"get_default_allocator\s*\(\)", "Allocator"),
-        (r"\[\s*\d+\s*;\s*\d+\s*\]", "Array"), // Fixed array syntax
-    ];
-
-    for (pattern, type_name) in patterns {
-        if let Ok(re) = regex::Regex::new(pattern) {
-            if re.is_match(receiver) {
-                return Some(type_name.to_string());
-            }
-        }
+    // Enhanced pattern matching for function calls and constructors - optimized: use string matching instead of regex
+    let receiver_trim = receiver.trim();
+    if receiver_trim.starts_with("HashMap(") || receiver_trim.starts_with("HashMap<") {
+        return Some("HashMap".to_string());
+    }
+    if receiver_trim.starts_with("DynVec(") || receiver_trim.starts_with("DynVec<") {
+        return Some("DynVec".to_string());
+    }
+    if receiver_trim.starts_with("Vec(") || receiver_trim.starts_with("Vec<") {
+        return Some("Vec".to_string());
+    }
+    if receiver_trim.starts_with("Array(") || receiver_trim.starts_with("Array<") {
+        return Some("Array".to_string());
+    }
+    if receiver_trim.starts_with("Some(") {
+        return Some("Option".to_string());
+    }
+    if receiver_trim == "None" {
+        return Some("Option".to_string());
+    }
+    if receiver_trim.starts_with("Ok(") || receiver_trim.starts_with("Err(") {
+        return Some("Result".to_string());
+    }
+    if receiver_trim.starts_with("Result.") {
+        return Some("Result".to_string());
+    }
+    if receiver_trim.starts_with("Option.") {
+        return Some("Option".to_string());
+    }
+    if receiver_trim.starts_with("get_default_allocator()") {
+        return Some("Allocator".to_string());
+    }
+    if receiver_trim.starts_with('[') && receiver_trim.contains(';') && receiver_trim.ends_with(']') {
+        return Some("Array".to_string());
     }
 
     // Enhanced support for method call chains (e.g., foo.bar().baz())
@@ -1143,10 +1422,9 @@ fn find_local_references(content: &str, symbol_name: &str, function_name: &str) 
         while let Some(col) = line[start_col..].find(symbol_name) {
             let actual_col = start_col + col;
 
-            let before_ok = actual_col == 0 ||
-                !line.chars().nth(actual_col - 1).unwrap_or(' ').is_alphanumeric();
-            let after_ok = actual_col + symbol_name.len() >= line.len() ||
-                !line.chars().nth(actual_col + symbol_name.len()).unwrap_or(' ').is_alphanumeric();
+            let before_ok = actual_col == 0 || is_word_boundary_char(line, actual_col.saturating_sub(1));
+            let after_ok = actual_col + symbol_name.len() >= line.len() || 
+                is_word_boundary_char(line, actual_col + symbol_name.len());
 
             if before_ok && after_ok && !is_in_string_or_comment(line, actual_col) {
                 references.push(Range {
@@ -1179,10 +1457,9 @@ fn find_references_in_document(content: &str, symbol_name: &str) -> Vec<Range> {
         while let Some(col) = line[start_col..].find(symbol_name) {
             let actual_col = start_col + col;
 
-            let before_ok = actual_col == 0 ||
-                !line.chars().nth(actual_col - 1).unwrap_or(' ').is_alphanumeric();
-            let after_ok = actual_col + symbol_name.len() >= line.len() ||
-                !line.chars().nth(actual_col + symbol_name.len()).unwrap_or(' ').is_alphanumeric();
+            let before_ok = actual_col == 0 || is_word_boundary_char(line, actual_col.saturating_sub(1));
+            let after_ok = actual_col + symbol_name.len() >= line.len() || 
+                is_word_boundary_char(line, actual_col + symbol_name.len());
 
             if before_ok && after_ok && !is_in_string_or_comment(line, actual_col) {
                 references.push(Range {

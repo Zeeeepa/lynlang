@@ -519,6 +519,7 @@ impl<'a> Parser<'a> {
             args,
             return_type,
             body,
+            is_varargs: false,
         })
     }
 
@@ -646,6 +647,7 @@ impl<'a> Parser<'a> {
             args,
             return_type,
             body,
+            is_varargs: false,
         })
     }
 

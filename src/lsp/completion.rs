@@ -17,7 +17,18 @@ use super::utils::{symbol_kind_to_completion_kind, format_type};
 
 /// Main completion request handler
 pub fn handle_completion(req: Request, store: &std::sync::Arc<std::sync::Mutex<DocumentStore>>) -> Response {
-    let store_guard = store.lock().unwrap();
+    let store_guard = match store.lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            // Return an empty completion response rather than panicking on poisoned lock
+            let empty = CompletionResponse::Array(Vec::new());
+            return Response {
+                id: req.id,
+                result: Some(serde_json::to_value(empty).unwrap_or(Value::Null)),
+                error: None,
+            };
+        }
+    };
     let store = &*store_guard;
     let params: CompletionParams = match serde_json::from_value(req.params) {
         Ok(p) => p,
@@ -491,10 +502,11 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
                         }
                     }
                 }
-                // Check for collection types with generics
-                if let Some(cap) = regex::Regex::new(r"(HashMap|DynVec|Vec|Array|Option|Result)<[^>]+>")
-                    .ok()?.captures(detail) {
-                    return Some(cap[1].to_string());
+                // Check for collection types with generics - use simple string matching instead of regex
+                for type_name in ["HashMap<", "DynVec<", "Vec<", "Array<", "Option<", "Result<"] {
+                    if detail.contains(type_name) {
+                        return Some(type_name.trim_end_matches('<').to_string());
+                    }
                 }
                 // Fallback to simple contains checks
                 for type_name in ["HashMap", "DynVec", "Vec", "Array", "Option", "Result", "String", "StaticString"] {
@@ -506,28 +518,40 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
         }
     }
 
-    // Enhanced pattern matching for function calls and constructors
-    let patterns = [
-        (r"HashMap\s*\(", "HashMap"),
-        (r"DynVec\s*\(", "DynVec"),
-        (r"Vec\s*[<(]", "Vec"),
-        (r"Array\s*\(", "Array"),
-        (r"Some\s*\(", "Option"),
-        (r"None", "Option"),
-        (r"Ok\s*\(", "Result"),
-        (r"Err\s*\(", "Result"),
-        (r"Result\.", "Result"),
-        (r"Option\.", "Option"),
-        (r"get_default_allocator\s*\(\)", "Allocator"),
-        (r"\[\s*\d+\s*;\s*\d+\s*\]", "Array"), // Fixed array syntax
-    ];
-
-    for (pattern, type_name) in patterns {
-        if let Ok(re) = regex::Regex::new(pattern) {
-            if re.is_match(receiver) {
-                return Some(type_name.to_string());
-            }
-        }
+    // Enhanced pattern matching for function calls and constructors - optimized: use string matching instead of regex
+    let receiver_trim = receiver.trim();
+    if receiver_trim.starts_with("HashMap(") || receiver_trim.starts_with("HashMap<") {
+        return Some("HashMap".to_string());
+    }
+    if receiver_trim.starts_with("DynVec(") || receiver_trim.starts_with("DynVec<") {
+        return Some("DynVec".to_string());
+    }
+    if receiver_trim.starts_with("Vec(") || receiver_trim.starts_with("Vec<") {
+        return Some("Vec".to_string());
+    }
+    if receiver_trim.starts_with("Array(") || receiver_trim.starts_with("Array<") {
+        return Some("Array".to_string());
+    }
+    if receiver_trim.starts_with("Some(") {
+        return Some("Option".to_string());
+    }
+    if receiver_trim == "None" {
+        return Some("Option".to_string());
+    }
+    if receiver_trim.starts_with("Ok(") || receiver_trim.starts_with("Err(") {
+        return Some("Result".to_string());
+    }
+    if receiver_trim.starts_with("Result.") {
+        return Some("Result".to_string());
+    }
+    if receiver_trim.starts_with("Option.") {
+        return Some("Option".to_string());
+    }
+    if receiver_trim.starts_with("get_default_allocator()") {
+        return Some("Allocator".to_string());
+    }
+    if receiver_trim.starts_with('[') && receiver_trim.contains(';') && receiver_trim.ends_with(']') {
+        return Some("Array".to_string());
     }
 
     // Enhanced support for method call chains (e.g., foo.bar().baz())

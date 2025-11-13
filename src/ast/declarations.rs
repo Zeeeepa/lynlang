@@ -11,6 +11,7 @@ pub struct Function {
     pub args: Vec<(String, AstType)>,
     pub return_type: AstType,
     pub body: Vec<Statement>,
+    pub is_varargs: bool, // For variadic functions like printf
 }
 
 #[derive(Debug, Clone, PartialEq)]

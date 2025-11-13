@@ -199,6 +199,7 @@ impl<'a> Parser<'a> {
             args: parameters,
             return_type,
             body,
+            is_varargs: false,
         })
     }
 }

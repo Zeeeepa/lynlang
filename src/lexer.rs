@@ -154,8 +154,14 @@ impl<'a> Lexer<'a> {
                 }
             }
             Some('"') => {
-                let string = self.read_string();
-                Token::StringLiteral(string)
+                // Check for triple-quoted string: """
+                if self.peek_char() == Some('"') && self.peek_char_n(1) == Some('"') {
+                    let string = self.read_triple_string();
+                    Token::StringLiteral(string)
+                } else {
+                    let string = self.read_string();
+                    Token::StringLiteral(string)
+                }
             }
             Some(':') => {
                 // Check for multi-character operators (:=, ::, ::=)
@@ -563,5 +569,75 @@ impl<'a> Lexer<'a> {
         } else {
             self.input[self.read_position..].chars().next()
         }
+    }
+
+    fn peek_char_n(&self, n: usize) -> Option<char> {
+        let mut chars = self.input[self.read_position..].chars();
+        for _ in 0..n {
+            chars.next()?;
+        }
+        chars.next()
+    }
+
+    fn read_triple_string(&mut self) -> String {
+        // Consume the three opening quotes
+        self.read_char(); // consume first "
+        self.read_char(); // consume second "
+        self.read_char(); // consume third "
+        
+        let mut result = String::new();
+
+        while let Some(c) = self.current_char {
+            // Check if we've found the closing """
+            if c == '"' {
+                let peek1 = self.peek_char();
+                let peek2 = self.peek_char_n(1);
+                if peek1 == Some('"') && peek2 == Some('"') {
+                    // Found closing """
+                    break;
+                } else {
+                    // Just a regular quote inside the string
+                    result.push('"');
+                    self.read_char();
+                }
+            } else {
+                // Handle string interpolation ${...}
+                if c == '$' && self.peek_char() == Some('{') {
+                    // Mark string interpolation point
+                    result.push('\x01'); // Special marker for interpolation
+                    self.read_char(); // consume $
+                    self.read_char(); // consume {
+
+                    // Read the interpolated expression until we find '}'
+                    let mut depth = 1;
+                    while let Some(ch) = self.current_char {
+                        if ch == '{' {
+                            depth += 1;
+                        } else if ch == '}' {
+                            depth -= 1;
+                            if depth == 0 {
+                                self.read_char(); // consume final }
+                                break;
+                            }
+                        }
+                        result.push(ch);
+                        self.read_char();
+                    }
+                    result.push('\x02'); // End marker for interpolation
+                } else {
+                    result.push(c);
+                    self.read_char();
+                }
+            }
+        }
+        
+        // Consume the three closing quotes
+        if self.current_char == Some('"') {
+            self.read_char(); // consume first "
+            self.read_char(); // consume second "
+            self.read_char(); // consume third "
+        }
+        
+        result
     }
 }

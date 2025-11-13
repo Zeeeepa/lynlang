@@ -400,7 +400,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                         let value = self.compile_expression(&args[0])?;
                         // Pass the pointer instead of the value for in-place modification
-                        return self.compile_array_push_by_ptr(array_ptr, value);
+                        return super::functions::arrays::compile_array_push_by_ptr(self, array_ptr, value);
                     }
                     "get" => {
                         if args.len() != 1 {
@@ -410,7 +410,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             ));
                         }
                         let index = self.compile_expression(&args[0])?;
-                        let result = self.compile_array_get(object_val, index)?;
+                        let result = super::functions::arrays::compile_array_get(self, object_val, index)?;
                         return Ok(result);
                     }
                     "len" => {
@@ -420,7 +420,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 None,
                             ));
                         }
-                        let result = self.compile_array_len(object_val)?;
+                        let result = super::functions::arrays::compile_array_len(self, object_val)?;
                         return Ok(result);
                     }
                     "set" => {
@@ -432,7 +432,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                         let index = self.compile_expression(&args[0])?;
                         let value = self.compile_expression(&args[1])?;
-                        let result = self.compile_array_set(object_val, index, value)?;
+                        let result = super::functions::arrays::compile_array_set(self, object_val, index, value)?;
                         return Ok(result);
                     }
                     "pop" => {
@@ -443,7 +443,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             ));
                         }
                         // Pass the pointer for in-place modification
-                        let result = self.compile_array_pop_by_ptr(array_ptr)?;
+                        let result = super::functions::arrays::compile_array_pop_by_ptr(self, array_ptr)?;
                         return Ok(result);
                     }
                     _ => {

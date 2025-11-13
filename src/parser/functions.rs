@@ -50,8 +50,24 @@ impl<'a> Parser<'a> {
         self.next_token();
 
         let mut args = vec![];
+        let mut is_varargs = false;
+
         if self.current_token != Token::Symbol(')') {
             loop {
+                // Check for variadic function syntax: ... at the end
+                if self.current_token == Token::Operator("...".to_string()) {
+                    is_varargs = true;
+                    self.next_token();
+                    // After ..., expect closing paren
+                    if self.current_token != Token::Symbol(')') {
+                        return Err(CompileError::SyntaxError(
+                            "Expected ')' after '...' in variadic function".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                    break;
+                }
+
                 // Parameter name
                 let param_name = if let Token::Identifier(name) = &self.current_token {
                     name.clone()
@@ -101,7 +117,21 @@ impl<'a> Parser<'a> {
                         Some(self.current_span.clone()),
                     ));
                 }
-                self.next_token();
+                self.next_token(); // consume ','
+                
+                // After consuming comma, check for variadic syntax before looping
+                if self.current_token == Token::Operator("...".to_string()) {
+                    is_varargs = true;
+                    self.next_token();
+                    // After ..., expect closing paren
+                    if self.current_token != Token::Symbol(')') {
+                        return Err(CompileError::SyntaxError(
+                            "Expected ')' after '...' in variadic function".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                    break;
+                }
             }
         }
         self.next_token(); // consume ')'
@@ -165,6 +195,7 @@ impl<'a> Parser<'a> {
             args,
             return_type,
             body,
+            is_varargs,
         })
     }
 }

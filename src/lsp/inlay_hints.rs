@@ -28,7 +28,7 @@ pub fn handle_inlay_hints(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Re
         }
     };
 
-    let store = store.lock().unwrap();
+    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(Vec::<InlayHint>::new()).unwrap_or(serde_json::Value::Null)), error: None }; } };
     let doc = match store.documents.get(&params.text_document.uri) {
         Some(d) => d,
         None => {
@@ -40,7 +40,7 @@ pub fn handle_inlay_hints(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Re
         }
     };
 
-    let mut hints = Vec::new();
+    let mut hints = Vec::with_capacity(20); // Pre-allocate for common case
 
     // Parse the AST and extract variable declarations with position tracking
     if let Some(ast) = &doc.ast {
@@ -113,18 +113,21 @@ fn collect_hints_from_statements(
 }
 
 fn find_variable_position(content: &str, var_name: &str) -> Option<Position> {
-    let lines: Vec<&str> = content.lines().collect();
-
-    for (line_num, line) in lines.iter().enumerate() {
+    // Optimized: iterate lines directly without collecting
+    for (line_num, line) in content.lines().enumerate() {
         // Look for Zen variable declaration patterns:
         // "var_name = " or "var_name := " or "var_name ::= " or "var_name : Type ="
 
         // First, check if line contains the variable name
         if let Some(name_pos) = line.find(var_name) {
             // Check if this is actually a variable declaration
-            // Must be at start of line or after whitespace
-            let before_ok = name_pos == 0 ||
-                line.chars().nth(name_pos - 1).map_or(true, |c| c.is_whitespace());
+            // Must be at start of line or after whitespace - optimized: use byte indexing
+            let before_ok = name_pos == 0 || {
+                line.as_bytes()
+                    .get(name_pos.saturating_sub(1))
+                    .map(|&b| b < 128 && (b as char).is_whitespace())
+                    .unwrap_or(true)
+            };
 
             if before_ok {
                 // Check what comes after the variable name
@@ -344,9 +347,8 @@ fn extract_param_names_from_signature(signature: &str) -> Option<Vec<String>> {
 }
 
 fn find_function_arg_position(content: &str, func_name: &str, arg_index: usize) -> Option<Position> {
-    let lines: Vec<&str> = content.lines().collect();
-
-    for (line_num, line) in lines.iter().enumerate() {
+    // Optimized: iterate lines directly without collecting
+    for (line_num, line) in content.lines().enumerate() {
         // Look for function call pattern: "func_name("
         if let Some(func_pos) = line.find(func_name) {
             // Check if this is actually a function call (followed by '(')
@@ -355,13 +357,24 @@ fn find_function_arg_position(content: &str, func_name: &str, arg_index: usize) 
                 // Find the opening paren position
                 let paren_pos = func_pos + func_name.len() + (line[func_pos + func_name.len()..].find('(').unwrap_or(0));
 
-                // Find the nth argument by counting commas
+                // Find the nth argument by counting commas - optimized: use byte indexing
                 let mut current_arg = 0;
                 let mut depth = 0;
                 let mut i = paren_pos + 1;
+                let bytes = line.as_bytes();
 
                 while i < line.len() {
-                    let c = line.chars().nth(i).unwrap_or('\0');
+                    // Optimized: use byte indexing for ASCII characters
+                    let c = if let Some(&b) = bytes.get(i) {
+                        if b < 128 {
+                            b as char
+                        } else {
+                            // Fallback to char iteration for non-ASCII
+                            line.chars().nth(i).unwrap_or('\0')
+                        }
+                    } else {
+                        break;
+                    };
 
                     if c == '(' {
                         depth += 1;

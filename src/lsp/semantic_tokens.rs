@@ -28,7 +28,7 @@ pub fn handle_semantic_tokens(req: Request, store: &std::sync::Arc<std::sync::Mu
         }
     };
 
-    let store = store.lock().unwrap();
+    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(SemanticTokens::default()).unwrap_or(serde_json::Value::Null)), error: None }; } };
     let doc = match store.documents.get(&params.text_document.uri) {
         Some(doc) => doc,
         None => {
@@ -100,14 +100,15 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
 
     let mut prev_line = 0;
     let mut prev_start = 0;
-    let lines: Vec<&str> = content.lines().collect();
+    // Optimized: iterate lines directly without collecting into Vec
+    let mut line_iter = content.lines().enumerate();
 
     // Track context for better token classification
     let mut in_function = false;
     let mut _in_struct = false;
     let mut _in_allocator_context = false;
 
-    for (line_idx, line) in lines.iter().enumerate() {
+    while let Some((line_idx, line)) = line_iter.next() {
         let mut char_idx = 0;
         let mut chars = line.chars().peekable();
 
@@ -144,21 +145,68 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                 break; // Rest of line is comment
             }
 
-            // String literals
+            // String literals (including triple-quoted strings)
             if ch == '"' {
                 let mut string_len = 1;
                 let mut escaped = false;
-                while let Some(&next_ch) = chars.peek() {
-                    chars.next();
-                    char_idx += next_ch.len_utf8();
-                    string_len += next_ch.len_utf8();
+                let mut is_triple = false;
+                
+                // Check for triple-quoted string
+                if let Some(&next_ch) = chars.peek() {
+                    if next_ch == '"' {
+                        chars.next();
+                        char_idx += next_ch.len_utf8();
+                        string_len += next_ch.len_utf8();
+                        if let Some(&next2_ch) = chars.peek() {
+                            if next2_ch == '"' {
+                                chars.next();
+                                char_idx += next2_ch.len_utf8();
+                                string_len += next2_ch.len_utf8();
+                                is_triple = true;
+                            }
+                        }
+                    }
+                }
+                
+                if is_triple {
+                    // Triple-quoted string: read until we find """
+                    while let Some(&next_ch) = chars.peek() {
+                        chars.next();
+                        char_idx += next_ch.len_utf8();
+                        string_len += next_ch.len_utf8();
+                        
+                        if next_ch == '"' {
+                            if let Some(&next2_ch) = chars.peek() {
+                                if next2_ch == '"' {
+                                    chars.next();
+                                    char_idx += next2_ch.len_utf8();
+                                    string_len += next2_ch.len_utf8();
+                                    if let Some(&next3_ch) = chars.peek() {
+                                        if next3_ch == '"' {
+                                            chars.next();
+                                            char_idx += next3_ch.len_utf8();
+                                            string_len += next3_ch.len_utf8();
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Single-quoted string
+                    while let Some(&next_ch) = chars.peek() {
+                        chars.next();
+                        char_idx += next_ch.len_utf8();
+                        string_len += next_ch.len_utf8();
 
-                    if escaped {
-                        escaped = false;
-                    } else if next_ch == '\\' {
-                        escaped = true;
-                    } else if next_ch == '"' {
-                        break;
+                        if escaped {
+                            escaped = false;
+                        } else if next_ch == '\\' {
+                            escaped = true;
+                        } else if next_ch == '"' {
+                            break;
+                        }
                     }
                 }
 

@@ -8,7 +8,7 @@ use serde_json::Value;
 use std::sync::{Arc, Mutex};
 
 use super::document_store::DocumentStore;
-use super::types::{Document, SymbolInfo};
+use super::types::SymbolInfo;
 
 // ============================================================================
 // PUBLIC HANDLER FUNCTION
@@ -26,7 +26,10 @@ pub fn handle_signature_help(req: Request, store: &Arc<Mutex<DocumentStore>>) ->
         }
     };
 
-    let store = store.lock().unwrap();
+    let store = match store.lock() { Ok(s) => s, Err(_) => {
+        let empty = SignatureHelp { signatures: vec![], active_signature: None, active_parameter: None };
+        return Response { id: req.id, result: Some(serde_json::to_value(empty).unwrap_or(serde_json::Value::Null)), error: None };
+    } };
     let doc = match store.documents.get(&params.text_document_position_params.text_document.uri) {
         Some(d) => d,
         None => {

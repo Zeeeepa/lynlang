@@ -30,7 +30,7 @@ pub fn handle_rename(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Respons
         }
     };
 
-    let store = store.lock().unwrap();
+    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(WorkspaceEdit::default()).unwrap_or(serde_json::Value::Null)), error: None }; } };
     let new_name = params.new_name;
     let uri = &params.text_document_position.text_document.uri;
 

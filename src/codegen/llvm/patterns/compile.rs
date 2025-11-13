@@ -1,4 +1,5 @@
-use super::{symbols, LLVMCompiler};
+use super::super::{symbols, LLVMCompiler};
+use super::super::VariableInfo;
 use crate::ast::Pattern;
 use crate::error::CompileError;
 use inkwell::values::{BasicValueEnum, IntValue};
@@ -1553,7 +1554,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
     pub fn apply_pattern_bindings(
         &mut self,
         bindings: &[(String, BasicValueEnum<'ctx>)],
-    ) -> HashMap<String, super::VariableInfo<'ctx>> {
+    ) -> HashMap<String, VariableInfo<'ctx>> {
         let mut saved = HashMap::new();
 
         for (name, value) in bindings {
@@ -1741,7 +1742,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
             self.variables.insert(
                 name.clone(),
-                super::VariableInfo {
+                VariableInfo {
                     pointer: alloca,
                     ast_type,
                     is_mutable: false, // Pattern bindings are immutable
@@ -1753,7 +1754,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         saved
     }
 
-    pub fn restore_variables(&mut self, saved: HashMap<String, super::VariableInfo<'ctx>>) {
+    pub fn restore_variables(&mut self, saved: HashMap<String, VariableInfo<'ctx>>) {
         for (name, value) in saved {
             self.variables.insert(name, value);
         }

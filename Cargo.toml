@@ -49,6 +49,5 @@ path = "src/bin/zen-format.rs"
 
 
 [dev-dependencies]
-test-utils = { path = "./test-utils" }
 tempfile = "3.8"
 # regex is inherited from [dependencies]

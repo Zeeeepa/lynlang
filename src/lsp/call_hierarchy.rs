@@ -25,7 +25,7 @@ pub fn handle_prepare_call_hierarchy(req: Request, store: &std::sync::Arc<std::s
         }
     };
 
-    let store = store.lock().unwrap();
+    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(Vec::<CallHierarchyItem>::new()).unwrap_or(serde_json::Value::Null)), error: None }; } };
     if let Some(doc) = store.documents.get(&params.text_document_position_params.text_document.uri) {
         let position = params.text_document_position_params.position;
 
@@ -99,7 +99,7 @@ pub fn handle_incoming_calls(req: Request, store: &std::sync::Arc<std::sync::Mut
         }
     };
 
-    let store = store.lock().unwrap();
+    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(Vec::<CallHierarchyIncomingCall>::new()).unwrap_or(serde_json::Value::Null)), error: None }; } };
     let mut incoming_calls = Vec::new();
 
     // Find all references to this function across all documents
@@ -145,7 +145,7 @@ pub fn handle_outgoing_calls(req: Request, store: &std::sync::Arc<std::sync::Mut
         }
     };
 
-    let store = store.lock().unwrap();
+    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(Vec::<CallHierarchyOutgoingCall>::new()).unwrap_or(serde_json::Value::Null)), error: None }; } };
     let mut outgoing_calls = Vec::new();
 
     // Find the function body and extract all function calls

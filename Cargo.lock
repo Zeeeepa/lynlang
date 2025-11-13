@@ -848,14 +848,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "test-utils"
-version = "0.1.0"
-dependencies = [
- "inkwell",
- "zen",
-]
-
-[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1212,7 +1204,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "test-utils",
  "thiserror",
  "toml",
 ]

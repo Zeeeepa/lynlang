@@ -21,7 +21,7 @@ pub fn handle_formatting(req: Request, store: Arc<Mutex<DocumentStore>>) -> Resp
         }
     };
 
-    let store = store.lock().unwrap();
+    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(Vec::<TextEdit>::new()).unwrap_or(serde_json::Value::Null)), error: None }; } };
     let doc = match store.documents.get(&params.text_document.uri) {
         Some(doc) => doc,
         None => {

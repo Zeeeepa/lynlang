@@ -27,7 +27,7 @@ pub fn handle_code_action(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Re
     };
 
     let mut actions = Vec::new();
-    let store = store.lock().unwrap();
+    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(Vec::<CodeActionOrCommand>::new()).unwrap_or(serde_json::Value::Null)), error: None }; } };
 
     if let Some(doc) = store.documents.get(&params.text_document.uri) {
         // Check diagnostics in the requested range

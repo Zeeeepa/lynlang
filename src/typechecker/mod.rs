@@ -712,7 +712,9 @@ impl TypeChecker {
         Ok(())
     }
 
-    fn infer_expression_type(&mut self, expr: &Expression) -> Result<AstType> {
+    /// Infer the type of an expression using the current type checker context
+    /// Public method for LSP and other tools that need type inference
+    pub fn infer_expression_type(&mut self, expr: &Expression) -> Result<AstType> {
         // eprintln!("DEBUG TypeChecker: infer_expression_type called for expr type: {}",
         //     match expr {
         //         Expression::Integer8(_) => "Integer8",

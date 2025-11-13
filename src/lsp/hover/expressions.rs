@@ -1,0 +1,121 @@
+// Expression analysis for hover
+
+use std::collections::HashMap;
+
+use super::super::types::*;
+use super::super::utils::format_type;
+use super::super::document_store::DocumentStore;
+use super::structs::find_struct_definition_in_documents;
+use crate::ast::{AstType, Expression};
+
+/// Analyze expression AST to determine hover information
+pub fn analyze_expression_hover(
+    expr: &Expression,
+    expr_str: &str,
+    relative_pos: usize,
+    symbol_name: &str,
+    local_symbols: &HashMap<String, SymbolInfo>,
+    store: &DocumentStore,
+) -> Option<String> {
+    match expr {
+        Expression::MemberAccess { object, member } => {
+            // Find the last dot position (for nested member access)
+            let mut last_dot_pos = 0;
+            for (i, ch) in expr_str.char_indices() {
+                if ch == '.' {
+                    last_dot_pos = i;
+                }
+            }
+            
+            let member_start = last_dot_pos + 1;
+            let member_end = expr_str.len();
+            
+            if relative_pos >= member_start && relative_pos <= member_end && member == symbol_name {
+                // We're hovering on the member - find the type of the object
+                // Recursively resolve the object type
+                if let Some(object_type) = resolve_expression_type(object, local_symbols, store) {
+                    if let AstType::Struct { name, .. } = object_type {
+                        if let Some(struct_def) = find_struct_definition_in_documents(&name, &store.documents) {
+                            for field in &struct_def.fields {
+                                if field.name == symbol_name {
+                                    return Some(format!(
+                                        "```zen\n{}: {}\n```\n\n**Field of:** `{}`\n\n**Type:** `{}`",
+                                        symbol_name,
+                                        format_type(&field.type_),
+                                        name,
+                                        format_type(&field.type_)
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if relative_pos < last_dot_pos {
+                // We're hovering on the object part - recursively analyze
+                return analyze_expression_hover(object, &expr_str[..last_dot_pos], relative_pos, symbol_name, local_symbols, store);
+            }
+        }
+        Expression::MethodCall { object, method, .. } => {
+            // Similar to MemberAccess but for method calls
+            if let Some(dot_pos) = expr_str.rfind('.') {
+                let method_start = dot_pos + 1;
+                let method_end = expr_str.find('(').unwrap_or(expr_str.len());
+                
+                if relative_pos >= method_start && relative_pos <= method_end && method == symbol_name {
+                    // Hovering on method name - could show method signature
+                    // For now, just show that it's a method
+                    return Some(format!("```zen\n{}.{}()\n```\n\n**Method**", 
+                        match object.as_ref() {
+                            Expression::Identifier(name) => name.clone(),
+                            _ => "object".to_string(),
+                        },
+                        method
+                    ));
+                } else if relative_pos < dot_pos {
+                    // Hovering on object
+                    return analyze_expression_hover(object, &expr_str[..dot_pos], relative_pos, symbol_name, local_symbols, store);
+                }
+            }
+        }
+        Expression::Identifier(var_name) => {
+            if var_name == symbol_name {
+                return super::structs::handle_variable_hover(var_name, local_symbols, store);
+            }
+        }
+        _ => {}
+    }
+    None
+}
+
+/// Resolve the type of an expression
+pub fn resolve_expression_type(
+    expr: &Expression,
+    local_symbols: &HashMap<String, SymbolInfo>,
+    store: &DocumentStore,
+) -> Option<AstType> {
+    match expr {
+        Expression::Identifier(var_name) => {
+            if let Some(var_info) = local_symbols.get(var_name)
+                .or_else(|| store.workspace_symbols.get(var_name))
+                .or_else(|| store.stdlib_symbols.get(var_name)) {
+                return var_info.type_info.clone();
+            }
+        }
+        Expression::MemberAccess { object, member } => {
+            if let Some(object_type) = resolve_expression_type(object, local_symbols, store) {
+                if let AstType::Struct { name, .. } = object_type {
+                    if let Some(struct_def) = find_struct_definition_in_documents(&name, &store.documents) {
+                        for field in &struct_def.fields {
+                            if field.name == *member {
+                                return Some(field.type_.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+    None
+}
+

@@ -1,5 +1,5 @@
-// Zen Language - Key Design Principles:
-// - No keywords: `if/else/while/for/match/async/await/impl/trait/class/interface/null`
+
+// keywords: `if/else/while/for/match/async/await/impl/trait/class/interface/null`
 // - Only two @ symbols: `@std` (standard library) and `@this` (current scope)
 // - Pattern matching with `?` operator, no `match` or `switch`
 // - UFC (Uniform Function Call) - any function can be called as method
