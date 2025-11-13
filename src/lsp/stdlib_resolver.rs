@@ -49,7 +49,7 @@ impl StdlibResolver {
     }
     
     /// Resolve a module path like "@std.io" or "@std.collections.hashmap" to a file path
-    pub fn resolve_module_path(&mut self, module_path: &str) -> Option<PathBuf> {
+    pub fn resolve_module_path(&self, module_path: &str) -> Option<PathBuf> {
         // Check cache first
         if let Some(cached) = self.module_cache.get(module_path) {
             if cached.exists() {

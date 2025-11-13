@@ -9,6 +9,7 @@ use crate::ast::{Declaration, Statement};
 use super::types::*;
 use super::utils::format_type;
 use super::document_store::DocumentStore;
+use super::stdlib_resolver::StdlibResolver;
 
 // Helper to find import information for a symbol
 struct ImportInfo {
