@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use super::types::{SymbolInfo, ZenCompletionContext};
 use super::document_store::DocumentStore;
 use super::utils::{symbol_kind_to_completion_kind, format_type};
+use super::stdlib_resolver::StdlibResolver;
 
 // ============================================================================
 // PUBLIC COMPLETION HANDLER
