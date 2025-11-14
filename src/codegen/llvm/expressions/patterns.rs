@@ -30,9 +30,16 @@ pub fn compile_pattern_match<'ctx>(
             // Test patterns and branch to appropriate arms
             let mut current_block = compiler.builder.get_insert_block().unwrap();
             
+            // Infer the scrutinee type to help with pointer pattern matching
+            let scrutinee_type = compiler.infer_expression_type(scrutinee).ok();
+            
             for (i, arm) in arms.iter().enumerate() {
-                // Test the pattern
-                let (matches, bindings) = compiler.compile_pattern_test(&scrutinee_val, &arm.pattern)?;
+                // Test the pattern - pass scrutinee type for pointer pattern matching
+                let (matches, bindings) = compiler.compile_pattern_test_with_type(
+                    &scrutinee_val, 
+                    &arm.pattern,
+                    scrutinee_type.as_ref(),
+                )?;
                 
                 // Create a block for this arm's body
                 let body_block = compiler.context.append_basic_block(current_fn, &format!("arm_{}_body", i));

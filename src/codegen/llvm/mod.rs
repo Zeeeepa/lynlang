@@ -394,11 +394,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     pub fn compile_program(&mut self, program: &ast::Program) -> Result<(), CompileError> {
-        // First pass: register struct types
-        for declaration in &program.declarations {
-            if let ast::Declaration::Struct(struct_def) = declaration {
-                self.register_struct_type(struct_def)?;
-            }
+        // First pass: register all struct types (may have forward references)
+        // We do this in two sub-passes:
+        // 1. Register all structs with their names (so they can be looked up)
+        // 2. Then resolve field types (which may reference other structs)
+        
+        // Sub-pass 1: Register all struct names first
+        let struct_defs: Vec<_> = program.declarations
+            .iter()
+            .filter_map(|d| {
+                if let ast::Declaration::Struct(struct_def) = d {
+                    Some(struct_def)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        
+        // Sub-pass 2: Now register structs with resolved field types
+        for struct_def in &struct_defs {
+            self.register_struct_type(struct_def)?;
         }
 
         // Register enum types
@@ -485,6 +500,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 ast::Declaration::Trait(_) => {} // Trait definitions are interface definitions, no direct codegen needed
                 ast::Declaration::TraitImplementation(trait_impl) => {
                     self.compile_trait_implementation(trait_impl)?;
+                }
+                ast::Declaration::ImplBlock(impl_block) => {
+                    self.compile_impl_block(impl_block)?;
                 }
                 ast::Declaration::TraitRequirement(_) => {
                     // Trait requirements are checked at compile time, no codegen needed
@@ -600,12 +618,41 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         None,
                     ))
                 }
-                AstType::Ptr(_inner) | AstType::MutPtr(_inner) | AstType::RawPtr(_inner) => {
-                    // For pointer types in struct fields, we'll use a generic pointer type
-                    // This is a simplification - in a full implementation we'd need to handle nested types
-                    self.context
-                        .ptr_type(inkwell::AddressSpace::default())
-                        .as_basic_type_enum()
+                AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) => {
+                    // For pointer types in struct fields, check if inner type is a registered struct
+                    // This handles self-referential structs like Node { child: Ptr<Node> }
+                    match inner.as_ref() {
+                        AstType::Generic { name, .. } => {
+                            // Check if this generic is actually a registered struct type
+                            if let Some(struct_info) = self.struct_types.get(name) {
+                                // Use pointer to the struct type
+                                struct_info.llvm_type.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum()
+                            } else {
+                                // Generic type not registered yet (forward reference or self-reference)
+                                // Use generic pointer type
+                                self.context
+                                    .ptr_type(inkwell::AddressSpace::default())
+                                    .as_basic_type_enum()
+                            }
+                        }
+                        AstType::Struct { name, .. } => {
+                            // Look up the struct type and create a pointer to it
+                            if let Some(struct_info) = self.struct_types.get(name) {
+                                struct_info.llvm_type.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum()
+                            } else {
+                                // Struct not registered yet (forward reference)
+                                self.context
+                                    .ptr_type(inkwell::AddressSpace::default())
+                                    .as_basic_type_enum()
+                            }
+                        }
+                        _ => {
+                            // For other pointer types, use generic pointer
+                            self.context
+                                .ptr_type(inkwell::AddressSpace::default())
+                                .as_basic_type_enum()
+                        }
+                    }
                 }
                 AstType::Generic { name, .. } => {
                     // Check if this "generic" is actually a registered struct type
@@ -627,8 +674,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // This allows structs to be used as inline fields in other structs
                         struct_info.llvm_type.as_basic_type_enum()
                     } else {
+                        // Forward reference - struct not yet registered
+                        // This can happen when structs reference each other
+                        // Return an error - forward references should be resolved by typechecker
                         return Err(CompileError::TypeError(
-                            format!("Struct '{}' not yet defined. Structs must be defined before use in fields", name),
+                            format!("Struct '{}' not yet registered. This may be a forward reference issue. Structs should be defined before use, or the typechecker should resolve Generic types to Struct types.", name),
                             None
                         ));
                     }

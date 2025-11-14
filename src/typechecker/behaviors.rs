@@ -12,7 +12,7 @@ pub struct BehaviorResolver {
     /// Maps (type_name, behavior_name) -> implementation
     implementations: HashMap<(String, String), ImplInfo>,
     /// Maps type_name -> inherent methods (impl blocks without behavior)
-    inherent_methods: HashMap<String, Vec<MethodInfo>>,
+    pub inherent_methods: HashMap<String, Vec<MethodInfo>>,
 }
 
 #[derive(Clone, Debug)]

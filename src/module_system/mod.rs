@@ -68,9 +68,98 @@ impl ModuleSystem {
             return Ok(&self.modules[module_path]);
         }
 
-        // Handle @std and std. modules specially - they're built-in and don't need file loading
+        // Handle @std and std. modules - try to load actual stdlib files
         if module_path.starts_with("@std") || module_path.starts_with("std.") {
-            // Create an empty program for built-in modules
+            // Extract module name from path
+            // Examples:
+            // "@std.io" -> "io"
+            // "@std.core.option" -> "core/option"
+            // "std.io" -> "io"
+            let path_str = module_path
+                .trim_start_matches("@std.")
+                .trim_start_matches("@std")
+                .trim_start_matches("std.");
+            
+            let path_parts: Vec<&str> = if path_str.is_empty() {
+                // Empty path means @std itself - skip for now
+                vec![]
+            } else {
+                path_str.split('.').collect()
+            };
+            
+            if path_parts.is_empty() {
+                // @std itself - return empty program
+                let empty_program = Program {
+                    declarations: Vec::new(),
+                    statements: Vec::new(),
+                };
+                self.modules.insert(module_path.to_string(), empty_program);
+                return Ok(&self.modules[module_path]);
+            }
+            
+            // Try to resolve to stdlib file
+            let stdlib_path = self.cwd.join("stdlib");
+            if stdlib_path.exists() {
+                // Build file path: stdlib/core/option.zen or stdlib/io/io.zen
+                let mut file_path = stdlib_path.clone();
+                for part in &path_parts {
+                    file_path = file_path.join(part);
+                }
+                file_path.set_extension("zen");
+                
+                // Also try directory/module_name.zen pattern (e.g., stdlib/io/io.zen)
+                let alt_path = if path_parts.len() == 1 {
+                    stdlib_path.join(path_parts[0]).join(format!("{}.zen", path_parts[0]))
+                } else {
+                    file_path.clone()
+                };
+                
+                // Determine which file to load
+                let file_to_load = if alt_path.exists() {
+                    alt_path
+                } else if file_path.exists() {
+                    file_path
+                } else {
+                    // File not found - fallback to empty program
+                    let empty_program = Program {
+                        declarations: Vec::new(),
+                        statements: Vec::new(),
+                    };
+                    self.modules.insert(module_path.to_string(), empty_program);
+                    return Ok(&self.modules[module_path]);
+                };
+                
+                // Load and parse the file
+                let source = std::fs::read_to_string(&file_to_load).map_err(|e| {
+                    CompileError::FileNotFound(file_to_load.display().to_string(), Some(e.to_string()))
+                })?;
+                
+                let lexer = crate::lexer::Lexer::new(&source);
+                let mut parser = Parser::new(lexer);
+                let program = parser.parse_program().map_err(|e| {
+                    CompileError::ParseError(
+                        format!("Failed to parse stdlib module {}: {:?}", module_path, e),
+                        None,
+                    )
+                })?;
+                
+                // Process imports in the loaded module
+                for decl in &program.declarations {
+                    if let Declaration::ModuleImport {
+                        alias: _,
+                        module_path: import_path,
+                    } = decl
+                    {
+                        // Recursively load imported modules
+                        self.load_module(import_path)?;
+                    }
+                }
+                
+                self.modules.insert(module_path.to_string(), program);
+                return Ok(&self.modules[module_path]);
+            }
+            
+            // Fallback: Create an empty program for built-in modules
             // The actual functionality is provided by the compiler's stdlib module
             let empty_program = Program {
                 declarations: Vec::new(),

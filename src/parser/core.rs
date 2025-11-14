@@ -76,6 +76,27 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Peek at the token after peek_token (two tokens ahead)
+    /// This is a simplified version - in a full implementation we'd cache this
+    pub fn peek_peek_token(&mut self) -> Option<Token> {
+        // Save current state
+        let saved_pos = self.lexer.position;
+        let saved_read_pos = self.lexer.read_position;
+        let saved_char = self.lexer.current_char;
+        
+        // Advance past current and peek tokens
+        let _ = self.lexer.next_token_with_span();
+        let _ = self.lexer.next_token_with_span();
+        let next_next = self.lexer.next_token_with_span();
+        
+        // Restore state
+        self.lexer.position = saved_pos;
+        self.lexer.read_position = saved_read_pos;
+        self.lexer.current_char = saved_char;
+        
+        Some(next_next.token)
+    }
+
     /// Check if an expression is an import expression
     pub fn is_import_expression(&self, expr: &crate::ast::Expression) -> bool {
         use crate::ast::Expression;

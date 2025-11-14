@@ -7,8 +7,8 @@ pub mod validation;
 use crate::ast::{AstType, Declaration, Expression, Function, Program, Statement};
 use crate::error::{CompileError, Result};
 use crate::stdlib::StdNamespace;
-use behaviors::BehaviorResolver;
-use std::collections::HashMap;
+use behaviors::{BehaviorResolver, MethodInfo};
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug)]
 pub struct VariableInfo {
@@ -65,6 +65,90 @@ impl TypeChecker {
     ///     allocator: Allocator
     /// }
     // Use crate::ast::resolve_string_struct_type() instead
+
+    /// Resolve Generic types to Struct types if they're known structs
+    /// This handles the case where the parser represents struct types as Generic
+    /// Recursively resolves nested Generic types in fields
+    /// Uses a visited set to prevent infinite recursion on circular references
+    fn resolve_generic_to_struct(&self, ast_type: &AstType) -> AstType {
+        self.resolve_generic_to_struct_impl(ast_type, &mut HashSet::new())
+    }
+
+    fn resolve_generic_to_struct_impl(
+        &self,
+        ast_type: &AstType,
+        visited: &mut std::collections::HashSet<String>,
+    ) -> AstType {
+        match ast_type {
+            AstType::Generic { name, type_args } if type_args.is_empty() => {
+                // Check if this Generic is actually a known struct
+                if self.structs.contains_key(name) {
+                    // Prevent infinite recursion on circular references
+                    if visited.contains(name) {
+                        // Return a Struct type without resolving fields to break the cycle
+                        // This handles self-referential structs like Node { child: Ptr<Node> }
+                        return AstType::Struct {
+                            name: name.clone(),
+                            fields: vec![], // Empty fields to break cycle
+                        };
+                    }
+                    visited.insert(name.clone());
+                    
+                    // Convert to Struct type with recursively resolved fields
+                    if let Some(struct_info) = self.structs.get(name) {
+                        let resolved = AstType::Struct {
+                            name: name.clone(),
+                            fields: struct_info
+                                .fields
+                                .iter()
+                                .map(|(field_name, field_type)| {
+                                    (field_name.clone(), self.resolve_generic_to_struct_impl(field_type, visited))
+                                })
+                                .collect(),
+                        };
+                        visited.remove(name);
+                        resolved
+                    } else {
+                        visited.remove(name);
+                        ast_type.clone()
+                    }
+                } else {
+                    // Generic type not found - might be a forward reference or self-reference
+                    // Leave it as Generic for codegen to handle
+                    ast_type.clone()
+                }
+            }
+            AstType::Struct { name, fields } => {
+                // Recursively resolve Generic types in struct fields
+                AstType::Struct {
+                    name: name.clone(),
+                    fields: fields
+                        .iter()
+                        .map(|(field_name, field_type)| {
+                            (field_name.clone(), self.resolve_generic_to_struct_impl(field_type, visited))
+                        })
+                        .collect(),
+                }
+            }
+            AstType::Ptr(inner) => {
+                AstType::Ptr(Box::new(self.resolve_generic_to_struct_impl(inner, visited)))
+            }
+            AstType::MutPtr(inner) => {
+                AstType::MutPtr(Box::new(self.resolve_generic_to_struct_impl(inner, visited)))
+            }
+            AstType::RawPtr(inner) => {
+                AstType::RawPtr(Box::new(self.resolve_generic_to_struct_impl(inner, visited)))
+            }
+            AstType::Option(inner) => {
+                AstType::Option(Box::new(self.resolve_generic_to_struct_impl(inner, visited)))
+            }
+            AstType::Result { ok_type, err_type } => AstType::Result {
+                ok_type: Box::new(self.resolve_generic_to_struct_impl(ok_type, visited)),
+                err_type: Box::new(self.resolve_generic_to_struct_impl(err_type, visited)),
+            },
+            _ => ast_type.clone(),
+        }
+    }
 
     /// Get the inferred function signatures
     pub fn get_function_signatures(&self) -> &HashMap<String, FunctionSignature> {
@@ -212,7 +296,40 @@ impl TypeChecker {
             self.collect_declaration_types(declaration)?;
         }
         
-        // Second pass: infer return types for functions with Void return type
+        // Second pass: resolve Generic types to Struct types in struct fields
+        // This handles forward references - all structs are now registered
+        // We do multiple passes until no more changes occur (to handle nested dependencies)
+        let mut changed = true;
+        let mut iterations = 0;
+        while changed && iterations < 10 {
+            changed = false;
+            iterations += 1;
+            
+            let struct_names: Vec<String> = self.structs.keys().cloned().collect();
+            for struct_name in struct_names {
+                let resolved_fields: Vec<(String, AstType)> = {
+                    // Get the current fields (immutable borrow)
+                    let struct_info = self.structs.get(&struct_name).unwrap();
+                    struct_info
+                        .fields
+                        .iter()
+                        .map(|(name, field_type)| {
+                            let resolved = self.resolve_generic_to_struct(field_type);
+                            if &resolved != field_type {
+                                changed = true;
+                            }
+                            (name.clone(), resolved)
+                        })
+                        .collect()
+                };
+                // Now update the struct info (mutable borrow)
+                if let Some(struct_info) = self.structs.get_mut(&struct_name) {
+                    struct_info.fields = resolved_fields;
+                }
+            }
+        }
+
+        // Third pass: infer return types for functions with Void return type
         for declaration in &program.declarations {
             if let Declaration::Function(func) = declaration {
                 if func.return_type == AstType::Void && !func.body.is_empty() {
@@ -232,7 +349,7 @@ impl TypeChecker {
             }
         }
 
-        // Third pass: type check function bodies
+        // Fourth pass: type check function bodies
         for declaration in &program.declarations {
             self.check_declaration(declaration)?;
         }
@@ -269,6 +386,8 @@ impl TypeChecker {
             }
             Declaration::Struct(struct_def) => {
                 // Convert StructField to (String, AstType)
+                // Store field types as-is for now (may contain Generic types for forward references)
+                // We'll resolve Generic to Struct in a second pass after all structs are registered
                 let fields: Vec<(String, AstType)> = struct_def
                     .fields
                     .iter()
@@ -302,6 +421,54 @@ impl TypeChecker {
             Declaration::TraitImplementation(trait_impl) => {
                 self.behavior_resolver
                     .register_trait_implementation(trait_impl)?;
+            }
+            Declaration::ImplBlock(impl_block) => {
+                // Register inherent methods for the type
+                // Store methods in the behavior resolver's inherent_methods
+                let mut methods = Vec::new();
+                for method in &impl_block.methods {
+                    let param_types: Vec<AstType> = method
+                        .args
+                        .iter()
+                        .map(|(_, t)| {
+                            if let AstType::Generic { name, .. } = t {
+                                if name == "Self" {
+                                    // Replace Self with the actual type
+                                    AstType::Generic {
+                                        name: impl_block.type_name.clone(),
+                                        type_args: vec![],
+                                    }
+                                } else {
+                                    t.clone()
+                                }
+                            } else {
+                                t.clone()
+                            }
+                        })
+                        .collect();
+                    let return_type = if let AstType::Generic { name, .. } = &method.return_type {
+                        if name == "Self" {
+                            AstType::Generic {
+                                name: impl_block.type_name.clone(),
+                                type_args: vec![],
+                            }
+                        } else {
+                            method.return_type.clone()
+                        }
+                    } else {
+                        method.return_type.clone()
+                    };
+                    
+                    methods.push(MethodInfo {
+                        name: method.name.clone(),
+                        param_types,
+                        return_type,
+                    });
+                }
+                self.behavior_resolver.inherent_methods.insert(
+                    impl_block.type_name.clone(),
+                    methods,
+                );
             }
             Declaration::TraitRequirement(trait_req) => {
                 self.behavior_resolver

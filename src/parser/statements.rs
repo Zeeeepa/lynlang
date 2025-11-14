@@ -133,10 +133,22 @@ impl<'a> Parser<'a> {
                     }
 
                     // Create imports from the specified module
+                    // Map common stdlib symbols to their actual module paths
                     for name in imported_names {
+                        let actual_module_path = if module_path == "@std" {
+                            // Map common symbols to their actual module locations
+                            match name.as_str() {
+                                "Option" | "Some" | "None" => "@std.core.option".to_string(),
+                                "Result" | "Ok" | "Err" => "@std.core.result".to_string(),
+                                "io" | "println" | "print" => "@std.io".to_string(),
+                                _ => format!("{}.{}", module_path, name),
+                            }
+                        } else {
+                            format!("{}.{}", module_path, name)
+                        };
                         declarations.push(Declaration::ModuleImport {
                             alias: name.clone(),
-                            module_path: format!("{}.{}", module_path, name),
+                            module_path: actual_module_path,
                         });
                     }
                 } else if let Token::Identifier(module) = &self.current_token {
@@ -478,6 +490,97 @@ impl<'a> Parser<'a> {
                         if depth == 0 {
                             self.next_token(); // Move past >
 
+                            // FIRST check if this is an impl block: Type<T>.impl = { ... }
+                            if self.current_token == Token::Symbol('.') {
+                                // Save state before checking
+                                let saved_after_generics = (
+                                    self.lexer.position,
+                                    self.lexer.read_position,
+                                    self.lexer.current_char,
+                                    self.current_token.clone(),
+                                    self.peek_token.clone(),
+                                );
+                                
+                                self.next_token();
+                                if let Token::Identifier(method_name) = &self.current_token {
+                                    if method_name == "impl" {
+                                        // This IS an impl block! Parse it
+                                        // Restore to beginning and parse properly
+                                        self.lexer.position = saved_position;
+                                        self.lexer.read_position = saved_read_position;
+                                        self.lexer.current_char = saved_current_char;
+                                        self.current_token = saved_current.clone();
+                                        self.peek_token = saved_peek.clone();
+                                        self.current_span = saved_span.clone();
+                                        self.peek_span = saved_peek_span.clone();
+                                        
+                                        // Parse type name with generics
+                                        let mut type_name = if let Token::Identifier(name) = &self.current_token {
+                                            name.clone()
+                                        } else {
+                                            return Err(CompileError::SyntaxError(
+                                                "Expected type name for impl block".to_string(),
+                                                Some(self.current_span.clone()),
+                                            ));
+                                        };
+                                        self.next_token(); // consume name
+                                        self.next_token(); // consume '<'
+                                        type_name.push('<');
+                                        loop {
+                                            if let Token::Identifier(param) = &self.current_token {
+                                                type_name.push_str(param);
+                                                self.next_token();
+                                            } else {
+                                                break;
+                                            }
+                                            if self.current_token == Token::Symbol(',') {
+                                                type_name.push(',');
+                                                self.next_token();
+                                            } else if self.current_token == Token::Operator(">".to_string()) {
+                                                type_name.push('>');
+                                                self.next_token();
+                                                break;
+                                            } else {
+                                                break;
+                                            }
+                                        }
+                                        
+                                        // Now parse .impl = { ... }
+                                        if self.current_token == Token::Symbol('.') {
+                                            self.next_token();
+                                            if let Token::Identifier(method_name) = &self.current_token {
+                                                if method_name == "impl" {
+                                                    self.next_token();
+                                                    if self.current_token == Token::Operator("=".to_string()) {
+                                                        self.next_token();
+                                                        declarations.push(Declaration::ImplBlock(
+                                                            self.parse_impl_block(type_name)?,
+                                                        ));
+                                                        continue; // Skip to next declaration
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        
+                                        return Err(CompileError::SyntaxError(
+                                            "Expected '=' after 'impl'".to_string(),
+                                            Some(self.current_span.clone()),
+                                        ));
+                                    }
+                                }
+                                
+                                // Not an impl block - restore and skip struct/enum/function parsing
+                                // (since '.' after generics is not valid for those)
+                                self.lexer.position = saved_after_generics.0;
+                                self.lexer.read_position = saved_after_generics.1;
+                                self.lexer.current_char = saved_after_generics.2;
+                                self.current_token = saved_after_generics.3.clone();
+                                self.peek_token = saved_after_generics.4.clone();
+                                
+                                // Skip to next declaration - '.' after generics without 'impl' is invalid
+                                continue;
+                            }
+
                             // Check what comes after the generics
                             let is_struct = self.current_token == Token::Symbol(':')
                                 && self.peek_token == Token::Symbol('{');
@@ -526,6 +629,75 @@ impl<'a> Parser<'a> {
                             declarations.push(Declaration::Struct(self.parse_struct()?));
                         }
                     } else {
+                        // FIRST check if this is an impl block: Type.impl or Type<T>.impl
+                        // Check if peek_token is '.' or '<' (indicating impl block)
+                        if self.peek_token == Token::Symbol('.') || 
+                           self.peek_token == Token::Operator("<".to_string()) {
+                            // Save state before trying to parse impl
+                            let saved_before_impl = (
+                                self.lexer.position,
+                                self.lexer.read_position,
+                                self.lexer.current_char,
+                                self.current_token.clone(),
+                                self.peek_token.clone(),
+                            );
+                            
+                            // Try to parse as impl block
+                            if let Token::Identifier(name) = &self.current_token {
+                                let mut type_name = name.clone();
+                                self.next_token(); // consume type name
+                                
+                                // Check for generic parameters
+                                if self.current_token == Token::Operator("<".to_string()) {
+                                    type_name.push('<');
+                                    self.next_token();
+                                    loop {
+                                        if let Token::Identifier(param) = &self.current_token {
+                                            type_name.push_str(param);
+                                            self.next_token();
+                                        } else {
+                                            break;
+                                        }
+                                        if self.current_token == Token::Symbol(',') {
+                                            type_name.push(',');
+                                            self.next_token();
+                                        } else if self.current_token == Token::Operator(">".to_string()) {
+                                            type_name.push('>');
+                                            self.next_token();
+                                            break;
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                // Check if next is '.' followed by 'impl'
+                                if self.current_token == Token::Symbol('.') {
+                                    self.next_token();
+                                    if let Token::Identifier(method_name) = &self.current_token {
+                                        if method_name == "impl" {
+                                            // This IS an impl block!
+                                            self.next_token();
+                                            if self.current_token == Token::Operator("=".to_string()) {
+                                                self.next_token();
+                                                declarations.push(Declaration::ImplBlock(
+                                                    self.parse_impl_block(type_name)?,
+                                                ));
+                                                continue; // Skip to next declaration
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Not an impl block, restore state
+                            self.lexer.position = saved_before_impl.0;
+                            self.lexer.read_position = saved_before_impl.1;
+                            self.lexer.current_char = saved_before_impl.2;
+                            self.current_token = saved_before_impl.3.clone();
+                            self.peek_token = saved_before_impl.4.clone();
+                        }
+                        
                         // Need to look ahead to determine if it's a struct, enum, behavior, trait, or function
                         self.next_token(); // Move to ':'
                         self.next_token(); // Move past ':' to see what comes after
@@ -601,10 +773,41 @@ impl<'a> Parser<'a> {
                             declarations.push(Declaration::Function(self.parse_function()?));
                         }
                     }
-                } else if self.peek_token == Token::Symbol('.') {
-                    // Could be an impl block: Type.impl = { ... }
+                } else if self.peek_token == Token::Symbol('.') || 
+                          (self.peek_token == Token::Operator("<".to_string())) {
+                    // Could be an impl block: Type.impl = { ... } or Type<T>.impl = { ... }
                     let type_name = if let Token::Identifier(name) = &self.current_token {
-                        name.clone()
+                        let mut full_name = name.clone();
+                        self.next_token(); // consume type name
+                        
+                        // Check for generic parameters: Type<T, U>
+                        if self.current_token == Token::Operator("<".to_string()) {
+                            full_name.push('<');
+                            self.next_token(); // consume '<'
+                            
+                            // Parse type parameters
+                            loop {
+                                if let Token::Identifier(param) = &self.current_token {
+                                    full_name.push_str(param);
+                                    self.next_token();
+                                } else {
+                                    break;
+                                }
+                                
+                                if self.current_token == Token::Symbol(',') {
+                                    full_name.push(',');
+                                    self.next_token();
+                                } else if self.current_token == Token::Operator(">".to_string()) {
+                                    full_name.push('>');
+                                    self.next_token();
+                                    break;
+                                } else {
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        full_name
                     } else {
                         unreachable!()
                     };
@@ -616,11 +819,39 @@ impl<'a> Parser<'a> {
                     let saved_current_token = self.current_token.clone();
                     let saved_peek_token = self.peek_token.clone();
 
-                    self.next_token(); // consume type name
+                    // Now check for '.'
+                    if self.current_token != Token::Symbol('.') {
+                        // Not an impl block, restore and continue
+                        self.lexer.position = saved_position;
+                        self.lexer.read_position = saved_read_position;
+                        self.lexer.current_char = saved_current_char;
+                        self.current_token = saved_current_token;
+                        self.peek_token = saved_peek_token;
+                        // Continue parsing as something else
+                        declarations.push(Declaration::Function(self.parse_function()?));
+                        continue;
+                    }
+                    
                     self.next_token(); // consume '.'
 
                     if let Token::Identifier(method_name) = &self.current_token {
-                        if method_name == "implements" {
+                        if method_name == "impl" {
+                            // This is an impl block: Type.impl = { ... }
+                            self.next_token(); // consume 'impl'
+                            
+                            // Expect '='
+                            if self.current_token != Token::Operator("=".to_string()) {
+                                return Err(CompileError::SyntaxError(
+                                    format!("Expected '=' after 'impl', got {:?}", self.current_token),
+                                    Some(self.current_span.clone()),
+                                ));
+                            }
+                            self.next_token(); // consume '='
+                            
+                            declarations.push(Declaration::ImplBlock(
+                                self.parse_impl_block(type_name)?,
+                            ));
+                        } else if method_name == "implements" {
                             // This is a trait implementation: Type.implements(Trait, { ... })
                             self.next_token(); // consume 'implements'
                             declarations.push(Declaration::TraitImplementation(

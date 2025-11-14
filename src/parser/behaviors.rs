@@ -1,5 +1,5 @@
 use crate::ast::{
-    AstType as Type, BehaviorDefinition, BehaviorMethod, Parameter, TraitConstraint,
+    AstType as Type, BehaviorDefinition, BehaviorMethod, ImplBlock, Parameter, TraitConstraint,
     TraitDefinition, TraitImplementation, TraitMethod, TraitRequirement, TypeParameter,
 };
 use crate::error::{CompileError, Result};
@@ -772,6 +772,78 @@ impl<'a> Parser<'a> {
             type_name,
             trait_name,
             type_params: Vec::new(), // TODO: Add support for generic type parameters
+            methods,
+        })
+    }
+
+    pub fn parse_impl_block(&mut self, type_name: String) -> Result<ImplBlock> {
+        // Parse: Type.impl = { methods }
+        // Current token is '{' after '='
+        if self.current_token != Token::Symbol('{') {
+            return Err(CompileError::SyntaxError(
+                format!(
+                    "Expected '{{' for impl methods, got {:?}",
+                    self.current_token
+                ),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token(); // consume '{'
+
+        // Parse methods (type parameters are parsed from the type_name itself, e.g., Option<T>)
+        let type_params = Vec::new(); // Type params come from the type_name, not here
+
+        // Parse methods
+        let mut methods = Vec::new();
+        while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
+            // Parse method: name = (params) return_type { body }
+            let method_name = if let Token::Identifier(name) = &self.current_token {
+                name.clone()
+            } else {
+                return Err(CompileError::SyntaxError(
+                    format!("Expected method name, got {:?}", self.current_token),
+                    Some(self.current_span.clone()),
+                ));
+            };
+            self.next_token(); // consume method name
+
+            // Expect '='
+            if self.current_token != Token::Operator("=".to_string()) {
+                return Err(CompileError::SyntaxError(
+                    format!(
+                        "Expected '=' after method name, got {:?}",
+                        self.current_token
+                    ),
+                    Some(self.current_span.clone()),
+                ));
+            }
+            self.next_token(); // consume '='
+
+            // Parse method as a function (name has already been parsed)
+            let func = self.parse_impl_function_with_name(method_name)?;
+            methods.push(func);
+
+            // Check for comma between methods (optional)
+            if self.current_token == Token::Symbol(',') {
+                self.next_token();
+            }
+        }
+
+        // Expect closing brace
+        if self.current_token != Token::Symbol('}') {
+            return Err(CompileError::SyntaxError(
+                format!(
+                    "Expected '}}' to close impl methods, got {:?}",
+                    self.current_token
+                ),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token(); // consume '}'
+
+        Ok(ImplBlock {
+            type_name,
+            type_params,
             methods,
         })
     }

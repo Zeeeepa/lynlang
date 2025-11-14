@@ -4,6 +4,7 @@ pub mod operations;
 pub mod calls;
 pub mod structs;
 pub mod enums;
+pub mod enums_variant;
 pub mod collections;
 pub mod control;
 pub mod patterns;
@@ -62,6 +63,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 enums::compile_enum_variant(self, enum_name, variant, payload)
             }
             Expression::EnumLiteral { .. } => enums::compile_enum_literal(self, expr),
+            Expression::Some(value) => enums::compile_some(self, value),
+            Expression::None => enums::compile_none(self),
             
             // Collections
             Expression::ArrayLiteral(_) => collections::compile_array_literal(self, expr),

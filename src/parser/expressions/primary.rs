@@ -411,6 +411,9 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                 } else if name == "void" {
                     // void is a unit value - like () in other languages
                     return Ok(Expression::Unit);
+                } else if name == "null" {
+                    // null is an alias for None (Option::None)
+                    return Ok(Expression::None);
                 }
 
                 // Check for Vec<T, size>() constructor

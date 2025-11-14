@@ -106,6 +106,13 @@ pub struct TraitRequirement {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct ImplBlock {
+    pub type_name: String,
+    pub type_params: Vec<TypeParameter>,
+    pub methods: Vec<Function>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Declaration {
     Function(Function),
     ExternalFunction(ExternalFunction),
@@ -115,6 +122,7 @@ pub enum Declaration {
     Trait(TraitDefinition),
     TraitImplementation(TraitImplementation),
     TraitRequirement(TraitRequirement),
+    ImplBlock(ImplBlock),
     ComptimeBlock(Vec<Statement>),
     Constant {
         name: String,

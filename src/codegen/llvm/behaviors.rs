@@ -86,6 +86,122 @@ impl<'ctx> BehaviorCodegen<'ctx> {
 }
 
 impl<'ctx> LLVMCompiler<'ctx> {
+    /// Compile an impl block (inherent methods)
+    pub fn compile_impl_block(
+        &mut self,
+        impl_block: &crate::ast::ImplBlock,
+    ) -> Result<(), CompileError> {
+        let type_name = &impl_block.type_name;
+        
+        // Set the current implementing type for proper 'self' resolution
+        self.current_impl_type = Some(type_name.clone());
+        
+        // Process each method in the impl block
+        for method in &impl_block.methods {
+            // Generate a mangled name for the method: TypeName_methodName
+            let mangled_name = format!("{}_{}", type_name, method.name);
+            
+            // Create LLVM function for the method
+            let llvm_return_type = self.to_llvm_type(&method.return_type)?;
+            
+            let mut param_types = Vec::new();
+            for (param_name, param_type) in &method.args {
+                // Replace 'Self' with the actual type name
+                let resolved_type = if param_name == "self" {
+                    // For 'self', use the type name directly
+                    // Check if it's a pointer type
+                    if let crate::ast::AstType::Ptr(_) | crate::ast::AstType::MutPtr(_) | crate::ast::AstType::RawPtr(_) = param_type {
+                        param_type.clone() // Keep pointer types as-is
+                    } else {
+                        // For non-pointer self, create a pointer type
+                        crate::ast::AstType::Ptr(Box::new(crate::ast::AstType::Generic {
+                            name: type_name.clone(),
+                            type_args: impl_block.type_params.iter().map(|tp| {
+                                crate::ast::AstType::Generic {
+                                    name: tp.name.clone(),
+                                    type_args: vec![],
+                                }
+                            }).collect(),
+                        }))
+                    }
+                } else {
+                    // Replace Self with actual type
+                    if let crate::ast::AstType::Generic { name, .. } = param_type {
+                        if name == "Self" {
+                            crate::ast::AstType::Generic {
+                                name: type_name.clone(),
+                                type_args: vec![],
+                            }
+                        } else {
+                            param_type.clone()
+                        }
+                    } else {
+                        param_type.clone()
+                    }
+                };
+                
+                let llvm_param_type = self.to_llvm_type(&resolved_type)?;
+                match llvm_param_type {
+                    super::Type::Basic(basic_type) => {
+                        param_types.push(BasicMetadataTypeEnum::from(basic_type));
+                    }
+                    super::Type::Struct(_struct_type) => {
+                        // Pass struct by pointer
+                        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                        param_types.push(BasicMetadataTypeEnum::from(ptr_type));
+                    }
+                    _ => return Err(CompileError::UnsupportedFeature(
+                        format!("Unsupported parameter type in impl block method"),
+                        None,
+                    )),
+                }
+            }
+            
+            let fn_type = if let super::Type::Void = llvm_return_type {
+                self.context.void_type().fn_type(&param_types, false)
+            } else if let super::Type::Basic(basic_type) = llvm_return_type {
+                match basic_type {
+                    inkwell::types::BasicTypeEnum::IntType(int_type) => {
+                        int_type.fn_type(&param_types, false)
+                    }
+                    inkwell::types::BasicTypeEnum::FloatType(float_type) => {
+                        float_type.fn_type(&param_types, false)
+                    }
+                    inkwell::types::BasicTypeEnum::PointerType(ptr_type) => {
+                        ptr_type.fn_type(&param_types, false)
+                    }
+                    inkwell::types::BasicTypeEnum::StructType(struct_type) => {
+                        struct_type.fn_type(&param_types, false)
+                    }
+                    _ => {
+                        return Err(CompileError::UnsupportedFeature(
+                            format!("Unsupported return type in impl block method"),
+                            None,
+                        ));
+                    }
+                }
+            } else if let super::Type::Struct(struct_type) = llvm_return_type {
+                struct_type.fn_type(&param_types, false)
+            } else {
+                return Err(CompileError::UnsupportedFeature(
+                    format!("Unsupported return type in impl block method"),
+                    None,
+                ));
+            };
+            let function = self.module.add_function(&mangled_name, fn_type, None);
+            
+            // Store method for later resolution via behavior_codegen
+            if let Some(ref mut behavior_codegen) = self.behavior_codegen {
+                behavior_codegen.method_impls.insert(
+                    (type_name.clone(), method.name.clone()),
+                    function,
+                );
+            }
+        }
+        
+        Ok(())
+    }
+    
     /// Compile a trait implementation
     pub fn compile_trait_implementation(
         &mut self,

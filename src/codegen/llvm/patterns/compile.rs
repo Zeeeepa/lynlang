@@ -12,6 +12,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
         scrutinee_val: &BasicValueEnum<'ctx>,
         pattern: &Pattern,
     ) -> Result<(IntValue<'ctx>, Vec<(String, BasicValueEnum<'ctx>)>), CompileError> {
+        self.compile_pattern_test_with_type(scrutinee_val, pattern, None)
+    }
+    
+    pub fn compile_pattern_test_with_type(
+        &mut self,
+        scrutinee_val: &BasicValueEnum<'ctx>,
+        pattern: &Pattern,
+        scrutinee_type: Option<&crate::ast::AstType>,
+    ) -> Result<(IntValue<'ctx>, Vec<(String, BasicValueEnum<'ctx>)>), CompileError> {
         let mut bindings = Vec::new();
 
         let matches = match pattern {
@@ -848,6 +857,117 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Pattern::EnumLiteral { variant, payload } => {
                 // EnumLiteral patterns are like .Some(x) or .None
                 // We need to infer the enum type from the scrutinee
+                
+                // Special case: If scrutinee is a raw pointer and pattern is Some/None,
+                // treat it as Option-like (null = None, non-null = Some)
+                if scrutinee_val.is_pointer_value() && (variant == "Some" || variant == "None") {
+                    let ptr_val = scrutinee_val.into_pointer_value();
+                    let ptr_type = ptr_val.get_type();
+                    let null_ptr = ptr_type.const_null();
+                    // Compare pointers as integers (pointers are just addresses)
+                    let is_null = self.builder.build_int_compare(
+                        inkwell::IntPredicate::EQ,
+                        ptr_val,
+                        null_ptr,
+                        "ptr_is_null",
+                    )?;
+                    
+                    if variant == "None" {
+                        // None pattern matches null pointer
+                        return Ok((is_null, bindings));
+                    } else if variant == "Some" {
+                        // Some pattern matches non-null pointer
+                        let is_not_null = self.builder.build_int_compare(
+                            inkwell::IntPredicate::NE,
+                            ptr_val,
+                            null_ptr,
+                            "ptr_is_not_null",
+                        )?;
+                        
+                        // If there's a payload pattern, bind the dereferenced value
+                        if let Some(payload_pattern) = payload {
+                            // Try to infer the pointee type from scrutinee type
+                            if let Some(scrut_type) = scrutinee_type {
+                                if let crate::ast::AstType::Ptr(inner_type) | 
+                                     crate::ast::AstType::MutPtr(inner_type) |
+                                     crate::ast::AstType::RawPtr(inner_type) = scrut_type {
+                                    // We know the pointee type - dereference and bind
+                                    let pointee_llvm_type = self.to_llvm_type(inner_type)?;
+                                    let basic_type = match pointee_llvm_type {
+                                        super::super::Type::Basic(ty) => ty,
+                                        super::super::Type::Struct(st) => st.into(),
+                                        _ => {
+                                            // Fallback: bind pointer as-is
+                                            if let Pattern::Identifier(name) = payload_pattern.as_ref() {
+                                                bindings.push((name.clone(), ptr_val.into()));
+                                                return Ok((is_not_null, bindings));
+                                            } else {
+                                                return Ok((is_not_null, bindings));
+                                            }
+                                        }
+                                    };
+                                    
+                                    // Create basic blocks for null check
+                                    let current_fn = self.current_function.unwrap();
+                                    let then_bb = self.context.append_basic_block(current_fn, "ptr_not_null");
+                                    let else_bb = self.context.append_basic_block(current_fn, "ptr_is_null");
+                                    let merge_bb = self.context.append_basic_block(current_fn, "ptr_merge");
+                                    
+                                    self.builder.build_conditional_branch(is_not_null, then_bb, else_bb)?;
+                                    
+                                    // Not null path - dereference
+                                    self.builder.position_at_end(then_bb);
+                                    let dereferenced = self.builder.build_load(basic_type, ptr_val, "deref_ptr")?;
+                                    
+                                    // Recursively match the payload pattern
+                                    let (payload_matches, mut payload_bindings) = self.compile_pattern_test_with_type(
+                                        &dereferenced,
+                                        &payload_pattern,
+                                        Some(inner_type),
+                                    )?;
+                                    
+                                    // Both pointer is not null AND payload matches
+                                    let both_match = self.builder.build_and(
+                                        is_not_null,
+                                        payload_matches,
+                                        "ptr_and_payload_match",
+                                    )?;
+                                    
+                                    self.builder.build_unconditional_branch(merge_bb)?;
+                                    
+                                    // Null path - doesn't match Some
+                                    self.builder.position_at_end(else_bb);
+                                    let false_val = self.context.bool_type().const_int(0, false);
+                                    self.builder.build_unconditional_branch(merge_bb)?;
+                                    
+                                    // Merge
+                                    self.builder.position_at_end(merge_bb);
+                                    let phi = self.builder.build_phi(
+                                        self.context.bool_type(),
+                                        "ptr_match_result",
+                                    )?;
+                                    phi.add_incoming(&[(&both_match, then_bb), (&false_val, else_bb)]);
+                                    
+                                    // Merge bindings
+                                    bindings.extend(payload_bindings);
+                                    
+                                    return Ok((phi.as_basic_value().into_int_value(), bindings));
+                                }
+                            }
+                            
+                            // No type information - bind pointer as-is
+                            if let Pattern::Identifier(name) = payload_pattern.as_ref() {
+                                bindings.push((name.clone(), ptr_val.into()));
+                                return Ok((is_not_null, bindings));
+                            } else {
+                                return Ok((is_not_null, bindings));
+                            }
+                        } else {
+                            // No payload pattern, just check if not null
+                            return Ok((is_not_null, bindings));
+                        }
+                    }
+                }
 
                 // Check if scrutinee is an enum value
                 if scrutinee_val.is_struct_value() || scrutinee_val.is_pointer_value() {

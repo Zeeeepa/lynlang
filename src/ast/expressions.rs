@@ -116,7 +116,7 @@ pub enum Expression {
     StringLength(Box<Expression>),
     // Option<T> constructors
     Some(Box<Expression>), // Some(value)
-    None,                  // None
+    None,                  // None (also accessible as "null")
     // String interpolation: "Hello ${name}!"
     StringInterpolation {
         parts: Vec<StringPart>,

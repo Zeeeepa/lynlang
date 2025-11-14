@@ -100,19 +100,16 @@ impl<'ctx> Compiler<'ctx> {
         // Process all module imports
         for decl in &program.declarations {
             if let Declaration::ModuleImport { alias, module_path } = decl {
-                // Skip loading and resolution for @std and std. modules (they're built-in)
-                if !module_path.starts_with("@std") && !module_path.starts_with("std.") {
-                    // Load the module
-                    module_system.load_module(module_path)?;
+                // Load the module (including @std modules - they'll load from stdlib files)
+                module_system.load_module(module_path)?;
 
-                    // Register the import with the resolver
-                    resolver.add_import(alias.clone(), module_path.clone());
+                // Register the import with the resolver
+                resolver.add_import(alias.clone(), module_path.clone());
 
-                    // Extract and register exports
-                    if let Some(module) = module_system.get_modules().get(module_path) {
-                        let exports = ModuleResolver::extract_exports(module);
-                        resolver.add_exports(module_path.clone(), exports);
-                    }
+                // Extract and register exports
+                if let Some(module) = module_system.get_modules().get(module_path) {
+                    let exports = ModuleResolver::extract_exports(module);
+                    resolver.add_exports(module_path.clone(), exports);
                 }
             }
         }

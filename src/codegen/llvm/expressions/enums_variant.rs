@@ -1,5 +1,11 @@
-pub fn compile_enum_variant(
-        compiler: &mut LLVMCompiler,
+use super::super::LLVMCompiler;
+use crate::ast::{AstType, Expression};
+use crate::error::CompileError;
+use inkwell::values::BasicValueEnum;
+use super::super::symbols;
+
+pub fn compile_enum_variant<'ctx>(
+        compiler: &mut LLVMCompiler<'ctx>,
         enum_name: &str,
         variant: &str,
         payload: &Option<Box<Expression>>,
@@ -13,7 +19,7 @@ pub fn compile_enum_variant(
         // This happens BEFORE we compile the payload, so we know what type this Result should be
         if enum_name == "Result" && payload.is_some() {
             if let Some(ref payload_expr) = payload {
-                let payload_type = super::inference::infer_expression_type(compiler(payload_expr);
+                let payload_type = super::inference::infer_expression_type(compiler, payload_expr);
                 if let Ok(t) = payload_type {
                     let key = if variant == "Ok" {
                         "Result_Ok_Type".to_string()
@@ -41,7 +47,7 @@ pub fn compile_enum_variant(
         // Track Option<T> type information when compiling Option variants
         if enum_name == "Option" && payload.is_some() {
             if let Some(ref payload_expr) = payload {
-                let payload_type = super::inference::infer_expression_type(compiler(payload_expr);
+                let payload_type = super::inference::infer_expression_type(compiler, payload_expr);
                 if let Ok(t) = payload_type {
                     compiler.track_generic_type("Option_Some_Type".to_string(), t.clone());
                     // Also track nested generics recursively
@@ -61,7 +67,7 @@ pub fn compile_enum_variant(
         }
 
         // Look up the enum info from the symbol table
-        let enum_info = if enum_name.is_empty() {
+        if enum_name.is_empty() {
             // If enum_name is empty, we need to search for an enum that has this variant
             // This happens when we use .Some(x) without specifying the enum type
             let mut found_enum = None;
@@ -73,9 +79,7 @@ pub fn compile_enum_variant(
                     }
                 }
             }
-            match found_enum {
-                Some(info) => info,
-                None => {
+            if found_enum.is_none() {
                     // Fallback to basic representation if enum not found in symbol table
                     // This maintains backward compatibility
                     // Special handling for Result type variants
@@ -94,7 +98,7 @@ pub fn compile_enum_variant(
 
                     // Create proper enum struct type with pointer payload for genericity
                     let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-                    let enum_struct_type = self
+                    let enum_struct_type = compiler
                         .context
                         .struct_type(&[compiler.context.i64_type().into(), ptr_type.into()], false);
 
@@ -124,7 +128,7 @@ pub fn compile_enum_variant(
         // eprintln!("[DEBUG] *** NESTED ENUM DETECTED *** Payload is a nested enum variant!");
                         }
                         
-                        let compiled = super::super::LLVMCompiler::compile_expression(compiler(expr)?;
+                        let compiled = compiler.compile_expression(expr)?;
                         let payload_ptr = compiler.builder.build_struct_gep(
                             enum_struct_type,
                             alloca,
@@ -176,7 +180,6 @@ pub fn compile_enum_variant(
                                         // The payload pointer should point to heap memory
                                         // No additional work needed - the nested compile_enum_variant
                                         // should have already heap-allocated the inner payload
-                                        // But let's make absolutely sure by doing nothing that could corrupt it
                                     }
                                 }
                                 
@@ -234,18 +237,13 @@ pub fn compile_enum_variant(
                         &format!("{}_{}_enum_val", enum_name, variant),
                     )?;
                     return Ok(loaded);
-                }
             }
         } else {
-            match compiler.symbols.lookup(enum_name) {
-                Some(symbols::Symbol::EnumType(info)) => {
-                    info.clone()
-                },
-                _ => {
-                    // Fallback to basic representation if enum not found in symbol table
-                    // This maintains backward compatibility
-                    // Special handling for Result type variants
-                    let tag = if variant == "Ok" {
+            // Check if enum is in symbol table, otherwise use fallback
+            // Fallback to basic representation if enum not found in symbol table
+            // This maintains backward compatibility
+            // Special handling for Result type variants
+            let tag = if variant == "Ok" {
                         0
                     } else if variant == "Err" {
                         1
@@ -260,7 +258,7 @@ pub fn compile_enum_variant(
 
                     // Create proper enum struct type with pointer payload for genericity
                     let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-                    let enum_struct_type = self
+                    let enum_struct_type = compiler
                         .context
                         .struct_type(&[compiler.context.i64_type().into(), ptr_type.into()], false);
 
@@ -290,7 +288,7 @@ pub fn compile_enum_variant(
         // eprintln!("[DEBUG] *** NESTED ENUM DETECTED *** Payload is a nested enum variant!");
                         }
                         
-                        let compiled = super::super::LLVMCompiler::compile_expression(compiler(expr)?;
+                        let compiled = compiler.compile_expression(expr)?;
                         let payload_ptr = compiler.builder.build_struct_gep(
                             enum_struct_type,
                             alloca,
@@ -340,3 +338,70 @@ pub fn compile_enum_variant(
                                     
                                     if is_ok_or_some {
                                         // The payload pointer should point to heap memory
+                                        // No additional work needed - the nested compile_enum_variant
+                                        // should have already heap-allocated the inner payload
+                                    }
+                                }
+                                
+                                heap_ptr.into()
+                            } else {
+                                // Not an enum struct, just heap-allocate and copy
+                                let malloc_fn = compiler.module.get_function("malloc").unwrap_or_else(|| {
+                                    let i64_type = compiler.context.i64_type();
+                                    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
+                                    let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
+                                    compiler.module.add_function("malloc", malloc_type, None)
+                                });
+                                
+                                let size = compiler.context.i64_type().const_int(16, false);
+                                let malloc_call = compiler.builder.build_call(malloc_fn, &[size.into()], "heap_struct")?;
+                                let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
+                                compiler.builder.build_store(heap_ptr, struct_val)?;
+                                heap_ptr.into()
+                            }
+                        } else if compiled.is_pointer_value() {
+                            compiled
+                        } else {
+                            // For simple values (i32, i64, etc), heap-allocate to ensure they persist
+                            let malloc_fn = compiler.module.get_function("malloc").unwrap_or_else(|| {
+                                let i64_type = compiler.context.i64_type();
+                                let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
+                                let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
+                                compiler.module.add_function("malloc", malloc_type, None)
+                            });
+                            
+                            // Allocate enough space for the value (8 bytes should cover most primitives)
+                            let size = compiler.context.i64_type().const_int(8, false);
+                            let malloc_call = compiler.builder.build_call(malloc_fn, &[size.into()], "heap_payload")?;
+                            let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
+                            
+                            compiler.builder.build_store(heap_ptr, compiled)?;
+                            heap_ptr.into()
+                        };
+                        compiler.builder.build_store(payload_ptr, payload_value)?;
+                    } else {
+                        // For None variant, store null pointer
+                        let payload_ptr = compiler.builder.build_struct_gep(
+                            enum_struct_type,
+                            alloca,
+                            1,
+                            "payload_ptr",
+                        )?;
+                        let null_ptr = ptr_type.const_null();
+                        compiler.builder.build_store(payload_ptr, null_ptr)?;
+                    }
+
+                    let loaded = compiler.builder.build_load(
+                        enum_struct_type,
+                        alloca,
+                        &format!("{}_{}_enum_val", enum_name, variant),
+            )?;
+            return Ok(loaded);
+        }
+        
+        // If we get here, we couldn't find the enum - this shouldn't happen for Option/Result
+        return Err(CompileError::InternalError(
+            format!("Enum '{}' not found in symbol table", enum_name),
+            None,
+        ));
+    }
