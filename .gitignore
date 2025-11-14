@@ -26,10 +26,7 @@ yarn-error.log*
 # C build artifacts
 *.c
 !tests/zen_test_*.c
-zenc
-zenc2
-zenc3
-zenc4
+zenc*
 
 # Build artifacts
 build/stage*/
@@ -37,8 +34,7 @@ build/**/*.o
 build/**/*.ll
 build/**/*.out
 build/**/*.exe
-build/**/zen
-build/**/zen-compile
+build/**/zen*
 *.o
 *.ll
 *.out
@@ -60,21 +56,12 @@ test_output/
 test_results.txt
 *.test.out
 *.test.ll
+test_*
 
 # Large files and artifacts
 *.jsonl
 .agent/claude_output.jsonl
 agent/claude_output.jsonl
-
-# Compiled binaries and test executables
-test_parse_enum
-test_parse_return
-test_lexer
-test_debug
-test_parse_debug
-out
-build/zenc
-build/stage0/zen
 
 # Security and sensitive files
 .env
@@ -97,5 +84,3 @@ secrets.yml
 *sk-*
 *Bearer*
 *Authorization*
-test_output/
-test_results.txt

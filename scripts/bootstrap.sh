@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # Zen Compiler Bootstrap Script
-# This script manages the bootstrap process for the Zen compiler
+# NOTE: This is placeholder/aspirational code - not yet implemented
+# The bootstrap process (self-hosting) is a future goal
+# This script is kept for reference but stage1/stage2 are not functional
 
 set -e  # Exit on error
 

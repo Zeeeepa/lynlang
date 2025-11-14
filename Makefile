@@ -55,10 +55,10 @@ check:
 	@cargo check --all-targets
 	@echo "✓ Code check complete"
 
-# Run clippy linter
+# Run comprehensive linter (uses scripts/lint.sh)
 lint:
-	@echo "Running clippy..."
-	@cargo clippy -- -D warnings
+	@echo "Running comprehensive linter..."
+	@./scripts/lint.sh
 	@echo "✓ Lint complete"
 
 # Clean build artifacts

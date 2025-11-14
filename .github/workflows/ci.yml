@@ -28,14 +28,8 @@ jobs:
       with:
         components: rustfmt, clippy
     
-    - name: Check Formatting
-      run: cargo fmt -- --check
-    
-    - name: Run Clippy
-      run: cargo clippy -- -W clippy::all
-    
-    - name: Check Import Syntax
-      run: ./scripts/check-imports.sh
+    - name: Run Comprehensive Linter
+      run: ./scripts/lint.sh
 
   # Main build job
   build:
@@ -90,7 +84,7 @@ jobs:
       run: chmod +x target/release/zen
     
     - name: Run Zen Test Suite
-      run: ./scripts/run_tests.sh
+      run: python3 scripts/run_tests.py
 
   # Project statistics (non-blocking)
   stats:
