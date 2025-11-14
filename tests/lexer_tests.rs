@@ -1,8 +1,36 @@
 use zen::lexer::{Lexer, Token};
 
-fn main() {
-    println!("Testing Zen lexer with new loop/option syntax...\n");
+#[test]
+fn test_lexer_simple() {
+    let input = r#"
+        // Test new tokens
+        loop(() { break })
+        items.loop((item) { })
+        Some(42)
+        None
+        expr.raise()
+        @this.defer(cleanup())
+        return value
+        continue
+    "#;
 
+    let mut lexer = Lexer::new(input);
+    let mut tokens = Vec::new();
+
+    loop {
+        let token = lexer.next_token();
+        tokens.push(token.clone());
+        if token == Token::Eof {
+            break;
+        }
+    }
+
+    // Verify we got tokens (not just EOF)
+    assert!(tokens.len() > 1, "Should tokenize input");
+}
+
+#[test]
+fn test_lexer_new_syntax() {
     let test_cases = vec![
         ("loop", "Should recognize loop as a token"),
         ("break", "Should recognize break as a token"),
@@ -18,19 +46,18 @@ fn main() {
     ];
 
     for (input, description) in test_cases {
-        println!("Test: {}", description);
-        println!("Input: {}", input);
         let mut lexer = Lexer::new(input);
+        let mut token_count = 0;
 
-        print!("Tokens: ");
         loop {
             let token = lexer.next_token();
             if token == Token::Eof {
-                println!();
                 break;
             }
-            print!("{:?} ", token);
+            token_count += 1;
         }
-        println!();
+
+        assert!(token_count > 0, "{}: Should tokenize '{}'", description, input);
     }
 }
+
