@@ -278,7 +278,9 @@ fn create_tcp_functions() -> Vec<Declaration> {
                     )],
                 }),
             ],
-            is_varargs: false,        }),
+            is_varargs: false,
+            is_public: true,
+        }),
         // Accept connection
         Declaration::Function(Function {
             type_params: vec![],
@@ -301,7 +303,9 @@ fn create_tcp_functions() -> Vec<Declaration> {
                     fields: vec![],
                 }),
             ],
-            is_varargs: false,        }),
+            is_varargs: false,
+            is_public: true,
+        }),
         // Connect to TCP server
         Declaration::Function(Function {
             type_params: vec![],
@@ -321,7 +325,9 @@ fn create_tcp_functions() -> Vec<Declaration> {
                     fields: vec![],
                 }),
             ],
-            is_varargs: false,        }),
+            is_varargs: false,
+            is_public: true,
+        }),
         // Send data over TCP
         Declaration::Function(Function {
             type_params: vec![],
@@ -352,7 +358,9 @@ fn create_tcp_functions() -> Vec<Declaration> {
                     Expression::Integer32(0), // flags
                 ],
             })],
-            is_varargs: false,        }),
+            is_varargs: false,
+            is_public: true,
+        }),
         // Receive data over TCP
         Declaration::Function(Function {
             type_params: vec![],
@@ -383,7 +391,9 @@ fn create_tcp_functions() -> Vec<Declaration> {
                     Expression::Integer32(0), // flags
                 ],
             })],
-            is_varargs: false,        }),
+            is_varargs: false,
+            is_public: true,
+        }),
     ]
 }
 
@@ -422,7 +432,9 @@ fn create_udp_functions() -> Vec<Declaration> {
                     )],
                 }),
             ],
-            is_varargs: false,        }),
+            is_varargs: false,
+            is_public: true,
+        }),
         // Bind UDP socket
         Declaration::Function(Function {
             type_params: vec![],
@@ -442,7 +454,9 @@ fn create_udp_functions() -> Vec<Declaration> {
                 // Implementation would create sockaddr and bind
                 Statement::Return(Expression::Integer32(0)),
             ],
-            is_varargs: false,        }),
+            is_varargs: false,
+            is_public: true,
+        }),
         // Send UDP datagram
         Declaration::Function(Function {
             type_params: vec![],
@@ -465,7 +479,9 @@ fn create_udp_functions() -> Vec<Declaration> {
                 // Implementation would create sockaddr and call sendto
                 Statement::Return(Expression::Integer64(0)),
             ],
-            is_varargs: false,        }),
+            is_varargs: false,
+            is_public: true,
+        }),
         // Receive UDP datagram
         Declaration::Function(Function {
             type_params: vec![],
@@ -492,7 +508,9 @@ fn create_udp_functions() -> Vec<Declaration> {
                     fields: vec![],
                 }),
             ],
-            is_varargs: false,        }),
+            is_varargs: false,
+            is_public: true,
+        }),
     ]
 }
 
@@ -509,7 +527,9 @@ fn create_helper_functions() -> Vec<Declaration> {
                 name: "close".to_string(),
                 args: vec![Expression::Identifier("fd".to_string())],
             })],
-            is_varargs: false,        }),
+            is_varargs: false,
+            is_public: true,
+        }),
         // Create socket address
         Declaration::Function(Function {
             type_params: vec![],
@@ -542,6 +562,8 @@ fn create_helper_functions() -> Vec<Declaration> {
                     ),
                 ],
             })],
-            is_varargs: false,        }),
+            is_varargs: false,
+            is_public: true,
+        }),
     ]
 }

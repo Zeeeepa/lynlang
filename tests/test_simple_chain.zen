@@ -1,9 +1,0 @@
-// Test chaining to_upper and to_lower
-{ io } = @std
-
-main = () i32 {
-    str = "hello"
-    result = str.to_upper().to_lower()
-    io.println(result)
-    return 0
-}

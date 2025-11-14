@@ -28,15 +28,15 @@ HashSet<T>.add = (self: HashSet<T>, value: T) bool {
     // For numeric types, use simple hash and equality
     hash_fn = (x: T) i64 { x as i64 }
     eq_fn = (a: T, b: T) i64 { a == b ? | true { 1 as i64 } | false { 0 as i64 } }
-    
+
     result ::= self.map.insert(value, true, hash_fn, eq_fn)
-    return result ? 
-        | .Ok(prev) { 
-            prev ? 
-                | .Some(_) { false }  // Element already existed
-                | .None { true }      // New element added
-        }
-        | .Err(_) { false }          // Error occurred
+    return result ?
+    | .Ok(prev) {
+        prev ?
+        | .Some(_) { false }  // Element already existed
+        | .None { true }      // New element added
+    }
+    | .Err(_) { false }          // Error occurred
 }
 
 // Remove element from set
@@ -45,9 +45,9 @@ HashSet<T>.remove = (self: HashSet<T>, value: T) bool {
     hash_fn = (x: T) i64 { x as i64 }
     eq_fn = (a: T, b: T) i64 { a == b ? | true { 1 as i64 } | false { 0 as i64 } }
     result ::= self.map.remove(value, hash_fn, eq_fn)
-    return result ? 
-        | .Some(_) { true }   // Element was removed
-        | .None { false }      // Element not found
+    return result ?
+    | .Some(_) { true }   // Element was removed
+    | .None { false }      // Element not found
 }
 
 // Check if element exists in set
@@ -90,16 +90,4 @@ hashset_clear<T> = HashSet<T>.clear
 // Export HashSet as Set for compatibility
 Set = HashSet
 
-// Module exports
-module.exports = {
-    HashSet,
-    Set,
-    hashset_new,
-    hashset_add,
-    hashset_remove,
-    hashset_contains,
-    hashset_len,
-    hashset_size,
-    hashset_is_empty,
-    hashset_clear,
-}
+// All functions without __ prefix are public (exported)

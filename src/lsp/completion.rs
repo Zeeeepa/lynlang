@@ -49,9 +49,14 @@ pub fn handle_completion(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
         if let Some(context) = get_completion_context(&doc.content, position, store) {
             match context {
                 ZenCompletionContext::UfcMethod { receiver_type } => {
-                    // Provide both struct field completions AND UFC method completions
+                    // Provide struct field completions first (most relevant)
                     let mut completions = get_struct_field_completions(&receiver_type, store);
-                    completions.extend(get_ufc_method_completions(&receiver_type, store));
+                    
+                    // Only add UFC methods if we didn't find struct fields (to avoid stdlib clutter)
+                    // Or if receiver_type is not a struct name (starts with uppercase)
+                    if completions.is_empty() || !receiver_type.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                        completions.extend(get_ufc_method_completions(&receiver_type, store));
+                    }
 
                     let response = CompletionResponse::Array(completions);
                     return Response {
@@ -515,6 +520,15 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
 
     // Check if receiver is a known variable in symbols (limit search)
     const MAX_DOCS_FOR_TYPE_INFERENCE: usize = 20;
+    
+    // First check workspace symbols (faster lookup)
+    if let Some(symbol) = store.workspace_symbols.get(receiver) {
+        if let Some(type_info) = &symbol.type_info {
+            return Some(format_type(type_info));
+        }
+    }
+    
+    // Then check document symbols
     for doc in store.documents.values().take(MAX_DOCS_FOR_TYPE_INFERENCE) {
         if let Some(symbol) = doc.symbols.get(receiver) {
             if let Some(type_info) = &symbol.type_info {
@@ -522,6 +536,22 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
             }
             // Enhanced detail parsing for better type inference
             if let Some(detail) = &symbol.detail {
+                // Parse variable type annotations: "name: Type"
+                if let Some(colon_pos) = detail.find(':') {
+                    let type_part = detail[colon_pos + 1..].trim();
+                    // Extract type name (stop at space, comma, or end)
+                    let type_end = type_part.find(' ')
+                        .or_else(|| type_part.find(','))
+                        .or_else(|| type_part.find('='))
+                        .unwrap_or(type_part.len());
+                    let type_name = type_part[..type_end].trim();
+                    if !type_name.is_empty() {
+                        // Check if it's a struct name (starts with uppercase)
+                        if type_name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                            return Some(type_name.to_string());
+                        }
+                    }
+                }
                 // Parse function return types
                 if detail.contains(" = ") && detail.contains(")") {
                     if let Some(return_type) = detail.split(" = ").nth(1) {

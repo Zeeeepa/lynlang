@@ -56,19 +56,15 @@ mod handler {
         if let Some(doc) = store.documents.get(&params.text_document_position_params.text_document.uri) {
             let position = params.text_document_position_params.position;
             
-            // FIRST: Check if we're hovering on a string literal (even if no symbol found)
-            let line = doc.content.lines().nth(position.line as usize).unwrap_or("");
-            let char_pos = position.character as usize;
-            if let Some(string_literal) = extract_string_literal_from_line(line, char_pos) {
-                return create_hover_response_from_string(
-                    req.id.clone(),
-                    format!("```zen\n{}\n```\n\n**Type:** `StaticString`\n\n**Literal:** String literal", string_literal)
-                );
-            }
-
-            // Find the symbol at the cursor position
+            // Find the symbol at the cursor position FIRST (needed for format string check)
             if let Some(symbol_name) = find_symbol_at_position(&doc.content, position) {
                 let request_id = req.id.clone();
+                
+                // PRIORITY 1: Check if we're hovering on a format string field access (e.g., ${person.name})
+                // This MUST happen before string literal check, otherwise we'll show "String literal" for expressions inside ${...}
+                if let Some(format_hover) = format_string::get_format_string_field_hover(&doc.content, position, &symbol_name, &doc.symbols, &store) {
+                    return create_hover_response_from_string(request_id.clone(), format_hover);
+                }
                 
                 // Check if we're hovering on a method call (e.g., io.println)
                 if let Some(response) = handle_method_call_hover(&doc.content, position, &symbol_name, &store, request_id.clone()) {
@@ -83,11 +79,6 @@ mod handler {
                 // Check if we're hovering over an enum variant definition
                 if let Some(enum_hover) = patterns::get_enum_variant_hover(&doc.content, position, &symbol_name) {
                     return create_hover_response_from_string(request_id.clone(), enum_hover);
-                }
-
-                // Check if we're hovering on a format string field access (e.g., ${person.name})
-                if let Some(format_hover) = format_string::get_format_string_field_hover(&doc.content, position, &symbol_name, &doc.symbols, &store) {
-                    return create_hover_response_from_string(request_id.clone(), format_hover);
                 }
 
                 // Check for symbol info in current document
@@ -396,12 +387,14 @@ mod handler {
         
         let char_pos = position.character as usize;
         
-        // Check if we're inside a string literal
-        if let Some(string_literal) = extract_string_literal_from_line(line, char_pos) {
-            return Some(create_hover_response_from_string(
-                request_id,
-                format!("```zen\n{}\n```\n\n**Type:** `StaticString`\n\n**Literal:** String literal", string_literal)
-            ));
+        // Check if we're inside a string literal (but NOT inside ${...})
+        if !is_inside_format_expression(line, char_pos) {
+            if let Some(string_literal) = extract_string_literal_from_line(line, char_pos) {
+                return Some(create_hover_response_from_string(
+                    request_id,
+                    format!("```zen\n{}\n```\n\n**Type:** `StaticString`\n\n**Literal:** String literal", string_literal)
+                ));
+            }
         }
         
         // Try to find the full expression containing this symbol
@@ -467,6 +460,59 @@ mod handler {
         }
         
         None
+    }
+    
+    /// Check if cursor is inside a format expression ${...}
+    fn is_inside_format_expression(line: &str, char_pos: usize) -> bool {
+        // Find the nearest ${ before the cursor
+        let mut search_pos = 0;
+        let mut iterations = 0;
+        const MAX_ITERATIONS: usize = 100;
+        
+        while iterations < MAX_ITERATIONS {
+            iterations += 1;
+            
+            let search_range = search_pos..char_pos.min(line.len());
+            if search_range.is_empty() {
+                break;
+            }
+            
+            let dollar_pos = if let Some(pos) = line[search_range].rfind('$') {
+                search_pos + pos
+            } else {
+                break;
+            };
+            
+            // Check if it's escaped
+            if dollar_pos > 0 && line.as_bytes()[dollar_pos - 1] == b'\\' {
+                search_pos = dollar_pos.saturating_sub(1);
+                continue;
+            }
+            
+            // Check if it's ${...
+            if dollar_pos + 1 < line.len() && line.as_bytes()[dollar_pos + 1] == b'{' {
+                // Find the closing }
+                if let Some(close_brace) = line[dollar_pos + 2..].find('}') {
+                    let expr_end = dollar_pos + 2 + close_brace;
+                    // Check if cursor is between ${ and }
+                    if char_pos > dollar_pos && char_pos <= expr_end + 1 {
+                        return true;
+                    }
+                } else {
+                    // No closing brace found, but we're inside ${...
+                    if char_pos > dollar_pos {
+                        return true;
+                    }
+                }
+            }
+            
+            if dollar_pos == 0 {
+                break;
+            }
+            search_pos = dollar_pos.saturating_sub(1);
+        }
+        
+        false
     }
     
     /// Extract string literal if cursor is inside one (public for use in handler)

@@ -513,6 +513,9 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
 
+        // Check visibility before moving name
+        let is_public = !name.starts_with("__");
+
         Ok(Function {
             name,
             type_params,
@@ -520,6 +523,7 @@ impl<'a> Parser<'a> {
             return_type,
             body,
             is_varargs: false,
+            is_public,
         })
     }
 
@@ -641,6 +645,9 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
 
+        // Check visibility before moving name
+        let is_public = !name.starts_with("__");
+
         Ok(Function {
             name,
             type_params,
@@ -648,6 +655,7 @@ impl<'a> Parser<'a> {
             return_type,
             body,
             is_varargs: false,
+            is_public,
         })
     }
 

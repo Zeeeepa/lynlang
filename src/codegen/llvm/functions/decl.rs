@@ -177,6 +177,11 @@ pub fn compile_function_body<'ctx>(
     let function_value = compiler.module.get_function(&function.name).ok_or_else(|| {
         CompileError::InternalError(format!("Function {} not declared", function.name), None)
     })?;
+    
+    // Get the actual return type (handles main() void -> i32 conversion)
+    let actual_return_type = compiler.function_types.get(&function.name)
+        .cloned()
+        .unwrap_or_else(|| function.return_type.clone());
 
     // Set names for all arguments
     for (i, (arg_name, _)) in function.args.iter().enumerate() {
@@ -257,7 +262,7 @@ pub fn compile_function_body<'ctx>(
     for (i, statement) in function.body.iter().enumerate() {
         if i == stmt_count - 1 {
             if let ast::Statement::Expression(expr) = statement {
-                if !matches!(function.return_type, AstType::Void) {
+                if !matches!(actual_return_type, AstType::Void) {
                     let value = compiler.compile_expression(expr)?;
                     compiler.builder.build_return(Some(&value))?;
                     return Ok(());
@@ -267,8 +272,8 @@ pub fn compile_function_body<'ctx>(
         compiler.compile_statement(statement)?;
     }
 
-    // Handle return for void functions
-    if matches!(function.return_type, AstType::Void) {
+    // Handle return for void functions (use actual_return_type, not function.return_type)
+    if matches!(actual_return_type, AstType::Void) {
         if let Some(current_block) = compiler.builder.get_insert_block() {
             if current_block.get_terminator().is_none() {
                 compiler.builder.build_return(None)?;
@@ -276,7 +281,15 @@ pub fn compile_function_body<'ctx>(
         }
     } else {
         // Non-void function must have explicit return
-        if let Some(current_block) = compiler.builder.get_insert_block() {
+        // For main() converted from void to i32, return 0 if no explicit return
+        if function.name == "main" && matches!(function.return_type, AstType::Void) {
+            if let Some(current_block) = compiler.builder.get_insert_block() {
+                if current_block.get_terminator().is_none() {
+                    let zero = compiler.context.i32_type().const_int(0, false);
+                    compiler.builder.build_return(Some(&zero))?;
+                }
+            }
+        } else if let Some(current_block) = compiler.builder.get_insert_block() {
             if current_block.get_terminator().is_none() {
                 return Err(CompileError::TypeError(
                     format!("Function '{}' must return a value", function.name),

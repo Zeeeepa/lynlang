@@ -7,7 +7,7 @@ double = (n: i32) i32 {
 }
 
 // Pattern matching example
-sign = (n: i32) string {
+sign = (n: i32) StaticString {
     return n == 0 ? 
         | true { "zero" } 
         | false {

@@ -44,6 +44,7 @@ impl<'a> TypeInstantiator<'a> {
             return_type: instantiated_return,
             body: instantiated_body,
             is_varargs: func.is_varargs,
+            is_public: func.is_public,
         })
     }
 
@@ -149,6 +150,7 @@ impl<'a> TypeInstantiator<'a> {
             return_type: instantiated_return,
             body: instantiated_body,
             is_varargs: method.is_varargs,
+            is_public: method.is_public,
         })
     }
 

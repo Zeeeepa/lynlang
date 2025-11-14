@@ -9,6 +9,65 @@ impl<'a> Parser<'a> {
     pub fn parse_program(&mut self) -> Result<Program> {
         let mut declarations = vec![];
         while self.current_token != Token::Eof {
+            // Check for @export { symbol1, symbol2, ... } or @export *
+            if self.current_token == Token::AtExport {
+                self.next_token(); // consume '@export'
+                
+                // Check for @export * (export all public symbols)
+                if self.current_token == Token::Operator("*".to_string()) {
+                    self.next_token(); // consume '*'
+                    declarations.push(Declaration::Export {
+                        symbols: vec!["*".to_string()], // Special marker for "export all"
+                    });
+                    continue;
+                }
+                
+                if self.current_token != Token::Symbol('{') {
+                    return Err(CompileError::SyntaxError(
+                        "Expected '{' or '*' after @export".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+                self.next_token(); // consume '{'
+                
+                let mut exported_symbols = vec![];
+                
+                // Parse exported symbol names
+                while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
+                    if let Token::Identifier(name) = &self.current_token {
+                        exported_symbols.push(name.clone());
+                        self.next_token();
+                        
+                        if self.current_token == Token::Symbol(',') {
+                            self.next_token();
+                        } else if self.current_token != Token::Symbol('}') {
+                            return Err(CompileError::SyntaxError(
+                                "Expected ',' or '}' in @export list".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                    } else {
+                        return Err(CompileError::SyntaxError(
+                            "Expected identifier in @export list".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                }
+                
+                if self.current_token != Token::Symbol('}') {
+                    return Err(CompileError::SyntaxError(
+                        "Expected '}' to close @export".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+                self.next_token(); // consume '}'
+                
+                declarations.push(Declaration::Export {
+                    symbols: exported_symbols,
+                });
+                continue;
+            }
+            
             // Check for destructuring import: { name, name } = @std
             if self.current_token == Token::Symbol('{') {
                 self.next_token(); // consume '{'
@@ -664,7 +723,11 @@ impl<'a> Parser<'a> {
 
                     if is_function {
                         // Function declaration: name = (params) returnType { ... }
-                        declarations.push(Declaration::Function(self.parse_function()?));
+                        // Check if it's prefixed with 'pub'
+                        let is_public = false; // Will be set by checking previous token if needed
+                        let mut func = self.parse_function()?;
+                        // Note: pub parsing will be handled in parse_function
+                        declarations.push(Declaration::Function(func));
                     } else {
                         // Variable declaration: name = value
                         // Could be a module import: name = @std.module

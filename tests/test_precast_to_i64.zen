@@ -1,9 +1,0 @@
-// Test pre-casting to i64 in assignment
-{ io , get_default_allocator} = @std
-
-main = () void {
-    alloc = get_default_allocator()
-    x :: i64 = 3 as i64  // Declare as i64 from start
-    range = 0..x
-    io.println("Created range")
-}

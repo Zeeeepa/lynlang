@@ -14,6 +14,8 @@ pub enum Token {
     AtStd,              // @std
     AtThis,             // @this
     AtMeta,             // @meta (for compile-time metaprogramming)
+    AtExport,           // @export
+    Pub,                // pub (for public visibility)
     #[allow(dead_code)]
     InterpolationStart, // Start of ${...}
     #[allow(dead_code)]
@@ -105,13 +107,15 @@ impl<'a> Lexer<'a> {
                 let ident = self.input[ident_start..self.position].to_string();
 
                 // Check for special @ tokens
-                // Support @std, @this, and @meta with optional dot-notation
+                // Support @std, @this, @meta, and @export
                 if ident == "std" {
                     Token::AtStd
                 } else if ident == "this" {
                     Token::AtThis
                 } else if ident == "meta" {
                     Token::AtMeta
+                } else if ident == "export" {
+                    Token::AtExport
                 } else {
                     // For other @ identifiers, return as regular identifier with @
                     Token::Identifier(self.input[start..self.position].to_string())
@@ -142,8 +146,13 @@ impl<'a> Lexer<'a> {
             }
             Some(c) if c.is_ascii_alphabetic() => {
                 let ident = self.read_identifier();
-                // No keywords in Zen - all are identifiers
-                Token::Identifier(ident)
+                // Check for 'pub' keyword
+                if ident == "pub" {
+                    Token::Pub
+                } else {
+                    // No other keywords in Zen - all are identifiers
+                    Token::Identifier(ident)
+                }
             }
             Some(c) if c.is_ascii_digit() => {
                 let number = self.read_number();

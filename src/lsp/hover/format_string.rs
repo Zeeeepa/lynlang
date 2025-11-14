@@ -102,6 +102,33 @@ pub fn get_format_string_field_hover(
                 
                 // Fallback: if parsing fails, try simple string matching
                 let expr = expr_str.trim();
+                let relative_pos = char_pos.saturating_sub(expr_start);
+                
+                // Check if symbol_name contains a dot (field access like "person.name")
+                if symbol_name.contains('.') {
+                    // We're hovering on a field access - determine which part
+                    if let Some(dot_pos_in_symbol) = symbol_name.find('.') {
+                        let var_part = &symbol_name[..dot_pos_in_symbol];
+                        let field_part = &symbol_name[dot_pos_in_symbol + 1..];
+                        
+                        // Check if the expression matches this pattern
+                        if let Some(dot_pos_in_expr) = expr.find('.') {
+                            let before_dot = expr[..dot_pos_in_expr].trim();
+                            let after_dot = expr[dot_pos_in_expr + 1..].trim();
+                            
+                            if before_dot == var_part && after_dot == field_part {
+                                // Determine which part we're hovering on based on cursor position
+                                if relative_pos <= dot_pos_in_expr {
+                                    // Hovering on the variable part (person)
+                                    return handle_variable_hover(var_part, local_symbols, store);
+                                } else {
+                                    // Hovering on the field part (name)
+                                    return handle_field_hover(var_part, field_part, content, local_symbols, store);
+                                }
+                            }
+                        }
+                    }
+                }
                 
                 // Check if the expression contains a dot (field access)
                 if let Some(dot_pos) = expr.find('.') {
@@ -112,17 +139,26 @@ pub fn get_format_string_field_hover(
                     let field_start = dot_pos + 1;
                     let field_end = expr.len();
                     
-                    let relative_pos = char_pos.saturating_sub(expr_start);
                     if relative_pos >= field_start && relative_pos <= field_end && after_dot == symbol_name {
                         // We're hovering on the field name
-                        return handle_field_hover(before_dot, symbol_name, content, local_symbols, store);
+                        return handle_field_hover(before_dot, after_dot, content, local_symbols, store);
                     } else if relative_pos < dot_pos && before_dot == symbol_name {
-                        // We're hovering on the variable name
+                        // We're hovering on the variable name (e.g., "person" in "${person.name}")
                         return handle_variable_hover(before_dot, local_symbols, store);
                     }
-                } else if expr == symbol_name {
-                    // We're hovering on a variable name in a format string
-                    return handle_variable_hover(symbol_name, local_symbols, store);
+                } else {
+                    // Check if we're hovering on a simple variable name (e.g., "person" in "${person}")
+                    // Handle both exact match and partial match (cursor might be in middle of word)
+                    let expr_trimmed = expr.trim();
+                    if expr_trimmed == symbol_name || expr_trimmed.starts_with(symbol_name) || symbol_name.starts_with(expr_trimmed) {
+                        // Check if cursor is within the variable name
+                        let symbol_start_in_expr = expr_trimmed.find(symbol_name).unwrap_or(0);
+                        let symbol_end_in_expr = symbol_start_in_expr + symbol_name.len();
+                        
+                        if relative_pos >= symbol_start_in_expr && relative_pos <= symbol_end_in_expr {
+                            return handle_variable_hover(symbol_name, local_symbols, store);
+                        }
+                    }
                 }
             }
         }

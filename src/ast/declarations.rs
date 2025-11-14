@@ -12,6 +12,7 @@ pub struct Function {
     pub return_type: AstType,
     pub body: Vec<Statement>,
     pub is_varargs: bool, // For variadic functions like printf
+    pub is_public: bool,  // true if marked with 'pub' keyword
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -123,6 +124,9 @@ pub enum Declaration {
     ModuleImport {
         alias: String,
         module_path: String,
+    },
+    Export {
+        symbols: Vec<String>,
     },
     TypeAlias(TypeAlias),
 }

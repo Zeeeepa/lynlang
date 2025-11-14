@@ -604,6 +604,77 @@ pub fn infer_expression_type(compiler: &LLVMCompiler, expr: &Expression) -> Resu
                 // Continue always returns void
                 Ok(AstType::Void)
             }
+            Expression::MemberAccess { object, member } => {
+                // Infer the type of the object first
+                let object_type = compiler.infer_expression_type(object)?;
+                
+                // Handle struct field access
+                match &object_type {
+                    AstType::Struct { name, .. } => {
+                        // Look up the struct type info
+                        if let Some(struct_info) = compiler.struct_types.get(name) {
+                            // Find the field type
+                            if let Some((_index, field_type)) = struct_info.fields.get(member) {
+                                Ok(field_type.clone())
+                            } else {
+                                Err(CompileError::TypeError(
+                                    format!("Struct '{}' has no field '{}'", name, member),
+                                    None,
+                                ))
+                            }
+                        } else {
+                            Err(CompileError::TypeError(
+                                format!("Unknown struct type: {}", name),
+                                None,
+                            ))
+                        }
+                    }
+                    // Handle pointer to struct types
+                    AstType::Ptr(inner) => {
+                        // Recursively infer member type from inner type
+                        if let AstType::Struct { name, .. } = &**inner {
+                            if let Some(struct_info) = compiler.struct_types.get(name) {
+                                if let Some((_index, field_type)) = struct_info.fields.get(member) {
+                                    Ok(field_type.clone())
+                                } else {
+                                    Err(CompileError::TypeError(
+                                        format!("Struct '{}' has no field '{}'", name, member),
+                                        None,
+                                    ))
+                                }
+                            } else {
+                                Err(CompileError::TypeError(
+                                    format!("Unknown struct type: {}", name),
+                                    None,
+                                ))
+                            }
+                        } else {
+                            Ok(AstType::Void)
+                        }
+                    }
+                    // Handle Generic types that might be structs
+                    AstType::Generic { name, .. } => {
+                        // Check if this generic is actually a registered struct type
+                        if let Some(struct_info) = compiler.struct_types.get(name) {
+                            if let Some((_index, field_type)) = struct_info.fields.get(member) {
+                                Ok(field_type.clone())
+                            } else {
+                                Err(CompileError::TypeError(
+                                    format!("Struct '{}' has no field '{}'", name, member),
+                                    None,
+                                ))
+                            }
+                        } else {
+                            // Not a struct, might be a module reference (@std.something)
+                            Ok(AstType::Void)
+                        }
+                    }
+                    _ => {
+                        // For other types, return void (will error during compilation if needed)
+                        Ok(AstType::Void)
+                    }
+                }
+            }
             _ => Ok(AstType::Void),
         }
     }

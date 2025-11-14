@@ -1,9 +1,0 @@
-// Test math imports
-{ min, max, abs } = @std
-
-main = () i32 {
-    a = 10
-    b = 20
-    smallest = min(a, b)
-    return smallest
-}

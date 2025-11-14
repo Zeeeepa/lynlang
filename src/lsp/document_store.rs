@@ -1589,11 +1589,33 @@ impl DocumentStore {
                         };
 
                         // Determine type information
-                        let type_info = type_.clone();
-                        let detail = if let Some(ref t) = type_ {
+                        let type_info = if let Some(ref _t) = type_ {
+                            type_.clone()
+                        } else if let Some(ref init) = initializer {
+                            // Try to infer type from initializer using compiler integration
+                            let mut inferred_type: Option<AstType> = None;
+                            for doc in self.documents.values().take(5) {
+                                if let Some(ast) = &doc.ast {
+                                    let program = Program {
+                                        declarations: ast.clone(),
+                                        statements: vec![],
+                                    };
+                                    let mut compiler_integration = CompilerIntegration::new();
+                                    if let Ok(ast_type) = compiler_integration.infer_expression_type(&program, init) {
+                                        inferred_type = Some(ast_type);
+                                        break;
+                                    }
+                                }
+                            }
+                            inferred_type
+                        } else {
+                            None
+                        };
+                        
+                        let detail = if let Some(ref t) = &type_info {
                             Some(format!("{}: {}", name, format_type(t)))
                         } else if let Some(ref init) = initializer {
-                            // Try to infer type from initializer
+                            // Try to infer type from initializer for display
                             if let Some(inferred) = self.infer_type_from_expression(init) {
                                 Some(format!("{}: {}", name, inferred))
                             } else {

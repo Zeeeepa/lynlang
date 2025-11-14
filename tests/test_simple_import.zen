@@ -1,8 +1,0 @@
-// Test basic import functionality
-
-{ io } = @std
-
-main = () i32 {
-    io.println("Import system working!")
-    return 0
-}

@@ -1,9 +1,0 @@
-// Test StaticString method call
-{ io , get_default_allocator} = @std
-
-main = () void {
-    alloc = get_default_allocator()
-    s = "hello"
-    len = s.len()
-    io.println("Length: ${len}")
-}

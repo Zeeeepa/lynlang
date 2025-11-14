@@ -145,9 +145,10 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                 break; // Rest of line is comment
             }
 
-            // String literals (including triple-quoted strings)
+            // String literals (including triple-quoted strings and format expressions)
             if ch == '"' {
-                let mut string_len = 1;
+                let string_start = start;
+                let mut string_start_char_idx = char_idx;
                 let mut escaped = false;
                 let mut is_triple = false;
                 
@@ -156,36 +157,40 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                     if next_ch == '"' {
                         chars.next();
                         char_idx += next_ch.len_utf8();
-                        string_len += next_ch.len_utf8();
                         if let Some(&next2_ch) = chars.peek() {
                             if next2_ch == '"' {
                                 chars.next();
                                 char_idx += next2_ch.len_utf8();
-                                string_len += next2_ch.len_utf8();
                                 is_triple = true;
                             }
                         }
                     }
                 }
                 
+                // Track string parts and format expressions
+                let mut string_part_start = string_start_char_idx;
+                let mut in_format_expr = false;
+                let mut format_expr_start = 0;
+                
                 if is_triple {
                     // Triple-quoted string: read until we find """
                     while let Some(&next_ch) = chars.peek() {
                         chars.next();
                         char_idx += next_ch.len_utf8();
-                        string_len += next_ch.len_utf8();
                         
-                        if next_ch == '"' {
+                        if escaped {
+                            escaped = false;
+                        } else if next_ch == '\\' {
+                            escaped = true;
+                        } else if next_ch == '"' {
                             if let Some(&next2_ch) = chars.peek() {
                                 if next2_ch == '"' {
                                     chars.next();
                                     char_idx += next2_ch.len_utf8();
-                                    string_len += next2_ch.len_utf8();
                                     if let Some(&next3_ch) = chars.peek() {
                                         if next3_ch == '"' {
                                             chars.next();
                                             char_idx += next3_ch.len_utf8();
-                                            string_len += next3_ch.len_utf8();
                                             break;
                                         }
                                     }
@@ -194,39 +199,125 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                         }
                     }
                 } else {
-                    // Single-quoted string
+                    // Single-quoted string with format expression support
                     while let Some(&next_ch) = chars.peek() {
+                        let peek_pos = char_idx;
                         chars.next();
                         char_idx += next_ch.len_utf8();
-                        string_len += next_ch.len_utf8();
 
                         if escaped {
                             escaped = false;
                         } else if next_ch == '\\' {
                             escaped = true;
+                        } else if next_ch == '$' && !escaped {
+                            // Check if it's ${ (format expression start)
+                            if let Some(&after_dollar) = chars.peek() {
+                                if after_dollar == '{' {
+                                    // End current string part
+                                    if string_part_start < peek_pos {
+                                        let string_part_len = peek_pos - string_part_start;
+                                        let delta_line = line_idx as u32 - prev_line;
+                                        let delta_start = if delta_line == 0 {
+                                            string_part_start as u32 - prev_start
+                                        } else {
+                                            string_part_start as u32
+                                        };
+                                        
+                                        tokens.push(SemanticToken {
+                                            delta_line,
+                                            delta_start,
+                                            length: string_part_len as u32,
+                                            token_type: TYPE_STRING,
+                                            token_modifiers_bitset: 0,
+                                        });
+                                        
+                                        prev_line = line_idx as u32;
+                                        prev_start = string_part_start as u32;
+                                    }
+                                    
+                                    // Skip ${ and parse the format expression
+                                    chars.next(); // Skip '{'
+                                    char_idx += after_dollar.len_utf8();
+                                    format_expr_start = peek_pos;
+                                    in_format_expr = true;
+                                    
+                                    // Find the closing }
+                                    let mut expr_content = String::new();
+                                    while let Some(&expr_ch) = chars.peek() {
+                                        if expr_ch == '}' {
+                                            chars.next();
+                                            char_idx += expr_ch.len_utf8();
+                                            
+                                            // Parse and tokenize the expression
+                                            let expr_str = &line[format_expr_start + 2..char_idx - 1]; // Skip ${ and }
+                                            tokenize_format_expression(
+                                                expr_str,
+                                                format_expr_start + 2,
+                                                line_idx,
+                                                &mut tokens,
+                                                &mut prev_line,
+                                                &mut prev_start,
+                                            );
+                                            
+                                            in_format_expr = false;
+                                            string_part_start = char_idx;
+                                            break;
+                                        }
+                                        expr_content.push(expr_ch);
+                                        chars.next();
+                                        char_idx += expr_ch.len_utf8();
+                                    }
+                                    continue;
+                                }
+                            }
                         } else if next_ch == '"' {
+                            // End of string
+                            if string_part_start < peek_pos {
+                                let string_part_len = peek_pos - string_part_start;
+                                let delta_line = line_idx as u32 - prev_line;
+                                let delta_start = if delta_line == 0 {
+                                    string_part_start as u32 - prev_start
+                                } else {
+                                    string_part_start as u32
+                                };
+                                
+                                tokens.push(SemanticToken {
+                                    delta_line,
+                                    delta_start,
+                                    length: string_part_len as u32,
+                                    token_type: TYPE_STRING,
+                                    token_modifiers_bitset: 0,
+                                });
+                                
+                                prev_line = line_idx as u32;
+                                prev_start = string_part_start as u32;
+                            }
                             break;
                         }
                     }
                 }
 
-                let delta_line = line_idx as u32 - prev_line;
-                let delta_start = if delta_line == 0 {
-                    start as u32 - prev_start
-                } else {
-                    start as u32
-                };
+                // If we didn't break up the string (triple-quoted or no format expressions), add as single token
+                if !is_triple && !in_format_expr {
+                    let string_len = char_idx - string_start_char_idx;
+                    let delta_line = line_idx as u32 - prev_line;
+                    let delta_start = if delta_line == 0 {
+                        string_start as u32 - prev_start
+                    } else {
+                        string_start as u32
+                    };
 
-                tokens.push(SemanticToken {
-                    delta_line,
-                    delta_start,
-                    length: string_len as u32,
-                    token_type: TYPE_STRING,
-                    token_modifiers_bitset: 0,
-                });
+                    tokens.push(SemanticToken {
+                        delta_line,
+                        delta_start,
+                        length: string_len as u32,
+                        token_type: TYPE_STRING,
+                        token_modifiers_bitset: 0,
+                    });
 
-                prev_line = line_idx as u32;
-                prev_start = start as u32;
+                    prev_line = line_idx as u32;
+                    prev_start = string_start as u32;
+                }
                 continue;
             }
 
@@ -449,5 +540,143 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
     }
 
     tokens
+}
+
+/// Tokenize a format expression inside ${...} as regular Zen code
+fn tokenize_format_expression(
+    expr_str: &str,
+    expr_start_offset: usize,
+    line_idx: usize,
+    tokens: &mut Vec<SemanticToken>,
+    prev_line: &mut u32,
+    prev_start: &mut u32,
+) {
+    // Token type constants (same as in generate_semantic_tokens)
+    const TYPE_VARIABLE: u32 = 8;
+    const TYPE_PROPERTY: u32 = 9;
+    const TYPE_OPERATOR: u32 = 21;
+    
+    let mut char_idx = 0;
+    let mut chars = expr_str.chars().peekable();
+    
+    while let Some(ch) = chars.next() {
+        let start = char_idx;
+        char_idx += ch.len_utf8();
+        
+        // Skip whitespace
+        if ch.is_whitespace() {
+            continue;
+        }
+        
+        // Identifiers (variables, properties)
+        if ch.is_alphabetic() || ch == '_' {
+            let mut word = String::from(ch);
+            while let Some(&next_ch) = chars.peek() {
+                if next_ch.is_alphanumeric() || next_ch == '_' {
+                    chars.next();
+                    char_idx += next_ch.len_utf8();
+                    word.push(next_ch);
+                } else {
+                    break;
+                }
+            }
+            
+            let delta_line = line_idx as u32 - *prev_line;
+            let delta_start = if delta_line == 0 {
+                (expr_start_offset + start) as u32 - *prev_start
+            } else {
+                (expr_start_offset + start) as u32
+            };
+            
+            // Check if this is followed by a dot (property access)
+            let is_property = chars.peek() == Some(&'.');
+            
+            tokens.push(SemanticToken {
+                delta_line,
+                delta_start,
+                length: word.len() as u32,
+                token_type: if is_property { TYPE_PROPERTY } else { TYPE_VARIABLE },
+                token_modifiers_bitset: 0,
+            });
+            
+            *prev_line = line_idx as u32;
+            *prev_start = (expr_start_offset + start) as u32;
+            continue;
+        }
+        
+        // Dot operator (property access)
+        if ch == '.' {
+            let delta_line = line_idx as u32 - *prev_line;
+            let delta_start = if delta_line == 0 {
+                (expr_start_offset + start) as u32 - *prev_start
+            } else {
+                (expr_start_offset + start) as u32
+            };
+            
+            tokens.push(SemanticToken {
+                delta_line,
+                delta_start,
+                length: 1,
+                token_type: TYPE_OPERATOR,
+                token_modifiers_bitset: 0,
+            });
+            
+            *prev_line = line_idx as u32;
+            *prev_start = (expr_start_offset + start) as u32;
+            
+            // Parse property name after dot
+            if let Some(&next_ch) = chars.peek() {
+                if next_ch.is_alphabetic() || next_ch == '_' {
+                    let prop_start = char_idx;
+                    let mut prop_name = String::new();
+                    
+                    while let Some(&prop_ch) = chars.peek() {
+                        if prop_ch.is_alphanumeric() || prop_ch == '_' {
+                            chars.next();
+                            char_idx += prop_ch.len_utf8();
+                            prop_name.push(prop_ch);
+                        } else {
+                            break;
+                        }
+                    }
+                    
+                    let delta_line = 0; // Same line
+                    let delta_start = (expr_start_offset + prop_start) as u32 - *prev_start;
+                    
+                    tokens.push(SemanticToken {
+                        delta_line,
+                        delta_start,
+                        length: prop_name.len() as u32,
+                        token_type: TYPE_PROPERTY,
+                        token_modifiers_bitset: 0,
+                    });
+                    
+                    *prev_start = (expr_start_offset + prop_start) as u32;
+                }
+            }
+            continue;
+        }
+        
+        // Other operators
+        if "+-*/%&|^!<>=".contains(ch) {
+            let delta_line = line_idx as u32 - *prev_line;
+            let delta_start = if delta_line == 0 {
+                (expr_start_offset + start) as u32 - *prev_start
+            } else {
+                (expr_start_offset + start) as u32
+            };
+            
+            tokens.push(SemanticToken {
+                delta_line,
+                delta_start,
+                length: 1,
+                token_type: TYPE_OPERATOR,
+                token_modifiers_bitset: 0,
+            });
+            
+            *prev_line = line_idx as u32;
+            *prev_start = (expr_start_offset + start) as u32;
+        }
+    }
 }
 

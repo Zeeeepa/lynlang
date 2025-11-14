@@ -1,9 +1,9 @@
-// Dynamic String type with allocator support
-// This implements the heap-allocated, mutable string type
+// Zen Standard Library: String Type
+// Heap-allocated, mutable string type
 
-{ Allocator } = @std.memory_unified
+{ Allocator } = @std.memory
 
-struct String {
+String: {
     data: Ptr<u8>
     len: u64
     capacity: u64
@@ -123,9 +123,10 @@ String.append_string = (self: String, other: String) Result<String, StaticString
 }
 
 // Convert String to StaticString (creates a static view - be careful with lifetime!)
+// Note: This requires unsafe pointer casting - not yet implemented
 String.as_static = (self: String) StaticString {
-    // This is unsafe and should only be used when the String outlives the StaticString usage
-    return @cast(StaticString, self.data)
+    // TODO: Implement unsafe cast from Ptr<u8> to StaticString
+    return ""
 }
 
 // Get the length of the String
@@ -233,5 +234,4 @@ String.concat = (s1: String, s2: String, allocator: Allocator) String {
     }
 }
 
-// Export the String type
-export String
+// String type is exported by the module system

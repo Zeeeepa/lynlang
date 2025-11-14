@@ -37,7 +37,4 @@ queue_clear<T> = (queue: MutPtr<Queue<T>>) void {
     list_module.clear<T>(queue)
 }
 
-module.exports = { 
-    Queue, queue_new, queue_enqueue, queue_dequeue, queue_peek, 
-    queue_size, queue_is_empty, queue_clear 
-}
+// All functions without __ prefix are public (exported)

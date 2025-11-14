@@ -511,6 +511,30 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
 
+        // Fallback to UFC (Uniform Function Call): object.method(args) -> method(object, args)
+        // This handles cases like vec_ref.get(0) where vec_ref is &DynVec<String>
+        // Try to find a function with the method name that takes the object as first parameter
+        if let Some(func_signature) = self.function_types.get(method_name) {
+            // Check if first parameter matches the object type (or dereferenced type)
+            // func_signature is AstType, we need to extract params from it
+            // For now, just try calling the function - if it exists, it should work
+            // Build the argument list: [object, ...args]
+            let mut ufc_args = vec![object.clone()];
+            ufc_args.extend_from_slice(args);
+            
+            // Try to call the function through UFC
+            match super::functions::calls::compile_function_call(
+                self,
+                method_name,
+                &ufc_args,
+            ) {
+                Ok(result) => return Ok(result),
+                Err(_) => {
+                    // Function not found or wrong signature, continue to error
+                }
+            }
+        }
+        
         Err(CompileError::UndeclaredFunction(
             format!("{}.{}", type_name, method_name),
             None,
@@ -523,16 +547,75 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Expression::Identifier(name) => {
                 // Look up the variable's type in our type tracking
                 if let Some(var_info) = self.variables.get(name) {
-                    match &var_info.ast_type {
+                    // Handle pointer/reference types by dereferencing
+                    let effective_type = match &var_info.ast_type {
+                        crate::ast::AstType::Ptr(inner) | 
+                        crate::ast::AstType::MutPtr(inner) | 
+                        crate::ast::AstType::RawPtr(inner) => {
+                            // Dereference pointer to get inner type
+                            inner.as_ref()
+                        }
+                        _ => &var_info.ast_type,
+                    };
+                    
+                    match effective_type {
                         crate::ast::AstType::Struct { name, .. } => Ok(name.clone()),
+                        crate::ast::AstType::Generic { name, .. } => {
+                            // For generic types like DynVec<String>, return the base name
+                            Ok(name.clone())
+                        }
+                        crate::ast::AstType::DynVec { .. } => Ok("DynVec".to_string()),
+                        crate::ast::AstType::Vec { .. } => Ok("Vec".to_string()),
                         _ => Ok("UnknownType".to_string()),
                     }
                 } else {
-                    Ok("UnknownType".to_string())
+                    // Try to infer from expression type
+                    match self.infer_expression_type(expr) {
+                        Ok(ast_type) => {
+                            // Handle pointer types
+                            let effective_type = match &ast_type {
+                                crate::ast::AstType::Ptr(inner) | 
+                                crate::ast::AstType::MutPtr(inner) | 
+                                crate::ast::AstType::RawPtr(inner) => inner.as_ref(),
+                                _ => &ast_type,
+                            };
+                            
+                            match effective_type {
+                                crate::ast::AstType::Struct { name, .. } => Ok(name.clone()),
+                                crate::ast::AstType::Generic { name, .. } => Ok(name.clone()),
+                                crate::ast::AstType::DynVec { .. } => Ok("DynVec".to_string()),
+                                crate::ast::AstType::Vec { .. } => Ok("Vec".to_string()),
+                                _ => Ok("UnknownType".to_string()),
+                            }
+                        }
+                        Err(_) => Ok("UnknownType".to_string()),
+                    }
                 }
             }
             Expression::StructLiteral { name, .. } => Ok(name.clone()),
-            _ => Ok("UnknownType".to_string()),
+            _ => {
+                // Try to infer from expression type
+                match self.infer_expression_type(expr) {
+                    Ok(ast_type) => {
+                        // Handle pointer types
+                        let effective_type = match &ast_type {
+                            crate::ast::AstType::Ptr(inner) | 
+                            crate::ast::AstType::MutPtr(inner) | 
+                            crate::ast::AstType::RawPtr(inner) => inner.as_ref(),
+                            _ => &ast_type,
+                        };
+                        
+                        match effective_type {
+                            crate::ast::AstType::Struct { name, .. } => Ok(name.clone()),
+                            crate::ast::AstType::Generic { name, .. } => Ok(name.clone()),
+                            crate::ast::AstType::DynVec { .. } => Ok("DynVec".to_string()),
+                            crate::ast::AstType::Vec { .. } => Ok("Vec".to_string()),
+                            _ => Ok("UnknownType".to_string()),
+                        }
+                    }
+                    Err(_) => Ok("UnknownType".to_string()),
+                }
+            }
         }
     }
 }

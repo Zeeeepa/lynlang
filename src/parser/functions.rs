@@ -189,6 +189,9 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
 
+        // Functions starting with __ are private, everything else is public
+        let is_public = !name.starts_with("__");
+        
         Ok(Function {
             name,
             type_params,
@@ -196,6 +199,7 @@ impl<'a> Parser<'a> {
             return_type,
             body,
             is_varargs,
+            is_public,
         })
     }
 }

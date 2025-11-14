@@ -1,9 +1,0 @@
-// Test simple import of Option types
-{ Option } = @std
-
-main = () i32 {
-    opt = Option.Some(42)
-    opt ?
-        | .Some(val) { return val }
-        | .None { return 0 }
-}

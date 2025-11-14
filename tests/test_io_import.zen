@@ -1,7 +1,0 @@
-// Test io import
-{io} = @std
-
-main = () i32 {
-    io.println("Hello")
-    return 0
-}

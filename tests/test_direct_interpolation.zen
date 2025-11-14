@@ -1,8 +1,0 @@
-{ io , get_default_allocator} = @std
-
-main = () i32 {
-    alloc = get_default_allocator()
-    val = 42
-    io.println("Direct number: ${val}")
-    return 0
-}

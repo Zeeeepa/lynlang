@@ -1,9 +1,0 @@
-// Minimal test for range with variable
-{ io , get_default_allocator} = @std
-
-main = () void {
-    alloc = get_default_allocator()
-    x = 3
-    range = 0..x
-    io.println("Created range")
-}

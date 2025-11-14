@@ -1,76 +1,15 @@
 // Zen Standard Library: IO Module
-// Console I/O operations and formatters
-
-// Import low-level file operations
-file = @std
-
-// External C functions for console I/O
-printf = (format: RawPtr<i8>, ...) i32 {
-    inline.c("""
-        return printf(${format.addr}, ...);
-    """)
-}
-
-puts = (str: RawPtr<i8>) i32 {
-    inline.c("""
-        return puts(${str.addr});
-    """)
-}
-
-getchar = () i32 {
-    inline.c("""
-        return getchar();
-    """)
-}
+// Console I/O operations
 
 // Standard file descriptors
 STDIN := 0
 STDOUT := 1
 STDERR := 2
 
-// Print string to stdout
-print = (message: RawPtr<i8>) void   {
-    puts(message)
-}
-
-// Print with newline
-println = (message: RawPtr<i8>) void   {
-    puts(message)
-}
-
-// Print formatted integer
-print_int = (value: i32) void   {
-    format := "%d\n"
-    printf(format, value)
-}
-
-// Print formatted float
-print_float = (value: f64) void   {
-    format := "%.6f\n"
-    printf(format, value)
-}
-
-// Read a single character from stdin
-read_char = () i32   {
-    return getchar()
-}
-
-// For file operations, use the file module:
-// - file.open(path, mode) for opening files
-// - file.read(), file.write() for I/O
-// - file.close() for closing files
-
-// Export main functions
-module.exports = {
-    print,
-    println,
-    print_int,
-    print_float,
-    read_char,
-    printf,
-    puts,
-    getchar,
-    STDIN,
-    STDOUT,
-    STDERR,
-}
+// Note: Actual I/O functions are implemented in the compiler as built-ins
+// These are type signatures for LSP/typechecker
+print = (message: StaticString) void
+println = (message: StaticString) void
+print_int = (value: i32) void
+print_float = (value: f64) void
+read_char = () i32

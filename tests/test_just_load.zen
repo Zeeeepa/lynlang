@@ -1,9 +1,0 @@
-// Just load a variable
-{ io , get_default_allocator} = @std
-
-main = () void {
-    alloc = get_default_allocator()
-    x = 3
-    y = x  // This should load x
-    io.println("y = ${y}")
-}

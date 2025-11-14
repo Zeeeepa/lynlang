@@ -1,9 +1,0 @@
-// Classic Hello World in Zen
-// Demonstrates the simplest possible Zen program
-
-{ io , get_default_allocator} = @std
-
-main = () void {
-    alloc = get_default_allocator()
-    io.println("Hello, World!")
-}

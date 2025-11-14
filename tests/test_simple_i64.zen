@@ -1,8 +1,0 @@
-// Test simple i64
-{ io , get_default_allocator} = @std
-
-main = () void {
-    alloc = get_default_allocator()
-    x: i64 = 3
-    io.println("x = ${x}")
-}

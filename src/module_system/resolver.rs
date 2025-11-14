@@ -61,17 +61,19 @@ impl ModuleResolver {
 
         for decl in &program.declarations {
             match decl {
-                Declaration::Function(func) if !func.name.starts_with('_') => {
-                    // Public functions (not starting with _) are exported
-                    exports.insert(func.name.clone());
+                Declaration::Function(func) => {
+                    // Export public functions (not starting with __)
+                    if func.is_public && !func.name.starts_with("__") {
+                        exports.insert(func.name.clone());
+                    }
                 }
-                Declaration::Struct(struct_def) if !struct_def.name.starts_with('_') => {
+                Declaration::Struct(struct_def) if !struct_def.name.starts_with("__") => {
                     exports.insert(struct_def.name.clone());
                 }
-                Declaration::Enum(enum_def) if !enum_def.name.starts_with('_') => {
+                Declaration::Enum(enum_def) if !enum_def.name.starts_with("__") => {
                     exports.insert(enum_def.name.clone());
                 }
-                Declaration::TypeAlias(alias) if !alias.name.starts_with('_') => {
+                Declaration::TypeAlias(alias) if !alias.name.starts_with("__") => {
                     exports.insert(alias.name.clone());
                 }
                 _ => {}

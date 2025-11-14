@@ -1,5 +1,5 @@
-// Result type for error handling in Zen
-// Provides a type-safe way to handle operations that can fail
+|
+ Result.Err(error) { Result.Err(f(error)) }
 
 { Option, Some, None, Result, Ok, Err } = @std
 
@@ -63,15 +63,15 @@ Result<T, E>.impl = {
     // Map Err value through a function
     map_err = (self: Result<T, E>, f: (E) { F }) Result<T, F> {
         self ?
-            | Result.Ok(ok_val) { Result.Ok(ok_val.value) }
-            | Result.Err(err_val) { Result.Err(f(err_val.error)) }
+            | Result.Ok(value) { Result.Ok(value) }
+            | Result.Err(error) { Result.Err(f(error)) }
     }
     
     // Chain Result operations
     and_then = (self: Result<T, E>, f: (T) { Result<U, E> }) Result<U, E> {
         self ?
-            | Result.Ok(ok_val) { f(ok_val.value) }
-            | Result.Err(err_val) { Result.Err(err_val.error) }
+            | Result.Ok(value) { f(value) }
+            | Result.Err(error) { Result.Err(error) }
     }
     
     // Chain error handling
@@ -119,9 +119,9 @@ err = (error: E) Result<T, E>   {
 collect_results = (results: Vec<Result<T, E>>) Result<DynVec<T>, E>   {
     values := DynVec<T>{}
     
-    (0..results.length).loop((i) {
+    (0..results.len()).loop((i) {
         results[i] ?
-            | Result.Ok(value) { values.append(value) }
+            | Result.Ok(value) { values.push(value) }
             | Result.Err(error) { return Result.Err(error) }
     })
     

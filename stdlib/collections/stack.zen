@@ -37,7 +37,4 @@ stack_clear<T> = (stack: MutPtr<Stack<T>>) void {
     list_module.clear<T>(stack)
 }
 
-module.exports = { 
-    Stack, stack_new, stack_push, stack_pop, stack_peek, 
-    stack_size, stack_is_empty, stack_clear 
-}
+// All functions without __ prefix are public (exported)

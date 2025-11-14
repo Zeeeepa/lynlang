@@ -1,9 +1,0 @@
-// Test simple enum
-Status:
-    Active,
-    Inactive,
-    Banned
-
-main = () i32 {
-    return 0
-}

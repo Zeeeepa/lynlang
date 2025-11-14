@@ -397,4 +397,4 @@ DynVec<T>.clear = (vec: MutPtr<DynVec<T>>) void {
 }
 
 // Export both types
-module.exports = { Vec, DynVec, VecIterator }
+// Vec, DynVec types are exported by the module system

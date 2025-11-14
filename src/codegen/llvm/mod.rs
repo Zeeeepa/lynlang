@@ -416,6 +416,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 ast::Declaration::Function(_) => {}
                 ast::Declaration::Struct(_) => {} // Already handled above
                 ast::Declaration::Enum(_) => {}   // Already handled above
+                ast::Declaration::Export { .. } => {
+                    // Exports are handled at module level, no codegen needed
+                }
                 ast::Declaration::ModuleImport { alias, module_path } => {
                     // Handle module imports like { io } = @std or { Option, Some, None } = @std
                     // We just register these as compile-time symbols
@@ -604,16 +607,24 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         .ptr_type(inkwell::AddressSpace::default())
                         .as_basic_type_enum()
                 }
-                AstType::Generic { .. } => {
-                    // For now, treat generic types as pointers
-                    // In a full implementation, we'd need generic instantiation
-                    self.context
-                        .ptr_type(inkwell::AddressSpace::default())
-                        .as_basic_type_enum()
+                AstType::Generic { name, .. } => {
+                    // Check if this "generic" is actually a registered struct type
+                    // (the parser sometimes represents struct types as generics)
+                    if let Some(struct_info) = self.struct_types.get(name) {
+                        struct_info.llvm_type.as_basic_type_enum()
+                    } else {
+                        // For real generic types, treat as pointers
+                        // In a full implementation, we'd need generic instantiation
+                        self.context
+                            .ptr_type(inkwell::AddressSpace::default())
+                            .as_basic_type_enum()
+                    }
                 }
                 AstType::Struct { name, .. } => {
                     // Look up the previously registered struct type
                     if let Some(struct_info) = self.struct_types.get(name) {
+                        // Use the struct type directly as a basic type enum
+                        // This allows structs to be used as inline fields in other structs
                         struct_info.llvm_type.as_basic_type_enum()
                     } else {
                         return Err(CompileError::TypeError(

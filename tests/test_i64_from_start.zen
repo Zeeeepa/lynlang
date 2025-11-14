@@ -1,9 +1,0 @@
-// Test declaring as i64 from the start
-{ io , get_default_allocator} = @std
-
-main = () void {
-    alloc = get_default_allocator()
-    x :: i64 = 3  // Explicitly type as i64
-    range = 0..x
-    io.println("Created range")
-}

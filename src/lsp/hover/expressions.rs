@@ -30,17 +30,30 @@ pub fn analyze_expression_hover(
             let member_start = last_dot_pos + 1;
             let member_end = expr_str.len();
             
-            if relative_pos >= member_start && relative_pos <= member_end && member == symbol_name {
+            // Check if symbol_name contains a dot (like "person.name")
+            let is_hovering_on_field = if symbol_name.contains('.') {
+                // Extract the field part from symbol_name (e.g., "name" from "person.name")
+                if let Some(dot_pos) = symbol_name.find('.') {
+                    let field_part = &symbol_name[dot_pos + 1..];
+                    member == field_part && relative_pos >= member_start && relative_pos <= member_end
+                } else {
+                    false
+                }
+            } else {
+                member == symbol_name && relative_pos >= member_start && relative_pos <= member_end
+            };
+            
+            if is_hovering_on_field {
                 // We're hovering on the member - find the type of the object
                 // Recursively resolve the object type
                 if let Some(object_type) = resolve_expression_type(object, local_symbols, store) {
                     if let AstType::Struct { name, .. } = object_type {
                         if let Some(struct_def) = find_struct_definition_in_documents(&name, &store.documents) {
                             for field in &struct_def.fields {
-                                if field.name == symbol_name {
+                                if &field.name == member {
                                     return Some(format!(
                                         "```zen\n{}: {}\n```\n\n**Field of:** `{}`\n\n**Type:** `{}`",
-                                        symbol_name,
+                                        member,
                                         format_type(&field.type_),
                                         name,
                                         format_type(&field.type_)
@@ -51,8 +64,39 @@ pub fn analyze_expression_hover(
                     }
                 }
             } else if relative_pos < last_dot_pos {
-                // We're hovering on the object part - recursively analyze
-                return analyze_expression_hover(object, &expr_str[..last_dot_pos], relative_pos, symbol_name, local_symbols, store);
+                // We're hovering on the object part - check if symbol_name matches
+                let is_hovering_on_object = if symbol_name.contains('.') {
+                    // Extract the variable part from symbol_name (e.g., "person" from "person.name")
+                    if let Some(dot_pos) = symbol_name.find('.') {
+                        let var_part = &symbol_name[..dot_pos];
+                        // Check if the object is an identifier matching var_part
+                        if let Expression::Identifier(obj_name) = object.as_ref() {
+                            obj_name == var_part
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                } else {
+                    // Check if object matches symbol_name
+                    if let Expression::Identifier(obj_name) = object.as_ref() {
+                        obj_name == symbol_name
+                    } else {
+                        false
+                    }
+                };
+                
+                if is_hovering_on_object {
+                    // Recursively analyze the object
+                    return analyze_expression_hover(object, &expr_str[..last_dot_pos], relative_pos, 
+                        if symbol_name.contains('.') {
+                            &symbol_name[..symbol_name.find('.').unwrap()]
+                        } else {
+                            symbol_name
+                        }, 
+                        local_symbols, store);
+                }
             }
         }
         Expression::MethodCall { object, method, .. } => {

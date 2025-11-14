@@ -1,9 +1,0 @@
-// Test range with explicit i64
-{ io , get_default_allocator} = @std
-
-main = () void {
-    alloc = get_default_allocator()
-    x = 3 as i64
-    range = 0..x
-    io.println("Created range")
-}

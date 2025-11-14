@@ -1391,8 +1391,23 @@ impl TypeChecker {
                 // First check if it's a built-in method on the object type
                 let object_type = self.infer_expression_type(object)?;
 
+                // Handle method calls on references/pointers by dereferencing first
+                // When we have vec_ref.get(0) where vec_ref is &DynVec<String>,
+                // we need to dereference to DynVec<String> and then resolve the method
+                let dereferenced_type = match &object_type {
+                    AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) => {
+                        // For method calls on pointers, dereference to the inner type
+                        // This allows vec_ref.get(0) to work when vec_ref is &DynVec<String>
+                        Some(inner.as_ref().clone())
+                    }
+                    _ => None,
+                };
+
+                // Use dereferenced type if available, otherwise use original type
+                let effective_type = dereferenced_type.as_ref().unwrap_or(&object_type);
+
                 // Special handling for Vec type
-                if let AstType::Vec { element_type, .. } = &object_type {
+                if let AstType::Vec { element_type, .. } = effective_type {
                     match method.as_str() {
                         "get" => return Ok(element_type.as_ref().clone()),  // Returns element type directly
                         "pop" => return Ok(AstType::Generic {       // Returns Option<element_type>
@@ -1406,7 +1421,7 @@ impl TypeChecker {
                 }
 
                 // Special handling for generic collection methods
-                if let AstType::Generic { name, type_args } = &object_type {
+                if let AstType::Generic { name, type_args } = effective_type {
                     if name == "Array" && !type_args.is_empty() {
                         // Array methods
                         match method.as_str() {
@@ -1469,7 +1484,7 @@ impl TypeChecker {
                 }
                 
                 // Special handling for DynVec type (not generic)
-                if let AstType::DynVec { element_types, .. } = &object_type {
+                if let AstType::DynVec { element_types, .. } = effective_type {
                     if !element_types.is_empty() {
                         match method.as_str() {
                             "get" | "pop" => return Ok(AstType::Generic {
@@ -1485,17 +1500,22 @@ impl TypeChecker {
 
                 // Try to find the function in scope
                 // The method call object.method(args) becomes method(object, args)
+                // For references, we need to pass the dereferenced type to UFC
                 if let Some(func_type) = self.functions.get(method) {
-                    // For UFC, the first parameter should match the object type
+                    // For UFC, the first parameter should match the object type (or dereferenced type)
                     if !func_type.params.is_empty() {
-                        // Return the function's return type
-                        return Ok(func_type.return_type.clone());
+                        // Check if first param matches the effective type (dereferenced if pointer)
+                        let (_, first_param_type) = &func_type.params[0];
+                        if first_param_type == effective_type || first_param_type == &object_type {
+                            // Return the function's return type
+                            return Ok(func_type.return_type.clone());
+                        }
                     }
                 }
 
                 // Special handling for string methods (both StaticString and String struct)
-                let is_string_struct = matches!(&object_type, AstType::Struct { name, .. } if name == "String");
-                if is_string_struct || object_type == AstType::StaticString || object_type == AstType::StaticLiteral {
+                let is_string_struct = matches!(effective_type, AstType::Struct { name, .. } if name == "String");
+                if is_string_struct || *effective_type == AstType::StaticString || *effective_type == AstType::StaticLiteral {
                     // Common string methods with hardcoded return types for now
                     match method.as_str() {
                         "len" => return Ok(AstType::I64),
@@ -1631,23 +1651,26 @@ impl TypeChecker {
                     }
                 }
 
-                // Special handling for pointer methods
-                match &object_type {
-                    AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_) => {
-                        if method == "val" {
-                            // Dereference pointer
-                            return match object_type {
-                                AstType::Ptr(inner)
-                                | AstType::MutPtr(inner)
-                                | AstType::RawPtr(inner) => Ok(inner.as_ref().clone()),
-                                _ => unreachable!(),
-                            };
-                        } else if method == "addr" {
-                            // Get address as usize
-                            return Ok(AstType::Usize);
+                // Special handling for pointer methods (only if not already handled above)
+                // These are explicit pointer operations, not method calls on the dereferenced type
+                if dereferenced_type.is_none() {
+                    match &object_type {
+                        AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_) => {
+                            if method == "val" {
+                                // Dereference pointer
+                                return match object_type {
+                                    AstType::Ptr(inner)
+                                    | AstType::MutPtr(inner)
+                                    | AstType::RawPtr(inner) => Ok(inner.as_ref().clone()),
+                                    _ => unreachable!(),
+                                };
+                            } else if method == "addr" {
+                                // Get address as usize
+                                return Ok(AstType::Usize);
+                            }
                         }
+                        _ => {}
                     }
-                    _ => {}
                 }
 
                 // Special handling for Result.raise()
