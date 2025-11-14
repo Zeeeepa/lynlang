@@ -4,7 +4,6 @@ use crate::error::CompileError;
 use inkwell::types::BasicType;
 use inkwell::{types::StructType, values::BasicValueEnum};
 use std::collections::HashMap;
-use super::behaviors;
 
 #[derive(Debug, Clone)]
 pub struct StructTypeInfo<'ctx> {

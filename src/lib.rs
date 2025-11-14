@@ -1,6 +1,7 @@
 pub mod ast;
 pub mod behaviors;
-pub mod build_system;
+// NOTE: build_system module removed - build system should be self-hosted in build.zen
+// The previous Rust implementation contradicted design goals of self-hosting
 pub mod codegen;
 pub mod compiler;
 pub mod comptime;
