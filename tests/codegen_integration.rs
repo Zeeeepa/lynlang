@@ -7,6 +7,8 @@
 //! - Memory management issues
 //! - Phi node bugs (missing incoming values, wrong basic blocks)
 //! - GEP bugs (wrong indices, type mismatches)
+//! - Void return type bugs
+//! - Pointer operation bugs
 
 use zen::compiler::Compiler;
 use zen::error::CompileError;
@@ -98,6 +100,54 @@ fn test_conditional_with_return() {
     assert!(
         result.is_ok(),
         "Conditional with return should compile successfully. Error: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_void_function_return() {
+    let code = r#"
+        test_void = () void {
+            // Return with empty block (void return)
+            return {}
+        }
+        
+        main = () i32 {
+            test_void()
+            return 0
+        }
+    "#;
+    
+    // This test catches the void return type bug
+    // Bug: compile_return was always calling build_return(Some(&value))
+    // even for void functions, which should use build_return(None)
+    // When return has an empty block {}, it should be treated as void return
+    let result = compile_code(code);
+    assert!(
+        result.is_ok(),
+        "Void function with return should compile successfully. Error: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_void_function_no_return() {
+    let code = r#"
+        test_void = () void {
+            // No explicit return - should add implicit void return
+        }
+        
+        main = () i32 {
+            test_void()
+            return 0
+        }
+    "#;
+    
+    // Test that void functions without explicit returns get implicit void return
+    let result = compile_code(code);
+    assert!(
+        result.is_ok(),
+        "Void function without return should compile successfully. Error: {:?}",
         result.err()
     );
 }
