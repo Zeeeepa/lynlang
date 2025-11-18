@@ -759,8 +759,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 }
                                             }
                                         };
-                                        self.builder.build_unconditional_branch(merge_bb)?;
+                                        // Branch to merge only if block isn't already terminated
+                                        let then_current_block = self.builder.get_insert_block().unwrap();
+                                        if then_current_block.get_terminator().is_none() {
+                                            self.builder.build_unconditional_branch(merge_bb)?;
+                                        }
                                         let then_val = loaded_value;
+                                        let then_bb_end = self.builder.get_insert_block().unwrap();
 
                                         // Null path - use default value matching the loaded type
                                         self.builder.position_at_end(else_bb);
@@ -781,7 +786,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             let ptr_type = then_val.into_pointer_value().get_type();
                                             ptr_type.const_null().into()
                                         };
-                                        self.builder.build_unconditional_branch(merge_bb)?;
+                                        // Branch to merge only if block isn't already terminated
+                                        let else_current_block = self.builder.get_insert_block().unwrap();
+                                        if else_current_block.get_terminator().is_none() {
+                                            self.builder.build_unconditional_branch(merge_bb)?;
+                                        }
+                                        let else_bb_end = self.builder.get_insert_block().unwrap();
 
                                         // Merge paths
                                         self.builder.position_at_end(merge_bb);
@@ -789,8 +799,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             .builder
                                             .build_phi(then_val.get_type(), "payload_result")?;
                                         phi.add_incoming(&[
-                                            (&then_val, then_bb),
-                                            (&null_value, else_bb),
+                                            (&then_val, then_bb_end),
+                                            (&null_value, else_bb_end),
                                         ]);
                                         phi.as_basic_value()
                                     } else {

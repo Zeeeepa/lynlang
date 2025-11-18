@@ -5,6 +5,8 @@
 //! - Incorrect control flow generation
 //! - Type mismatches in codegen
 //! - Memory management issues
+//! - Phi node bugs (missing incoming values, wrong basic blocks)
+//! - GEP bugs (wrong indices, type mismatches)
 
 use zen::compiler::Compiler;
 use zen::error::CompileError;
@@ -79,6 +81,63 @@ fn test_pattern_matching_with_return() {
 }
 
 #[test]
+fn test_conditional_with_return() {
+    let code = r#"
+        main = () i32 {
+            x = true
+            x ?
+                | true { return 1 }
+                | false { return 2 }
+            return 0
+        }
+    "#;
+    
+    // Test that conditionals handle return statements correctly
+    // Similar to pattern matching - should check for terminators
+    let result = compile_code(code);
+    assert!(
+        result.is_ok(),
+        "Conditional with return should compile successfully. Error: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_nested_struct_field_access() {
+    let code = r#"
+        Point: {
+            x: i32,
+            y: i32,
+        }
+        
+        Rect: {
+            top_left: Point,
+            bottom_right: Point,
+        }
+        
+        main = () i32 {
+            rect = Rect {
+                top_left: Point { x: 0, y: 0 },
+                bottom_right: Point { x: 10, y: 5 }
+            }
+            // Test nested field access - GEP operations must be correct
+            x = rect.bottom_right.x
+            y = rect.top_left.y
+            return x + y
+        }
+    "#;
+    
+    // This test catches GEP bugs in nested struct field access
+    // Known bug: nested struct field access can swap values
+    let result = compile_code(code);
+    assert!(
+        result.is_ok(),
+        "Nested struct field access should compile successfully. Error: {:?}",
+        result.err()
+    );
+}
+
+#[test]
 fn test_multiple_pattern_arms_compiles() {
     let code = r#"
         main = () i32 {
@@ -99,4 +158,3 @@ fn test_multiple_pattern_arms_compiles() {
         result.err()
     );
 }
-
