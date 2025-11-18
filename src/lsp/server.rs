@@ -30,6 +30,70 @@ use super::navigation::{handle_definition, handle_type_definition, handle_refere
 use super::completion::handle_completion as handle_completion_request;
 use super::symbols::{handle_document_symbols, handle_workspace_symbol};
 
+/// Apply a text edit to document content, handling LSP Range positions
+/// Converts LSP line/character positions to byte offsets and applies the edit
+fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
+    let lines: Vec<&str> = content.lines().collect();
+    
+    // Convert LSP positions to byte offsets
+    let start_line = range.start.line as usize;
+    let start_char = range.start.character as usize;
+    let end_line = range.end.line as usize;
+    let end_char = range.end.character as usize;
+    
+    // Calculate start byte offset
+    let mut start_byte = 0;
+    for (i, line) in lines.iter().enumerate() {
+        if i < start_line {
+            start_byte += line.len() + 1; // +1 for newline
+        } else if i == start_line {
+            // Count characters up to start_char
+            let mut char_count = 0;
+            for (byte_idx, _) in line.char_indices() {
+                if char_count >= start_char {
+                    start_byte += byte_idx;
+                    break;
+                }
+                char_count += 1;
+            }
+            if char_count < start_char {
+                start_byte += line.len();
+            }
+            break;
+        }
+    }
+    
+    // Calculate end byte offset
+    let mut end_byte = 0;
+    for (i, line) in lines.iter().enumerate() {
+        if i < end_line {
+            end_byte += line.len() + 1; // +1 for newline
+        } else if i == end_line {
+            // Count characters up to end_char
+            let mut char_count = 0;
+            for (byte_idx, _) in line.char_indices() {
+                if char_count >= end_char {
+                    end_byte += byte_idx;
+                    break;
+                }
+                char_count += 1;
+            }
+            if char_count < end_char {
+                end_byte += line.len();
+            }
+            break;
+        }
+    }
+    
+    // Apply the edit: replace the range with new_text
+    let mut result = String::with_capacity(content.len() - (end_byte - start_byte) + new_text.len());
+    result.push_str(&content[..start_byte]);
+    result.push_str(new_text);
+    result.push_str(&content[end_byte..]);
+    
+    result
+}
+
 // ============================================================================
 // TYPES (moved to types.rs and document_store.rs)
 // ============================================================================
@@ -419,8 +483,20 @@ impl ZenLanguageServer {
                 for change in &params.content_changes {
                     let diagnostics = match self.store.lock() {
                         Ok(mut s) => {
-                            // Use the full text - LSP provides text directly in TextDocumentContentChangeEvent
-                            let content = change.text.clone();
+                            // Check if this is an incremental change (has range) or full document replacement
+                            let content = if let Some(range) = &change.range {
+                                // Incremental change: apply the edit to the existing document
+                                if let Some(doc) = s.documents.get(&params.text_document.uri) {
+                                    apply_text_edit(&doc.content, range, &change.text)
+                                } else {
+                                    // Document doesn't exist yet, use the change text as-is
+                                    change.text.clone()
+                                }
+                            } else {
+                                // Full document replacement (no range field)
+                                change.text.clone()
+                            };
+                            
                             s.update(
                                 params.text_document.uri.clone(),
                                 params.text_document.version,
