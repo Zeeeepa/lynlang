@@ -141,7 +141,8 @@ pub fn get_enum_variant_hover(content: &str, position: Position, symbol_name: &s
 
     let current_line = lines[position.line as usize];
 
-    // Check if this line is an enum variant (has ':' after the symbol)
+    // Check if this line is an enum variant (has ':' for payload or ',' for separator)
+    // Enums use comma syntax: MyEnum: Variant1, Variant2: Type, Variant3
     if !current_line.contains(&format!("{}:", symbol_name)) && !current_line.contains(&format!("{},", symbol_name)) {
         return None;
     }
