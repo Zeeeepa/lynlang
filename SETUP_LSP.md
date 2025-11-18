@@ -33,13 +33,23 @@ sudo ln -s "$(pwd)/target/release/zen-lsp" /usr/local/bin/zen-lsp
 #### Configure VS Code Extension
 
 1. Install the extension from `vscode-extension/` folder
-2. In VS Code settings, set:
+2. In VS Code settings (`.vscode/settings.json`), set one of:
+   
+   **Relative path (recommended):**
+   ```json
+   {
+     "zen.serverPath": "target/release/zen-lsp"
+   }
+   ```
+   
+   **VS Code variable (also supported):**
    ```json
    {
      "zen.serverPath": "${workspaceFolder}/target/release/zen-lsp"
    }
    ```
-   Or if the binary is in your PATH:
+   
+   **Or if the binary is in your PATH:**
    ```json
    {
      "zen.serverPath": "zen-lsp"

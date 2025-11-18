@@ -13,13 +13,17 @@ export function activate(context: vscode.ExtensionContext) {
     // Get the path to the language server
     let serverPath = vscode.workspace.getConfiguration('zen').get<string>('serverPath', 'zen-lsp');
     
+    // Expand VS Code variables like ${workspaceFolder}
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+    serverPath = serverPath.replace(/\$\{workspaceFolder\}/g, workspaceFolder);
+    
     // If not absolute, try to resolve it
     let resolvedServerPath: string;
     if (path.isAbsolute(serverPath)) {
         resolvedServerPath = serverPath;
     } else {
         // First try workspace root
-        const workspacePath = path.join(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '', serverPath);
+        const workspacePath = path.join(workspaceFolder, serverPath);
         if (workspacePath && require('fs').existsSync(workspacePath)) {
             resolvedServerPath = workspacePath;
         } else {
