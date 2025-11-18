@@ -5,6 +5,9 @@ use crate::ast::{Function, Statement};
 use super::super::types::{Document, SymbolScope};
 use super::utils::find_function_range;
 
+// Re-export SymbolScope for use in references.rs
+pub use super::super::types::SymbolScope;
+
 /// Determine the scope of a symbol (local, module-level, or unknown)
 pub fn determine_symbol_scope(doc: &Document, symbol_name: &str, position: Position) -> SymbolScope {
     if let Some(ast) = &doc.ast {
