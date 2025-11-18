@@ -9,12 +9,7 @@ pub mod symbols;
 pub mod symbol_extraction;
 pub mod indexing;
 pub mod pattern_checking;
-pub mod navigation {
-    pub mod utils;
-    // Keep old navigation.rs handlers temporarily for compatibility
-    pub use super::navigation_legacy::*;
-}
-pub mod navigation_legacy;
+pub mod navigation;
 pub mod completion;
 pub mod formatting;
 pub mod hover;

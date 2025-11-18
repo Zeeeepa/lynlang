@@ -8,14 +8,17 @@
 - **`src/typechecker/mod.rs`** (1929 lines) - Already split into 11 submodules
 - **`src/parser/statements.rs`** (1493 lines) - Statement parsing is inherently large
 
-### Being Split 🔄
-- **`src/lsp/navigation.rs`** (1665 → ~400 lines each) - **IN PROGRESS**
-  - ✅ `navigation/highlight.rs` extracted (~80 lines)
-  - ✅ `navigation/utils.rs` extracted (~180 lines)
-  - ✅ `navigation/imports.rs` extracted (~40 lines)
-  - ⏳ `navigation/definition.rs` - TODO
-  - ⏳ `navigation/type_definition.rs` - TODO
-  - ⏳ `navigation/references.rs` - TODO
+### Split ✅
+- **`src/lsp/navigation.rs`** (1665 → 8 modules) - **COMPLETE**
+  - ✅ `navigation/highlight.rs` (~75 lines)
+  - ✅ `navigation/utils.rs` (~217 lines)
+  - ✅ `navigation/imports.rs` (~37 lines)
+  - ✅ `navigation/definition.rs` (~354 lines)
+  - ✅ `navigation/type_definition.rs` (~107 lines)
+  - ✅ `navigation/references.rs` (~169 lines)
+  - ✅ `navigation/scope.rs` (~60 lines)
+  - ✅ `navigation/ufc.rs` (~383 lines)
+  - ✅ `navigation/mod.rs` (~17 lines)
 
 ### Could Be Split ⚠️
 - **`src/ffi/mod.rs`** (1511 lines) - Complex FFI domain
