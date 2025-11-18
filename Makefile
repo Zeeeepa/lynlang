@@ -64,8 +64,7 @@ lint:
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
-	@cargo clean
-	@rm -rf target/
+	@cargo clean  # cargo clean already removes target/
 	@rm -f *.zen.out
 	@echo "✓ Clean complete"
 

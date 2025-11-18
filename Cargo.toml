@@ -4,7 +4,7 @@ version = "0.7.1"
 edition = "2021"
 
 [dependencies]
-# STOP TOUCHING THIS LOCK THIS INKEWLL FEATURE DO NOT TOUCH MR AI
+# Pinned version: Critical for stable LLVM linking. Do not upgrade without extensive testing.
 inkwell = { version = "0.6.0", features = ["llvm18-1"] }
 nom = "7.1"
 thiserror = "1.0"

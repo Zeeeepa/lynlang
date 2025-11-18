@@ -1,9 +1,14 @@
 #!/bin/bash
 
 # Zen Compiler Bootstrap Script
-# NOTE: This is placeholder/aspirational code - not yet implemented
-# The bootstrap process (self-hosting) is a future goal
-# This script is kept for reference but stage1/stage2 are not functional
+#
+# ⚠️  IMPORTANT: This is an aspirational script for a future self-hosted compiler.
+#                It is NOT currently functional.
+#
+# The bootstrap process (self-hosting) is a Phase 3 goal. This script is kept
+# for reference and design purposes, but stage1/stage2 are not implemented.
+#
+# For now, the compiler is built with `cargo` and `make` (see README.md).
 
 set -e  # Exit on error
 
