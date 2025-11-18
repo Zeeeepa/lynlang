@@ -15,3 +15,6 @@ pub use highlight::handle_document_highlight;
 pub use type_definition::handle_type_definition;
 pub use references::handle_references;
 
+// Re-export utility functions for other modules
+pub use utils::{find_symbol_at_position, find_symbol_definition_in_content};
+

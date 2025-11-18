@@ -3,7 +3,6 @@
 use lsp_server::{Request, Response};
 use lsp_types::*;
 use serde_json::Value;
-use url::Url;
 use super::super::document_store::DocumentStore;
 use super::utils::{find_symbol_at_position, find_symbol_definition_in_content};
 use super::imports::find_import_info;
@@ -316,7 +315,7 @@ pub fn handle_definition(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
             // Search the entire workspace for the symbol
             if let Some((uri, symbol_info)) = store.search_workspace_for_symbol(&symbol_name) {
                 let location = Location {
-                    uri,
+                    uri: uri.clone(),
                     range: symbol_info.range,
                 };
                 return Response {
