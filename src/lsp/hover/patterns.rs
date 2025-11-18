@@ -3,8 +3,7 @@
 use lsp_types::Position;
 use std::collections::HashMap;
 
-use super::super::types::SymbolInfo;
-use lsp_types::SymbolKind;
+use super::super::types::*;
 
 /// Get hover information for pattern match variables
 pub fn get_pattern_match_hover(
@@ -134,67 +133,7 @@ pub fn get_pattern_match_hover(
 }
 
 /// Get hover information for enum variants
-/// Uses the symbol table and AST instead of manual string parsing
-pub fn get_enum_variant_hover(
-    content: &str,
-    position: Position,
-    symbol_name: &str,
-    local_symbols: &HashMap<String, SymbolInfo>,
-    ast: Option<&Vec<crate::ast::Declaration>>,
-) -> Option<String> {
-    // First, check if this symbol is an enum variant in the symbol table
-    // Enum variants are stored as "EnumName::VariantName"
-    let variant_symbol = local_symbols.iter()
-        .find(|(name, info)| {
-            info.kind == SymbolKind::ENUM_MEMBER 
-            && (name.ends_with(&format!("::{}", symbol_name)) || name.as_str() == symbol_name)
-        });
-
-    if let Some((full_variant_name, _variant_info)) = variant_symbol {
-        // Extract enum name from "EnumName::VariantName" format
-        let enum_name = if full_variant_name.contains("::") {
-            full_variant_name.split("::").next().unwrap_or(symbol_name)
-        } else {
-            // Try to find enum by looking for symbol with this variant in its enum_variants list
-            local_symbols.iter()
-                .find(|(_, info)| {
-                    if let Some(ref variants) = info.enum_variants {
-                        variants.iter().any(|v| v == symbol_name)
-                    } else {
-                        false
-                    }
-                })
-                .map(|(name, _)| name.as_str())
-                .unwrap_or(symbol_name)
-        };
-
-        // Try to get variant payload type from AST
-        let payload_info = if let Some(declarations) = ast {
-            find_variant_payload_in_ast(declarations, enum_name, symbol_name)
-        } else {
-            None
-        };
-
-        let payload_display = if let Some(payload_type) = payload_info {
-            use super::super::utils::format_type;
-            format!(" of type `{}`", format_type(&payload_type))
-        } else {
-            String::new()
-        };
-
-        return Some(format!(
-            "```zen\n{}: ...\n    {}{}\n```\n\n**Enum variant** `{}`{}\n\nPart of enum `{}`",
-            enum_name,
-            symbol_name,
-            if payload_display.is_empty() { "" } else { ": " },
-            symbol_name,
-            payload_display,
-            enum_name.split('<').next().unwrap_or(enum_name)
-        ));
-    }
-
-    // Fallback: check if we're on a line that looks like an enum variant definition
-    // This handles cases where the symbol table might not be fully updated
+pub fn get_enum_variant_hover(content: &str, position: Position, symbol_name: &str) -> Option<String> {
     let lines: Vec<&str> = content.lines().collect();
     if position.line as usize >= lines.len() {
         return None;
@@ -202,8 +141,8 @@ pub fn get_enum_variant_hover(
 
     let current_line = lines[position.line as usize];
 
-    // Check if this line is an enum variant (has ':' for payload or ',' for separator)
-    // Enums use comma syntax: MyEnum: Variant1, Variant2: Type, Variant3
+    // Check if this line is an enum variant (has ':' or ',' after the symbol)
+    // Enums use comma-separated variants: MyEnum: Variant1, Variant2: Type, Variant3
     if !current_line.contains(&format!("{}:", symbol_name)) && !current_line.contains(&format!("{},", symbol_name)) {
         return None;
     }
@@ -251,10 +190,9 @@ pub fn get_enum_variant_hover(
         };
 
         Some(format!(
-            "```zen\n{}: ...\n    {}{}\n```\n\n**Enum variant** `{}`{}\n\nPart of enum `{}`",
+            "```zen\n{}\n    {}...\n```\n\n**Enum variant** `{}`{}\n\nPart of enum `{}`",
             enum_name,
             symbol_name,
-            if payload_info.is_empty() { "" } else { ": " },
             symbol_name,
             payload_info,
             enum_name.split('<').next().unwrap_or(&enum_name)
@@ -262,30 +200,5 @@ pub fn get_enum_variant_hover(
     } else {
         None
     }
-}
-
-/// Find variant payload type from AST
-fn find_variant_payload_in_ast(
-    declarations: &[crate::ast::Declaration],
-    enum_name: &str,
-    variant_name: &str,
-) -> Option<crate::ast::AstType> {
-    use crate::ast::Declaration;
-    
-    for decl in declarations {
-        if let Declaration::Enum(enum_def) = decl {
-            // Check if this is the enum we're looking for (handle generics)
-            let base_enum_name = enum_name.split('<').next().unwrap_or(enum_name);
-            if enum_def.name == base_enum_name {
-                // Find the variant
-                for variant in &enum_def.variants {
-                    if variant.name == variant_name {
-                        return variant.payload.clone();
-                    }
-                }
-            }
-        }
-    }
-    None
 }
 

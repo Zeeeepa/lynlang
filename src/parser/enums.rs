@@ -32,6 +32,14 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
 
+        // Check if they're trying to use struct syntax (curly braces) for an enum
+        if self.current_token == Token::Symbol('{') {
+            return Err(CompileError::SyntaxError(
+                "Enums use comma-separated variants, not curly braces. Use `MyEnum: Variant1, Variant2` instead of `MyEnum: { Variant1, Variant2 }`".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+
         let mut variants = vec![];
         let mut first_variant = true;
 
@@ -39,6 +47,13 @@ impl<'a> Parser<'a> {
         while self.current_token != Token::Eof {
             // Handle variant separators
             if !first_variant {
+                // Check for pipe syntax (old syntax) and provide helpful error
+                if self.current_token == Token::Pipe {
+                    return Err(CompileError::SyntaxError(
+                        "Enums use comma-separated variants, not pipes. Use `MyEnum: Variant1, Variant2` instead of `MyEnum: Variant1 | Variant2`".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
                 // Only accept comma separator for enums
                 if self.current_token == Token::Symbol(',') {
                     self.next_token();
@@ -91,7 +106,7 @@ impl<'a> Parser<'a> {
 
         if variants.is_empty() {
             return Err(CompileError::SyntaxError(
-                "Enum must have at least one variant".to_string(),
+                format!("Enum `{}` must have at least one variant. Use `{}: Variant1, Variant2` syntax", name, name),
                 Some(self.current_span.clone()),
             ));
         }

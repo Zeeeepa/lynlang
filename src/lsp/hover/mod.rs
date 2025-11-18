@@ -77,14 +77,7 @@ mod handler {
                 }
 
                 // Check if we're hovering over an enum variant definition
-                // Use symbol table and AST for accurate information
-                if let Some(enum_hover) = patterns::get_enum_variant_hover(
-                    &doc.content, 
-                    position, 
-                    &symbol_name,
-                    &doc.symbols,
-                    doc.ast.as_ref()
-                ) {
+                if let Some(enum_hover) = patterns::get_enum_variant_hover(&doc.content, position, &symbol_name) {
                     return create_hover_response_from_string(request_id.clone(), enum_hover);
                 }
 
