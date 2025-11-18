@@ -1,5 +1,7 @@
 pub mod behaviors;
 pub mod inference;
+pub mod scope;
+pub mod stdlib;
 pub mod self_resolution;
 pub mod types;
 pub mod validation;
@@ -2244,168 +2246,19 @@ impl TypeChecker {
     }
 
     fn register_stdlib_module(&mut self, alias: &str, module_path: &str) -> Result<()> {
-        // Register functions from known stdlib modules
-        match module_path {
-            "math" => {
-                // Register math constants as global variables
-                // We'll treat them as functions that return constants for now
-
-                // Register math functions
-                let math_funcs = vec![
-                    ("sqrt", vec![AstType::F64], AstType::F64),
-                    ("sin", vec![AstType::F64], AstType::F64),
-                    ("cos", vec![AstType::F64], AstType::F64),
-                    ("tan", vec![AstType::F64], AstType::F64),
-                    ("pow", vec![AstType::F64, AstType::F64], AstType::F64),
-                    ("exp", vec![AstType::F64], AstType::F64),
-                    ("log", vec![AstType::F64], AstType::F64),
-                    ("floor", vec![AstType::F64], AstType::F64),
-                    ("ceil", vec![AstType::F64], AstType::F64),
-                    ("round", vec![AstType::F64], AstType::F64),
-                    ("abs", vec![AstType::I64], AstType::I64), // For now, just i64 version
-                    ("min", vec![AstType::F64, AstType::F64], AstType::F64),
-                    ("max", vec![AstType::F64, AstType::F64], AstType::F64),
-                ];
-
-                for (name, args, ret) in math_funcs {
-                    let qualified_name = format!("{}.{}", alias, name);
-                    let params = args
-                        .into_iter()
-                        .enumerate()
-                        .map(|(i, t)| (format!("arg{}", i), t))
-                        .collect();
-                    self.functions.insert(
-                        qualified_name,
-                        FunctionSignature {
-                            params,
-                            return_type: ret,
-                            is_external: true,
-                        },
-                    );
-                }
-            }
-            "io" => {
-                // Register io functions - names must match what codegen expects
-                let string_type = crate::ast::resolve_string_struct_type();
-                let io_funcs = vec![
-                    ("print", vec![string_type.clone()], AstType::Void),
-                    ("print_int", vec![AstType::I64], AstType::Void),
-                    ("print_float", vec![AstType::F64], AstType::Void),
-                    ("println", vec![string_type.clone()], AstType::Void),
-                    ("read_line", vec![], string_type.clone()),
-                    ("read_file", vec![string_type.clone()], string_type.clone()),
-                    (
-                        "write_file",
-                        vec![string_type.clone(), string_type.clone()],
-                        AstType::Void,
-                    ),
-                ];
-
-                for (name, args, ret) in io_funcs {
-                    let qualified_name = format!("{}.{}", alias, name);
-                    let params = args
-                        .into_iter()
-                        .enumerate()
-                        .map(|(i, t)| (format!("arg{}", i), t))
-                        .collect();
-                    self.functions.insert(
-                        qualified_name,
-                        FunctionSignature {
-                            params,
-                            return_type: ret,
-                            is_external: true,
-                        },
-                    );
-                }
-            }
-            "core" => {
-                // Register core functions
-                let core_funcs = vec![
-                    // sizeof and alignof are compile-time operations, skip for now
-                    ("assert", vec![AstType::Bool], AstType::Void),
-                    ("panic", vec![crate::ast::resolve_string_struct_type()], AstType::Void),
-                ];
-
-                for (name, args, ret) in core_funcs {
-                    let qualified_name = format!("{}.{}", alias, name);
-                    let params = args
-                        .into_iter()
-                        .enumerate()
-                        .map(|(i, t)| (format!("arg{}", i), t))
-                        .collect();
-                    self.functions.insert(
-                        qualified_name,
-                        FunctionSignature {
-                            params,
-                            return_type: ret,
-                            is_external: true,
-                        },
-                    );
-                }
-            }
-            "get_default_allocator" => {
-                // Special case: get_default_allocator is a function, not a module
-                // Register it as a global function
-                self.functions.insert(
-                    alias.to_string(), // Use alias directly as the function name
-                    FunctionSignature {
-                        params: vec![], // No parameters
-                        return_type: AstType::Ptr(Box::new(AstType::Void)), // Returns opaque allocator pointer
-                        is_external: true,
-                    },
-                );
-            }
-            "compiler" => {
-                // Register compiler intrinsics - these are handled specially in codegen
-                let ptr_u8 = AstType::RawPtr(Box::new(AstType::U8));
-                let compiler_funcs = vec![
-                    ("inline_c", vec![AstType::StaticString], AstType::Void),
-                    ("raw_allocate", vec![AstType::Usize], ptr_u8.clone()),
-                    ("raw_deallocate", vec![ptr_u8.clone(), AstType::Usize], AstType::Void),
-                    ("raw_reallocate", vec![ptr_u8.clone(), AstType::Usize, AstType::Usize], ptr_u8.clone()),
-                    ("raw_ptr_offset", vec![ptr_u8.clone(), AstType::I64], ptr_u8.clone()),
-                    ("raw_ptr_cast", vec![ptr_u8.clone()], ptr_u8.clone()),
-                    ("call_external", vec![ptr_u8.clone(), ptr_u8.clone()], ptr_u8.clone()),
-                    ("load_library", vec![AstType::StaticString], ptr_u8.clone()),
-                    ("get_symbol", vec![ptr_u8.clone(), AstType::StaticString], ptr_u8.clone()),
-                    ("unload_library", vec![ptr_u8.clone()], AstType::Void),
-                    ("null_ptr", vec![], ptr_u8.clone()),
-                ];
-
-                for (name, args, ret) in compiler_funcs {
-                    let qualified_name = format!("{}.{}", alias, name);
-                    let params = args
-                        .into_iter()
-                        .enumerate()
-                        .map(|(i, t)| (format!("arg{}", i), t))
-                        .collect();
-                    self.functions.insert(
-                        qualified_name,
-                        FunctionSignature {
-                            params,
-                            return_type: ret,
-                            is_external: true,
-                        },
-                    );
-                }
-            }
-            _ => {
-                // Unknown stdlib module, but not an error
-            }
-        }
-        Ok(())
+        stdlib::register_stdlib_module(self, alias, module_path)
     }
 
     fn enter_scope(&mut self) {
-        self.scopes.push(HashMap::new());
+        scope::enter_scope(self)
     }
 
     fn exit_scope(&mut self) {
-        self.scopes.pop();
+        scope::exit_scope(self)
     }
 
     fn declare_variable(&mut self, name: &str, type_: AstType, is_mutable: bool) -> Result<()> {
-        self.declare_variable_with_init(name, type_, is_mutable, true)
+        scope::declare_variable(self, name, type_, is_mutable)
     }
 
     fn declare_variable_with_init(
@@ -2415,40 +2268,11 @@ impl TypeChecker {
         is_mutable: bool,
         is_initialized: bool,
     ) -> Result<()> {
-        if let Some(scope) = self.scopes.last_mut() {
-            if scope.contains_key(name) {
-                return Err(CompileError::TypeError(
-                    format!("Variable '{}' already declared in this scope", name),
-                    None,
-                ));
-            }
-            // eprintln!("DEBUG: Inserting variable '{}' with type {:?} into typechecker scope", name, type_);
-            scope.insert(
-                name.to_string(),
-                VariableInfo {
-                    type_,
-                    is_mutable,
-                    is_initialized,
-                },
-            );
-            Ok(())
-        } else {
-            Err(CompileError::TypeError("No active scope".to_string(), None))
-        }
+        scope::declare_variable_with_init(self, name, type_, is_mutable, is_initialized)
     }
 
     fn mark_variable_initialized(&mut self, name: &str) -> Result<()> {
-        // Search from innermost to outermost scope
-        for scope in self.scopes.iter_mut().rev() {
-            if let Some(var_info) = scope.get_mut(name) {
-                var_info.is_initialized = true;
-                return Ok(());
-            }
-        }
-        Err(CompileError::TypeError(
-            format!("Undefined variable: {}", name),
-            None,
-        ))
+        scope::mark_variable_initialized(self, name)
     }
 
     /// Infer the return type of a function from its body
@@ -2487,50 +2311,11 @@ impl TypeChecker {
     }
     
     fn get_variable_type(&self, name: &str) -> Result<AstType> {
-        // Search from innermost to outermost scope
-        for scope in self.scopes.iter().rev() {
-            if let Some(var_info) = scope.get(name) {
-                // eprintln!("DEBUG: Found variable '{}' with type {:?}", name, var_info.type_);
-                // Handle generic placeholders - convert to appropriate defaults
-                if let AstType::Generic { name: type_name, type_args } = &var_info.type_ {
-                    if type_name == "T" && type_args.is_empty() {
-                        // eprintln!("DEBUG: Converting Generic T to I32 for variable '{}'", name);
-                        return Ok(AstType::I32);
-                    } else if type_name == "E" && type_args.is_empty() {
-                        // Error types default to String
-                        return Ok(crate::ast::resolve_string_struct_type());
-                    }
-                }
-                return Ok(var_info.type_.clone());
-            }
-        }
-
-        // Check if it's an enum type
-        if self.enums.contains_key(name) {
-            // Return a special type to indicate this is an enum type constructor
-            return Ok(AstType::EnumType {
-                name: name.to_string(),
-            });
-        }
-
-        // eprintln!("DEBUG: Variable '{}' not found, returning undefined error", name);
-        Err(CompileError::TypeError(
-            format!("Undefined variable: {}", name),
-            None,
-        ))
+        scope::get_variable_type(self, name, &self.enums)
     }
 
     fn get_variable_info(&self, name: &str) -> Result<VariableInfo> {
-        // Search from innermost to outermost scope
-        for scope in self.scopes.iter().rev() {
-            if let Some(var_info) = scope.get(name) {
-                return Ok(var_info.clone());
-            }
-        }
-        Err(CompileError::TypeError(
-            format!("Undefined variable: {}", name),
-            None,
-        ))
+        scope::get_variable_info(self, name)
     }
 
     fn add_pattern_bindings_to_scope(&mut self, pattern: &crate::ast::Pattern) -> Result<()> {
@@ -2680,13 +2465,7 @@ impl TypeChecker {
     }
 
     fn variable_exists(&self, name: &str) -> bool {
-        // Search from innermost to outermost scope
-        for scope in self.scopes.iter().rev() {
-            if scope.contains_key(name) {
-                return true;
-            }
-        }
-        false
+        scope::variable_exists(self, name)
     }
 }
 

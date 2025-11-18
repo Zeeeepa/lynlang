@@ -1,6 +1,12 @@
-// Import the implementation from compile.rs
-mod compile;
+//! Pattern compilation module
+//! Split into submodules by pattern type
 
-// The functions are methods on LLVMCompiler, so we just need to make sure compile.rs is included
-// They're already accessible via LLVMCompiler::compile_pattern_test, etc.
+mod compile;
+mod literal;
+mod enum_pattern;
+mod struct_pattern;
+mod helpers;
+
+// Re-export helpers for use in compile.rs
+pub use helpers::*;
 

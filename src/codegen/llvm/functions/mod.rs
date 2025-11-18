@@ -257,17 +257,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
         &mut self,
         value: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        stdlib::create_result_ok(self, value)
+        stdlib::helpers::create_result_ok(self, value)
     }
     
     fn create_result_ok_void(&mut self) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        stdlib::create_result_ok_void(self)
+        stdlib::helpers::create_result_ok_void(self)
     }
     
     fn create_result_err(
         &mut self,
         error: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        stdlib::create_result_err(self, error)
+        stdlib::helpers::create_result_err(self, error)
     }
 }
