@@ -1,3 +1,30 @@
+//! Enum variant compilation with heap allocation for nested generics
+//!
+//! This module handles compilation of enum variants (e.g., `Result.Ok(value)`, `Option.Some(x)`).
+//! 
+//! ## Heap Allocation Strategy for Nested Enums
+//!
+//! **Why heap allocation?** Nested enum types like `Result<Option<i32>, E>` or `Result<Result<T, E1>, E2>`
+//! require careful memory management to avoid stack overflow and preserve nested payloads correctly.
+//!
+//! **The Problem:**
+//! - Stack-allocated nested enum structs can cause stack overflow with deep nesting
+//! - Nested payloads need to persist beyond the current stack frame
+//! - Pattern matching on nested enums requires stable memory addresses
+//!
+//! **The Solution:**
+//! - Detect nested enum variants (enum containing another enum as payload)
+//! - Use `malloc()` to heap-allocate nested enum structs
+//! - Store pointers to heap memory in the outer enum's payload field
+//! - This ensures nested payloads are preserved and accessible during pattern matching
+//!
+//! **Example:** `Result.Ok(Option.Some(42))` creates:
+//!   1. Heap-allocate `Option.Some(42)` struct → returns pointer
+//!   2. Heap-allocate `Result.Ok(pointer)` struct → stores pointer to Option struct
+//!   3. Both structs persist on the heap, enabling recursive pattern matching
+//!
+//! This complexity is necessary to support Zen's generic type system with nested enums.
+
 use super::super::LLVMCompiler;
 use crate::ast::{AstType, Expression};
 use crate::error::CompileError;
