@@ -8,12 +8,20 @@
 - **`src/typechecker/mod.rs`** (1929 lines) - Already split into 11 submodules
 - **`src/parser/statements.rs`** (1493 lines) - Statement parsing is inherently large
 
+### Being Split 🔄
+- **`src/lsp/navigation.rs`** (1665 → ~400 lines each) - **IN PROGRESS**
+  - ✅ `navigation/highlight.rs` extracted (~80 lines)
+  - ✅ `navigation/utils.rs` extracted (~180 lines)
+  - ✅ `navigation/imports.rs` extracted (~40 lines)
+  - ⏳ `navigation/definition.rs` - TODO
+  - ⏳ `navigation/type_definition.rs` - TODO
+  - ⏳ `navigation/references.rs` - TODO
+
 ### Could Be Split ⚠️
-- **`src/lsp/navigation.rs`** (1665 lines) - 4 handlers (definition, type_definition, references, highlight)
 - **`src/ffi/mod.rs`** (1511 lines) - Complex FFI domain
 - **`src/lsp/document_store.rs`** (1501 lines) - Document management + symbol indexing
 
-**Recommendation**: Split when refactoring, but not critical - files are functional.
+**Recommendation**: Continue splitting navigation.rs, then tackle ffi/mod.rs.
 
 ## Test Organization ✅
 
