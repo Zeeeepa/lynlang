@@ -139,6 +139,42 @@ pub fn is_in_string_or_comment(line: &str, col: usize) -> bool {
     in_string || in_comment
 }
 
+/// Find the range of a function in the document content
+pub fn find_function_range(content: &str, func_name: &str) -> Option<Range> {
+    let lines: Vec<&str> = content.lines().collect();
+    let mut start_line = None;
+
+    for (line_num, line) in lines.iter().enumerate() {
+        if line.contains(&format!("{} =", func_name)) {
+            start_line = Some(line_num);
+            break;
+        }
+    }
+
+    if let Some(start) = start_line {
+        let mut brace_depth = 0;
+        let mut found_opening = false;
+
+        for (line_num, line) in lines.iter().enumerate().skip(start) {
+            for ch in line.chars() {
+                if ch == '{' {
+                    brace_depth += 1;
+                    found_opening = true;
+                } else if ch == '}' {
+                    brace_depth -= 1;
+                    if found_opening && brace_depth == 0 {
+                        return Some(Range {
+                            start: Position { line: start as u32, character: 0 },
+                            end: Position { line: line_num as u32, character: line.len() as u32 }
+                        });
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 /// Find symbol definition in content using text search
 pub fn find_symbol_definition_in_content(content: &str, symbol_name: &str) -> Option<Range> {
     let lines: Vec<&str> = content.lines().collect();
