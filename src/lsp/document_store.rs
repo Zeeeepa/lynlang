@@ -10,6 +10,9 @@ use super::types::{Document, SymbolInfo, AnalysisJob};
 use super::utils::{compile_error_to_diagnostic, format_type};
 use super::compiler_integration::CompilerIntegration;
 use super::stdlib_resolver::StdlibResolver;
+use super::indexing::{index_workspace_files_recursive, index_stdlib_directory, find_stdlib_path};
+use super::pattern_checking::{check_pattern_exhaustiveness, find_missing_variants};
+use super::symbol_extraction::extract_symbols_static;
 
 pub struct DocumentStore {
     pub documents: HashMap<Url, Document>,
@@ -143,11 +146,11 @@ impl DocumentStore {
     // Static method for background workspace indexing (doesn't hold locks)
     pub fn index_workspace_files(root_path: &std::path::Path) -> HashMap<String, SymbolInfo> {
         let mut workspace_symbols = HashMap::new();
-        Self::index_workspace_files_recursive(root_path, &mut workspace_symbols);
+        index_workspace_files_recursive(root_path, &mut workspace_symbols);
         workspace_symbols
     }
 
-    fn index_workspace_files_recursive(path: &std::path::Path, symbols: &mut HashMap<String, SymbolInfo>) {
+    fn index_workspace_files_recursive_old(path: &std::path::Path, symbols: &mut HashMap<String, SymbolInfo>) {
         use std::fs;
 
         // Skip common directories we don't want to index
@@ -173,7 +176,7 @@ impl DocumentStore {
                     if let Ok(content) = fs::read_to_string(&entry_path) {
                         // Extract symbols without creating a full DocumentStore
                         let file_path_str = entry_path.to_string_lossy();
-                        let file_symbols = Self::extract_symbols_static(&content, Some(&file_path_str));
+                        let file_symbols = extract_symbols_static(&content, Some(&file_path_str));
 
                         // Convert path to URI
                         if let Ok(uri) = Url::from_file_path(&entry_path) {
@@ -186,7 +189,7 @@ impl DocumentStore {
                     }
                 } else if entry_path.is_dir() {
                     // Recursively index subdirectories
-                    Self::index_workspace_files_recursive(&entry_path, symbols);
+                    index_workspace_files_recursive(&entry_path, symbols);
                 }
             }
         }
@@ -243,48 +246,9 @@ impl DocumentStore {
     }
 
     fn index_stdlib(&mut self) {
-        // Find stdlib directory relative to the workspace
-        let stdlib_paths = vec![
-            std::path::PathBuf::from("./stdlib"),
-            std::path::PathBuf::from("../stdlib"),
-            std::path::PathBuf::from("../../stdlib"),
-            std::path::PathBuf::from("/home/ubuntu/zenlang/stdlib"),
-        ];
-
-        for stdlib_path in stdlib_paths {
-            if stdlib_path.exists() {
-                self.index_stdlib_directory(&stdlib_path);
-                eprintln!("[LSP] Indexed stdlib from: {}", stdlib_path.display());
-                break;
-            }
-        }
-    }
-
-    fn index_stdlib_directory(&mut self, path: &std::path::Path) {
-        use std::fs;
-
-        if let Ok(entries) = fs::read_dir(path) {
-            for entry in entries.flatten() {
-                let entry_path = entry.path();
-
-                if entry_path.is_file() && entry_path.extension().map_or(false, |e| e == "zen") {
-                    if let Ok(content) = fs::read_to_string(&entry_path) {
-                        let file_path_str = entry_path.to_string_lossy();
-                        let symbols = self.extract_symbols_with_path(&content, Some(&file_path_str));
-
-                        // Convert path to URI for stdlib symbols
-                        if let Ok(uri) = Url::from_file_path(&entry_path) {
-                            for (name, mut symbol) in symbols {
-                                symbol.definition_uri = Some(uri.clone());
-                                self.stdlib_symbols.insert(name, symbol);
-                            }
-                        }
-                    }
-                } else if entry_path.is_dir() {
-                    // Recursively index subdirectories
-                    self.index_stdlib_directory(&entry_path);
-                }
-            }
+        if let Some(stdlib_path) = find_stdlib_path() {
+            index_stdlib_directory(&stdlib_path, &mut self.stdlib_symbols);
+            eprintln!("[LSP] Indexed stdlib from: {}", stdlib_path.display());
         }
     }
 
@@ -623,157 +587,20 @@ impl DocumentStore {
     }
 
     fn check_pattern_exhaustiveness(&self, statements: &[Statement], diagnostics: &mut Vec<Diagnostic>, content: &str) {
-        for stmt in statements {
-            match stmt {
-                Statement::Expression(expr) | Statement::Return(expr) => {
-                    self.check_exhaustiveness_in_expression(expr, diagnostics, content);
-                }
-                Statement::VariableDeclaration { initializer: Some(expr), .. } |
-                Statement::VariableAssignment { value: expr, .. } => {
-                    self.check_exhaustiveness_in_expression(expr, diagnostics, content);
-                }
-                _ => {}
-            }
-        }
-    }
-
-    fn check_exhaustiveness_in_expression(&self, expr: &Expression, diagnostics: &mut Vec<Diagnostic>, content: &str) {
-        match expr {
-            Expression::PatternMatch { scrutinee, arms } => {
-                if let Some(scrutinee_type) = self.infer_expression_type_string(scrutinee) {
-                    let missing_variants = self.find_missing_variants(&scrutinee_type, arms);
-
-                    if !missing_variants.is_empty() {
-                        if let Some(position) = self.find_pattern_match_position(content, scrutinee) {
-                            let variant_list = missing_variants.join(", ");
-                            diagnostics.push(Diagnostic {
-                                range: Range {
-                                    start: position,
-                                    end: Position {
-                                        line: position.line,
-                                        character: position.character + 10,
-                                    },
-                                },
-                                severity: Some(DiagnosticSeverity::WARNING),
-                                code: Some(lsp_types::NumberOrString::String("non-exhaustive-match".to_string())),
-                                source: Some("zen-lsp".to_string()),
-                                message: format!("Non-exhaustive pattern match. Missing variants: {}", variant_list),
-                                related_information: None,
-                                tags: None,
-                                code_description: None,
-                                data: None,
-                            });
-                        }
-                    }
-                }
-
-                self.check_exhaustiveness_in_expression(scrutinee, diagnostics, content);
-                for arm in arms {
-                    self.check_exhaustiveness_in_expression(&arm.body, diagnostics, content);
-                }
-            }
-            Expression::Block(stmts) => {
-                self.check_pattern_exhaustiveness(stmts, diagnostics, content);
-            }
-            Expression::Conditional { scrutinee, arms } => {
-                self.check_exhaustiveness_in_expression(scrutinee, diagnostics, content);
-                for arm in arms {
-                    if let Some(guard) = &arm.guard {
-                        self.check_exhaustiveness_in_expression(guard, diagnostics, content);
-                    }
-                    self.check_exhaustiveness_in_expression(&arm.body, diagnostics, content);
-                }
-            }
-            Expression::BinaryOp { left, right, .. } => {
-                self.check_exhaustiveness_in_expression(left, diagnostics, content);
-                self.check_exhaustiveness_in_expression(right, diagnostics, content);
-            }
-            _ => {}
-        }
-    }
-
-    fn find_missing_variants(&self, scrutinee_type: &str, arms: &[PatternArm]) -> Vec<String> {
-        // First check if it's a built-in enum type
-        let known_enum_variants: Vec<String> = if scrutinee_type.starts_with("Option") {
-            vec!["Some".to_string(), "None".to_string()]
-        } else if scrutinee_type.starts_with("Result") {
-            vec!["Ok".to_string(), "Err".to_string()]
-        } else {
-            // Try to look up custom enum from symbol tables
-            // Extract just the enum name (before any :: or generic params)
-            let enum_name = scrutinee_type.split("::").next()
-                .unwrap_or(scrutinee_type)
-                .split('<').next()
-                .unwrap_or(scrutinee_type)
-                .trim();
-
-            // Search in all available symbol sources
-            let mut found_variants: Option<Vec<String>> = None;
-
-            // 1. Check current document symbols (limit search for performance)
-            const MAX_DOCS_ENUM_SEARCH: usize = 30;
-            for doc in self.documents.values().take(MAX_DOCS_ENUM_SEARCH) {
-                if let Some(symbol) = doc.symbols.get(enum_name) {
-                    if let Some(ref variants) = symbol.enum_variants {
-                        found_variants = Some(variants.clone());
-                        break;
-                    }
-                }
-            }
-
-            // 2. Check workspace symbols if not found
-            if found_variants.is_none() {
-                if let Some(symbol) = self.workspace_symbols.get(enum_name) {
-                    if let Some(ref variants) = symbol.enum_variants {
-                        found_variants = Some(variants.clone());
-                    }
-                }
-            }
-
-            // 3. Check stdlib symbols if not found
-            if found_variants.is_none() {
-                if let Some(symbol) = self.stdlib_symbols.get(enum_name) {
-                    if let Some(ref variants) = symbol.enum_variants {
-                        found_variants = Some(variants.clone());
-                    }
-                }
-            }
-
-            // If we found the enum, use its variants; otherwise return empty
-            match found_variants {
-                Some(variants) => variants,
-                None => return Vec::new(),
-            }
-        };
-
-        // Collect covered variants and check for wildcards
-        let mut covered_variants = std::collections::HashSet::new();
-        let mut has_wildcard = false;
-
-        for arm in arms {
-            match &arm.pattern {
-                AstPattern::EnumVariant { variant, .. } => {
-                    covered_variants.insert(variant.clone());
-                }
-                AstPattern::EnumLiteral { variant, .. } => {
-                    covered_variants.insert(variant.clone());
-                }
-                AstPattern::Wildcard => {
-                    has_wildcard = true;
-                }
-                _ => {}
-            }
-        }
-
-        if has_wildcard {
-            return Vec::new();
-        }
-
-        // Return missing variants
-        known_enum_variants
-            .into_iter()
-            .filter(|v| !covered_variants.contains(v))
-            .collect()
+        check_pattern_exhaustiveness(
+            statements,
+            diagnostics,
+            content,
+            |expr| self.infer_expression_type_string(expr),
+            |content, scrutinee| self.find_pattern_match_position(content, scrutinee),
+            |scrutinee_type, arms| find_missing_variants(
+                scrutinee_type,
+                arms,
+                &self.documents,
+                &self.workspace_symbols,
+                &self.stdlib_symbols,
+            ),
+        );
     }
 
     fn infer_expression_type_string(&self, expr: &Expression) -> Option<String> {
@@ -955,7 +782,7 @@ impl DocumentStore {
     }
 
     // Static version for background indexing (no reference tracking)
-    fn extract_symbols_static(content: &str, file_path: Option<&str>) -> HashMap<String, SymbolInfo> {
+    fn extract_symbols_static_old(content: &str, file_path: Option<&str>) -> HashMap<String, SymbolInfo> {
         let mut symbols = HashMap::new();
 
         // Parse the content

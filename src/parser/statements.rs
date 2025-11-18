@@ -413,9 +413,8 @@ impl<'a> Parser<'a> {
                             let is_struct = self.current_token == Token::Symbol(':')
                                 && self.peek_token == Token::Symbol('{');
                             let is_enum = self.current_token == Token::Symbol(':')
-                                && (self.peek_token == Token::Pipe
-                                    || matches!(&self.peek_token, Token::Identifier(_))
-                                    || self.peek_token == Token::Symbol('.')); // Support .Variant syntax
+                                && (matches!(&self.peek_token, Token::Identifier(_))
+                                    || self.peek_token == Token::Symbol('.')); // Support .Variant syntax (enums use commas, not pipes)
                                                                                // Generic function: name<T>(params) return_type { ... }
                             let is_generic_function = self.current_token == Token::Symbol('(');
                             let is_function = (self.current_token == Token::Symbol(':')
@@ -531,8 +530,8 @@ impl<'a> Parser<'a> {
                         self.next_token(); // Move past ':' to see what comes after
 
                         // Check what comes after ':'
-                        let is_enum = matches!(&self.current_token, Token::Pipe)
-                            || matches!(&self.current_token, Token::Identifier(_))
+                        // Enums use commas to separate variants, structs use {}
+                        let is_enum = matches!(&self.current_token, Token::Identifier(_))
                             || matches!(&self.current_token, Token::Symbol('.')); // Support .Variant syntax
                         let is_function = matches!(&self.current_token, Token::Symbol('('));
                         let is_behavior = matches!(&self.current_token, Token::Identifier(name) if name == "behavior");

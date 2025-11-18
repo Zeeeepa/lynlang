@@ -98,10 +98,10 @@ Point: {
 }
 
 // Enum (sum type) definition (line 166)
-Shape: Circle | Rectangle
+Shape: Circle, Rectangle
 
 // Enum with variants for overloading (line 172)
-GameEntity: Player | Enemy | Powerup
+GameEntity: Player, Enemy, Powerup
 ```
 
 ### Traits - Behavioral Types
@@ -144,10 +144,10 @@ get_health(player)   // Traditional style
 
 ```zen
 // Option type (line 110)
-Option<T>: Some(T) | None
+Option<T>: Some: T, None
 
 // Result type (line 113)
-Result<T, E>: Ok(T) | Err(E)
+Result<T, E>: Ok: T, Err: E
 
 // Option handling (lines 462-473)
 maybe_radius: Option<f64> = Some(5.5)
