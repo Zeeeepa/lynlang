@@ -4,10 +4,7 @@
 { Option, Some, None, Result, Ok, Err } = @std
 
 // Result type - represents success (Ok) or failure (Err)
-Result<T, E>: {
-    Ok: T,
-    Err: E
-}
+Result<T, E>: Ok(T) | Err(E)
 
 // Result methods implementation
 Result<T, E>.impl = {

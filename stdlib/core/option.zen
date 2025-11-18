@@ -4,10 +4,7 @@
 { Option, Some, None, Result, Ok, Err } = @std
 
 // Option type - represents a value that may or may not exist
-Option<T>: {
-    Some: T,
-    None
-}
+Option<T>: Some(T) | None
 
 // Option methods implementation
 Option<T>.impl = {

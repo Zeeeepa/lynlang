@@ -108,14 +108,10 @@ ecs = @std.import("ecs")
 
 
 // No null! Only Option types
-Option<T>:
-    Some: T,
-    None
+Option<T>: Some(T) | None
 
 // Result type for error handling
-Result<T, E>:
-    Ok: T,
-    Err: E
+Result<T, E>: Ok(T) | Err(E)
 
 
 // Simple struct
