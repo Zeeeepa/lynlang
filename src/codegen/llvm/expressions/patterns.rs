@@ -93,8 +93,12 @@ pub fn compile_pattern_match<'ctx>(
                     }
                 }
                 
-                // Branch to merge block
-                compiler.builder.build_unconditional_branch(merge_block)?;
+                // Branch to merge block only if the block isn't already terminated
+                // (e.g., by a return statement)
+                let current_block = compiler.builder.get_insert_block().unwrap();
+                if current_block.get_terminator().is_none() {
+                    compiler.builder.build_unconditional_branch(merge_block)?;
+                }
             }
             
             // Position builder at merge block
@@ -138,7 +142,11 @@ pub fn compile_pattern_match<'ctx>(
                     }
                 }
             }
-            compiler.builder.build_unconditional_branch(merge_block)?;
+            // Branch to merge only if block isn't already terminated (e.g., by return)
+            let then_current_block = compiler.builder.get_insert_block().unwrap();
+            if then_current_block.get_terminator().is_none() {
+                compiler.builder.build_unconditional_branch(merge_block)?;
+            }
             
             // Compile else branch
             compiler.builder.position_at_end(else_block);
@@ -156,7 +164,11 @@ pub fn compile_pattern_match<'ctx>(
                     }
                 }
             }
-            compiler.builder.build_unconditional_branch(merge_block)?;
+            // Branch to merge only if block isn't already terminated (e.g., by return)
+            let else_current_block = compiler.builder.get_insert_block().unwrap();
+            if else_current_block.get_terminator().is_none() {
+                compiler.builder.build_unconditional_branch(merge_block)?;
+            }
             
             // Position at merge
             compiler.builder.position_at_end(merge_block);

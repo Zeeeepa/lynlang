@@ -56,6 +56,29 @@ fn test_pattern_matching_compiles() {
 }
 
 #[test]
+fn test_pattern_matching_with_return() {
+    let code = r#"
+        main = () i32 {
+            x = true
+            x ?
+                | true { return 1 }
+                | false { return 2 }
+            return 0
+        }
+    "#;
+    
+    // This test catches the "terminator in middle of block" bug
+    // When a return statement is in a pattern match arm, we shouldn't
+    // try to add a branch to merge_block after the return
+    let result = compile_code(code);
+    assert!(
+        result.is_ok(),
+        "Pattern matching with return should compile successfully. Error: {:?}",
+        result.err()
+    );
+}
+
+#[test]
 fn test_multiple_pattern_arms_compiles() {
     let code = r#"
         main = () i32 {
