@@ -6,6 +6,7 @@ pub mod expressions;
 pub mod external;
 pub mod functions;
 pub mod patterns;
+pub mod program;
 pub mod statements;
 pub mod structs;
 pub mod types;

@@ -92,10 +92,12 @@ pub fn compile_literal_pattern<'ctx>(
             };
 
             compiler.builder.build_and(ge_start, le_end, "range_match")
+                .map_err(|e| CompileError::InternalError(format!("LLVM builder error: {}", e), None))
         } else {
             // Regular literal pattern
             let pattern_val = compiler.compile_expression(lit_expr)?;
-            compiler.values_equal(scrutinee_val, &pattern_val)
+            use super::helpers;
+            helpers::values_equal(compiler, scrutinee_val, &pattern_val)
         }
 }
 
@@ -146,6 +148,7 @@ pub fn compile_range_pattern<'ctx>(
     };
 
     compiler.builder.build_and(ge_start, le_end, "range_match")
+        .map_err(|e| CompileError::InternalError(format!("LLVM builder error: {}", e), None))
 }
 
 /// Compile wildcard pattern (always matches)
