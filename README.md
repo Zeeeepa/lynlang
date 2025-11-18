@@ -342,27 +342,35 @@ shapes = module.import("shapes2d")
 
 ### Current: Makefile + Cargo
 
-The Zen compiler itself is built using a **Makefile** (wrapper around Cargo):
-- `make build` - Build the compiler
-- `make test` - Run test suite
+The Zen compiler itself is built using **Cargo** (Rust's build system) with a **Makefile** wrapper for convenience:
+- `make build` or `cargo build` - Build the compiler
+- `make test` or `cargo test` - Run test suite
 - `make lint` - Run linter
+
+**The compiler is built with `cargo` and `make`. The `build.zen` system is a future, self-hosted goal and is not yet functional.**
 
 See [`DESIGN_NOTES.md`](./DESIGN_NOTES.md#-build-system-architecture) for details.
 
 ### Future: Self-Hosted build.zen
 
-The long-term vision is a self-hosted build system written in Zen. Example `build.zen` files exist in `tools/` and `examples/` as **demonstrations**, but the compiler cannot yet execute them. This is a future goal, not current functionality.
+The long-term vision is a self-hosted build system written in Zen. Example `build.zen` files exist in `tools/` and `examples/` as **demonstrations only**, but the compiler cannot yet execute them. This is a future goal, not current functionality.
+
+**Note**: The `design/bootstrap.sh` script is aspirational placeholder code for Phase 3 and is not currently functional.
 
 ## Implementation Status
 
-**Current Status: 90% Language Core Complete | 100% Test Pass Rate**
+**Current Status: 90% Language Core Complete | Active Development**
 
-### Test Suite Health (2025-09-25)
-- **195/195** tests passing (100% pass rate)
-- **Zero segfaults** - rock solid stability
+### Test Suite Health (2025-01-27)
+- **195 active tests** passing
 - **7 disabled tests** - require unimplemented features (behaviors, pointers, inline.c FFI)
-- **showcase.zen** fully operational with all features
+- **2 known critical bugs** - See [`tests/known_bugs/README.md`](./tests/known_bugs/README.md) for details:
+  - Nested struct field access bug (CRITICAL)
+  - Method resolution on references (MEDIUM)
+- **Range loop parser issue** - `(0..10).loop()` executes once instead of iterating (see [`DESIGN_NOTES.md`](./DESIGN_NOTES.md))
 - **Test runner script** - `./scripts/run_tests.sh` for easy testing
+
+**Note**: While most features work well, there are known issues documented in `DESIGN_NOTES.md` and `tests/known_bugs/`. The compiler is actively being improved.
 
 ### Project Structure
 - `/` - Root contains only LANGUAGE_SPEC.zen and config files
@@ -381,7 +389,7 @@ The long-term vision is a self-hosted build system written in Zen. Example `buil
 - ✅ **UFC** - Method chaining and overloading  
 - ✅ **String interpolation** - `"${expr}"` syntax
 - ✅ **String methods** - `.len()`, `.substr()`, `.char_at()`, `.split()`, `.to_i32()`, `.to_i64()`, `.to_f64()`, `.trim()`, `.contains()`, `.starts_with()`, `.ends_with()`, `.index_of()`
-- ✅ **Range iteration** - `(0..10).loop()`, `(1..=5).loop()`
+- ⚠️ **Range iteration** - `(0..10).loop()`, `(1..=5).loop()` (parser issue: currently executes once instead of iterating - see [`DESIGN_NOTES.md`](./DESIGN_NOTES.md))
 - ✅ **Range structs** - Can store and use ranges as values
 - ✅ **Infinite loops** - `loop()` with break/continue
 - ✅ **Block expressions** - Return last expression

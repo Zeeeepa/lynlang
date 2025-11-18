@@ -490,12 +490,20 @@ pub fn compile_array_push<'ctx>(
     }
     
     /// Compile Array.get(index) - gets an element from the array
+    /// 
+    /// TODO: This function currently hardcodes i32 as the element type.
+    /// Array<T> should work with any type T (i64, f64, String, etc.), but this
+    /// implementation assumes i32. This breaks Array<i64>, Array<f64>, etc.
+    /// 
+    /// Fix required: Accept element_type: AstType as a parameter and generate
+    /// LLVM code for that specific type instead of hardcoding i32.
 pub fn compile_array_get<'ctx>(
         compiler: &mut LLVMCompiler<'ctx>,
         array_val: BasicValueEnum<'ctx>,
         index_val: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         // Set the generic type context for pattern matching
+        // TODO: Use actual element type instead of hardcoded I32
         compiler.track_generic_type("Option_Some_Type".to_string(), crate::ast::AstType::I32);
         
         // Array struct type: { ptr, length, capacity, allocator }
@@ -510,10 +518,11 @@ pub fn compile_array_get<'ctx>(
         );
         
         // Option type: { discriminant: i64, payload: i32 }
+        // TODO: Generate payload type based on actual Array<T> element type, not hardcoded i32
         let option_type = compiler.context.struct_type(
             &[
                 compiler.context.i64_type().into(),  // discriminant
-                compiler.context.i32_type().into(),  // payload (assuming i32 elements)
+                compiler.context.i32_type().into(),  // payload (HARDCODED - should be element type T)
             ],
             false,
         );
@@ -765,11 +774,18 @@ pub fn compile_array_set<'ctx>(
     }
     
     /// Compile Array.pop() by pointer - modifies array in place and returns Option<T>
+    /// 
+    /// TODO: This function currently hardcodes i32 as the element type.
+    /// Array<T> should work with any type T, but this implementation assumes i32.
+    /// 
+    /// Fix required: Accept element_type: AstType as a parameter and generate
+    /// LLVM code for that specific type instead of hardcoding i32.
 pub fn compile_array_pop_by_ptr<'ctx>(
         compiler: &mut LLVMCompiler<'ctx>,
         array_ptr: PointerValue<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         // Set the generic type context so pattern matching knows this is Option<i32>
+        // TODO: Use actual element type instead of hardcoded I32
         compiler.track_generic_type("Option_Some_Type".to_string(), crate::ast::AstType::I32);
         // Array struct type: { ptr, length, capacity, allocator }
         let array_struct_type = compiler.context.struct_type(
