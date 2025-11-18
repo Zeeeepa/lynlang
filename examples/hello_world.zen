@@ -1,16 +1,13 @@
-// Hello World in Zen
+age: i32,
 
-
-Person: {
-    age: i32,
     name: StaticString,
 }
 
 main = () i32 {
-    person = Person (
-    age: 20,
-    name: "John"
-    )
+    person = Person {
+        age: 20,
+        name: "John!"
+    }
     io.println("Hello, ${person.name}!")
     return 0
 }

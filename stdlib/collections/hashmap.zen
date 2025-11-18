@@ -1,17 +1,17 @@
-// HashMap implementation using chaining collision resolution
-// Provides key-value storage with O(1) average operations
+:
+
 
 { Allocator, Option, Result, Error, DynVec } = @std
 
 // Hash bucket for collision resolution via chaining
-HashBucket<K, V> = {
+HashBucket<K, V>: {
     key: K
     value: V
     next: Option<Ptr<HashBucket<K, V>>>
 }
 
 // HashMap structure
-HashMap<K, V> = {
+HashMap<K, V>: {
     buckets: DynVec<Option<Ptr<HashBucket<K, V>>>>
     size: usize
     capacity: usize

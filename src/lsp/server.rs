@@ -33,56 +33,67 @@ use super::symbols::{handle_document_symbols, handle_workspace_symbol};
 /// Apply a text edit to document content, handling LSP Range positions
 /// Converts LSP line/character positions to byte offsets and applies the edit
 fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
-    let lines: Vec<&str> = content.lines().collect();
-    
-    // Convert LSP positions to byte offsets
+    // Convert LSP positions to byte offsets by scanning the content directly
     let start_line = range.start.line as usize;
     let start_char = range.start.character as usize;
     let end_line = range.end.line as usize;
     let end_char = range.end.character as usize;
     
-    // Calculate start byte offset
+    // Calculate start byte offset by scanning content
+    let mut current_line = 0;
+    let mut current_char = 0;
     let mut start_byte = 0;
-    for (i, line) in lines.iter().enumerate() {
-        if i < start_line {
-            start_byte += line.len() + 1; // +1 for newline
-        } else if i == start_line {
-            // Count characters up to start_char
-            let mut char_count = 0;
-            for (byte_idx, _) in line.char_indices() {
-                if char_count >= start_char {
-                    start_byte += byte_idx;
-                    break;
-                }
-                char_count += 1;
+    let mut found_start = false;
+    
+    for (byte_idx, ch) in content.char_indices() {
+        if !found_start {
+            if current_line == start_line && current_char == start_char {
+                start_byte = byte_idx;
+                found_start = true;
             }
-            if char_count < start_char {
-                start_byte += line.len();
-            }
-            break;
+        }
+        
+        if ch == '\n' {
+            current_line += 1;
+            current_char = 0;
+        } else {
+            current_char += 1;
         }
     }
     
-    // Calculate end byte offset
-    let mut end_byte = 0;
-    for (i, line) in lines.iter().enumerate() {
-        if i < end_line {
-            end_byte += line.len() + 1; // +1 for newline
-        } else if i == end_line {
-            // Count characters up to end_char
-            let mut char_count = 0;
-            for (byte_idx, _) in line.char_indices() {
-                if char_count >= end_char {
-                    end_byte += byte_idx;
-                    break;
-                }
-                char_count += 1;
-            }
-            if char_count < end_char {
-                end_byte += line.len();
-            }
+    // If start wasn't found (beyond end of file), use content length
+    if !found_start {
+        start_byte = content.len();
+    }
+    
+    // Calculate end byte offset - continue from start position
+    let mut end_byte = start_byte;
+    let mut found_end = false;
+    
+    // Track line/char from the start position
+    let mut end_current_line = start_line;
+    let mut end_current_char = start_char;
+    
+    for (byte_idx, ch) in content[start_byte..].char_indices() {
+        let absolute_byte = start_byte + byte_idx;
+        
+        if end_current_line == end_line && end_current_char == end_char {
+            end_byte = absolute_byte;
+            found_end = true;
             break;
         }
+        
+        if ch == '\n' {
+            end_current_line += 1;
+            end_current_char = 0;
+        } else {
+            end_current_char += 1;
+        }
+    }
+    
+    // If end wasn't found (beyond end of file), use content length
+    if !found_end {
+        end_byte = content.len();
     }
     
     // Apply the edit: replace the range with new_text
