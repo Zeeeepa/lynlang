@@ -4,8 +4,9 @@ use lsp_server::{Request, Response};
 use lsp_types::*;
 use serde_json::Value;
 use super::super::document_store::DocumentStore;
+use super::super::types::SymbolScope;
 use super::utils::{find_symbol_at_position, is_word_boundary_char, is_in_string_or_comment, find_function_range};
-use super::scope::{determine_symbol_scope, SymbolScope};
+use super::scope::determine_symbol_scope;
 
 /// Find all references to a symbol within a function
 fn find_local_references(content: &str, symbol_name: &str, function_name: &str) -> Option<Vec<Range>> {
