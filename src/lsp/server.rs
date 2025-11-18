@@ -32,6 +32,10 @@ use super::symbols::{handle_document_symbols, handle_workspace_symbol};
 
 /// Apply a text edit to document content, handling LSP Range positions
 /// Converts LSP line/character positions to byte offsets and applies the edit
+/// 
+/// LSP positions are 0-indexed and represent positions BETWEEN characters:
+/// - Position (line: 0, character: 0) = before first character of line 0
+/// - Position (line: 0, character: 5) = after 5th character, before 6th character
 fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
     // Convert LSP positions to byte offsets by scanning the content directly
     let start_line = range.start.line as usize;
@@ -39,20 +43,27 @@ fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
     let end_line = range.end.line as usize;
     let end_char = range.end.character as usize;
     
+    // Debug logging (can be removed later)
+    eprintln!("[LSP DEBUG] apply_text_edit: range=({}:{} -> {}:{}), new_text_len={}, content_len={}", 
+              start_line, start_char, end_line, end_char, new_text.len(), content.len());
+    
     // Calculate start byte offset by scanning content
+    // LSP positions are BETWEEN characters, so we need to find the byte position
+    // that corresponds to "after N characters on line M"
     let mut current_line = 0;
     let mut current_char = 0;
     let mut start_byte = 0;
     let mut found_start = false;
     
     for (byte_idx, ch) in content.char_indices() {
-        if !found_start {
-            if current_line == start_line && current_char == start_char {
-                start_byte = byte_idx;
-                found_start = true;
-            }
+        // Check BEFORE processing this character
+        if current_line == start_line && current_char == start_char {
+            start_byte = byte_idx;
+            found_start = true;
+            break; // Found start, can break
         }
         
+        // Then process the character
         if ch == '\n' {
             current_line += 1;
             current_char = 0;
@@ -66,7 +77,7 @@ fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
         start_byte = content.len();
     }
     
-    // Calculate end byte offset - continue from start position
+    // Calculate end byte offset - scan from start_byte
     let mut end_byte = start_byte;
     let mut found_end = false;
     
@@ -77,12 +88,14 @@ fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
     for (byte_idx, ch) in content[start_byte..].char_indices() {
         let absolute_byte = start_byte + byte_idx;
         
+        // Check BEFORE processing this character
         if end_current_line == end_line && end_current_char == end_char {
             end_byte = absolute_byte;
             found_end = true;
             break;
         }
         
+        // Then process the character
         if ch == '\n' {
             end_current_line += 1;
             end_current_char = 0;
@@ -95,6 +108,9 @@ fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
     if !found_end {
         end_byte = content.len();
     }
+    
+    eprintln!("[LSP DEBUG] Calculated offsets: start_byte={}, end_byte={}, replacing '{}'", 
+              start_byte, end_byte, &content[start_byte..end_byte.min(content.len())]);
     
     // Apply the edit: replace the range with new_text
     let mut result = String::with_capacity(content.len() - (end_byte - start_byte) + new_text.len());
@@ -490,43 +506,53 @@ impl ZenLanguageServer {
             }
             "textDocument/didChange" => {
                 let params: DidChangeTextDocumentParams = serde_json::from_value(notif.params)?;
+                
                 // Handle all content changes (LSP spec allows array)
-                for change in &params.content_changes {
-                    let diagnostics = match self.store.lock() {
-                        Ok(mut s) => {
-                            // Check if this is an incremental change (has range) or full document replacement
-                            let content = if let Some(range) = &change.range {
-                                // Incremental change: apply the edit to the existing document
-                                if let Some(doc) = s.documents.get(&params.text_document.uri) {
-                                    apply_text_edit(&doc.content, range, &change.text)
-                                } else {
-                                    // Document doesn't exist yet, use the change text as-is
-                                    change.text.clone()
-                                }
+                // IMPORTANT: Changes must be applied sequentially, each to the updated document state
+                let diagnostics = match self.store.lock() {
+                    Ok(mut s) => {
+                        // Get the current document content (or start fresh if document doesn't exist)
+                        let mut current_content = s.documents
+                            .get(&params.text_document.uri)
+                            .map(|doc| doc.content.clone())
+                            .unwrap_or_default();
+                        
+                        // Apply each change sequentially to the current content
+                        for change in &params.content_changes {
+                            current_content = if let Some(range) = &change.range {
+                                // Incremental change: apply the edit to the current document content
+                                eprintln!("[LSP DEBUG] Applying incremental change: range=({}:{} -> {}:{}), text='{}'", 
+                                         range.start.line, range.start.character, 
+                                         range.end.line, range.end.character,
+                                         change.text.chars().take(20).collect::<String>());
+                                apply_text_edit(&current_content, range, &change.text)
                             } else {
                                 // Full document replacement (no range field)
+                                eprintln!("[LSP DEBUG] Applying full document replacement");
                                 change.text.clone()
                             };
-                            
-                            s.update(
-                                params.text_document.uri.clone(),
-                                params.text_document.version,
-                                content,
-                            )
-                        },
-                        Err(e) => {
-                            eprintln!("[LSP] Error locking store for didChange: {:?}", e);
-                            Vec::new()
-                        },
-                    };
-                    if let Err(e) = self.publish_diagnostics(params.text_document.uri.clone(), diagnostics) {
-                        eprintln!("[LSP] Error publishing diagnostics: {:?}", e);
-                    }
-                    
-                    // Notify client to refresh semantic tokens when document changes
-                    if let Err(e) = self.request_semantic_tokens_refresh() {
-                        eprintln!("[LSP] Error requesting semantic tokens refresh: {:?}", e);
-                    }
+                        }
+                        
+                        // Update the document with the final content after all changes
+                        s.update(
+                            params.text_document.uri.clone(),
+                            params.text_document.version,
+                            current_content,
+                        )
+                    },
+                    Err(e) => {
+                        eprintln!("[LSP] Error locking store for didChange: {:?}", e);
+                        Vec::new()
+                    },
+                };
+                
+                if let Err(e) = self.publish_diagnostics(params.text_document.uri.clone(), diagnostics) {
+                    eprintln!("[LSP] Error publishing diagnostics: {:?}", e);
+                }
+                
+                // Notify client to refresh semantic tokens when document changes
+                if let Err(e) = self.request_semantic_tokens_refresh() {
+                    eprintln!("[LSP] Error requesting semantic tokens refresh: {:?}", e);
                 }
             }
             "initialized" => {

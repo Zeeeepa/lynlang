@@ -1,13 +1,21 @@
-age: i32,
+// Hello World in Zen
 
+Person: {
+    age: i32,
     name: StaticString,
 }
 
 main = () i32 {
     person = Person {
         age: 20,
-        name: "John!"
+        name: "John"
     }
-    io.println("Hello, ${person.name}!")
+    person.age > 18 ? 
+        | true {
+            io.println("Hello, Mr. ${person.name}!")
+        }
+        | false {
+            io.println("Hello, Master ${person.name}!")
+        }
     return 0
 }
