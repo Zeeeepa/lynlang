@@ -84,7 +84,7 @@ fn test_range_expressions() {
 #[test]
 fn test_generic_types() {
     let code = r#"
-        Color : .Red | .Green | .Blue
+        Color: .Red, .Green, .Blue
     "#;
     let result = parse_code(code);
     assert!(result.is_ok(), "Failed to parse enum: {:?}", result.err());
