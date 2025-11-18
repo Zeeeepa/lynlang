@@ -4,6 +4,7 @@
 { Option, Some, None, Result, Ok, Err } = @std
 
 // Option type - represents a value that may or may not exist
+// Enums are sum types: a value is ONE of the variants, not all of them
 Option<T>: Some(T) | None
 
 // Option methods implementation

@@ -108,9 +108,11 @@ ecs = @std.import("ecs")
 
 
 // No null! Only Option types
+// Enums are sum types: a value is ONE of the variants, not all of them
 Option<T>: Some(T) | None
 
 // Result type for error handling
+// Enums are sum types: a value is ONE of the variants, not all of them
 Result<T, E>: Ok(T) | Err(E)
 
 
@@ -164,9 +166,8 @@ Rectangle.implements(Geometric, {
 
 
 // Enum type (sum type)
-Shape:
-    Circle,
-    Rectangle
+// Enums use pipe (|) or comma separators, NOT curly braces
+Shape: Circle | Rectangle
 // Enforce all Shape variants must implement Geometric
 Shape.requires(Geometric)
 

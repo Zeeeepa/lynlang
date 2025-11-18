@@ -32,6 +32,14 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
 
+        // Enums must NOT use curly braces - that's for structs!
+        if self.current_token == Token::Symbol('{') {
+            return Err(CompileError::SyntaxError(
+                "Enums use pipe (|) or comma separators, not curly braces. Use 'MyEnum: Variant1 | Variant2' syntax".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+
         let mut variants = vec![];
         let mut first_variant = true;
 
@@ -74,10 +82,10 @@ impl<'a> Parser<'a> {
             };
 
             // Check for payload type
-            // Support three syntaxes:
-            // 1. VariantName: Type  (Zen standard)
-            // 2. VariantName(Type)  (Rust-style)
-            // 3. VariantName: {fields} (Struct-like)
+            // Support two syntaxes:
+            // 1. VariantName: Type  (Zen standard - colon syntax)
+            // 2. VariantName(Type)  (Rust-style parentheses)
+            // Note: Enums are sum types - they don't use curly braces (that's for structs)
             let payload = if self.current_token == Token::Symbol(':') {
                 self.next_token(); // consume ':'
 
