@@ -17,23 +17,42 @@ pub fn compile_pattern_match<'ctx>(
                 CompileError::InternalError("Pattern matching outside function".to_string(), None)
             })?;
             
-            // Create blocks for each arm and a merge block
-            let mut arm_blocks = Vec::new();
+            // Create a merge block
             let merge_block = compiler.context.append_basic_block(current_fn, "pattern_merge");
             
-            // Compile each arm
-            for (i, arm) in arms.iter().enumerate() {
-                let arm_block = compiler.context.append_basic_block(current_fn, &format!("arm_{}", i));
-                arm_blocks.push(arm_block);
-            }
-            
             // Test patterns and branch to appropriate arms
-            let mut current_block = compiler.builder.get_insert_block().unwrap();
+            let current_block = compiler.builder.get_insert_block().unwrap();
             
             // Infer the scrutinee type to help with pointer pattern matching
             let scrutinee_type = compiler.infer_expression_type(scrutinee).ok();
             
+            // Ensure we have at least one arm
+            if arms.is_empty() {
+                return Err(CompileError::InternalError(
+                    "Pattern match must have at least one arm".to_string(),
+                    None,
+                ));
+            }
+            
+            // Create blocks for each arm's test and body
+            let mut test_blocks = Vec::new();
+            let mut body_blocks = Vec::new();
+            
+            for i in 0..arms.len() {
+                let test_block = compiler.context.append_basic_block(current_fn, &format!("arm_{}_test", i));
+                let body_block = compiler.context.append_basic_block(current_fn, &format!("arm_{}_body", i));
+                test_blocks.push(test_block);
+                body_blocks.push(body_block);
+            }
+            
+            // Branch from entry to first test block
+            compiler.builder.position_at_end(current_block);
+            compiler.builder.build_unconditional_branch(test_blocks[0])?;
+            
             for (i, arm) in arms.iter().enumerate() {
+                // Position at the test block for this arm
+                compiler.builder.position_at_end(test_blocks[i]);
+                
                 // Test the pattern - pass scrutinee type for pointer pattern matching
                 let (matches, bindings) = compiler.compile_pattern_test_with_type(
                     &scrutinee_val, 
@@ -41,24 +60,22 @@ pub fn compile_pattern_match<'ctx>(
                     scrutinee_type.as_ref(),
                 )?;
                 
-                // Create a block for this arm's body
-                let body_block = compiler.context.append_basic_block(current_fn, &format!("arm_{}_body", i));
-                let next_block = if i < arms.len() - 1 {
-                    Some(arm_blocks[i + 1])
+                // Determine next block: either next test block or merge block
+                let next_test_block = if i < arms.len() - 1 {
+                    test_blocks[i + 1]
                 } else {
-                    Some(merge_block)
+                    merge_block
                 };
                 
-                // Branch based on pattern match
-                compiler.builder.position_at_end(current_block);
+                // Branch based on pattern match: if match, go to body; else, go to next test/merge
                 compiler.builder.build_conditional_branch(
                     matches,
-                    body_block,
-                    next_block.unwrap(),
+                    body_blocks[i],
+                    next_test_block,
                 )?;
                 
                 // Compile the arm body
-                compiler.builder.position_at_end(body_block);
+                compiler.builder.position_at_end(body_blocks[i]);
                 
                 // Apply pattern bindings
                 compiler.apply_pattern_bindings(&bindings);
@@ -78,8 +95,6 @@ pub fn compile_pattern_match<'ctx>(
                 
                 // Branch to merge block
                 compiler.builder.build_unconditional_branch(merge_block)?;
-                
-                current_block = next_block.unwrap();
             }
             
             // Position builder at merge block

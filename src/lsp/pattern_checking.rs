@@ -13,6 +13,33 @@ pub fn check_pattern_exhaustiveness(
     find_pattern_match_position: impl Fn(&str, &Expression) -> Option<Position>,
     find_missing_variants: impl Fn(&str, &[PatternArm]) -> Vec<String>,
 ) {
+    check_pattern_exhaustiveness_with_depth(
+        statements,
+        diagnostics,
+        content,
+        &infer_expression_type_string,
+        &find_pattern_match_position,
+        &find_missing_variants,
+        0,
+    );
+}
+
+/// Internal function with recursion depth limit
+fn check_pattern_exhaustiveness_with_depth(
+    statements: &[crate::ast::Statement],
+    diagnostics: &mut Vec<Diagnostic>,
+    content: &str,
+    infer_expression_type_string: &impl Fn(&Expression) -> Option<String>,
+    find_pattern_match_position: &impl Fn(&str, &Expression) -> Option<Position>,
+    find_missing_variants: &impl Fn(&str, &[PatternArm]) -> Vec<String>,
+    depth: usize,
+) {
+    // Prevent infinite recursion (reasonable limit for nested blocks)
+    const MAX_RECURSION_DEPTH: usize = 50;
+    if depth > MAX_RECURSION_DEPTH {
+        return;
+    }
+    
     for stmt in statements {
         match stmt {
             crate::ast::Statement::Expression(expr) | crate::ast::Statement::Return(expr) => {
@@ -20,9 +47,10 @@ pub fn check_pattern_exhaustiveness(
                     expr,
                     diagnostics,
                     content,
-                    &infer_expression_type_string,
-                    &find_pattern_match_position,
-                    &find_missing_variants,
+                    infer_expression_type_string,
+                    find_pattern_match_position,
+                    find_missing_variants,
+                    depth,
                 );
             }
             crate::ast::Statement::VariableDeclaration { initializer: Some(expr), .. } |
@@ -31,9 +59,10 @@ pub fn check_pattern_exhaustiveness(
                     expr,
                     diagnostics,
                     content,
-                    &infer_expression_type_string,
-                    &find_pattern_match_position,
-                    &find_missing_variants,
+                    infer_expression_type_string,
+                    find_pattern_match_position,
+                    find_missing_variants,
+                    depth,
                 );
             }
             _ => {}
@@ -48,6 +77,7 @@ fn check_exhaustiveness_in_expression(
     infer_expression_type_string: &impl Fn(&Expression) -> Option<String>,
     find_pattern_match_position: &impl Fn(&str, &Expression) -> Option<Position>,
     find_missing_variants: &impl Fn(&str, &[PatternArm]) -> Vec<String>,
+    depth: usize,
 ) {
     match expr {
         Expression::PatternMatch { scrutinee, arms } => {
@@ -85,6 +115,7 @@ fn check_exhaustiveness_in_expression(
                 infer_expression_type_string,
                 find_pattern_match_position,
                 find_missing_variants,
+                depth,
             );
             for arm in arms {
                 check_exhaustiveness_in_expression(
@@ -94,17 +125,19 @@ fn check_exhaustiveness_in_expression(
                     infer_expression_type_string,
                     find_pattern_match_position,
                     find_missing_variants,
+                    depth,
                 );
             }
         }
         Expression::Block(stmts) => {
-            check_pattern_exhaustiveness(
+            check_pattern_exhaustiveness_with_depth(
                 stmts,
                 diagnostics,
                 content,
                 infer_expression_type_string,
                 find_pattern_match_position,
                 find_missing_variants,
+                depth + 1,
             );
         }
         Expression::Conditional { scrutinee, arms } => {
@@ -115,6 +148,7 @@ fn check_exhaustiveness_in_expression(
                 infer_expression_type_string,
                 find_pattern_match_position,
                 find_missing_variants,
+                depth,
             );
             for arm in arms {
                 if let Some(guard) = &arm.guard {
@@ -125,6 +159,7 @@ fn check_exhaustiveness_in_expression(
                         infer_expression_type_string,
                         find_pattern_match_position,
                         find_missing_variants,
+                        depth,
                     );
                 }
                 check_exhaustiveness_in_expression(
@@ -134,6 +169,7 @@ fn check_exhaustiveness_in_expression(
                     infer_expression_type_string,
                     find_pattern_match_position,
                     find_missing_variants,
+                    depth,
                 );
             }
         }
@@ -145,6 +181,7 @@ fn check_exhaustiveness_in_expression(
                 infer_expression_type_string,
                 find_pattern_match_position,
                 find_missing_variants,
+                depth,
             );
             check_exhaustiveness_in_expression(
                 right,
@@ -153,6 +190,7 @@ fn check_exhaustiveness_in_expression(
                 infer_expression_type_string,
                 find_pattern_match_position,
                 find_missing_variants,
+                depth,
             );
         }
         _ => {}

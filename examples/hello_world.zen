@@ -10,12 +10,12 @@ main = () i32 {
         age: 20,
         name: "John"
     }
-    person.age > 18 ? 
-        | true {
-            io.println("Hello, Mr. ${person.name}!")
-        }
-        | false {
-            io.println("Hello, Master ${person.name}!")
-        }
+    person.age > 18 ?
+    | true {
+        io.println("Hello, Mr. ${person.name}!")
+    }
+    | false {
+        io.println("Hello, Master ${person.name}!")
+    }
     return 0
 }
