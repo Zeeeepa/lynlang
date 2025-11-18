@@ -139,13 +139,7 @@ impl TypeChecker {
             AstType::RawPtr(inner) => {
                 AstType::RawPtr(Box::new(self.resolve_generic_to_struct_impl(inner, visited)))
             }
-            AstType::Option(inner) => {
-                AstType::Option(Box::new(self.resolve_generic_to_struct_impl(inner, visited)))
-            }
-            AstType::Result { ok_type, err_type } => AstType::Result {
-                ok_type: Box::new(self.resolve_generic_to_struct_impl(ok_type, visited)),
-                err_type: Box::new(self.resolve_generic_to_struct_impl(err_type, visited)),
-            },
+            // Option and Result are now Generic types - handled in Generic match above
             _ => ast_type.clone(),
         }
     }
@@ -204,7 +198,10 @@ impl TypeChecker {
     pub fn new() -> Self {
         let mut enums = HashMap::new();
 
-        // Register built-in Option<T> type
+        // Register Option<T> and Result<T, E> as fallback until stdlib preloading is implemented
+        // TODO: These should be loaded from stdlib/core/option.zen and stdlib/core/result.zen
+        // For now, keep as fallback to ensure Option/Result work even without explicit imports
+        // When stdlib/core/option.zen is loaded, it will override this registration
         enums.insert(
             "Option".to_string(),
             EnumInfo {
@@ -221,7 +218,6 @@ impl TypeChecker {
             },
         );
 
-        // Register built-in Result<T, E> type
         enums.insert(
             "Result".to_string(),
             EnumInfo {
@@ -966,7 +962,7 @@ impl TypeChecker {
             Expression::BinaryOp { left, op, right } => {
                 inference::infer_binary_op_type(self, left, op, right)
             }
-            Expression::FunctionCall { name, .. } => {
+            Expression::FunctionCall { name, args } => {
                 // Check if this is a stdlib function call (e.g., io.print)
                 if name.contains('.') {
                     let parts: Vec<&str> = name.splitn(2, '.').collect();
@@ -976,6 +972,117 @@ impl TypeChecker {
 
                         // Handle stdlib function return types
                         match (module, func) {
+                            // Compiler primitives - low-level operations
+                            ("compiler", "inline_c") => {
+                                // Validate inline_c takes a string literal
+                                if args.len() != 1 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.inline_c() expects exactly 1 argument (string literal), got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                // Check first arg is a string
+                                let arg_type = self.infer_expression_type(&args[0])?;
+                                match arg_type {
+                                    AstType::StaticString | AstType::StaticLiteral => {},
+                                    _ => return Err(CompileError::TypeError(
+                                        "compiler.inline_c() requires a string literal argument".to_string(),
+                                        None,
+                                    )),
+                                }
+                                return Ok(AstType::Void);
+                            }
+                            ("compiler", "raw_allocate") => {
+                                if args.len() != 1 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.raw_allocate() expects 1 argument (size: usize), got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::Ptr(Box::new(AstType::U8)));
+                            }
+                            ("compiler", "raw_deallocate") => {
+                                if args.len() != 2 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.raw_deallocate() expects 2 arguments (ptr, size), got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::Void);
+                            }
+                            ("compiler", "raw_reallocate") => {
+                                if args.len() != 3 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.raw_reallocate() expects 3 arguments (ptr, old_size, new_size), got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::Ptr(Box::new(AstType::U8)));
+                            }
+                            ("compiler", "raw_ptr_offset") => {
+                                if args.len() != 2 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.raw_ptr_offset() expects 2 arguments (ptr, offset), got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::RawPtr(Box::new(AstType::U8)));
+                            }
+                            ("compiler", "raw_ptr_cast") => {
+                                if args.len() != 1 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.raw_ptr_cast() expects 1 argument (ptr), got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::RawPtr(Box::new(AstType::U8)));
+                            }
+                            ("compiler", "call_external") => {
+                                if args.len() != 2 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.call_external() expects 2 arguments (func_ptr, args), got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::RawPtr(Box::new(AstType::U8)));
+                            }
+                            ("compiler", "load_library") => {
+                                if args.len() != 1 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.load_library() expects 1 argument (path: string), got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::RawPtr(Box::new(AstType::U8)));
+                            }
+                            ("compiler", "get_symbol") => {
+                                if args.len() != 2 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.get_symbol() expects 2 arguments (lib_handle, symbol_name), got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::RawPtr(Box::new(AstType::U8)));
+                            }
+                            ("compiler", "unload_library") => {
+                                if args.len() != 1 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.unload_library() expects 1 argument (lib_handle), got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::Void);
+                            }
+                            ("compiler", "null_ptr") => {
+                                if args.len() != 0 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.null_ptr() expects 0 arguments, got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::RawPtr(Box::new(AstType::U8)));
+                            }
+                            // Standard library functions
                             ("io", "print" | "println" | "print_int" | "print_float") => {
                                 return Ok(AstType::Void)
                             }
@@ -992,28 +1099,37 @@ impl TypeChecker {
                             ("mem", "free") => return Ok(AstType::Void),
                             ("fs", "read_file") => {
                                 let string_type = crate::ast::resolve_string_struct_type();
-                                return Ok(AstType::Result {
-                                    ok_type: Box::new(string_type.clone()),
-                                    err_type: Box::new(string_type),
+                                return Ok(AstType::Generic {
+                                    name: "Result".to_string(),
+                                    type_args: vec![string_type.clone(), string_type],
                                 })
                             }
                             ("fs", "write_file") => {
-                                return Ok(AstType::Result {
-                                    ok_type: Box::new(AstType::Void),
-                                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
+                                return Ok(AstType::Generic {
+                                    name: "Result".to_string(),
+                                    type_args: vec![
+                                        AstType::Void,
+                                        crate::ast::resolve_string_struct_type(),
+                                    ],
                                 })
                             }
                             ("fs", "exists") => return Ok(AstType::Bool),
                             ("fs", "remove_file") => {
-                                return Ok(AstType::Result {
-                                    ok_type: Box::new(AstType::Void),
-                                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
+                                return Ok(AstType::Generic {
+                                    name: "Result".to_string(),
+                                    type_args: vec![
+                                        AstType::Void,
+                                        crate::ast::resolve_string_struct_type(),
+                                    ],
                                 })
                             }
                             ("fs", "create_dir") => {
-                                return Ok(AstType::Result {
-                                    ok_type: Box::new(AstType::Void),
-                                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
+                                return Ok(AstType::Generic {
+                                    name: "Result".to_string(),
+                                    type_args: vec![
+                                        AstType::Void,
+                                        crate::ast::resolve_string_struct_type(),
+                                    ],
                                 })
                             }
                             _ => {}
@@ -1848,9 +1964,7 @@ impl TypeChecker {
                         {
                             return Ok(type_args[0].clone());
                         }
-                        AstType::Result { ok_type, .. } => {
-                            return Ok(ok_type.as_ref().clone());
-                        }
+                        // Legacy Result type removed - all Results are Generic now
                         _ => {}
                     }
                 }
@@ -1868,15 +1982,14 @@ impl TypeChecker {
                 // If it's an Err, it propagates the error
                 let result_type = self.infer_expression_type(expr)?;
                 match result_type {
-                    // Handle modern generic Result<T, E> type
+                    // Handle generic Result<T, E> type
                     AstType::Generic { name, type_args }
                         if name == "Result" && type_args.len() >= 1 =>
                     {
                         // Return the Ok type (first type argument)
                         Ok(type_args[0].clone())
                     }
-                    // Handle legacy Result type (still used in some places)
-                    AstType::Result { ok_type, .. } => Ok(*ok_type),
+                    // Legacy Result type removed - all Results are Generic now
                     // Type error: .raise() can only be used on Result types
                     _ => Err(CompileError::TypeError(
                         format!(
@@ -2081,6 +2194,48 @@ impl TypeChecker {
                 // @this.defer() returns unit/void
                 Ok(AstType::Void)
             }
+            Expression::InlineC { code, interpolations } => {
+                // Validate inline C code
+                // Check that code is not empty
+                if code.trim().is_empty() {
+                    return Err(CompileError::TypeError(
+                        "compiler.inline_c() requires non-empty C code".to_string(),
+                        None,
+                    ));
+                }
+                
+                // Validate interpolations - each should be a valid expression
+                for (var_name, expr) in interpolations {
+                    // Check that variable name is valid C identifier
+                    if !var_name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                        return Err(CompileError::TypeError(
+                            format!("Invalid C variable name in inline_c interpolation: '{}'", var_name),
+                            None,
+                        ));
+                    }
+                    
+                    // Validate the expression type
+                    let expr_type = self.infer_expression_type(expr)?;
+                    // Inline C can work with primitive types, pointers, etc.
+                    // We'll allow most types but warn about complex types
+                    match expr_type {
+                        AstType::I8 | AstType::I16 | AstType::I32 | AstType::I64 |
+                        AstType::U8 | AstType::U16 | AstType::U32 | AstType::U64 | AstType::Usize |
+                        AstType::F32 | AstType::F64 |
+                        AstType::Bool |
+                        AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_) => {
+                            // These are fine
+                        }
+                        _ => {
+                            // Warn but allow - user knows what they're doing
+                            eprintln!("Warning: Using complex type {:?} in inline_c() - ensure C compatibility", expr_type);
+                        }
+                    }
+                }
+                
+                // inline_c returns void
+                Ok(AstType::Void)
+            }
         }
     }
 
@@ -2199,6 +2354,40 @@ impl TypeChecker {
                         is_external: true,
                     },
                 );
+            }
+            "compiler" => {
+                // Register compiler intrinsics - these are handled specially in codegen
+                let ptr_u8 = AstType::RawPtr(Box::new(AstType::U8));
+                let compiler_funcs = vec![
+                    ("inline_c", vec![AstType::StaticString], AstType::Void),
+                    ("raw_allocate", vec![AstType::Usize], ptr_u8.clone()),
+                    ("raw_deallocate", vec![ptr_u8.clone(), AstType::Usize], AstType::Void),
+                    ("raw_reallocate", vec![ptr_u8.clone(), AstType::Usize, AstType::Usize], ptr_u8.clone()),
+                    ("raw_ptr_offset", vec![ptr_u8.clone(), AstType::I64], ptr_u8.clone()),
+                    ("raw_ptr_cast", vec![ptr_u8.clone()], ptr_u8.clone()),
+                    ("call_external", vec![ptr_u8.clone(), ptr_u8.clone()], ptr_u8.clone()),
+                    ("load_library", vec![AstType::StaticString], ptr_u8.clone()),
+                    ("get_symbol", vec![ptr_u8.clone(), AstType::StaticString], ptr_u8.clone()),
+                    ("unload_library", vec![ptr_u8.clone()], AstType::Void),
+                    ("null_ptr", vec![], ptr_u8.clone()),
+                ];
+
+                for (name, args, ret) in compiler_funcs {
+                    let qualified_name = format!("{}.{}", alias, name);
+                    let params = args
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, t)| (format!("arg{}", i), t))
+                        .collect();
+                    self.functions.insert(
+                        qualified_name,
+                        FunctionSignature {
+                            params,
+                            return_type: ret,
+                            is_external: true,
+                        },
+                    );
+                }
             }
             _ => {
                 // Unknown stdlib module, but not an error

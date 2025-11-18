@@ -195,6 +195,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Also register Array in symbols table so it can be used like a type
         self.symbols.insert("Array", symbols::Symbol::StructType(array_struct_type));
         
+        // Register Option<T> and Result<T, E> as fallback until stdlib preloading is implemented
+        // TODO: These should be loaded from stdlib/core/option.zen and stdlib/core/result.zen
+        // For now, keep as fallback to ensure Option/Result work even without explicit imports
+        // When stdlib/core/option.zen is loaded, it will override this registration via register_enum_type()
+        
         // Register Option<T> enum
         // Option has Some(T) with payload and None without, so we need space for payload
         // Use pointer type for payload to handle any type (including strings and structs)

@@ -237,34 +237,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     )),
                 }
             }
-            AstType::Option(inner) => {
-                // Option<T> is represented as a pointer to T (null = None, non-null = Some)
-                let inner_type = self.to_llvm_type(inner)?;
-                match inner_type {
-                    Type::Basic(basic_type) => Ok(Type::Basic(basic_type)),
-                    _ => Ok(Type::Basic(
-                        self.context.ptr_type(AddressSpace::default()).into(),
-                    )),
-                }
-            }
-            AstType::Result { ok_type, err_type } => {
-                // Result<T, E> is represented as a tagged union struct
-                // Struct layout: { tag: i64, payload: max(sizeof(T), sizeof(E)) }
-                let _ok_llvm = self.to_llvm_type(ok_type)?;
-                let _err_llvm = self.to_llvm_type(err_type)?;
-
-                // For now, create a struct that can hold either type
-                // We'll use i64 for both to ensure consistent size
-                let result_struct = self.context.struct_type(
-                    &[
-                        self.context.i64_type().into(), // tag (0 = Ok, 1 = Err)
-                        self.context.i64_type().into(), // payload (simplified for now)
-                    ],
-                    false,
-                );
-
-                Ok(Type::Struct(result_struct))
-            }
+            // Option and Result are now Generic types - they're handled in the Generic match above
             AstType::Range {
                 start_type,
                 end_type,

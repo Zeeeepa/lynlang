@@ -1,0 +1,58 @@
+// GPA (General Purpose Allocator) - Built in Zen using @std.compiler primitives
+// This demonstrates how allocators are built from compiler primitives
+
+{ compiler } = @std
+{ Result, Error } = @std
+
+// Allocator trait/interface - all allocators must implement these
+Allocator: {
+    allocate: (size: usize) RawPtr<u8>,
+    deallocate: (ptr: RawPtr<u8>, size: usize) void,
+    reallocate: (ptr: RawPtr<u8>, old_size: usize, new_size: usize) RawPtr<u8>,
+}
+
+// GPA allocator struct - simple wrapper around compiler primitives
+GPA: {
+    // GPA uses the system allocator (malloc/free) directly
+    // No additional state needed for basic implementation
+}
+
+// Create a new GPA allocator
+GPA.new = () GPA {
+    return GPA{}
+}
+
+// Allocate memory using GPA
+GPA.allocate = (self: GPA, size: usize) RawPtr<u8> {
+    return compiler.raw_allocate(size)
+}
+
+// Deallocate memory using GPA
+GPA.deallocate = (self: GPA, ptr: RawPtr<u8>, size: usize) void {
+    compiler.raw_deallocate(ptr, size)
+}
+
+// Reallocate memory using GPA
+GPA.reallocate = (self: GPA, ptr: RawPtr<u8>, old_size: usize, new_size: usize) RawPtr<u8> {
+    return compiler.raw_reallocate(ptr, old_size, new_size)
+}
+
+// Get default GPA allocator (singleton pattern)
+default_gpa = () GPA {
+    return GPA.new()
+}
+
+// Helper function to allocate typed memory
+allocate_typed = <T>(alloc: GPA, count: usize) RawPtr<T> {
+    size = count * core.size_of<T>()
+    ptr = alloc.allocate(size)
+    return compiler.raw_ptr_cast(ptr) // Cast to typed pointer
+}
+
+// Helper function to deallocate typed memory
+deallocate_typed = <T>(alloc: GPA, ptr: RawPtr<T>, count: usize) void {
+    size = count * core.size_of<T>()
+    raw_ptr = compiler.raw_ptr_cast(ptr) // Cast back to raw pointer
+    alloc.deallocate(raw_ptr, size)
+}
+

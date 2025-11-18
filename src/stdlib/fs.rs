@@ -37,9 +37,12 @@ impl FsModule {
             StdFunction {
                 name: "read_file".to_string(),
                 params: vec![("path".to_string(), crate::ast::resolve_string_struct_type())],
-                return_type: AstType::Result {
-                    ok_type: Box::new(crate::ast::resolve_string_struct_type()),
-                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
+                return_type: AstType::Generic {
+                    name: "Result".to_string(),
+                    type_args: vec![
+                        crate::ast::resolve_string_struct_type(),
+                        crate::ast::resolve_string_struct_type(),
+                    ],
                 },
                 is_builtin: true,
             },
@@ -53,9 +56,12 @@ impl FsModule {
                     ("path".to_string(), crate::ast::resolve_string_struct_type()),
                     ("content".to_string(), crate::ast::resolve_string_struct_type()),
                 ],
-                return_type: AstType::Result {
-                    ok_type: Box::new(AstType::Void),
-                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
+                return_type: AstType::Generic {
+                    name: "Result".to_string(),
+                    type_args: vec![
+                        AstType::Void,
+                        crate::ast::resolve_string_struct_type(),
+                    ],
                 },
                 is_builtin: true,
             },
@@ -69,9 +75,12 @@ impl FsModule {
                     ("path".to_string(), crate::ast::resolve_string_struct_type()),
                     ("content".to_string(), crate::ast::resolve_string_struct_type()),
                 ],
-                return_type: AstType::Result {
-                    ok_type: Box::new(AstType::Void),
-                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
+                return_type: AstType::Generic {
+                    name: "Result".to_string(),
+                    type_args: vec![
+                        AstType::Void,
+                        crate::ast::resolve_string_struct_type(),
+                    ],
                 },
                 is_builtin: true,
             },
@@ -112,9 +121,12 @@ impl FsModule {
             StdFunction {
                 name: "create_dir".to_string(),
                 params: vec![("path".to_string(), crate::ast::resolve_string_struct_type())],
-                return_type: AstType::Result {
-                    ok_type: Box::new(AstType::Void),
-                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
+                return_type: AstType::Generic {
+                    name: "Result".to_string(),
+                    type_args: vec![
+                        AstType::Void,
+                        crate::ast::resolve_string_struct_type(),
+                    ],
                 },
                 is_builtin: true,
             },
@@ -125,9 +137,12 @@ impl FsModule {
             StdFunction {
                 name: "create_dir_all".to_string(),
                 params: vec![("path".to_string(), crate::ast::resolve_string_struct_type())],
-                return_type: AstType::Result {
-                    ok_type: Box::new(AstType::Void),
-                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
+                return_type: AstType::Generic {
+                    name: "Result".to_string(),
+                    type_args: vec![
+                        AstType::Void,
+                        crate::ast::resolve_string_struct_type(),
+                    ],
                 },
                 is_builtin: true,
             },
@@ -138,9 +153,12 @@ impl FsModule {
             StdFunction {
                 name: "remove_file".to_string(),
                 params: vec![("path".to_string(), crate::ast::resolve_string_struct_type())],
-                return_type: AstType::Result {
-                    ok_type: Box::new(AstType::Void),
-                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
+                return_type: AstType::Generic {
+                    name: "Result".to_string(),
+                    type_args: vec![
+                        AstType::Void,
+                        crate::ast::resolve_string_struct_type(),
+                    ],
                 },
                 is_builtin: true,
             },
@@ -151,9 +169,12 @@ impl FsModule {
             StdFunction {
                 name: "remove_dir".to_string(),
                 params: vec![("path".to_string(), crate::ast::resolve_string_struct_type())],
-                return_type: AstType::Result {
-                    ok_type: Box::new(AstType::Void),
-                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
+                return_type: AstType::Generic {
+                    name: "Result".to_string(),
+                    type_args: vec![
+                        AstType::Void,
+                        crate::ast::resolve_string_struct_type(),
+                    ],
                 },
                 is_builtin: true,
             },
@@ -164,9 +185,12 @@ impl FsModule {
             StdFunction {
                 name: "remove_dir_all".to_string(),
                 params: vec![("path".to_string(), crate::ast::resolve_string_struct_type())],
-                return_type: AstType::Result {
-                    ok_type: Box::new(AstType::Void),
-                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
+                return_type: AstType::Generic {
+                    name: "Result".to_string(),
+                    type_args: vec![
+                        AstType::Void,
+                        crate::ast::resolve_string_struct_type(),
+                    ],
                 },
                 is_builtin: true,
             },
@@ -180,9 +204,12 @@ impl FsModule {
                     ("from".to_string(), crate::ast::resolve_string_struct_type()),
                     ("to".to_string(), crate::ast::resolve_string_struct_type()),
                 ],
-                return_type: AstType::Result {
-                    ok_type: Box::new(AstType::I64),
-                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
+                return_type: AstType::Generic {
+                    name: "Result".to_string(),
+                    type_args: vec![
+                        AstType::I64,
+                        crate::ast::resolve_string_struct_type(),
+                    ],
                 },
                 is_builtin: true,
             },
@@ -196,9 +223,12 @@ impl FsModule {
                     ("from".to_string(), crate::ast::resolve_string_struct_type()),
                     ("to".to_string(), crate::ast::resolve_string_struct_type()),
                 ],
-                return_type: AstType::Result {
-                    ok_type: Box::new(AstType::Void),
-                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
+                return_type: AstType::Generic {
+                    name: "Result".to_string(),
+                    type_args: vec![
+                        AstType::Void,
+                        crate::ast::resolve_string_struct_type(),
+                    ],
                 },
                 is_builtin: true,
             },
@@ -209,12 +239,15 @@ impl FsModule {
             StdFunction {
                 name: "metadata".to_string(),
                 params: vec![("path".to_string(), crate::ast::resolve_string_struct_type())],
-                return_type: AstType::Result {
-                    ok_type: Box::new(AstType::Generic {
-                        name: "FileMetadata".to_string(),
-                        type_args: vec![],
-                    }),
-                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
+                return_type: AstType::Generic {
+                    name: "Result".to_string(),
+                    type_args: vec![
+                        AstType::Generic {
+                            name: "FileMetadata".to_string(),
+                            type_args: vec![],
+                        },
+                        crate::ast::resolve_string_struct_type(),
+                    ],
                 },
                 is_builtin: true,
             },
@@ -225,12 +258,15 @@ impl FsModule {
             StdFunction {
                 name: "read_dir".to_string(),
                 params: vec![("path".to_string(), crate::ast::resolve_string_struct_type())],
-                return_type: AstType::Result {
-                    ok_type: Box::new(AstType::Generic {
-                        name: "Vec".to_string(),
-                        type_args: vec![crate::ast::resolve_string_struct_type()],
-                    }),
-                    err_type: Box::new(crate::ast::resolve_string_struct_type()),
+                return_type: AstType::Generic {
+                    name: "Result".to_string(),
+                    type_args: vec![
+                        AstType::Generic {
+                            name: "Vec".to_string(),
+                            type_args: vec![crate::ast::resolve_string_struct_type()],
+                        },
+                        crate::ast::resolve_string_struct_type(),
+                    ],
                 },
                 is_builtin: true,
             },

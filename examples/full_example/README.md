@@ -16,7 +16,7 @@ This directory contains a comprehensive demonstration of all Zen language featur
 2. **Enums** - Sum types with variants and payloads
 3. **Functions** - Various function patterns including generics
 4. **Closures** - Anonymous functions with captures
-5. **Pattern Matching** - Exhaustive matching with `=>` syntax
+5. **Pattern Matching** - Exhaustive matching with `{}` syntax
 6. **Error Propagation** - Using `.raise()` for Result/Option types
 7. **Loops and Ranges** - Range loops `(0..10).loop()` and infinite loops
 8. **Collections** - HashMap, DynVec, Array with allocators (NO-GC)

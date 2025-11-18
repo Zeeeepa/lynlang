@@ -22,7 +22,9 @@ Every construct in Zen is an expression, enabling powerful composition:
 condition ? { action() }
 
 // Traditional: match value { Some(x) => x, None => 0 }
-value ? | Some(x) => x | None => 0
+value ?
+    | Some(x) { x }
+    | None { 0 }
 
 // Traditional: for (i in 0..10) { process(i) }
 (0..10).loop((i) { process(i) })
@@ -259,6 +261,34 @@ Use heap allocation for complex nested types to avoid stack overflow issues.
 - **Allocator-driven concurrency** - No function coloring
 - **Expression-first design** - Everything is an expression
 - **UFC system** - Uniform function call syntax
+
+## 🔧 Build System Architecture
+
+### Current State: Makefile + Cargo
+
+The Zen compiler itself is currently built using:
+- **Makefile**: Convenient wrapper around Cargo commands
+- **Cargo**: Rust's build system for compiling the compiler
+- **Python scripts**: Test runner (`scripts/run_tests.py`)
+
+This is the **bootstrap build system** - it builds the Rust-based compiler that can compile Zen code.
+
+### Future Goal: Self-Hosted build.zen
+
+The long-term vision is a self-hosted build system written in Zen:
+- **build.zen**: Build configuration files written in Zen
+- **@std.build**: Standard library module for build system APIs
+- **Self-hosting**: The compiler would eventually compile itself
+
+**Current Status**: `build.zen` files exist as examples/demos (`tools/zen_build.zen`, `examples/full_example/build.zen`), but they are **not yet functional**. The compiler cannot execute build.zen files to build projects.
+
+### Migration Path
+
+1. **Phase 1 (Current)**: Makefile + Cargo for compiler development
+2. **Phase 2 (Future)**: Compiler can execute build.zen for user projects
+3. **Phase 3 (Future)**: Compiler can bootstrap itself using build.zen
+
+**Note**: The `design/bootstrap.sh` script is placeholder/aspirational code for Phase 3.
 
 ## 🔍 Technical Debt
 

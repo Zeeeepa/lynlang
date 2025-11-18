@@ -1,5 +1,5 @@
 {
-  "zen.serverPath": "/home/ubuntu/zenlang/target/release/zen-lsp",
+  "zen.serverPath": "${workspaceFolder}/target/release/zen-lsp",
   "zen.trace.server": "verbose",
   "[zen]": {
     "editor.semanticHighlighting.enabled": true,

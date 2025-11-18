@@ -319,12 +319,8 @@ impl Monomorphizer {
             }
             AstType::Ptr(inner)
             | AstType::Array(inner)
-            | AstType::Option(inner)
             | AstType::Ref(inner) => self.collect_instantiations_from_type(inner),
-            AstType::Result { ok_type, err_type } => {
-                self.collect_instantiations_from_type(ok_type)?;
-                self.collect_instantiations_from_type(err_type)
-            }
+            // Option and Result are now Generic types - handled in Generic match above
             AstType::Function { args, return_type } => {
                 for arg in args {
                     self.collect_instantiations_from_type(arg)?;
@@ -384,12 +380,8 @@ impl Monomorphizer {
             AstType::Generic { name, .. } if name == param_name => true,
             AstType::Ptr(inner)
             | AstType::Array(inner)
-            | AstType::Option(inner)
             | AstType::Ref(inner) => self.type_uses_parameter(inner, param_name),
-            AstType::Result { ok_type, err_type } => {
-                self.type_uses_parameter(ok_type, param_name)
-                    || self.type_uses_parameter(err_type, param_name)
-            }
+            // Option and Result are now Generic types - handled in Generic match above
             AstType::Vec { element_type, .. } => self.type_uses_parameter(element_type, param_name),
             AstType::DynVec { element_types, .. } => element_types
                 .iter()

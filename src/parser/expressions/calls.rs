@@ -160,6 +160,7 @@ pub fn parse_call_expression_with_object(
                 obj_name == "io"
                     || obj_name == "math"
                     || obj_name == "core"
+                    || obj_name == "compiler"
                     || obj_name == "net"
                     || obj_name == "os"
                     || obj_name == "fs"

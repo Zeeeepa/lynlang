@@ -56,13 +56,7 @@ pub fn replace_self_in_ast_type(ast_type: &AstType, concrete_type: &str) -> AstT
         AstType::RawPtr(inner) => {
             AstType::RawPtr(Box::new(replace_self_in_ast_type(inner, concrete_type)))
         }
-        AstType::Option(inner) => {
-            AstType::Option(Box::new(replace_self_in_ast_type(inner, concrete_type)))
-        }
-        AstType::Result { ok_type, err_type } => AstType::Result {
-            ok_type: Box::new(replace_self_in_ast_type(ok_type, concrete_type)),
-            err_type: Box::new(replace_self_in_ast_type(err_type, concrete_type)),
-        },
+        // Option and Result are now Generic types - handled in Generic match above
         AstType::Array(element) => {
             AstType::Array(Box::new(replace_self_in_ast_type(element, concrete_type)))
         }

@@ -156,13 +156,7 @@ impl BehaviorResolver {
             AstType::RawPtr(inner) => {
                 AstType::RawPtr(Box::new(self.replace_self_type(inner, concrete_type)))
             }
-            AstType::Option(inner) => {
-                AstType::Option(Box::new(self.replace_self_type(inner, concrete_type)))
-            }
-            AstType::Result { ok_type, err_type } => AstType::Result {
-                ok_type: Box::new(self.replace_self_type(ok_type, concrete_type)),
-                err_type: Box::new(self.replace_self_type(err_type, concrete_type)),
-            },
+            // Option and Result are now Generic types - handled in Generic match above
             AstType::Array(element) => {
                 AstType::Array(Box::new(self.replace_self_type(element, concrete_type)))
             }

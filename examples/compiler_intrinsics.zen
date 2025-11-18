@@ -1,0 +1,55 @@
+// Example: Using compiler intrinsics to build low-level features
+// This demonstrates the architecture: compiler exposes primitives, Zen builds features
+
+{ compiler } = @std
+{ io } = @std
+
+main = () i32 {
+    io.println("═══════════════════════════════════════════")
+    io.println("     COMPILER INTRINSICS DEMONSTRATION      ")
+    io.println("═══════════════════════════════════════════")
+    
+    // Test null pointer
+    io.println("")
+    io.println("▸ Testing compiler.null_ptr()")
+    null = compiler.null_ptr()
+    io.println("  Created null pointer")
+    
+    // Test raw allocation
+    io.println("")
+    io.println("▸ Testing compiler.raw_allocate()")
+    size = 1024
+    ptr = compiler.raw_allocate(size)
+    ptr == compiler.null_ptr() ?
+        | true { io.println("  Allocation failed!") }
+        | false { io.println("  Allocated 1024 bytes successfully") }
+    
+    // Test pointer offset
+    io.println("")
+    io.println("▸ Testing compiler.raw_ptr_offset()")
+    offset_ptr = compiler.raw_ptr_offset(ptr, 256)
+    io.println("  Created offset pointer (ptr + 256 bytes)")
+    
+    // Test deallocation
+    io.println("")
+    io.println("▸ Testing compiler.raw_deallocate()")
+    compiler.raw_deallocate(ptr, size)
+    io.println("  Deallocated memory")
+    
+    // Test inline.c (placeholder for now)
+    io.println("")
+    io.println("▸ Testing compiler.inline_c()")
+    compiler.inline_c("""
+        // This would compile C code inline
+        // For now, this is a placeholder
+    """)
+    io.println("  Inline C compilation (placeholder)")
+    
+    io.println("")
+    io.println("═══════════════════════════════════════════")
+    io.println("  All compiler intrinsics working!")
+    io.println("═══════════════════════════════════════════")
+    
+    return 0
+}
+

@@ -56,11 +56,7 @@ impl TypeSubstitution {
             }
             AstType::Ptr(inner) => AstType::Ptr(Box::new(self.apply(inner))),
             AstType::Array(inner) => AstType::Array(Box::new(self.apply(inner))),
-            AstType::Option(inner) => AstType::Option(Box::new(self.apply(inner))),
-            AstType::Result { ok_type, err_type } => AstType::Result {
-                ok_type: Box::new(self.apply(ok_type)),
-                err_type: Box::new(self.apply(err_type)),
-            },
+            // Option and Result are now Generic types - handled in Generic match above
             AstType::Ref(inner) => AstType::Ref(Box::new(self.apply(inner))),
             AstType::Function { args, return_type } => AstType::Function {
                 args: args.iter().map(|t| self.apply(t)).collect(),
@@ -81,14 +77,14 @@ pub struct TypeConstraint {
 #[allow(dead_code)]
 pub fn is_generic_type(ast_type: &AstType) -> bool {
     match ast_type {
-        AstType::Generic { .. } => true,
+        AstType::Generic { type_args, .. } => {
+            // Check if any type arguments are generic
+            type_args.iter().any(is_generic_type)
+        }
         AstType::Ptr(inner)
         | AstType::Array(inner)
-        | AstType::Option(inner)
         | AstType::Ref(inner) => is_generic_type(inner),
-        AstType::Result { ok_type, err_type } => {
-            is_generic_type(ok_type) || is_generic_type(err_type)
-        }
+        // Option and Result are now Generic types - handled above
         AstType::Function { args, return_type } => {
             args.iter().any(is_generic_type) || is_generic_type(return_type)
         }
@@ -116,14 +112,10 @@ fn extract_type_params_recursive(ast_type: &AstType, params: &mut Vec<String>) {
         }
         AstType::Ptr(inner)
         | AstType::Array(inner)
-        | AstType::Option(inner)
         | AstType::Ref(inner) => {
             extract_type_params_recursive(inner, params);
         }
-        AstType::Result { ok_type, err_type } => {
-            extract_type_params_recursive(ok_type, params);
-            extract_type_params_recursive(err_type, params);
-        }
+        // Option and Result are now Generic types - handled in Generic match above
         AstType::Function { args, return_type } => {
             for arg in args {
                 extract_type_params_recursive(arg, params);

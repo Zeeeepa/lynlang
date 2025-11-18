@@ -125,7 +125,6 @@ pub fn compile_raise_expression<'ctx>(
         let (returns_result, is_void_function) = if let Some(return_type) = compiler.function_types.get(&function_name) {
             match return_type {
                 AstType::Generic { name, .. } if name == "Result" => (true, false),
-                AstType::Result { .. } => (true, false), // Also handle legacy Result type
                 AstType::Void => (false, true),
                 _ => (false, false),
             }

@@ -160,8 +160,7 @@ pub fn format_type(ast_type: &AstType) -> String {
             }
         },
         AstType::FixedArray { element_type, size } => format!("[{}; {}]", format_type(element_type), size),
-        AstType::Option(inner) => format!("Option<{}>", format_type(inner)),
-        AstType::Result { ok_type, err_type } => format!("Result<{}, {}>", format_type(ok_type), format_type(err_type)),
+        // Option and Result are now Generic types - handled in Generic match below
         AstType::Struct { name, .. } => name.clone(),
         AstType::Enum { name, .. } => name.clone(),
         AstType::Generic { name, type_args } => {

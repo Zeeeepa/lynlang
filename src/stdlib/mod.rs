@@ -2,6 +2,7 @@ use crate::ast::{AstType, Expression};
 use std::collections::HashMap;
 
 pub mod build;
+pub mod compiler;
 pub mod core;
 pub mod fs;
 pub mod io;
@@ -20,6 +21,7 @@ pub struct StdNamespace {
 #[allow(dead_code)]
 pub enum StdModule {
     Core(core::CoreModule),
+    Compiler(compiler::CompilerModule),
     Build(build::BuildModule),
     IO(io::IOModule),
     Math(math::MathModule),
@@ -34,6 +36,10 @@ impl StdNamespace {
         let mut modules = HashMap::new();
 
         modules.insert("core".to_string(), StdModule::Core(core::CoreModule::new()));
+        modules.insert(
+            "compiler".to_string(),
+            StdModule::Compiler(compiler::CompilerModule::new()),
+        );
         modules.insert(
             "build".to_string(),
             StdModule::Build(build::BuildModule::new()),
@@ -64,7 +70,7 @@ impl StdNamespace {
         // For now, just return StdReference for any valid module name
         // The actual module resolution will happen at a different layer
         match module_name {
-            "core" | "build" | "io" | "math" | "string" | "vec" | "fs" | "net" | "result"
+            "core" | "compiler" | "build" | "io" | "math" | "string" | "vec" | "fs" | "net" | "result"
             | "mem" | "process" | "thread" | "collections" | "hashmap" | "set" | "json"
             | "regex" | "random" | "datetime" | "crypto" | "encoding" | "http" | "concurrency"
             | "concurrent_runtime" | "iterator" | "algorithms" | "assert" | "test_framework" => {

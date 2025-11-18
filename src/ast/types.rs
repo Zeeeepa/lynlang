@@ -82,14 +82,8 @@ pub enum AstType {
     },
     // Enhanced type system support
     Ref(Box<AstType>), // Managed reference
-    // TODO: These should be removed once stdlib is updated to use Generic types
-    #[allow(dead_code)]
-    Option(Box<AstType>), // Option<T> - legacy, use Generic instead
-    #[allow(dead_code)]
-    Result {
-        ok_type: Box<AstType>,
-        err_type: Box<AstType>,
-    }, // Result<T, E> - legacy, use Generic instead
+    // NOTE: Option<T> and Result<T, E> are now defined in stdlib/core/option.zen and stdlib/core/result.zen
+    // They should be referenced as Generic { name: "Option", type_args: [T] } or Generic { name: "Result", type_args: [T, E] }
     Range {
         start_type: Box<AstType>,
         end_type: Box<AstType>,
@@ -187,10 +181,7 @@ impl fmt::Display for AstType {
             AstType::Struct { name, .. } => write!(f, "{}", name),
             AstType::Enum { name, .. } => write!(f, "{}", name),
             AstType::Ref(inner) => write!(f, "Ref<{}>", inner),
-            AstType::Option(inner) => write!(f, "Option<{}>", inner),
-            AstType::Result { ok_type, err_type } => {
-                write!(f, "Result<{}, {}>", ok_type, err_type)
-            }
+            // Option and Result are now Generic types - handled above
             AstType::Range { start_type, inclusive, .. } => {
                 if *inclusive {
                     write!(f, "Range<{}..={}>", start_type, start_type)

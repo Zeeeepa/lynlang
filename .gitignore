@@ -1,6 +1,7 @@
 # Rust build artifacts
 /target/
-Cargo.lock
+# NOTE: Cargo.lock should be checked in for applications/compilers
+# to ensure reproducible builds. Only libraries should ignore it.
 
 # Python virtual environments
 /venv/

@@ -78,6 +78,22 @@ pub fn compile_function_call<'ctx>(
                         "panic" => return compiler.compile_core_panic(args),
                         _ => {}
                     }
+                } else if module == "compiler" {
+                    // Handle compiler intrinsics
+                    match func {
+                        "inline_c" => return stdlib::compile_inline_c(compiler, args),
+                        "raw_allocate" => return stdlib::compile_raw_allocate(compiler, args),
+                        "raw_deallocate" => return stdlib::compile_raw_deallocate(compiler, args),
+                        "raw_reallocate" => return stdlib::compile_raw_reallocate(compiler, args),
+                        "raw_ptr_offset" => return stdlib::compile_raw_ptr_offset(compiler, args),
+                        "raw_ptr_cast" => return stdlib::compile_raw_ptr_cast(compiler, args),
+                        "call_external" => return stdlib::compile_call_external(compiler, args),
+                        "load_library" => return stdlib::compile_load_library(compiler, args),
+                        "get_symbol" => return stdlib::compile_get_symbol(compiler, args),
+                        "unload_library" => return stdlib::compile_unload_library(compiler, args),
+                        "null_ptr" => return stdlib::compile_null_ptr(compiler, args),
+                        _ => {}
+                    }
                 } else if module == "Result" {
                     // Handle Result enum constructors
                     let payload = if !args.is_empty() {

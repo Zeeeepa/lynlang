@@ -97,6 +97,18 @@ impl ModuleSystem {
                 return Ok(&self.modules[module_path]);
             }
             
+            // Special handling for compiler module - it's built-in, not a file
+            if path_parts.len() == 1 && path_parts[0] == "compiler" {
+                // @std.compiler is a built-in compiler module, not a file
+                // Return empty program - compiler intrinsics are handled at codegen level
+                let empty_program = Program {
+                    declarations: Vec::new(),
+                    statements: Vec::new(),
+                };
+                self.modules.insert(module_path.to_string(), empty_program);
+                return Ok(&self.modules[module_path]);
+            }
+            
             // Try to resolve to stdlib file
             let stdlib_path = self.cwd.join("stdlib");
             if stdlib_path.exists() {
@@ -120,6 +132,16 @@ impl ModuleSystem {
                 } else if file_path.exists() {
                     file_path
                 } else {
+                    // File not found - check if it's a built-in compiler module
+                    if path_parts.len() == 1 && path_parts[0] == "compiler" {
+                        // Built-in compiler module
+                        let empty_program = Program {
+                            declarations: Vec::new(),
+                            statements: Vec::new(),
+                        };
+                        self.modules.insert(module_path.to_string(), empty_program);
+                        return Ok(&self.modules[module_path]);
+                    }
                     // File not found - fallback to empty program
                     let empty_program = Program {
                         declarations: Vec::new(),

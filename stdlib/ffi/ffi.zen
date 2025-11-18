@@ -1,0 +1,92 @@
+// FFI Library - Built in Zen using @std.compiler primitives
+// This demonstrates how high-level features are built from compiler primitives
+
+{ compiler } = @std
+{ Option, Result, Error } = @std
+{ core } = @std
+
+// Library handle - opaque pointer
+LibraryHandle = RawPtr<u8>
+
+// Function pointer - opaque pointer
+FunctionPtr = RawPtr<u8>
+
+// FFI Error type
+FFIError: {
+    LibraryNotFound: string,
+    SymbolNotFound: string,
+    CallFailed: string,
+}
+
+// Load a dynamic library
+load_library = (path: string) Result<LibraryHandle, FFIError> {
+    handle = compiler.load_library(path)
+    handle == compiler.null_ptr() ?
+        | true { Result:Err(FFIError:LibraryNotFound(path)) }
+        | false { Result:Ok(handle) }
+}
+
+// Get a symbol from a loaded library
+get_symbol = (lib: LibraryHandle, name: string) Result<FunctionPtr, FFIError> {
+    ptr = compiler.get_symbol(lib, name)
+    ptr == compiler.null_ptr() ?
+        | true { Result:Err(FFIError:SymbolNotFound(name)) }
+        | false { Result:Ok(ptr) }
+}
+
+// Unload a library
+unload_library = (lib: LibraryHandle) void {
+    compiler.unload_library(lib)
+}
+
+// Call an external C function
+// This is a simplified version - full implementation would handle type marshalling
+call_c_function = (func_ptr: FunctionPtr, args: RawPtr<u8>) RawPtr<u8> {
+    return compiler.call_external(func_ptr, args)
+}
+
+// Helper to create a null pointer
+null_ptr = () RawPtr<u8> {
+    return compiler.null_ptr()
+}
+
+// Type-safe wrapper builder for C functions
+// This allows building type-safe wrappers around C functions
+build_c_wrapper = <T, R>(
+    func_ptr: FunctionPtr,
+    marshaller: (T) RawPtr<u8>,
+    unmarshaller: (RawPtr<u8>) R
+) (T) R {
+    return (arg: T) {
+        args_ptr = marshaller(arg)
+        result_ptr = compiler.call_external(func_ptr, args_ptr)
+        return unmarshaller(result_ptr)
+    }
+}
+
+// Example: Wrapper for a simple C function using inline.c
+// This demonstrates the pattern for calling C functions directly
+sqrt_wrapper = (x: f64) f64 {
+    // Using inline.c() to call C sqrt function directly
+    // Note: This is a placeholder - full inline.c() implementation needed
+    compiler.inline_c("""
+        // double sqrt(double x);
+        // return sqrt(${x});
+    """)
+    return x // Placeholder - would return actual sqrt result
+}
+
+// Memory-safe C string wrapper
+// Converts Zen strings to C strings and back
+to_c_string = (s: string) RawPtr<u8> {
+    // This would allocate and copy string to C format
+    // For now, placeholder
+    return compiler.null_ptr()
+}
+
+from_c_string = (ptr: RawPtr<u8>) string {
+    // This would read C string and convert to Zen string
+    // For now, placeholder
+    return ""
+}
+

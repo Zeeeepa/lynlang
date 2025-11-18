@@ -43,7 +43,7 @@ cargo run --bin zen <file.zen>
 cargo run --bin zen examples/showcase.zen
 
 # Run test suite
-./scripts/run_tests.sh
+python3 scripts/run_tests.py
 ```
 
 ## Language Features by Example
@@ -340,25 +340,18 @@ shapes = module.import("shapes2d")
 
 ## Build System
 
-Zen uses its own build system written in Zen (see `build.zen` in LANGUAGE_SPEC.zen lines 20-85):
+### Current: Makefile + Cargo
 
-```zen
-Build := @std
+The Zen compiler itself is built using a **Makefile** (wrapper around Cargo):
+- `make build` - Build the compiler
+- `make test` - Run test suite
+- `make lint` - Run linter
 
-builder = (b :: Build) void {
-    // Conditional compilation
-    is_release = b.args.contains("--release")
-    is_release ?
-        | true { b.optimization(.O3) }
-        | false { b.debug_info(true) }
-    
-    // Multiple output targets
-    b.target ?
-        | C { b.emit_c("output.c") }        // Transpile to C
-        | LLVM { b.emit_llvm_ir("output.ll") }  // LLVM IR
-        | Native { b.emit_native() }        // Machine code
-}
-```
+See [`DESIGN_NOTES.md`](./DESIGN_NOTES.md#-build-system-architecture) for details.
+
+### Future: Self-Hosted build.zen
+
+The long-term vision is a self-hosted build system written in Zen. Example `build.zen` files exist in `tools/` and `examples/` as **demonstrations**, but the compiler cannot yet execute them. This is a future goal, not current functionality.
 
 ## Implementation Status
 

@@ -118,23 +118,7 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
             // TODO: Improve this by looking up the actual enum definition
             true
         }
-        // Check option compatibility
-        (AstType::Option(expected_inner), AstType::Option(actual_inner)) => {
-            types_compatible(expected_inner, actual_inner)
-        }
-        // Allow T to Option<T>
-        (AstType::Option(expected_inner), actual) => types_compatible(expected_inner, actual),
-        // Check result compatibility
-        (
-            AstType::Result {
-                ok_type: expected_ok,
-                err_type: expected_err,
-            },
-            AstType::Result {
-                ok_type: actual_ok,
-                err_type: actual_err,
-            },
-        ) => types_compatible(expected_ok, actual_ok) && types_compatible(expected_err, actual_err),
+        // Option and Result are now Generic types - handled in Generic match below
         // Check Option<T> compatibility using generic syntax
         (
             AstType::Generic {
@@ -280,7 +264,6 @@ pub fn requires_initialization(type_: &AstType) -> bool {
 pub fn is_valid_condition_type(type_: &AstType) -> bool {
     matches!(type_, AstType::Bool)
         || type_.is_numeric()
-        || matches!(type_, AstType::Option(_))
         || matches!(type_, AstType::Generic { name, .. } if name == "Option")
 }
 
