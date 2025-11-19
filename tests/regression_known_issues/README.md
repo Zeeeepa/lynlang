@@ -2,7 +2,19 @@
 
 This directory contains test files that expose known bugs or limitations in the Zen compiler. These tests are currently excluded from the main test suite but should be run periodically to prevent regressions.
 
-## Issue Tracking
+## Resolved Issues
+
+### ✅ Typed Parameters in Loop Closures (FIXED)
+**Status**: RESOLVED in commit c7b0474f
+**Fix**: Added support for type annotations in closure parameters for `.loop()` method calls
+- Updated `.loop()` parameter parsing in `src/parser/expressions/calls.rs`
+- Updated `loop()` function parameter parsing in `src/parser/expressions/primary.rs`  
+- Updated `CollectionLoop` AST in `src/ast/expressions.rs` to store typed parameters
+- Closures like `(i: i32) { ... }` now parse correctly in all contexts
+
+---
+
+## Active Issues
 
 ### 1. HashMap Method Resolution on References
 **File**: `test_hashmap_dynvec_get.zen`
@@ -17,7 +29,7 @@ This directory contains test files that expose known bugs or limitations in the 
 ### 2. Closure Compilation Issues
 **File**: `zen_test_closures.zen`  
 **Status**: Partial - Many closure tests fail
-**Error**: "Unknown function: @std_io_println"
+**Error**: "Unknown function: @std_io_println" (stdlib linking issue)
 **Description**: Multiple issues with closure compilation and typechecking
 **Known Skipped Tests**:
 - `test_closure_raise()` - LLVM verification error with `.raise()` in closures
@@ -26,14 +38,12 @@ This directory contains test files that expose known bugs or limitations in the 
 
 ---
 
-### 3. Struct Declaration Parsing
-**File**: `zen_test_structs_parse_error.zen`
-**Status**: Unresolved
-**Error**: "Parse error: Syntax Error: Expected ')' after closure parameters at line 154"
-**Description**: Parser fails on method declarations with `self` parameter in certain contexts
-**Line**: Line 154 is the `calculate_area` method definition with `(self: Rectangle) i32`
-**Impact**: Struct methods with explicit `self` parameter fail to parse
-**Workaround**: None - affects method definition syntax
+### 3. Struct Tests
+**File**: `zen_test_structs_fixed.zen`
+**Status**: Partially working
+**Error**: "Unknown function: @std_io_println" (stdlib linking issue)
+**Description**: Basic struct and method tests work fine now. Previously had parsing errors that are now fixed.
+**Impact**: Struct syntax is now working correctly with typed parameters
 
 ---
 
