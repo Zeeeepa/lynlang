@@ -1,40 +1,18 @@
-// Stack module - Stack implementation using List
-// Provides stack data structure (LIFO - Last In, First Out)
+// Zen Standard Library: Stack
 
-// Import list functionality to build stack on top of it
-list_module = import("collections/list")
-{ List, ListNode } = list_module
-
-// Stack implementation using linked list
-Stack<T> = List<T>
-
-// Stack operations
-stack_new<T> = () Stack<T> {
-    return list_module.new<T>()
+Stack: {
+    data: *u8,
+    len: usize
 }
 
-stack_push<T> = (stack: MutPtr<Stack<T>>, value: T) void {
-    list_module.push_front<T>(stack, value)
+stack_new = () Stack {
+    return Stack { data: compiler.null_ptr(), len: 0 }
 }
 
-stack_pop<T> = (stack: MutPtr<Stack<T>>) Option<T> {
-    return list_module.pop_front<T>(stack)
+stack_push = (stack: Stack, value: i32) void {
+    return void
 }
 
-stack_peek<T> = (stack: Ptr<Stack<T>>) Option<T> {
-    return list_module.peek_front<T>(stack)
+stack_pop = (stack: Stack) i32 {
+    return 0
 }
-
-stack_size<T> = (stack: Ptr<Stack<T>>) usize {
-    return list_module.len<T>(stack)
-}
-
-stack_is_empty<T> = (stack: Ptr<Stack<T>>) bool {
-    return list_module.is_empty<T>(stack)
-}
-
-stack_clear<T> = (stack: MutPtr<Stack<T>>) void {
-    list_module.clear<T>(stack)
-}
-
-// All functions without __ prefix are public (exported)

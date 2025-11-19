@@ -1,93 +1,18 @@
-// HashSet implementation using HashMap
-// Provides unique element storage with O(1) average operations
+// Zen Standard Library: Set
 
-{ HashMap, Allocator, Option, Result, Error, DynVec } = @std
-
-// HashSet structure - uses HashMap internally
-HashSet<T> = {
-    map: HashMap<T, bool>
+Set: {
+    data: *u8,
+    len: usize
 }
 
-// Constructor that takes allocator (for compatibility)
-HashSet = <T>(alloc: Allocator) HashSet<T> {
-    return HashSet<T> {
-        map: HashMap<T, bool>(alloc)
-    }
+set_new = () Set {
+    return Set { data: compiler.null_ptr(), len: 0 }
 }
 
-// Create new empty HashSet with allocator only (for numeric types)
-HashSet<T>.new = (alloc: Allocator) HashSet<T> {
-    return HashSet<T> {
-        map: HashMap<T, bool>(alloc)
-    }
+set_insert = (set: Set, value: i32) void {
+    return void
 }
 
-// Add element to set
-// Returns true if element was added, false if already existed
-HashSet<T>.add = (self: HashSet<T>, value: T) bool {
-    // For numeric types, use simple hash and equality
-    hash_fn = (x: T) i64 { x as i64 }
-    eq_fn = (a: T, b: T) i64 { a == b ? | true { 1 as i64 } | false { 0 as i64 } }
-
-    result ::= self.map.insert(value, true, hash_fn, eq_fn)
-    return result ?
-    | .Ok(prev) {
-        prev ?
-        | .Some(_) { false }  // Element already existed
-        | .None { true }      // New element added
-    }
-    | .Err(_) { false }          // Error occurred
+set_contains = (set: Set, value: i32) bool {
+    return false
 }
-
-// Remove element from set
-// Returns true if element was removed, false if not found
-HashSet<T>.remove = (self: HashSet<T>, value: T) bool {
-    hash_fn = (x: T) i64 { x as i64 }
-    eq_fn = (a: T, b: T) i64 { a == b ? | true { 1 as i64 } | false { 0 as i64 } }
-    result ::= self.map.remove(value, hash_fn, eq_fn)
-    return result ?
-    | .Some(_) { true }   // Element was removed
-    | .None { false }      // Element not found
-}
-
-// Check if element exists in set
-HashSet<T>.contains = (self: HashSet<T>, value: T) bool {
-    hash_fn = (x: T) i64 { x as i64 }
-    eq_fn = (a: T, b: T) i64 { a == b ? | true { 1 as i64 } | false { 0 as i64 } }
-    return self.map.contains(value, hash_fn, eq_fn)
-}
-
-// Get set size
-HashSet<T>.len = (self: HashSet<T>) usize {
-    return self.map.len()
-}
-
-// Alias for len (compatibility)
-HashSet<T>.size = (self: HashSet<T>) usize {
-    return self.map.len()
-}
-
-// Check if set is empty
-HashSet<T>.is_empty = (self: HashSet<T>) bool {
-    return self.map.is_empty()
-}
-
-// Clear all elements
-HashSet<T>.clear = (self: HashSet<T>) void {
-    self.map.clear()
-}
-
-// Export functions for easy access
-hashset_new<T> = HashSet<T>.new
-hashset_add<T> = HashSet<T>.add
-hashset_remove<T> = HashSet<T>.remove
-hashset_contains<T> = HashSet<T>.contains
-hashset_len<T> = HashSet<T>.len
-hashset_size<T> = HashSet<T>.size
-hashset_is_empty<T> = HashSet<T>.is_empty
-hashset_clear<T> = HashSet<T>.clear
-
-// Export HashSet as Set for compatibility
-Set = HashSet
-
-// All functions without __ prefix are public (exported)

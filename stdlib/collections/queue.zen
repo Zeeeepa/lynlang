@@ -1,40 +1,18 @@
-// Queue module - Queue implementation using List
-// Provides queue data structure (FIFO - First In, First Out)
+// Zen Standard Library: Queue
 
-// Import list functionality to build queue on top of it
-list_module = import("collections/list")
-{ List, ListNode } = list_module
-
-// Queue implementation using linked list
-Queue<T> = List<T>
-
-// Queue operations  
-queue_new<T> = () Queue<T> {
-    return list_module.new<T>()
+Queue: {
+    data: *u8,
+    len: usize
 }
 
-queue_enqueue<T> = (queue: MutPtr<Queue<T>>, value: T) void {
-    list_module.push_back<T>(queue, value)
+queue_new = () Queue {
+    return Queue { data: compiler.null_ptr(), len: 0 }
 }
 
-queue_dequeue<T> = (queue: MutPtr<Queue<T>>) Option<T> {
-    return list_module.pop_front<T>(queue)
+queue_enqueue = (queue: Queue, value: i32) void {
+    return void
 }
 
-queue_peek<T> = (queue: Ptr<Queue<T>>) Option<T> {
-    return list_module.peek_front<T>(queue)
+queue_dequeue = (queue: Queue) i32 {
+    return 0
 }
-
-queue_size<T> = (queue: Ptr<Queue<T>>) usize {
-    return list_module.len<T>(queue)
-}
-
-queue_is_empty<T> = (queue: Ptr<Queue<T>>) bool {
-    return list_module.is_empty<T>(queue)
-}
-
-queue_clear<T> = (queue: MutPtr<Queue<T>>) void {
-    list_module.clear<T>(queue)
-}
-
-// All functions without __ prefix are public (exported)

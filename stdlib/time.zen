@@ -1,251 +1,26 @@
-// Zen Standard Library - Time Module
-// Provides time measurement and manipulation utilities
+// Zen Standard Library: Time module
 
-{ Option, Some, None, Result, Ok, Err } = @std
-{ print, println } = @std
-math = @std
-
-// Time representation in nanoseconds since epoch
 Time: {
-    nanos: i64,
+    nanos: i64
 }
 
-// Duration representation in nanoseconds
+Instant: {
+    nanos: i64
+}
+
 Duration: {
-    nanos: i64,
+    nanos: i64
 }
 
-// Clock types
-ClockType: 
-    Realtime,
-    Monotonic,
-    ProcessCPU,
-    ThreadCPU,
+NANOS_PER_MILLIS = 1000000
+NANOS_PER_SECOND = 1000000000
+NANOS_PER_MINUTE = 60000000000
+NANOS_PER_HOUR = 3600000000000
 
-// Time constants
-NANOS_PER_MICRO := 1000
-NANOS_PER_MILLI := 1000000
-NANOS_PER_SECOND := 1000000000
-NANOS_PER_MINUTE := 60000000000
-NANOS_PER_HOUR := 3600000000000
-NANOS_PER_DAY := 86400000000000
-
-// Get current time
-now = () Time   {
-    // In real implementation, would call system clock
-    return Time{ nanos: 0 }
+now = () Time {
+    return Time { nanos: 0 }
 }
 
-// Get monotonic time for measuring durations
-monotonic = () Time   {
-    // Monotonic clock for duration measurement
-    return Time{ nanos: 0 }
-}
-
-// Sleep for specified duration
-sleep = (dur: Duration)  {
-    // In real implementation, would call system sleep
-}
-
-// Create duration from various units
-microseconds = (us: i64) Duration   {
-    return Duration{ nanos: us * NANOS_PER_MICRO }
-}
-
-milliseconds = (ms: i64) Duration   {
-    return Duration{ nanos: ms * NANOS_PER_MILLI }
-}
-
-seconds = (s: i64) Duration   {
-    return Duration{ nanos: s * NANOS_PER_SECOND }
-}
-
-minutes = (m: i64) Duration   {
-    return Duration{ nanos: m * NANOS_PER_MINUTE }
-}
-
-hours = (h: i64) Duration   {
-    return Duration{ nanos: h * NANOS_PER_HOUR }
-}
-
-days = (d: i64) Duration   {
-    return Duration{ nanos: d * NANOS_PER_DAY }
-}
-
-// Duration arithmetic
-add_duration = (t: Time, d: Duration) Time   {
-    return Time{ nanos: t.nanos + d.nanos }
-}
-
-sub_duration = (t: Time, d: Duration) Time   {
-    return Time{ nanos: t.nanos - d.nanos }
-}
-
-time_diff = (t1: Time, t2: Time) Duration   {
-    return Duration{ nanos: t1.nanos - t2.nanos }
-}
-
-duration_add = (d1: Duration, d2: Duration) Duration   {
-    return Duration{ nanos: d1.nanos + d2.nanos }
-}
-
-duration_sub = (d1: Duration, d2: Duration) Duration   {
-    return Duration{ nanos: d1.nanos - d2.nanos }
-}
-
-duration_mul = (d: Duration, factor: i64) Duration   {
-    return Duration{ nanos: d.nanos * factor }
-}
-
-duration_div = (d: Duration, divisor: i64) Duration   {
-    return Duration{ nanos: d.nanos / divisor }
-}
-
-// Convert duration to various units
-as_nanos = (d: Duration) i64   {
-    return d.nanos
-}
-
-as_micros = (d: Duration) i64   {
-    return d.nanos / NANOS_PER_MICRO
-}
-
-as_millis = (d: Duration) i64   {
-    return d.nanos / NANOS_PER_MILLI
-}
-
-as_seconds = (d: Duration) i64   {
-    return d.nanos / NANOS_PER_SECOND
-}
-
-as_seconds_f64 = (d: Duration) f64   {
-    return d.nanos as f64 / NANOS_PER_SECOND as f64
-}
-
-// Timer for measuring execution time
-Timer: {
-    start_time: Time,
-    is_running: bool,
-}
-
-// Create and start a new timer
-start_timer = () Timer   {
-    return Timer{
-        start_time: monotonic(),
-        is_running: true,
-    }
-}
-
-// Get elapsed time since timer started
-elapsed = (timer: &Timer) Duration   {
-    timer.is_running ? {
-        current := monotonic()
-        return time_diff(current, timer.start_time)
-    } : {
-        return Duration{ nanos: 0 }
-    }
-}
-
-// Stop timer and return elapsed time
-stop_timer = (timer: MutPtr<Timer>) Duration   {
-    timer.is_running ? {
-        timer.is_running = false
-        return elapsed(timer)
-    } : {
-        return Duration{ nanos: 0 }
-    }
-}
-
-// Reset timer
-reset_timer = (timer: MutPtr<Timer>)  {
-    timer.start_time = monotonic()
-    timer.is_running = true
-}
-
-// Benchmark a function
-benchmark = <T>(name: string, iterations: u32, f: () T) {
-    io.print("Benchmarking: ")
-    io.print(name)
-    io.print("\n")
-    
-    // Warmup
-    i := 0
-    loop i < 10 {
-        f()
-        i = i + 1
-    }
-    
-    // Actual benchmark
-    timer := start_timer()
-    i = 0
-    loop i < iterations {
-        f()
-        i = i + 1
-    }
-    elapsed_time := stop_timer(MutPtr<Timer>(timer))
-    
-    // Calculate statistics
-    total_ms := as_millis(elapsed_time)
-    avg_ns := as_nanos(elapsed_time) / iterations as i64
-    
-    io.print("  Iterations: ")
-    io.print_int(iterations as i32)
-    io.print("\n")
-    io.print("  Total time: ")
-    io.print_int(total_ms as i32)
-    io.print(" ms\n")
-    io.print("  Average: ")
-    io.print_int(avg_ns as i32)
-    io.print(" ns\n")
-}
-
-// Format duration as human-readable string
-format_duration = (d: Duration) string   {
-    nanos := d.nanos
-    
-    nanos >= NANOS_PER_DAY ? {
-        days := nanos / NANOS_PER_DAY
-        remaining := nanos % NANOS_PER_DAY
-        hours := remaining / NANOS_PER_HOUR
-        return int_to_string(days) + "d " + int_to_string(hours) + "h"
-    } :
-    nanos >= NANOS_PER_HOUR ? {
-        hours := nanos / NANOS_PER_HOUR
-        remaining := nanos % NANOS_PER_HOUR
-        mins := remaining / NANOS_PER_MINUTE
-        return int_to_string(hours) + "h " + int_to_string(mins) + "m"
-    } :
-    nanos >= NANOS_PER_MINUTE ? {
-        mins := nanos / NANOS_PER_MINUTE
-        remaining := nanos % NANOS_PER_MINUTE
-        secs := remaining / NANOS_PER_SECOND
-        return int_to_string(mins) + "m " + int_to_string(secs) + "s"
-    } :
-    nanos >= NANOS_PER_SECOND ? {
-        secs := nanos / NANOS_PER_SECOND
-        remaining := nanos % NANOS_PER_SECOND
-        millis := remaining / NANOS_PER_MILLI
-        return int_to_string(secs) + "." + int_to_string(millis) + "s"
-    } :
-    nanos >= NANOS_PER_MILLI ? {
-        millis := nanos / NANOS_PER_MILLI
-        return int_to_string(millis) + "ms"
-    } :
-    nanos >= NANOS_PER_MICRO ? {
-        micros := nanos / NANOS_PER_MICRO
-        return int_to_string(micros) + "µs"
-    } : {
-        return int_to_string(nanos) + "ns"
-    }
-}
-
-// Helper function - convert int to string
-int_to_string = (n: i64) string   {
-    n == 0 ? { return "0" } : {}
-    n < 0 ? { return "-" + int_to_string(-n) } : {}
-    
-    // Simple implementation
-    n < 10 ? { return "" + (n + 48) as u8 } : {
-        return int_to_string(n / 10) + int_to_string(n % 10)
-    }
+monotonic = () Instant {
+    return Instant { nanos: 0 }
 }

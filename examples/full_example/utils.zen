@@ -1,154 +1,182 @@
 // utils.zen - Utility functions for the Zen full example
-// This file demonstrates a library that can be built and linked
+// This file demonstrates library-like utilities that can be imported and used
 
-{ print, println } = @std.io
-{ Option, Result } = @std
-{ HashMap, DynVec } = @std
+{ io } = @std
 
-// Utility functions for string manipulation
-StringUtils: {
-    // Convert string to uppercase
-    to_upper: (s: StaticString) StaticString {
-        // Simple implementation - in real code this would be more sophisticated
-        return s  // Placeholder
-    },
-    
-    // Convert string to lowercase  
-    to_lower: (s: StaticString) StaticString {
-        return s  // Placeholder
-    },
-    
-    // Check if string contains substring
-    contains: (s: StaticString, substr: StaticString) bool {
-        return true  // Placeholder
-    },
-    
-    // Split string by delimiter
-    split: (s: StaticString, delim: StaticString) DynVec<StaticString> {
-        allocator = @std.get_default_allocator()
-        result = DynVec.new<StaticString>(allocator)
-        result.push(s)  // Placeholder - just return original string
-        return result
-    }
+// ============================================================================
+// STRING UTILITIES
+// ============================================================================
+
+string_length = (s: StaticString) i32 {
+    len := 0
+    loop(() {
+        s[len as u64] == 0 ? { break }
+        len = len + 1
+    })
+    return len
 }
 
-// Math utilities
-MathUtils: {
-    // Calculate factorial
-    factorial: (n: u32) u64 {
-        n == 0 ? {
-            return 1
-        } : {
-            return n * MathUtils.factorial(n - 1)
+string_equals = (a: StaticString, b: StaticString) bool {
+    i := 0
+    loop(() {
+        a[i as u64] == 0 ? { 
+            return b[i as u64] == 0
         }
-    },
-    
-    // Calculate fibonacci number
-    fibonacci: (n: u32) u64 {
-        n <= 1 ? {
-            return n
-        } : {
-            return MathUtils.fibonacci(n - 1) + MathUtils.fibonacci(n - 2)
-        }
-    },
-    
-    // Check if number is prime
-    is_prime: (n: u64) bool {
-        n < 2 ? {
+        a[i as u64] != b[i as u64] ? {
             return false
-        } : {
-            i = 2
-            loop(() {
-                i * i > n ? { break }
-                n % i == 0 ? {
-                    return false
-                } : {
-                    i = i + 1
-                }
-            })
-            return true
         }
-    }
+        i = i + 1
+    })
+    return true
 }
 
-// Collection utilities
-CollectionUtils: {
-    // Find maximum value in vector
-    max: <T: Comparable>(vec: DynVec<T>) Option<T> {
-        vec.len() == 0 ? {
-            return Option.None
-        } : {
-            max_val = vec.get(0).raise()
-            (1..vec.len()).loop((i) {
-                current = vec.get(i).raise()
-                current > max_val ? {
-                    max_val = current
-                } : {}
-            })
-            return Option.Some(max_val)
-        }
-    },
-    
-    // Find minimum value in vector
-    min: <T: Comparable>(vec: DynVec<T>) Option<T> {
-        vec.len() == 0 ? {
-            return Option.None
-        } : {
-            min_val = vec.get(0).raise()
-            (1..vec.len()).loop((i) {
-                current = vec.get(i).raise()
-                current < min_val ? {
-                    min_val = current
-                } : {}
-            })
-            return Option.Some(min_val)
-        }
-    },
-    
-    // Sum all values in vector
-    sum: <T: Addable>(vec: DynVec<T>) T {
-        vec.len() == 0 ? {
-            return T.default()
-        } : {
-            total = vec.get(0).raise()
-            (1..vec.len()).loop((i) {
-                total = total + vec.get(i).raise()
-            })
-            return total
-        }
-    }
+// ============================================================================
+// MATH UTILITIES
+// ============================================================================
+
+// Calculate absolute value
+abs = (n: i32) i32 {
+    n < 0 ?
+        | true { return -n }
+        | false { return n }
 }
 
-// Configuration utilities
-ConfigUtils: {
-    // Parse environment variable
-    get_env: (name: StaticString) Option<StaticString> {
-        // In real implementation, this would read from environment
-        name == "DEBUG" ? {
-            return Option.Some("true")
-        } : {
-            return Option.None
-        }
-    },
-    
-    // Parse configuration file
-    load_config: (path: StaticString) Result<HashMap<StaticString, StaticString>, StaticString> {
-        allocator = @std.get_default_allocator()
-        config = HashMap.new<StaticString, StaticString>(allocator)
-        
-        // In real implementation, this would parse a config file
-        config.insert("app_name", "zen_demo")
-        config.insert("version", "1.0.0")
-        config.insert("debug", "false")
-        
-        return Result.Ok(config)
-    }
+// Calculate factorial
+factorial = (n: u32) u64 {
+    n == 0 ?
+        | true { return 1 }
+        | false { return (n as u64) * factorial(n - 1) }
 }
 
-// Export the utility modules
-module.exports = {
-    StringUtils: StringUtils,
-    MathUtils: MathUtils,
-    CollectionUtils: CollectionUtils,
-    ConfigUtils: ConfigUtils
+// Check if number is even
+is_even = (n: i32) bool {
+    n % 2 == 0
+}
+
+// Check if number is odd
+is_odd = (n: i32) bool {
+    n % 2 != 0
+}
+
+// Maximum of two numbers
+max_i32 = (a: i32, b: i32) i32 {
+    a > b ?
+        | true { return a }
+        | false { return b }
+}
+
+// Minimum of two numbers
+min_i32 = (a: i32, b: i32) i32 {
+    a < b ?
+        | true { return a }
+        | false { return b }
+}
+
+// ============================================================================
+// VALIDATION UTILITIES
+// ============================================================================
+
+// Check if character is digit
+is_digit = (c: u8) bool {
+    (c >= 48) && (c <= 57)
+}
+
+// Check if character is letter
+is_alpha = (c: u8) bool {
+    (c >= 65 && c <= 90) || (c >= 97 && c <= 122)
+}
+
+// Check if character is whitespace
+is_whitespace = (c: u8) bool {
+    c == 32 || c == 9 || c == 10 || c == 13
+}
+
+// ============================================================================
+// FORMATTING UTILITIES
+// ============================================================================
+
+// Format a person for display
+format_person = (name: StaticString, age: i32) StaticString {
+    return "${name} (${age} years old)"
+}
+
+// Format a point
+format_point = (x: f64, y: f64) StaticString {
+    return "(${x}, ${y})"
+}
+
+// ============================================================================
+// TESTING UTILITIES
+// ============================================================================
+
+assert_equal = (a: i32, b: i32, message: StaticString) void {
+    a == b ?
+        | true { 
+            io.println("✓ PASS: ${message}")
+        }
+        | false { 
+            io.println("✗ FAIL: ${message}")
+            io.println("  Expected: ${b}, Got: ${a}")
+        }
+}
+
+assert_true = (condition: bool, message: StaticString) void {
+    condition ?
+        | true { 
+            io.println("✓ PASS: ${message}")
+        }
+        | false { 
+            io.println("✗ FAIL: ${message}")
+        }
+}
+
+// ============================================================================
+// DEMO FUNCTION
+// ============================================================================
+
+run_utils_demo = () void {
+    io.println("\n=== UTILITY FUNCTIONS DEMO ===\n")
+    
+    // String utilities
+    io.println("String Utilities:")
+    hello = "Hello"
+    io.println("  Length of '${hello}': ${string_length(hello)}")
+    
+    // Math utilities
+    io.println("\nMath Utilities:")
+    io.println("  abs(-5) = ${abs(-5)}")
+    io.println("  factorial(5) = ${factorial(5 as u32)}")
+    io.println("  is_even(4) = ${is_even(4)}")
+    io.println("  max(5, 10) = ${max_i32(5, 10)}")
+    io.println("  min(5, 10) = ${min_i32(5, 10)}")
+    
+    // Validation utilities
+    io.println("\nValidation Utilities:")
+    io.println("  is_digit('5') = ${is_digit(53)}")
+    io.println("  is_alpha('A') = ${is_alpha(65)}")
+    io.println("  is_whitespace(' ') = ${is_whitespace(32)}")
+    
+    // Formatting utilities
+    io.println("\nFormatting Utilities:")
+    person_str = format_person("Alice", 30)
+    io.println("  Formatted person: ${person_str}")
+    
+    point_str = format_point(3.14, 2.71)
+    io.println("  Formatted point: ${point_str}")
+    
+    // Testing utilities
+    io.println("\nTesting Utilities:")
+    assert_equal(add(2, 3), 5, "2 + 3 should equal 5")
+    assert_equal(multiply(3, 4), 12, "3 * 4 should equal 12")
+    assert_true(is_even(6), "6 should be even")
+}
+
+// Simple add function for testing
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+// Simple multiply function for testing
+multiply = (a: i32, b: i32) i32 {
+    return a * b
 }

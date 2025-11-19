@@ -1,15 +1,13 @@
 // Zen Standard Library: IO Module
-// Console I/O operations
 
-// Standard file descriptors
-STDIN := 0
-STDOUT := 1
-STDERR := 2
+STDIN = 0
+STDOUT = 1
+STDERR = 2
 
-// Note: Actual I/O functions are implemented in the compiler as built-ins
-// These are type signatures for LSP/typechecker
-print = (message: StaticString) void
-println = (message: StaticString) void
-print_int = (value: i32) void
-print_float = (value: f64) void
-read_char = () i32
+print = (message: StaticString) void {
+    // Built-in
+}
+
+println = (message: StaticString) void {
+    // Built-in
+}

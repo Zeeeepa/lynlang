@@ -1,131 +1,13 @@
 // Error handling utilities for Zen
-// Provides common error types and utilities
 
-{ core, string, io } = @std
+{ compiler } = @std
 
-// Common error types
 Error: {
-    message: StaticString
+    message: StaticString,
     code: i32
-    source: Option<StaticString>
 }
 
-// Error severity levels
-ErrorLevel: 
-    Warning
-    | Error
-    | Fatal
-
-// Create a new error
-new_error = (message: StaticString, code: i32) Error   {
-    return Error {
-        message: message,
-        code: code,
-        source: Option<StaticString>.None
-    }
-}
-
-// Create an error with source information
-new_error_with_source = (message: StaticString, code: i32, source: StaticString) Error   {
-    return Error {
-        message: message,
-        code: code,
-        source: Option<StaticString>.Some(source)
-    }
-}
-
-// Format error for display
-format_error = (error: Error) StaticString   {
-    mut result := "Error "
-    result = string.concat(result, string.from_int(error.code))
-    result = string.concat(result, ": ")
-    result = string.concat(result, error.message)
-    
-    error.source ?
-        | Option<string>.Some(src) {
-            result = string.concat(result, " (at ")
-            result = string.concat(result, src)
-            result = string.concat(result, ")")
-        }
-        | Option<string>.None {}
-    }
-    
-    return result
-}
-
-// Print error to stderr
-print_error = (error: Error) void   {
-    message := format_error(error)
-    io.eprint(message)
-    io.eprint("\n")
-}
-
-// Check if error is fatal
-is_fatal = (code: i32) bool   {
-    return code >= 1000
-}
-
-// Panic with error message
-panic = (message: StaticString) void   {
-    io.eprint("PANIC: ")
-    io.eprint(message)
-    io.eprint("\n")
-    core.exit(1)
-}
-
-// Assert with custom message
-assert_msg = (condition: bool, message: StaticString) void   {
-    if !condition {
-        panic(message)
-    }
-}
-
-// Try to unwrap a Result, panic on error
-unwrap = <T>(result: Result<T, Error>) T {
-    result ?
-        | Result<T, Error>.Ok(value) { return value }
-        | Result<T, Error>.Err(error) {
-            print_error(error)
-            panic("unwrap failed on Err value")
-        }
-    }
-}
-
-// Try to unwrap a Result, return default on error
-unwrap_or = <T>(result: Result<T, Error>, default: T) T {
-    result ?
-        | Result<T, Error>.Ok(value) { return value }
-        | Result<T, Error>.Err(_) { return default }
-    }
-}
-
-// Map error to different type
-map_error = <T, E1, E2>(result: Result<T, E1>, mapper: (E1) E2) Result<T, E2> {
-    result ?
-        | Result<T, E1>.Ok(value) { return Result<T, E2>.Ok(value) }
-        | Result<T, E1>.Err(error) { return Result<T, E2>.Err(mapper(error)) }
-    }
-}
-
-// Chain multiple Results
-and_then = <T, U, E>(result: Result<T, E>, f: (T) Result<U, E>) Result<U, E> {
-    result ?
-        | Result<T, E>.Ok(value) { return f(value) }
-        | Result<T, E>.Err(error) { return Result<U, E>.Err(error) }
-    }
-}
-
-// Common error codes
-const ERROR_NONE: i32 = 0
-const ERROR_INVALID_ARGUMENT: i32 = 1
-const ERROR_OUT_OF_RANGE: i32 = 2
-const ERROR_NOT_FOUND: i32 = 3
-const ERROR_ALREADY_EXISTS: i32 = 4
-const ERROR_PERMISSION_DENIED: i32 = 5
-const ERROR_IO: i32 = 10
-const ERROR_PARSE: i32 = 20
-const ERROR_TYPE: i32 = 30
-const ERROR_MEMORY: i32 = 40
-const ERROR_INTERNAL: i32 = 1000
-const ERROR_UNIMPLEMENTED: i32 = 1001
-const ERROR_FATAL: i32 = 2000
+ErrorLevel:
+    Warning,
+    Error,
+    Fatal

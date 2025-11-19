@@ -2,9 +2,6 @@
 // This focuses on features that currently parse and compile
 
 { io } = @std
-{ Option, Result, get_default_allocator } = @std
-{ HashMap } = @std.collections
-{ DynVec } = @std
 
 // ============================================================================
 // STRUCTS - Custom data types
@@ -15,10 +12,24 @@ Person: {
     age: i32
 }
 
-Point: {
-    x: f64,
-    y: f64
+Config: {
+    host: StaticString,
+    port: i32,
+    debug: bool
 }
+
+// ============================================================================
+// ENUMS - Sum types
+// ============================================================================
+
+Result:
+    Ok: i32,
+    Err: StaticString
+
+Status:
+    Running,
+    Stopped,
+    Error
 
 // ============================================================================
 // FUNCTIONS
@@ -32,15 +43,19 @@ multiply = (a: i32, b: i32) i32 {
     return a * b
 }
 
-divide = (a: f64, b: f64) Result<f64, StaticString> {
-    b == 0.0 ? {
-        return Result.Err("Division by zero")
-    }
-    return Result.Ok(a / b)
+divide_safe = (a: f64, b: f64) i32 {
+    b == 0.0 ?
+        | true { return -1 }
+        | false { return (a / b) as i32 }
 }
 
 greet = (name: StaticString) void {
     io.println("Hello, ${name}!")
+}
+
+format_person = (person: Person) StaticString {
+    person_str := "${person.name} (age ${person.age})"
+    return person_str
 }
 
 // ============================================================================
@@ -48,46 +63,68 @@ greet = (name: StaticString) void {
 // ============================================================================
 
 main = () void {
+    io.println("=== ZEN WORKING FEATURES DEMO ===\n")
+    
     // Test arithmetic
+    io.println("Arithmetic Operations:")
     sum = add(5, 3)
-    io.println("5 + 3 = ${sum}")
+    io.println("  5 + 3 = ${sum}")
 
     product = multiply(4, 7)
-    io.println("4 * 7 = ${product}")
+    io.println("  4 * 7 = ${product}")
 
-    // Test Result type
-    result = divide(10.0, 2.0)
-    result ?
-        | Ok(val) { io.println("10.0 / 2.0 = ${val}") }
-        | Err(msg) { io.println("Error: ${msg}") }
-
-    // Test division by zero
-    bad_result = divide(10.0, 0.0)
-    bad_result ?
-        | Ok(val) { io.println("Result: ${val}") }
-        | Err(msg) { io.println("Error: ${msg}") }
+    quotient = divide_safe(10.0, 2.0)
+    io.println("  10.0 / 2.0 = ${quotient}")
+    
+    // Test division by zero handling
+    bad_div = divide_safe(10.0, 0.0)
+    io.println("  10.0 / 0.0 = ${bad_div} (error code)")
 
     // Test struct
+    io.println("\nStruct Usage:")
     person = Person {
         name: "Alice",
         age: 30
     }
-    io.println("Person: ${person.name}, age ${person.age}")
+    formatted = format_person(person)
+    io.println("  Person: ${formatted}")
 
-    // Test Option
-    maybe_value = Option.Some(42)
-    maybe_value ?
-        | Some(val) { io.println("Got value: ${val}") }
-        | None { io.println("No value") }
+    // Pattern matching with enum
+    io.println("\nPattern Matching:")
+    status = Status.Running
+    status ?
+        | Running { io.println("  Status: System is running") }
+        | Stopped { io.println("  Status: System is stopped") }
+        | Error { io.println("  Status: System error") }
 
-    // Test collections with allocator
-    alloc = get_default_allocator()
-    numbers = DynVec<i32>(alloc)
-    numbers.push(1)
-    numbers.push(2)
-    numbers.push(3)
+    // Conditional logic
+    io.println("\nConditional Logic:")
+    age = 25
+    age >= 18 ?
+        | true { io.println("  Age ${age}: Adult") }
+        | false { io.println("  Age ${age}: Minor") }
 
-    io.println("Added ${numbers.len()} numbers to vector")
+    // Loop example
+    io.println("\nLooping (0-4):")
+    io.print("  ")
+    i := 0
+    loop(() {
+        i >= 5 ? { break }
+        io.print("${i} ")
+        i = i + 1
+    })
+    io.println("")
 
+    // Function calls
+    io.println("\nFunction Calls:")
     greet("World")
+    greet("Zen")
+
+    // String interpolation
+    io.println("\nString Interpolation:")
+    name = "Zen"
+    version = 1
+    io.println("  Language: ${name} v${version}")
+
+    io.println("\n=== DEMO COMPLETE ===")
 }

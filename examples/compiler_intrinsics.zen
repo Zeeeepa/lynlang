@@ -24,10 +24,10 @@ main = () i32 {
         | true { io.println("  Allocation failed!") }
         | false { io.println("  Allocated 1024 bytes successfully") }
     
-    // Test pointer offset
+    // Test pointer arithmetic (GEP)
     io.println("")
-    io.println("▸ Testing compiler.raw_ptr_offset()")
-    offset_ptr = compiler.raw_ptr_offset(ptr, 256)
+    io.println("▸ Testing compiler.gep()")
+    offset_ptr = compiler.gep(ptr, 256)
     io.println("  Created offset pointer (ptr + 256 bytes)")
     
     // Test deallocation
