@@ -285,6 +285,13 @@ fn types_comparable(left: &AstType, right: &AstType) -> bool {
         return true;
     }
 
+    // All pointer types can be compared with each other (Ptr, MutPtr, RawPtr are all pointers)
+    let is_left_ptr = matches!(left, AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_));
+    let is_right_ptr = matches!(right, AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_));
+    if is_left_ptr && is_right_ptr {
+        return true;
+    }
+
     // All string types can be compared with each other
     let is_left_string = matches!(left, AstType::StaticString | AstType::StaticLiteral) || matches!(left, AstType::Struct { ref name, .. } if name == "String");
     let is_right_string = matches!(right, AstType::StaticString | AstType::StaticLiteral) || matches!(right, AstType::Struct { ref name, .. } if name == "String");

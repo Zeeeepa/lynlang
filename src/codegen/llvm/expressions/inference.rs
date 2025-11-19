@@ -174,6 +174,29 @@ pub fn infer_expression_type(compiler: &LLVMCompiler, expr: &Expression) -> Resu
                 }
             }
             Expression::FunctionCall { name, .. } => {
+                // Check if this is a compiler intrinsic function call (e.g., compiler.raw_allocate)
+                if name.starts_with("compiler.") {
+                    let method = &name[9..]; // Remove "compiler." prefix
+                    match method {
+                        "raw_allocate" | "raw_reallocate" | "raw_ptr_offset" |
+                        "raw_ptr_cast" | "gep" | "gep_struct" | "get_payload" |
+                        "null_ptr" | "load_library" | "get_symbol" | "call_external" => {
+                            // All these return *u8 (pointer to u8)
+                            return Ok(AstType::Ptr(Box::new(AstType::U8)));
+                        }
+                        "raw_deallocate" | "deallocate" | "inline_c" | "unload_library" | 
+                        "set_discriminant" | "set_payload" => {
+                            // These return void
+                            return Ok(AstType::Void);
+                        }
+                        "discriminant" => {
+                            // Returns i64 (the discriminant tag)
+                            return Ok(AstType::I64);
+                        }
+                        _ => {}
+                    }
+                }
+                
                 // Check if this is a generic type constructor like HashMap<K,V>()
                 if name.contains('<') && name.contains('>') {
                     // Parse the generic type from the name

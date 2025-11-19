@@ -77,7 +77,8 @@ fn register_core_module(checker: &mut TypeChecker, alias: &str) {
 
 fn register_compiler_module(checker: &mut TypeChecker, alias: &str) {
         // Register compiler intrinsics - these are handled specially in codegen
-        let ptr_u8 = AstType::RawPtr(Box::new(AstType::U8));
+        // Using Ptr(U8) instead of RawPtr(U8) for consistency with codegen
+        let ptr_u8 = AstType::Ptr(Box::new(AstType::U8));
         let compiler_funcs = vec![
             ("inline_c", vec![AstType::StaticString], AstType::Void),
             ("raw_allocate", vec![AstType::Usize], ptr_u8.clone()),
@@ -90,6 +91,14 @@ fn register_compiler_module(checker: &mut TypeChecker, alias: &str) {
             ("get_symbol", vec![ptr_u8.clone(), AstType::StaticString], ptr_u8.clone()),
             ("unload_library", vec![ptr_u8.clone()], AstType::Void),
             ("null_ptr", vec![], ptr_u8.clone()),
+            // GEP intrinsics
+            ("gep", vec![ptr_u8.clone(), AstType::Usize], ptr_u8.clone()),
+            ("gep_struct", vec![ptr_u8.clone(), AstType::I32], ptr_u8.clone()),
+            // Enum intrinsics
+            ("discriminant", vec![AstType::I64], AstType::I64), // Takes enum as i64 union
+            ("set_discriminant", vec![AstType::I64, AstType::I64], AstType::Void),
+            ("get_payload", vec![AstType::I64], ptr_u8.clone()), // Returns payload pointer
+            ("set_payload", vec![AstType::I64, ptr_u8.clone()], AstType::Void),
         ];
 
         for (name, args, ret) in compiler_funcs {

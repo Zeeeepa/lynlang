@@ -140,8 +140,11 @@ fn test_allocator_with_pointer_arithmetic() {
 fn test_allocator_loop_allocations() {
     let code = r#"
         main = () i32 {
-            i = 0
-            while (i < 10) {
+            i:: i32 = 0
+            loop {
+                cond = i < 10 ?
+                    | true { true }
+                    | false { break }
                 ptr = compiler.raw_allocate(50)
                 compiler.raw_deallocate(ptr, 50)
                 i = i + 1

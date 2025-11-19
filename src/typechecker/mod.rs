@@ -500,7 +500,63 @@ impl TypeChecker {
                                         None,
                                     ));
                                 }
-                                return Ok(AstType::RawPtr(Box::new(AstType::U8)));
+                                return Ok(AstType::Ptr(Box::new(AstType::U8)));
+                            }
+                            // GEP intrinsics
+                            ("compiler", "gep") => {
+                                if args.len() != 2 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.gep() expects 2 arguments (ptr, offset), got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::Ptr(Box::new(AstType::U8)));
+                            }
+                            ("compiler", "gep_struct") => {
+                                if args.len() != 2 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.gep_struct() expects 2 arguments (ptr, field_index), got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::Ptr(Box::new(AstType::U8)));
+                            }
+                            // Enum intrinsics
+                            ("compiler", "discriminant") => {
+                                if args.len() != 1 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.discriminant() expects 1 argument, got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::I64);
+                            }
+                            ("compiler", "set_discriminant") => {
+                                if args.len() != 2 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.set_discriminant() expects 2 arguments, got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::Void);
+                            }
+                            ("compiler", "get_payload") => {
+                                if args.len() != 1 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.get_payload() expects 1 argument, got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::Ptr(Box::new(AstType::U8)));
+                            }
+                            ("compiler", "set_payload") => {
+                                if args.len() != 2 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.set_payload() expects 2 arguments, got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::Void);
                             }
                             // Standard library functions
                             ("io", "print" | "println" | "print_int" | "print_float") => {
