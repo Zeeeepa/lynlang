@@ -137,6 +137,81 @@ impl CompilerModule {
             },
         );
 
+        // Enum intrinsics - exposed for pattern matching and enum manipulation
+        functions.insert(
+            "discriminant".to_string(),
+            StdFunction {
+                name: "discriminant".to_string(),
+                params: vec![("enum_value".to_string(), AstType::RawPtr(Box::new(AstType::U8)))],
+                return_type: AstType::I32,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "set_discriminant".to_string(),
+            StdFunction {
+                name: "set_discriminant".to_string(),
+                params: vec![
+                    ("enum_ptr".to_string(), AstType::RawPtr(Box::new(AstType::U8))),
+                    ("discriminant".to_string(), AstType::I32),
+                ],
+                return_type: AstType::Void,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "get_payload".to_string(),
+            StdFunction {
+                name: "get_payload".to_string(),
+                params: vec![("enum_value".to_string(), AstType::RawPtr(Box::new(AstType::U8)))],
+                return_type: AstType::RawPtr(Box::new(AstType::U8)),
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "set_payload".to_string(),
+            StdFunction {
+                name: "set_payload".to_string(),
+                params: vec![
+                    ("enum_ptr".to_string(), AstType::RawPtr(Box::new(AstType::U8))),
+                    ("payload".to_string(), AstType::RawPtr(Box::new(AstType::U8))),
+                ],
+                return_type: AstType::Void,
+                is_builtin: true,
+            },
+        );
+
+        // Pointer arithmetic intrinsic - GEP (GetElementPointer)
+        functions.insert(
+            "gep".to_string(),
+            StdFunction {
+                name: "gep".to_string(),
+                params: vec![
+                    ("base_ptr".to_string(), AstType::RawPtr(Box::new(AstType::U8))),
+                    ("offset".to_string(), AstType::I64),
+                ],
+                return_type: AstType::RawPtr(Box::new(AstType::U8)),
+                is_builtin: true,
+            },
+        );
+
+        // GEP for struct field access - variant that operates on typed pointers
+        functions.insert(
+            "gep_struct".to_string(),
+            StdFunction {
+                name: "gep_struct".to_string(),
+                params: vec![
+                    ("struct_ptr".to_string(), AstType::RawPtr(Box::new(AstType::U8))),
+                    ("field_index".to_string(), AstType::I32),
+                ],
+                return_type: AstType::RawPtr(Box::new(AstType::U8)),
+                is_builtin: true,
+            },
+        );
+
         CompilerModule { functions, types }
     }
 }

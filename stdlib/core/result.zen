@@ -1,128 +1,31 @@
-|
- Result.Err(error) { Result.Err(f(error)) }
-
-{ Option, Some, None, Result, Ok, Err } = @std
+// Result type for error handling
+// As per LANGUAGE_SPEC.zen: Result<T, E> for success/failure handling
 
 // Result type - represents success (Ok) or failure (Err)
 // Enums are sum types: a value is ONE of the variants, not all of them
-Result<T, E>: Ok: T, Err: E
-
-// Result methods implementation
-Result<T, E>.impl = {
-    // Check if Result is Ok
-    is_ok = (self: Result<T, E>) bool   {
-        self ?
-            | Result.Ok(_) { true }
-            | Result.Err(_) { false }
-    }
-    
-    // Check if Result is Err
-    is_err = (self: Result<T, E>) bool   {
-        self ?
-            | Result.Ok(_) { false }
-            | Result.Err(_) { true }
-    }
-    
-    // Extract Ok value or panic with message
-    unwrap = (self: Result<T, E>) T   {
-        self ?
-            | Result.Ok(value) { value }
-            | Result.Err(_) { core.panic("called Result.unwrap() on an Err value") }
-    }
-    
-    // Extract Ok value or return default
-    unwrap_or = (self: Result<T, E>, default: T) T   {
-        self ?
-            | Result.Ok(value) { value }
-            | Result.Err(_) { default }
-    }
-    
-    // Extract Ok value or compute default from closure
-    unwrap_or_else = (self: Result<T, E>, f: (E) { T }) T {
-        self ?
-            | Result.Ok(value) { value }
-            | Result.Err(error) { f(error) }
-    }
-    
-    // Extract Err value or panic
-    unwrap_err = (self: Result<T, E>) E   {
-        self ?
-            | Result.Ok(_) { core.panic("called Result.unwrap_err() on an Ok value") }
-            | Result.Err(error) { error }
-    }
-    
-    // Map Ok value through a function
-    map = (self: Result<T, E>, f: (T) { U }) Result<U, E> {
-        self ?
-            | Result.Ok(value) { Result.Ok(f(value)) }
-            | Result.Err(error) { Result.Err(error) }
-    }
-    
-    // Map Err value through a function
-    map_err = (self: Result<T, E>, f: (E) { F }) Result<T, F> {
-        self ?
-            | Result.Ok(value) { Result.Ok(value) }
-            | Result.Err(error) { Result.Err(f(error)) }
-    }
-    
-    // Chain Result operations
-    and_then = (self: Result<T, E>, f: (T) { Result<U, E> }) Result<U, E> {
-        self ?
-            | Result.Ok(value) { f(value) }
-            | Result.Err(error) { Result.Err(error) }
-    }
-    
-    // Chain error handling
-    or_else = (self: Result<T, E>, f: (E) { Result<T, F> }) Result<T, F> {
-        self ?
-            | Result.Ok(value) { Result.Ok(value) }
-            | Result.Err(error) { f(error) }
-    }
-    
-    // Combine two Results
-    and = (self: Result<T, E>, other: Result<U, E>) Result<U, E>   {
-        self ?
-            | Result.Ok(_) { other }
-            | Result.Err(error) { Result.Err(error) }
-    }
-    
-    // Return self if Ok, otherwise return other
-    or = (self: Result<T, E>, other: Result<T, F>) Result<T, F>   {
-        self ?
-            | Result.Ok(value) { Result.Ok(value) }
-            | Result.Err(_) { other }
-    }
-}
-
-
+Result<T, E>:
+    Ok: T,
+    Err: E
 
 // Utility functions for Result creation
-ok = (value: T) Result<T, E>   {
+ok = (value: T) Result<T, E> {
     return Result.Ok(value)
 }
 
-err = (error: E) Result<T, E>   {
+err = (error: E) Result<T, E> {
     return Result.Err(error)
 }
 
-
-
-// Error propagation using ? operator and pattern matching
-// Example: value := some_result?;  // Propagates error up
-// Or use explicit pattern matching:
-// some_result ? | Result.Ok(value) { process(value) }
-//              | Result.Err(e) { return Result.Err(e) }
-
-// Collect Results into a Result of collection
-collect_results = (results: Vec<Result<T, E>>) Result<DynVec<T>, E>   {
-    values := DynVec<T>{}
-    
-    (0..results.len()).loop((i) {
-        results[i] ?
-            | Result.Ok(value) { values.push(value) }
-            | Result.Err(error) { return Result.Err(error) }
-    })
-    
-    return Result.Ok(values)
+// Check if Result is Ok
+is_ok = (res: Result<T, E>) bool {
+    res ?
+        | Result.Ok(_) { true }
+        | Result.Err(_) { false }
 }
 
+// Check if Result is Err
+is_err = (res: Result<T, E>) bool {
+    res ?
+        | Result.Ok(_) { false }
+        | Result.Err(_) { true }
+}

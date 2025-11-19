@@ -14,6 +14,10 @@ fn test_basic_expressions() {
     let code = "x = 42";
     let result = parse_code(code);
     assert!(result.is_ok(), "Failed to parse basic assignment: {:?}", result.err());
+    
+    let program = result.unwrap();
+    assert!(!program.declarations.is_empty() || !program.statements.is_empty(),
+        "Program should contain declarations or statements");
 }
 
 #[test]
@@ -25,6 +29,9 @@ fn test_function_declarations() {
     "#;
     let result = parse_code(code);
     assert!(result.is_ok(), "Failed to parse function: {:?}", result.err());
+    
+    let program = result.unwrap();
+    assert!(!program.declarations.is_empty(), "Should have function declaration");
 }
 
 #[test]
@@ -37,6 +44,9 @@ fn test_struct_declarations() {
     "#;
     let result = parse_code(code);
     assert!(result.is_ok(), "Failed to parse struct: {:?}", result.err());
+    
+    let program = result.unwrap();
+    assert!(!program.declarations.is_empty(), "Should have struct declaration");
 }
 
 #[test]

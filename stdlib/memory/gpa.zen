@@ -1,58 +1,203 @@
 // GPA (General Purpose Allocator) - Built in Zen using @std.compiler primitives
-// This demonstrates how allocators are built from compiler primitives
+// This is a thin wrapper around the system malloc/free/realloc
+// It demonstrates how memory allocators are implemented from compiler primitives
 
 { compiler } = @std
-{ Result, Error } = @std
+{ Allocator } = @std.memory
 
-// Allocator trait/interface - all allocators must implement these
-Allocator: {
-    allocate: (size: usize) RawPtr<u8>,
-    deallocate: (ptr: RawPtr<u8>, size: usize) void,
-    reallocate: (ptr: RawPtr<u8>, old_size: usize, new_size: usize) RawPtr<u8>,
-}
-
-// GPA allocator struct - simple wrapper around compiler primitives
-GPA: {
+/// GPA allocator struct
+/// Simple wrapper around system memory allocation (malloc/free/realloc)
+/// No additional state - delegates directly to libc
+GPA = {
     // GPA uses the system allocator (malloc/free) directly
     // No additional state needed for basic implementation
+    // Advanced versions could track:
+    // - allocation statistics
+    // - free lists for faster allocation
+    // - fragmentation metrics
 }
 
-// Create a new GPA allocator
-GPA.new = () GPA {
+/// Create a new GPA allocator instance
+/// Since GPA has no state, this is essentially a no-op
+/// Returns: New GPA allocator
+fn GPA.new() -> GPA {
     return GPA{}
 }
 
-// Allocate memory using GPA
-GPA.allocate = (self: GPA, size: usize) RawPtr<u8> {
+/// Allocate memory using GPA
+/// Delegates to compiler.raw_allocate which calls malloc
+/// Parameters:
+///   size: Number of bytes to allocate
+/// Returns: Pointer to allocated memory (null if failed)
+fn GPA.allocate(alloc: GPA, size: usize) -> *u8 {
+    if (size == 0) {
+        return compiler.null_ptr()
+    }
     return compiler.raw_allocate(size)
 }
 
-// Deallocate memory using GPA
-GPA.deallocate = (self: GPA, ptr: RawPtr<u8>, size: usize) void {
+/// Deallocate memory using GPA
+/// Delegates to compiler.raw_deallocate which calls free
+/// Parameters:
+///   ptr: Pointer to deallocate (must be from allocate())
+///   size: Size of allocation (must match allocate() call)
+/// Returns: void
+fn GPA.deallocate(alloc: GPA, ptr: *u8, size: usize) -> void {
+    if (ptr == compiler.null_ptr()) {
+        return // Deallocating null is safe
+    }
     compiler.raw_deallocate(ptr, size)
 }
 
-// Reallocate memory using GPA
-GPA.reallocate = (self: GPA, ptr: RawPtr<u8>, old_size: usize, new_size: usize) RawPtr<u8> {
+/// Reallocate memory using GPA
+/// Delegates to compiler.raw_reallocate which calls realloc
+/// Parameters:
+///   ptr: Pointer to reallocate (must be from allocate())
+///   old_size: Original allocation size
+///   new_size: New size for allocation
+/// Returns: Pointer to reallocated memory (null if failed)
+fn GPA.reallocate(alloc: GPA, ptr: *u8, old_size: usize, new_size: usize) -> *u8 {
+    if (ptr == compiler.null_ptr()) {
+        return alloc.allocate(new_size)
+    }
+    if (new_size == 0) {
+        alloc.deallocate(ptr, old_size)
+        return compiler.null_ptr()
+    }
     return compiler.raw_reallocate(ptr, old_size, new_size)
 }
 
-// Get default GPA allocator (singleton pattern)
-default_gpa = () GPA {
-    return GPA.new()
+/// Global default GPA allocator instance (singleton)
+/// Created once and reused throughout the program
+_default_gpa: GPA = GPA{}
+
+/// Get the default GPA allocator
+/// Returns singleton instance of GPA allocator
+/// Can be used by any type that needs memory allocation
+/// Returns: Reference to global GPA instance
+fn default_gpa() -> GPA {
+    return _default_gpa
 }
 
-// Helper function to allocate typed memory
-allocate_typed = <T>(alloc: GPA, count: usize) RawPtr<T> {
-    size = count * core.size_of<T>()
-    ptr = alloc.allocate(size)
-    return compiler.raw_ptr_cast(ptr) // Cast to typed pointer
+/// Create an Allocator interface from a GPA instance
+/// This allows GPA to be used where an Allocator is expected
+/// Parameters:
+///   gpa: GPA instance to wrap
+/// Returns: Allocator interface wrapping the GPA
+fn GPA.to_allocator(gpa: GPA) -> Allocator {
+    // Implementation would create a wrapper
+    // For now, types should directly use GPA
+    return gpa as Allocator
 }
 
-// Helper function to deallocate typed memory
-deallocate_typed = <T>(alloc: GPA, ptr: RawPtr<T>, count: usize) void {
-    size = count * core.size_of<T>()
-    raw_ptr = compiler.raw_ptr_cast(ptr) // Cast back to raw pointer
+// ============================================================================
+// Helper functions for typed allocations
+// ============================================================================
+
+/// Allocate memory for a single value of type T
+/// Parameters:
+///   alloc: GPA allocator
+/// Returns: Pointer to allocated memory for one T
+fn allocate_one<T>(alloc: GPA) -> *T {
+    let size = @size_of<T>()
+    let ptr = alloc.allocate(size)
+    return compiler.raw_ptr_cast(ptr) as *T
+}
+
+/// Deallocate memory for a single value of type T
+/// Parameters:
+///   alloc: GPA allocator
+///   ptr: Pointer to deallocate
+/// Returns: void
+fn deallocate_one<T>(alloc: GPA, ptr: *T) -> void {
+    let size = @size_of<T>()
+    let raw_ptr = compiler.raw_ptr_cast(ptr) as *u8
     alloc.deallocate(raw_ptr, size)
+}
+
+/// Allocate memory for an array of type T
+/// Parameters:
+///   alloc: GPA allocator
+///   count: Number of elements
+/// Returns: Pointer to allocated array
+fn allocate_array<T>(alloc: GPA, count: usize) -> *T {
+    let item_size = @size_of<T>()
+    let total_size = count * item_size
+    if (total_size < count) {
+        return compiler.null_ptr() as *T // Overflow check
+    }
+    let ptr = alloc.allocate(total_size)
+    return compiler.raw_ptr_cast(ptr) as *T
+}
+
+/// Deallocate memory for an array of type T
+/// Parameters:
+///   alloc: GPA allocator
+///   ptr: Pointer to array
+///   count: Number of elements
+/// Returns: void
+fn deallocate_array<T>(alloc: GPA, ptr: *T, count: usize) -> void {
+    let item_size = @size_of<T>()
+    let total_size = count * item_size
+    let raw_ptr = compiler.raw_ptr_cast(ptr) as *u8
+    alloc.deallocate(raw_ptr, total_size)
+}
+
+/// Reallocate array from one size to another
+/// Parameters:
+///   alloc: GPA allocator
+///   ptr: Pointer to existing array
+///   old_count: Current number of elements
+///   new_count: Desired number of elements
+/// Returns: Pointer to reallocated array
+fn reallocate_array<T>(alloc: GPA, ptr: *T, old_count: usize, new_count: usize) -> *T {
+    let item_size = @size_of<T>()
+    let old_size = old_count * item_size
+    let new_size = new_count * item_size
+    
+    if (new_size < new_count) {
+        return compiler.null_ptr() as *T // Overflow check
+    }
+    
+    let raw_ptr = compiler.raw_ptr_cast(ptr) as *u8
+    let new_raw_ptr = alloc.reallocate(raw_ptr, old_size, new_size)
+    
+    return compiler.raw_ptr_cast(new_raw_ptr) as *T
+}
+
+// ============================================================================
+// Memory utilities
+// ============================================================================
+
+/// Zero-fill memory region
+/// Writes zeros to `size` bytes starting at `ptr`
+/// Parameters:
+///   ptr: Pointer to memory to zero
+///   size: Number of bytes to zero
+/// Returns: void
+fn memzero(ptr: *u8, size: usize) -> void {
+    let i = 0
+    while (i < size) {
+        // TODO: Use compiler intrinsic for efficient memzero
+        ptr = compiler.gep(ptr, 1)
+        i = i + 1
+    }
+}
+
+/// Copy memory region
+/// Copies `size` bytes from `src` to `dst`
+/// Parameters:
+///   dst: Destination pointer
+///   src: Source pointer
+///   size: Number of bytes to copy
+/// Returns: void
+fn memcpy(dst: *u8, src: *u8, size: usize) -> void {
+    let i = 0
+    while (i < size) {
+        // TODO: Use compiler intrinsic for efficient memcpy
+        let byte = @load(compiler.gep(src, i as i64)) as u8
+        @store(compiler.gep(dst, i as i64), byte)
+        i = i + 1
+    }
 }
 

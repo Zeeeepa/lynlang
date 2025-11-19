@@ -221,3 +221,47 @@ pub fn compile_null_ptr<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     compiler::compile_null_ptr(compiler, args)
 }
+
+// Delegate to compiler module - enum intrinsics
+pub fn compile_discriminant<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_discriminant(compiler, args)
+}
+
+pub fn compile_set_discriminant<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_set_discriminant(compiler, args)
+}
+
+pub fn compile_get_payload<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_get_payload(compiler, args)
+}
+
+pub fn compile_set_payload<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_set_payload(compiler, args)
+}
+
+// Delegate to compiler module - GEP intrinsics
+pub fn compile_gep<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_gep(compiler, args)
+}
+
+pub fn compile_gep_struct<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_gep_struct(compiler, args)
+}

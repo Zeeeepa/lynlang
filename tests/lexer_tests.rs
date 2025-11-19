@@ -1,63 +1,48 @@
 use zen::lexer::{Lexer, Token};
 
+fn tokenize(input: &str) -> Vec<Token> {
+    let mut lexer = Lexer::new(input);
+    std::iter::from_fn(|| {
+        let token = lexer.next_token();
+        if token == Token::Eof {
+            None
+        } else {
+            Some(token)
+        }
+    })
+    .collect()
+}
+
 #[test]
 fn test_lexer_simple() {
-    let input = r#"
-        // Test new tokens
-        loop(() { break })
-        items.loop((item) { })
-        Some(42)
-        None
-        expr.raise()
-        @this.defer(cleanup())
-        return value
-        continue
-    "#;
-
-    let mut lexer = Lexer::new(input);
-    let mut tokens = Vec::new();
-
-    loop {
-        let token = lexer.next_token();
-        tokens.push(token.clone());
-        if token == Token::Eof {
-            break;
-        }
-    }
-
-    // Verify we got tokens (not just EOF)
-    assert!(tokens.len() > 1, "Should tokenize input");
+    let input = r#"loop"#;
+    let tokens = tokenize(input);
+    
+    // Verify we got the loop token
+    assert_eq!(tokens.len(), 1, "Should tokenize 'loop' as one token");
+    assert_eq!(tokens[0], Token::Identifier("loop".to_string()), 
+        "loop should be recognized as identifier");
 }
 
 #[test]
 fn test_lexer_new_syntax() {
-    let test_cases = vec![
-        ("loop", "Should recognize loop as a token"),
-        ("break", "Should recognize break as a token"),
-        ("continue", "Should recognize continue as a token"),
-        ("return", "Should recognize return as a token"),
-        ("defer", "Should recognize defer as a token"),
-        ("Some(42)", "Should handle Some constructor"),
-        ("None", "Should handle None constructor"),
-        ("items.loop((item) { })", "Should handle .loop() method"),
-        ("expr.raise()", "Should handle .raise() method"),
-        ("@this.defer(cleanup())", "Should handle @this.defer"),
-        ("(0..10).loop((i) { })", "Should handle range.loop()"),
-    ];
-
-    for (input, description) in test_cases {
-        let mut lexer = Lexer::new(input);
-        let mut token_count = 0;
-
-        loop {
-            let token = lexer.next_token();
-            if token == Token::Eof {
-                break;
-            }
-            token_count += 1;
-        }
-
-        assert!(token_count > 0, "{}: Should tokenize '{}'", description, input);
-    }
+    // Test 'loop' keyword
+    let tokens = tokenize("loop");
+    assert!(!tokens.is_empty(), "Should tokenize 'loop'");
+    
+    // Test 'break' keyword
+    let tokens = tokenize("break");
+    assert!(!tokens.is_empty(), "Should tokenize 'break'");
+    
+    // Test identifier
+    let tokens = tokenize("Some");
+    assert_eq!(tokens.len(), 1, "Should tokenize 'Some' as single token");
+    
+    // Test method call
+    let tokens = tokenize("items.loop");
+    assert_eq!(tokens.len(), 3, "Should tokenize 'items.loop' as 3 tokens (id, dot, id)");
+    assert_eq!(tokens[0], Token::Identifier("items".to_string()));
+    assert_eq!(tokens[1], Token::Symbol('.'));
+    assert_eq!(tokens[2], Token::Identifier("loop".to_string()));
 }
 

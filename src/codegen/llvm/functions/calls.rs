@@ -92,6 +92,12 @@ pub fn compile_function_call<'ctx>(
                         "get_symbol" => return stdlib::compile_get_symbol(compiler, args),
                         "unload_library" => return stdlib::compile_unload_library(compiler, args),
                         "null_ptr" => return stdlib::compile_null_ptr(compiler, args),
+                        "discriminant" => return stdlib::compile_discriminant(compiler, args),
+                        "set_discriminant" => return stdlib::compile_set_discriminant(compiler, args),
+                        "get_payload" => return stdlib::compile_get_payload(compiler, args),
+                        "set_payload" => return stdlib::compile_set_payload(compiler, args),
+                        "gep" => return stdlib::compile_gep(compiler, args),
+                        "gep_struct" => return stdlib::compile_gep_struct(compiler, args),
                         _ => {}
                     }
                 } else if module == "Result" {

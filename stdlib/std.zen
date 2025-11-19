@@ -1,0 +1,186 @@
+// Standard Library Entry Point for Zen
+// This module serves as the main @std namespace
+// All other stdlib modules are imported and re-exported here
+
+// ============================================================================
+// Compiler Intrinsics Module
+// ============================================================================
+// These are the fundamental primitives provided by the Zen compiler
+// Everything else in the stdlib is built from these primitives
+
+compiler = {
+    // Memory Management
+    raw_allocate: (size: usize) *u8,
+    raw_deallocate: (ptr: *u8, size: usize) void,
+    raw_reallocate: (ptr: *u8, old_size: usize, new_size: usize) *u8,
+    
+    // Pointer Operations
+    raw_ptr_offset: (ptr: *u8, offset: i64) *u8,
+    raw_ptr_cast: (ptr: *u8) *u8,
+    null_ptr: () *u8,
+    
+    // Pointer Arithmetic
+    gep: (ptr: *u8, offset: i64) *u8,
+    gep_struct: (ptr: *u8, field_index: i32) *u8,
+    
+    // Enum Intrinsics
+    discriminant: (enum_val) i64,
+    set_discriminant: (enum_ptr: *u8, tag: i64) void,
+    get_payload: (enum_val) *u8,
+    set_payload: (enum_ptr: *u8, payload: *u8) void,
+    
+    // FFI (Placeholder - not yet implemented)
+    load_library: (path: str) *u8,
+    get_symbol: (lib: *u8, name: str) *u8,
+    unload_library: (lib: *u8) void,
+    call_external: (func_ptr: *u8, args: *u8) *u8,
+    
+    // Inline C Code (Placeholder)
+    inline_c: (code: str) void,
+}
+
+// ============================================================================
+// Core Module
+// ============================================================================
+// Fundamental types and operations
+
+core = {
+    // Option type - represents optional values
+    Option: {
+        Some: (value) Option,
+        None: () Option,
+    },
+    
+    // Result type - represents success or error
+    Result: {
+        Ok: (value) Result,
+        Err: (error) Result,
+    },
+}
+
+// ============================================================================
+// Memory Module
+// ============================================================================
+// Allocator interfaces and implementations
+
+memory = {
+    // Allocator trait
+    Allocator: {
+        allocate: (size: usize) *u8,
+        deallocate: (ptr: *u8, size: usize) void,
+        reallocate: (ptr: *u8, old_size: usize, new_size: usize) *u8,
+    },
+    
+    // GPA (General Purpose Allocator)
+    GPA: {},
+    
+    // Get default allocator
+    get_default_allocator: () Allocator,
+}
+
+// ============================================================================
+// I/O Module
+// ============================================================================
+// Input and output operations
+
+io = {
+    print: (msg: str) void,
+    println: (msg: str) void,
+    print_int: (value: i64) void,
+    print_float: (value: f64) void,
+    read_line: () str,
+    read_file: (path: str) str,
+    write_file: (path: str, content: str) void,
+}
+
+// ============================================================================
+// Collections Module
+// ============================================================================
+// Dynamic data structures
+
+collections = {
+    Vec: {},
+    HashMap: {},
+    HashSet: {},
+}
+
+// ============================================================================
+// String Module
+// ============================================================================
+// Dynamic string type
+
+String: {
+    // String is implemented in stdlib/string.zen
+    // It's a dynamic array of bytes
+}
+
+// ============================================================================
+// Math Module
+// ============================================================================
+// Mathematical functions
+
+math = {
+    sqrt: (x: f64) f64,
+    sin: (x: f64) f64,
+    cos: (x: f64) f64,
+    tan: (x: f64) f64,
+    pow: (x: f64, y: f64) f64,
+    exp: (x: f64) f64,
+    log: (x: f64) f64,
+    floor: (x: f64) f64,
+    ceil: (x: f64) f64,
+    round: (x: f64) f64,
+    abs: (x: i64) i64,
+    min: (x: f64, y: f64) f64,
+    max: (x: f64, y: f64) f64,
+}
+
+// ============================================================================
+// FileSystem Module
+// ============================================================================
+// File and directory operations
+
+fs = {
+    read: (path: str) str,
+    write: (path: str, content: str) void,
+    exists: (path: str) bool,
+    delete: (path: str) void,
+}
+
+// ============================================================================
+// Network Module
+// ============================================================================
+// Network operations (placeholder)
+
+net = {
+    // Network operations (future)
+}
+
+// ============================================================================
+// Testing Module
+// ============================================================================
+// Testing utilities
+
+testing = {
+    assert: (condition: bool, message: str) void,
+    assertEqual: (a, b, message: str) void,
+}
+
+// ============================================================================
+// Export all modules
+// ============================================================================
+// When code does: { io, memory, compiler } = @std
+// These exports are what become available
+
+export {
+    compiler,
+    core,
+    memory,
+    io,
+    collections,
+    String,
+    math,
+    fs,
+    net,
+    testing,
+}

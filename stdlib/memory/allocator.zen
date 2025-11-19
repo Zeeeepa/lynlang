@@ -1,0 +1,182 @@
+// Standard Allocator Interface for Zen
+// This defines the contract for all memory allocators
+// All memory-managing types should accept an Allocator parameter
+
+{ compiler } = @std
+
+/// Allocator trait - all custom allocators must implement these methods
+/// The allocator is responsible for managing memory: allocation, deallocation, reallocation
+Allocator = {
+    /// Allocate `size` bytes of memory
+    /// Returns: pointer to allocated memory, or null if allocation fails
+    /// Note: Allocated memory is NOT initialized
+    allocate: (size: usize) -> *u8,
+    
+    /// Deallocate memory previously allocated by this allocator
+    /// The pointer and size must match a previous allocate() call
+    /// Behavior is undefined if called with mismatched pointer/size
+    deallocate: (ptr: *u8, size: usize) -> void,
+    
+    /// Reallocate memory to a new size
+    /// If new_size < old_size, extra bytes are lost
+    /// If new_size > old_size, new bytes are NOT initialized
+    /// The old pointer becomes invalid after this call
+    /// Returns: pointer to reallocated memory (may differ from input ptr)
+    reallocate: (ptr: *u8, old_size: usize, new_size: usize) -> *u8,
+}
+
+/// Default allocator type - typically GPA (General Purpose Allocator)
+/// This is the allocator used when no explicit allocator is provided
+DefaultAllocator: {
+    // Placeholder - actual implementation in gpa.zen
+}
+
+/// Get the default allocator instance
+/// This returns a singleton instance used throughout the program
+/// Override by setting @std.memory.default_allocator
+fn get_default_allocator() -> Allocator {
+    // Implementation provided by GPA module
+    @std.memory.gpa.default_gpa()
+}
+
+/// Helper function to allocate typed memory with alignment
+/// This allocates space for `count` instances of type T
+/// The returned pointer is properly aligned for type T
+fn allocate_array<T>(allocator: Allocator, count: usize) -> *T {
+    let item_size = @size_of<T>()
+    let total_size = count * item_size
+    
+    let raw_ptr = allocator.allocate(total_size)
+    return compiler.raw_ptr_cast(raw_ptr) as *T
+}
+
+/// Helper function to deallocate typed memory
+/// This deallocates an array of `count` instances of type T
+fn deallocate_array<T>(allocator: Allocator, ptr: *T, count: usize) -> void {
+    let item_size = @size_of<T>()
+    let total_size = count * item_size
+    
+    let raw_ptr = compiler.raw_ptr_cast(ptr) as *u8
+    allocator.deallocate(raw_ptr, total_size)
+}
+
+/// Helper function to reallocate typed memory
+/// This reallocates an array from `old_count` to `new_count` instances of type T
+fn reallocate_array<T>(allocator: Allocator, ptr: *T, old_count: usize, new_count: usize) -> *T {
+    let item_size = @size_of<T>()
+    let old_size = old_count * item_size
+    let new_size = new_count * item_size
+    
+    let raw_ptr = compiler.raw_ptr_cast(ptr) as *u8
+    let new_raw_ptr = allocator.reallocate(raw_ptr, old_size, new_size)
+    
+    return compiler.raw_ptr_cast(new_raw_ptr) as *T
+}
+
+/// Arena allocator interface for bump allocation
+/// Useful for temporary allocations with bulk deallocation
+ArenaAllocator = {
+    /// Allocate from the arena
+    allocate: (size: usize) -> *u8,
+    
+    /// Reset arena to initial state (deallocates all)
+    reset: () -> void,
+    
+    /// Deallocate is typically a no-op in arena allocators
+    deallocate: (ptr: *u8, size: usize) -> void,
+    
+    /// Reallocate not supported in basic arena
+    reallocate: (ptr: *u8, old_size: usize, new_size: usize) -> *u8,
+}
+
+/// Pool allocator interface for fixed-size allocations
+/// Useful for allocating many objects of the same size
+PoolAllocator = {
+    /// Allocate a fixed-size block
+    allocate_block: () -> *u8,
+    
+    /// Deallocate a block
+    deallocate_block: (ptr: *u8) -> void,
+    
+    /// Get available block count
+    available_blocks: () -> usize,
+}
+
+/// Threadsafe allocator wrapper
+/// Wraps another allocator with synchronization primitives
+ThreadsafeAllocator = {
+    /// Allocate with thread safety
+    allocate: (size: usize) -> *u8,
+    
+    /// Deallocate with thread safety
+    deallocate: (ptr: *u8, size: usize) -> void,
+    
+    /// Reallocate with thread safety
+    reallocate: (ptr: *u8, old_size: usize, new_size: usize) -> *u8,
+}
+
+/// Statistics tracking allocator
+/// Wraps another allocator and tracks allocation patterns
+StatsAllocator = {
+    total_allocated: usize,
+    total_deallocated: usize,
+    current_usage: usize,
+    peak_usage: usize,
+    allocation_count: usize,
+    
+    allocate: (size: usize) -> *u8,
+    deallocate: (ptr: *u8, size: usize) -> void,
+    reallocate: (ptr: *u8, old_size: usize, new_size: usize) -> *u8,
+    
+    /// Get current memory usage
+    get_usage: () -> usize,
+    
+    /// Get peak memory usage
+    get_peak: () -> usize,
+    
+    /// Reset statistics
+    reset_stats: () -> void,
+}
+
+/// Memory layout constraints for allocator implementations
+/// Allocators should respect these to ensure safety
+AllocatorConstraints = {
+    /// Minimum allocation size in bytes
+    min_alignment: usize,
+    
+    /// Maximum allocation size in bytes
+    max_allocation: usize,
+    
+    /// Whether allocations can be reallocated
+    supports_realloc: bool,
+    
+    /// Whether allocator is threadsafe
+    is_threadsafe: bool,
+    
+    /// Whether allocator tracks statistics
+    tracks_stats: bool,
+}
+
+/// Result type for allocator operations that can fail
+AllocResult<T> = Result<T, AllocError>
+
+/// Error types for allocator operations
+AllocError = {
+    OutOfMemory,        // Allocation failed due to insufficient memory
+    InvalidPointer,     // Pointer is invalid or not from this allocator
+    InvalidSize,        // Size is invalid (0 or too large)
+    Alignment,          // Alignment requirements not met
+    Corruption,         // Heap corruption detected
+}
+
+/// Set custom default allocator (for advanced users)
+/// Should be called early in program initialization
+fn set_default_allocator(allocator: Allocator) -> void {
+    // Implementation would set global allocator reference
+}
+
+/// Check if two allocators are the same instance
+fn same_allocator(a: Allocator, b: Allocator) -> bool {
+    // Implementation would compare allocator identities
+    return false // Placeholder
+}

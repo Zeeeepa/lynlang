@@ -9,7 +9,6 @@ pub mod io;
 pub mod math;
 pub mod net;
 pub mod result;
-pub mod string;
 pub mod vec;
 
 /// The @std namespace provides built-in compiler intrinsics and standard library access
@@ -25,7 +24,6 @@ pub enum StdModule {
     Build(build::BuildModule),
     IO(io::IOModule),
     Math(math::MathModule),
-    String(string::StringModule),
     Vec(vec::VecModule),
     Fs(fs::FsModule),
 }
@@ -46,10 +44,6 @@ impl StdNamespace {
         );
         modules.insert("io".to_string(), StdModule::IO(io::IOModule::new()));
         modules.insert("math".to_string(), StdModule::Math(math::MathModule::new()));
-        modules.insert(
-            "string".to_string(),
-            StdModule::String(string::StringModule::new()),
-        );
         modules.insert("vec".to_string(), StdModule::Vec(vec::VecModule::new()));
         modules.insert("fs".to_string(), StdModule::Fs(fs::FsModule::new()));
 

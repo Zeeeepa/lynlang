@@ -104,9 +104,9 @@ pub fn compile_pattern_match<'ctx>(
             // Position builder at merge block
             compiler.builder.position_at_end(merge_block);
             
-            // For now, return void - in a full implementation, we'd need to phi nodes
-            // to merge values from different arms
-            // Void expressions don't produce a value, so we return a dummy i32
+            // For now, return a dummy value - proper phi node merging would require
+            // tracking values from each arm. This is a TODO for proper expression typing.
+            // Return i32 zero for void-like expressions (QuestionMatch shouldn't be used for values)
             Ok(compiler.context.i32_type().const_int(0, false).into())
         }
         Expression::Conditional { scrutinee, arms } => {

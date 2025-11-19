@@ -43,74 +43,57 @@ fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
     let end_line = range.end.line as usize;
     let end_char = range.end.character as usize;
     
-    // Debug logging (can be removed later)
-    eprintln!("[LSP DEBUG] apply_text_edit: range=({}:{} -> {}:{}), new_text_len={}, content_len={}", 
-              start_line, start_char, end_line, end_char, new_text.len(), content.len());
+    eprintln!("[LSP DEBUG] apply_text_edit called: range=({}:{} -> {}:{}), new_text='{}' (len={}), content_len={}", 
+              start_line, start_char, end_line, end_char, 
+              new_text.chars().take(30).collect::<String>(),
+              new_text.len(), content.len());
     
-    // Calculate start byte offset by scanning content
-    // LSP positions are BETWEEN characters, so we need to find the byte position
-    // that corresponds to "after N characters on line M"
-    let mut current_line = 0;
-    let mut current_char = 0;
-    let mut start_byte = 0;
-    let mut found_start = false;
-    
-    for (byte_idx, ch) in content.char_indices() {
-        // Check BEFORE processing this character
-        if current_line == start_line && current_char == start_char {
-            start_byte = byte_idx;
-            found_start = true;
-            break; // Found start, can break
+    // Helper function to convert LSP position to byte offset
+    fn position_to_byte_offset(content: &str, target_line: usize, target_char: usize) -> usize {
+        let mut current_line = 0;
+        let mut current_char = 0;
+        
+        for (byte_idx, ch) in content.char_indices() {
+            // Check if we've reached the target position
+            if current_line == target_line && current_char == target_char {
+                return byte_idx;
+            }
+            
+            // Move to next position AFTER the check
+            if ch == '\n' {
+                current_line += 1;
+                current_char = 0;
+            } else {
+                current_char += 1;
+            }
         }
         
-        // Then process the character
-        if ch == '\n' {
-            current_line += 1;
-            current_char = 0;
-        } else {
-            current_char += 1;
-        }
-    }
-    
-    // If start wasn't found (beyond end of file), use content length
-    if !found_start {
-        start_byte = content.len();
-    }
-    
-    // Calculate end byte offset - scan from start_byte
-    let mut end_byte = start_byte;
-    let mut found_end = false;
-    
-    // Track line/char from the start position
-    let mut end_current_line = start_line;
-    let mut end_current_char = start_char;
-    
-    for (byte_idx, ch) in content[start_byte..].char_indices() {
-        let absolute_byte = start_byte + byte_idx;
-        
-        // Check BEFORE processing this character
-        if end_current_line == end_line && end_current_char == end_char {
-            end_byte = absolute_byte;
-            found_end = true;
-            break;
+        // If target position is at end of file, return content length
+        // This handles the case where position is after the last character
+        if current_line == target_line && current_char == target_char {
+            return content.len();
         }
         
-        // Then process the character
-        if ch == '\n' {
-            end_current_line += 1;
-            end_current_char = 0;
-        } else {
-            end_current_char += 1;
-        }
+        // Beyond end of file - clamp to content length
+        content.len()
     }
     
-    // If end wasn't found (beyond end of file), use content length
-    if !found_end {
-        end_byte = content.len();
-    }
+    let start_byte = position_to_byte_offset(content, start_line, start_char);
+    let end_byte = position_to_byte_offset(content, end_line, end_char);
     
-    eprintln!("[LSP DEBUG] Calculated offsets: start_byte={}, end_byte={}, replacing '{}'", 
-              start_byte, end_byte, &content[start_byte..end_byte.min(content.len())]);
+    eprintln!("[LSP DEBUG] Converted positions: start_byte={}, end_byte={}", start_byte, end_byte);
+    eprintln!("[LSP DEBUG] Will replace: '{}'", 
+              &content[start_byte..end_byte.min(content.len())].chars().take(50).collect::<String>());
+    
+    // Ensure byte offsets are valid and ordered
+    let start_byte = start_byte.min(content.len());
+    let end_byte = end_byte.min(content.len());
+    let (start_byte, end_byte) = if start_byte <= end_byte {
+        (start_byte, end_byte)
+    } else {
+        eprintln!("[LSP WARN] Start byte > end byte, swapping: {} > {}", start_byte, end_byte);
+        (end_byte, start_byte)
+    };
     
     // Apply the edit: replace the range with new_text
     let mut result = String::with_capacity(content.len() - (end_byte - start_byte) + new_text.len());
@@ -118,6 +101,7 @@ fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
     result.push_str(new_text);
     result.push_str(&content[end_byte..]);
     
+    eprintln!("[LSP DEBUG] Result length: {} (was {})", result.len(), content.len());
     result
 }
 

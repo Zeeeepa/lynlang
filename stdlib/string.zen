@@ -234,4 +234,364 @@ String.concat = (s1: String, s2: String, allocator: Allocator) String {
     }
 }
 
+// Search for substring
+String.contains = (self: String, pattern: String) bool {
+    pattern_len := pattern.len
+    self_len := self.len
+    
+    // Pattern longer than string, can't contain
+    pattern_len > self_len ? { return false }
+    
+    // Empty pattern always contained
+    pattern_len == 0 ? { return true }
+    
+    // Search for pattern
+    i := 0
+    loop(() {
+        (i + pattern_len) > self_len ? { break }
+        
+        // Check if pattern matches at position i
+        j := 0
+        match := true
+        loop(() {
+            j >= pattern_len ? { break }
+            self.data[i + j] != pattern.data[j] ? {
+                match = false
+                break
+            }
+            j = j + 1
+        })
+        
+        match ? { return true }
+        i = i + 1
+    })
+    
+    return false
+}
+
+// Check if string starts with prefix
+String.starts_with = (self: String, prefix: String) bool {
+    prefix_len := prefix.len
+    self_len := self.len
+    
+    // Prefix longer than string
+    prefix_len > self_len ? { return false }
+    
+    // Check prefix match
+    i := 0
+    loop(() {
+        i >= prefix_len ? { break }
+        self.data[i] != prefix.data[i] ? { return false }
+        i = i + 1
+    })
+    
+    return true
+}
+
+// Check if string ends with suffix
+String.ends_with = (self: String, suffix: String) bool {
+    suffix_len := suffix.len
+    self_len := self.len
+    
+    // Suffix longer than string
+    suffix_len > self_len ? { return false }
+    
+    // Check suffix match
+    offset := self_len - suffix_len
+    i := 0
+    loop(() {
+        i >= suffix_len ? { break }
+        self.data[offset + i] != suffix.data[i] ? { return false }
+        i = i + 1
+    })
+    
+    return true
+}
+
+// Replace first occurrence of old with new
+String.replace = (self: String, old: String, new: String) Result<String, StaticString> {
+    old_len := old.len
+    new_len := new.len
+    self_len := self.len
+    
+    // If old is empty, error
+    old_len == 0 ? { return Result::Err("Cannot replace empty string") }
+    
+    // Find first occurrence
+    found_pos := -1
+    i := 0
+    loop(() {
+        (i + old_len) > self_len ? { break }
+        
+        // Check if old matches at position i
+        j := 0
+        match := true
+        loop(() {
+            j >= old_len ? { break }
+            self.data[i + j] != old.data[j] ? {
+                match = false
+                break
+            }
+            j = j + 1
+        })
+        
+        match ? {
+            found_pos = i
+            break
+        }
+        i = i + 1
+    })
+    
+    // If not found, return copy
+    found_pos < 0 ? {
+        return Result::Ok(self.clone())
+    }
+    
+    // Build result string with replacement
+    new_len_result := self_len - old_len + new_len
+    new_capacity := new_len_result + 1
+    new_data := self.allocator.alloc(new_capacity)
+    
+    // Copy before replacement
+    i := 0
+    loop(() {
+        i >= found_pos ? { break }
+        new_data[i] = self.data[i]
+        i = i + 1
+    })
+    
+    // Copy replacement
+    i = 0
+    loop(() {
+        i >= new_len ? { break }
+        new_data[found_pos + i] = new.data[i]
+        i = i + 1
+    })
+    
+    // Copy after replacement
+    after_start := found_pos + old_len
+    after_len := self_len - after_start
+    i = 0
+    loop(() {
+        i >= after_len ? { break }
+        new_data[found_pos + new_len + i] = self.data[after_start + i]
+        i = i + 1
+    })
+    
+    // Null terminator
+    new_data[new_len_result] = 0
+    
+    return Result::Ok(String {
+        data: new_data,
+        len: new_len_result,
+        capacity: new_capacity,
+        allocator: self.allocator
+    })
+}
+
+// Trim whitespace from both ends
+String.trim = (self: String) String {
+    self_len := self.len
+    
+    // Find start of non-whitespace
+    start := 0
+    loop(() {
+        start >= self_len ? { break }
+        c := self.data[start]
+        // Check for whitespace: space (32), tab (9), newline (10), carriage return (13)
+        (c == 32 || c == 9 || c == 10 || c == 13) ? {
+            start = start + 1
+        } ? {
+            break
+        }
+    })
+    
+    // Find end of non-whitespace
+    end := self_len
+    loop(() {
+        end <= start ? { break }
+        c := self.data[end - 1]
+        (c == 32 || c == 9 || c == 10 || c == 13) ? {
+            end = end - 1
+        } ? {
+            break
+        }
+    })
+    
+    // Build trimmed string
+    trimmed_len := end - start
+    new_data := self.allocator.alloc(trimmed_len + 1)
+    
+    i := 0
+    loop(() {
+        i >= trimmed_len ? { break }
+        new_data[i] = self.data[start + i]
+        i = i + 1
+    })
+    new_data[trimmed_len] = 0
+    
+    return String {
+        data: new_data,
+        len: trimmed_len,
+        capacity: trimmed_len + 1,
+        allocator: self.allocator
+    }
+}
+
+// Convert to uppercase
+String.to_upper = (self: String) String {
+    new_data := self.allocator.alloc(self.capacity)
+    
+    i := 0
+    loop(() {
+        i > self.len ? { break }  // Include null terminator
+        c := self.data[i]
+        // Convert lowercase (a-z: 97-122) to uppercase (A-Z: 65-90)
+        (c >= 97 && c <= 122) ? {
+            new_data[i] = c - 32
+        } ? {
+            new_data[i] = c
+        }
+        i = i + 1
+    })
+    
+    return String {
+        data: new_data,
+        len: self.len,
+        capacity: self.capacity,
+        allocator: self.allocator
+    }
+}
+
+// Convert to lowercase
+String.to_lower = (self: String) String {
+    new_data := self.allocator.alloc(self.capacity)
+    
+    i := 0
+    loop(() {
+        i > self.len ? { break }  // Include null terminator
+        c := self.data[i]
+        // Convert uppercase (A-Z: 65-90) to lowercase (a-z: 97-122)
+        (c >= 65 && c <= 90) ? {
+            new_data[i] = c + 32
+        } ? {
+            new_data[i] = c
+        }
+        i = i + 1
+    })
+    
+    return String {
+        data: new_data,
+        len: self.len,
+        capacity: self.capacity,
+        allocator: self.allocator
+    }
+}
+
+// Get character at index
+String.get = (self: String, index: u64) Option<u8> {
+    index >= self.len ? { return Option::None }
+    return Option::Some(self.data[index])
+}
+
+// Split string by delimiter (returns vector of strings)
+// Note: This requires Vec type support
+String.split = (self: String, delimiter: String) Result<(), StaticString> {
+    // TODO: Implement split when Vec is available in Zen
+    return Result::Err("split() not yet implemented")
+}
+
+// Create string from a C-style null-terminated string
+String.from_cstr = (ptr: Ptr<u8>, allocator: Allocator) Result<String, StaticString> {
+    // Count length until null terminator
+    len := 0
+    loop(() {
+        ptr[len] == 0 ? { break }
+        len = len + 1
+    })
+    
+    // Allocate and copy
+    capacity := len + 1
+    data := allocator.alloc(capacity)
+    
+    i := 0
+    loop(() {
+        i >= len ? { break }
+        data[i] = ptr[i]
+        i = i + 1
+    })
+    data[len] = 0
+    
+    return Result::Ok(String {
+        data: data,
+        len: len,
+        capacity: capacity,
+        allocator: allocator
+    })
+}
+
+// Check if string is all digits
+String.is_digit = (self: String) bool {
+    self.len == 0 ? { return false }
+    
+    i := 0
+    loop(() {
+        i >= self.len ? { break }
+        c := self.data[i]
+        // Check if not digit (0-9: 48-57)
+        (c < 48 || c > 57) ? { return false }
+        i = i + 1
+    })
+    
+    return true
+}
+
+// Parse string as integer
+String.parse_i64 = (self: String) Option<i64> {
+    self.len == 0 ? { return Option::None }
+    
+    result := 0
+    i := 0
+    
+    // Handle optional negative sign
+    negative := false
+    self.data[0] == 45 ? {  // '-' character
+        negative = true
+        i = 1
+    }
+    
+    // Parse digits
+    loop(() {
+        i >= self.len ? { break }
+        c := self.data[i]
+        
+        // Check if digit
+        (c < 48 || c > 57) ? { return Option::None }
+        
+        digit := c - 48
+        result = result * 10 + digit
+        i = i + 1
+    })
+    
+    negative ? {
+        return Option::Some(-result)
+    } ? {
+        return Option::Some(result)
+    }
+}
+
+// Compare two strings for equality
+String.eq = (self: String, other: String) bool {
+    self.len != other.len ? { return false }
+    
+    i := 0
+    loop(() {
+        i >= self.len ? { break }
+        self.data[i] != other.data[i] ? { return false }
+        i = i + 1
+    })
+    
+    return true
+}
+
 // String type is exported by the module system
