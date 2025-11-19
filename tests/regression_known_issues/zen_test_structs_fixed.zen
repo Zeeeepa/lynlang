@@ -1,0 +1,78 @@
+// Simplified and fixed struct tests
+{ io, DynVec, get_default_allocator, Result, Option } = @std
+
+// Test 1: Basic struct definition and instantiation
+Point : {
+    x: i32,
+    y: i32
+}
+
+test_basic_struct = () void {
+    io.println("=== Test 1: Basic Struct ===")
+    
+    p = Point { x: 10, y: 20 }
+    io.println("Point created: x=${p.x}, y=${p.y}")
+    
+    // Modify fields
+    p.x = 15
+    p.y = 25
+    io.println("Point modified: x=${p.x}, y=${p.y}")
+}
+
+// Test 2: Struct with methods
+Person : {
+    name: StaticString,
+    age: i32
+}
+
+// Method for Person struct
+get_info = (person: Person) StaticString {
+    return "Name: ${person.name}, Age: ${person.age}"
+}
+
+test_struct_methods = () void {
+    io.println("=== Test 2: Struct with Methods ===")
+    
+    person = Person { name: "Alice", age: 30 }
+    info = get_info(person)
+    io.println("Person info: ${info}")
+}
+
+// Test 3: Nested structs
+Address : {
+    street: StaticString,
+    city: StaticString
+}
+
+Employee : {
+    name: StaticString,
+    address: Address,
+    salary: i32
+}
+
+test_nested_structs = () void {
+    io.println("=== Test 3: Nested Structs ===")
+    
+    address = Address { street: "123 Main St", city: "Zen City" }
+    employee = Employee { name: "Bob", address: address, salary: 50000 }
+    
+    io.println("Employee: ${employee.name}")
+    io.println("Address: ${employee.address.street}, ${employee.address.city}")
+    io.println("Salary: ${employee.salary}")
+}
+
+main = () void {
+    io.println("=== Struct Tests ===")
+    io.println("")
+    
+    test_basic_struct()
+    io.println("")
+    
+    test_struct_methods()
+    io.println("")
+    
+    test_nested_structs()
+    io.println("")
+    
+    io.println("=== Struct Tests Complete ===")
+}
