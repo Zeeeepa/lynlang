@@ -28,8 +28,18 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                             && parser.current_token != Token::Eof
                         {
                             if let Token::Identifier(param_name) = &parser.current_token {
-                                params.push((param_name.clone(), None));
+                                let pname = param_name.clone();
                                 parser.next_token();
+
+                                // Check for optional type annotation
+                                let param_type = if parser.current_token == Token::Symbol(':') {
+                                    parser.next_token(); // consume ':'
+                                    Some(parser.parse_type()?)
+                                } else {
+                                    None
+                                };
+
+                                params.push((pname, param_type));
 
                                 if parser.current_token == Token::Symbol(',') {
                                     parser.next_token();
@@ -657,8 +667,8 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                                     }
                                     parser.next_token(); // consume '('
 
-                                    // Get the parameter name(s)
-                                    let param = if let Token::Identifier(p) = &parser.current_token {
+                                    // Get the parameter name and optional type
+                                    let param_name = if let Token::Identifier(p) = &parser.current_token {
                                         p.clone()
                                     } else {
                                         return Err(CompileError::SyntaxError(
@@ -668,13 +678,32 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                                     };
                                     parser.next_token();
 
+                                    // Check for optional type annotation
+                                    let param_type = if parser.current_token == Token::Symbol(':') {
+                                        parser.next_token(); // consume ':'
+                                        Some(parser.parse_type()?)
+                                    } else {
+                                        None
+                                    };
+
+                                    let param = (param_name, param_type);
+
                                     // Check for optional index parameter
                                     let index_param = if parser.current_token == Token::Symbol(',') {
                                         parser.next_token(); // consume ','
                                         if let Token::Identifier(idx) = &parser.current_token {
                                             let idx_name = idx.clone();
                                             parser.next_token();
-                                            Some(idx_name)
+
+                                            // Check for optional type annotation
+                                            let idx_type = if parser.current_token == Token::Symbol(':') {
+                                                parser.next_token(); // consume ':'
+                                                Some(parser.parse_type()?)
+                                            } else {
+                                                None
+                                            };
+
+                                            Some((idx_name, idx_type))
                                         } else {
                                             return Err(CompileError::SyntaxError(
                                                 "Expected index parameter name after ','"

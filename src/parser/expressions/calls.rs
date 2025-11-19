@@ -195,15 +195,35 @@ pub fn parse_call_expression_with_object(
                 // Parse closure parameters
                 while parser.current_token != Token::Symbol(')') && parser.current_token != Token::Eof {
                     if let Token::Identifier(param_name) = &parser.current_token {
-                        params.push((param_name.clone(), None));
+                        let pname = param_name.clone();
                         parser.next_token();
+
+                        // Check for optional type annotation
+                        let param_type = if parser.current_token == Token::Symbol(':') {
+                            parser.next_token(); // consume ':'
+                            Some(parser.parse_type()?)
+                        } else {
+                            None
+                        };
+
+                        params.push((pname, param_type));
 
                         // Check for optional second parameter (index)
                         if parser.current_token == Token::Symbol(',') {
                             parser.next_token();
                             if let Token::Identifier(param_name) = &parser.current_token {
-                                params.push((param_name.clone(), None));
+                                let pname = param_name.clone();
                                 parser.next_token();
+
+                                // Check for optional type annotation
+                                let param_type = if parser.current_token == Token::Symbol(':') {
+                                    parser.next_token(); // consume ':'
+                                    Some(parser.parse_type()?)
+                                } else {
+                                    None
+                                };
+
+                                params.push((pname, param_type));
                             }
                         }
                         break; // .loop() only takes 1 or 2 params

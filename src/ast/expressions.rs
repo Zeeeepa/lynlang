@@ -152,8 +152,8 @@ pub enum Expression {
     // Collection loop: collection.loop((item) { ... })
     CollectionLoop {
         collection: Box<Expression>,
-        param: String,               // The loop parameter name
-        index_param: Option<String>, // Optional index parameter
+        param: (String, Option<AstType>),           // The loop parameter name and optional type
+        index_param: Option<(String, Option<AstType>)>, // Optional index parameter and type
         body: Box<Expression>,
     },
     // Closure expression

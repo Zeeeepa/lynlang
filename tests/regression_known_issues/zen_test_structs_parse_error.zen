@@ -151,13 +151,13 @@ Rectangle : {
 }
 
 // Method to calculate area
-calculate_area = (self: Rectangle) i32 {
-    return self.width * self.height
+calculate_area = (rect: Rectangle) i32 {
+    return rect.width * rect.height
 }
 
 // Method to calculate perimeter
-calculate_perimeter = (self: Rectangle) i32 {
-    return 2 * (self.width + self.height)
+calculate_perimeter = (rect: Rectangle) i32 {
+    return 2 * (rect.width + rect.height)
 }
 
 test_struct_self_methods = () void {
