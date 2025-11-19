@@ -51,13 +51,9 @@ class ZenCodeLensProvider {
         this.codeLenses = [];
         const text = document.getText();
         const lines = text.split('\n');
-        // Patterns to match:
-        // fn main() { ... }
-        // main = fn() { ... }
-        // fn build() { ... }
-        // build = fn() { ... }
-        const mainPattern = /^\s*(?:fn\s+main|main\s*=\s*fn)\s*[({]/;
-        const buildPattern = /^\s*(?:fn\s+build|build\s*=\s*fn)\s*[({]/;
+        // Patterns to match any main or build definition
+        const mainPattern = /^\s*main\b/;
+        const buildPattern = /^\s*build\b/;
         const fnPattern = /^\s*fn\s+(\w+)\s*[({]/;
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -177,7 +173,7 @@ function activate(context) {
         outputChannel.appendLine('---');
         try {
             // Run the specific file with the zen interpreter
-            const { stdout, stderr } = await execAsync(`zen run "${uri.fsPath}"`, {
+            const { stdout, stderr } = await execAsync(`zen "${uri.fsPath}"`, {
                 cwd: workspaceFolder.uri.fsPath,
                 maxBuffer: 1024 * 1024 * 10 // 10MB buffer
             });
@@ -208,7 +204,9 @@ function activate(context) {
         outputChannel.appendLine('---');
         try {
             // Build the specific file with zen compiler
-            const { stdout, stderr } = await execAsync(`zen build "${uri.fsPath}"`, {
+            const filename = uri.fsPath.split('/').pop() || 'output';
+            const output = filename.replace('.zen', '');
+            const { stdout, stderr } = await execAsync(`zen "${uri.fsPath}" -o "${output}"`, {
                 cwd: workspaceFolder.uri.fsPath,
                 maxBuffer: 1024 * 1024 * 10 // 10MB buffer
             });

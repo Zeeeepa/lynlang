@@ -2,7 +2,7 @@
   "name": "zen-language",
   "displayName": "Zen Language",
   "description": "Language support for Zen programming language",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "publisher": "zen-lang",
   "engines": {
     "vscode": "^1.75.0"
@@ -11,6 +11,9 @@
     "Programming Languages"
   ],
   "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:zen"
+  ],
   "contributes": {
     "languages": [
       {
