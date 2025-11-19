@@ -137,44 +137,8 @@ impl TypeChecker {
         // Register Option<T> and Result<T, E> as fallback until stdlib preloading is implemented
         // TODO: These should be loaded from stdlib/core/option.zen and stdlib/core/result.zen
         // For now, keep as fallback to ensure Option/Result work even without explicit imports
-        // When stdlib/core/option.zen is loaded, it will override this registration
-        enums.insert(
-            "Option".to_string(),
-            EnumInfo {
-                variants: vec![
-                    (
-                        "Some".to_string(),
-                        Some(AstType::Generic {
-                            name: "T".to_string(),
-                            type_args: vec![],
-                        }),
-                    ),
-                    ("None".to_string(), None),
-                ],
-            },
-        );
-
-        enums.insert(
-            "Result".to_string(),
-            EnumInfo {
-                variants: vec![
-                    (
-                        "Ok".to_string(),
-                        Some(AstType::Generic {
-                            name: "T".to_string(),
-                            type_args: vec![],
-                        }),
-                    ),
-                    (
-                        "Err".to_string(),
-                        Some(AstType::Generic {
-                            name: "E".to_string(),
-                            type_args: vec![],
-                        }),
-                    ),
-                ],
-            },
-        );
+        // Option and Result are now defined in stdlib/core/option.zen and stdlib/core/result.zen
+        // They will be loaded when the stdlib is imported - no hardcoding needed
 
         let mut functions = HashMap::new();
 
@@ -1040,82 +1004,26 @@ impl TypeChecker {
                     enum_name.clone()
                 };
 
-                // For generic types like Option and Result, infer type args from payload
-                if enum_type_name == "Option" {
-                    let inner_type = if let Some(p) = payload {
-                        self.infer_expression_type(p)?
-                    } else {
-                        // For None variant, use a generic placeholder that can be unified later
-                        AstType::Generic {
-                            name: "T".to_string(),
-                            type_args: vec![],
-                        }
-                    };
-                    Ok(AstType::Generic {
-                        name: "Option".to_string(),
-                        type_args: vec![inner_type],
+                // Look up the enum to get its variant info
+                if let Some(enum_info) = self.enums.get(&enum_type_name) {
+                    let variants = enum_info
+                        .variants
+                        .iter()
+                        .map(|(name, payload)| crate::ast::EnumVariant {
+                            name: name.clone(),
+                            payload: payload.clone(),
+                        })
+                        .collect();
+                    Ok(AstType::Enum {
+                        name: enum_type_name,
+                        variants,
                     })
-                } else if enum_type_name == "Result" {
-                    // For Result, we need to infer based on the variant
-                    if variant == "Ok" {
-                        let ok_type = if let Some(p) = payload {
-                            self.infer_expression_type(p)?
-                        } else {
-                            // For Ok with no payload, use a generic placeholder
-                            AstType::Generic {
-                                name: "T".to_string(),
-                                type_args: vec![],
-                            }
-                        };
-                        // We don't know the error type yet, default to String like codegen does
-                        Ok(AstType::Generic {
-                            name: "Result".to_string(),
-                            type_args: vec![ok_type, AstType::StaticString],
-                        })
-                    } else if variant == "Err" {
-                        let err_type = if let Some(p) = payload {
-                            self.infer_expression_type(p)?
-                        } else {
-                            // For Err with no payload, use generic placeholder
-                            AstType::Generic {
-                                name: "E".to_string(),
-                                type_args: vec![],
-                            }
-                        };
-                        // We don't know the ok type yet, default to I32 like codegen does
-                        Ok(AstType::Generic {
-                            name: "Result".to_string(),
-                            type_args: vec![AstType::I32, err_type],
-                        })
-                    } else {
-                        // Unknown variant, default
-                        Ok(AstType::Generic {
-                            name: "Result".to_string(),
-                            type_args: vec![AstType::I32, AstType::StaticString],
-                        })
-                    }
                 } else {
-                    // Look up the enum to get its variant info
-                    if let Some(enum_info) = self.enums.get(&enum_type_name) {
-                        let variants = enum_info
-                            .variants
-                            .iter()
-                            .map(|(name, payload)| crate::ast::EnumVariant {
-                                name: name.clone(),
-                                payload: payload.clone(),
-                            })
-                            .collect();
-                        Ok(AstType::Enum {
-                            name: enum_type_name,
-                            variants,
-                        })
-                    } else {
-                        // Fallback to generic for unknown enums
-                        Ok(AstType::Generic {
-                            name: enum_type_name,
-                            type_args: vec![],
-                        })
-                    }
+                    // Fallback to generic for unknown enums
+                    Ok(AstType::Generic {
+                        name: enum_type_name,
+                        type_args: vec![],
+                    })
                 }
             }
             Expression::StringLength(_) => Ok(AstType::I64),
@@ -1165,97 +1073,8 @@ impl TypeChecker {
                 // Use dereferenced type if available, otherwise use original type
                 let effective_type = dereferenced_type.as_ref().unwrap_or(&object_type);
 
-                // Special handling for Vec type
-                if let AstType::Vec { element_type, .. } = effective_type {
-                    match method.as_str() {
-                        "get" => return Ok(element_type.as_ref().clone()),  // Returns element type directly
-                        "pop" => return Ok(AstType::Generic {       // Returns Option<element_type>
-                            name: "Option".to_string(),
-                            type_args: vec![element_type.as_ref().clone()],
-                        }),
-                        "len" | "capacity" => return Ok(AstType::I64),
-                        "push" | "set" | "clear" => return Ok(AstType::Void),
-                        _ => {}
-                    }
-                }
-
-                // Special handling for generic collection methods
-                if let AstType::Generic { name, type_args } = effective_type {
-                    if name == "Array" && !type_args.is_empty() {
-                        // Array methods
-                        match method.as_str() {
-                            "get" => return Ok(type_args[0].clone()),  // Returns element type directly
-                            "pop" => return Ok(AstType::Generic {       // Returns Option<element_type>
-                                name: "Option".to_string(),
-                                type_args: vec![type_args[0].clone()],
-                            }),
-                            "len" => return Ok(AstType::I64),
-                            "push" | "set" => return Ok(AstType::Void),
-                            _ => {}
-                        }
-                    } else if name == "HashMap" && type_args.len() >= 2 {
-                        // HashMap methods
-                        match method.as_str() {
-                            "get" | "remove" => return Ok(AstType::Generic {
-                                name: "Option".to_string(),
-                                type_args: vec![type_args[1].clone()],
-                            }),
-                            "contains" => return Ok(AstType::Bool),
-                            "len" | "size" => return Ok(AstType::I64),
-                            "is_empty" => return Ok(AstType::Bool),
-                            "insert" | "clear" => return Ok(AstType::Void),
-                            _ => {}
-                        }
-                    } else if name == "HashSet" && !type_args.is_empty() {
-                        // HashSet methods
-                        match method.as_str() {
-                            "contains" => return Ok(AstType::Bool),
-                            "remove" => return Ok(AstType::Bool),
-                            "len" | "size" => return Ok(AstType::I64),
-                            "is_empty" => return Ok(AstType::Bool),
-                            "insert" | "clear" => return Ok(AstType::Void),
-                            _ => {}
-                        }
-                    } else if name == "Vec" && !type_args.is_empty() {
-                        // Vec methods - Vec.get returns the element directly, not Option
-                        match method.as_str() {
-                            "get" => return Ok(type_args[0].clone()),  // Returns element type directly
-                            "pop" => return Ok(AstType::Generic {       // Returns Option<element_type>
-                                name: "Option".to_string(),
-                                type_args: vec![type_args[0].clone()],
-                            }),
-                            "len" | "capacity" => return Ok(AstType::I64),
-                            "push" | "set" | "clear" => return Ok(AstType::Void),
-                            _ => {}
-                        }
-                    } else if name == "DynVec" && !type_args.is_empty() {
-                        // DynVec methods
-                        match method.as_str() {
-                            "get" | "pop" => return Ok(AstType::Generic {
-                                name: "Option".to_string(),
-                                type_args: vec![type_args[0].clone()],
-                            }),
-                            "len" => return Ok(AstType::I64),
-                            "push" | "set" | "clear" => return Ok(AstType::Void),
-                            _ => {}
-                        }
-                    }
-                }
-                
-                // Special handling for DynVec type (not generic)
-                if let AstType::DynVec { element_types, .. } = effective_type {
-                    if !element_types.is_empty() {
-                        match method.as_str() {
-                            "get" | "pop" => return Ok(AstType::Generic {
-                                name: "Option".to_string(),
-                                type_args: vec![element_types[0].clone()],
-                            }),
-                            "len" => return Ok(AstType::I64),
-                            "push" | "set" | "clear" => return Ok(AstType::Void),
-                            _ => {}
-                        }
-                    }
-                }
+                // Collection method return types are now handled by the actual method signatures
+                // in the stdlib implementations, not hardcoded here
 
                 // Try to find the function in scope
                 // The method call object.method(args) becomes method(object, args)

@@ -27,6 +27,18 @@
         "path": "./syntaxes/zen.tmLanguage.json"
       }
     ],
+    "commands": [
+      {
+        "command": "zen.run",
+        "title": "Run Zen Function",
+        "category": "Zen"
+      },
+      {
+        "command": "zen.build",
+        "title": "Build Zen Function",
+        "category": "Zen"
+      }
+    ],
     "configuration": {
       "type": "object",
       "title": "Zen Language",

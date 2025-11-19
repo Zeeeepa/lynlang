@@ -6,8 +6,63 @@ import {
     ServerOptions,
     TransportKind
 } from 'vscode-languageclient/node';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
 let client: LanguageClient;
+const execAsync = promisify(exec);
+
+// Code Lens Provider for run/build buttons
+class ZenCodeLensProvider implements vscode.CodeLensProvider {
+    public codeLenses: vscode.CodeLens[] = [];
+    private regex = /^\s*(fn|main|build)\s+(\w+)\s*(\(|{)/gm;
+
+    async provideCodeLenses(document: vscode.TextDocument): Promise<vscode.CodeLens[]> {
+        this.codeLenses = [];
+        const text = document.getText();
+        let match;
+
+        // Find all function definitions, with special focus on main and build functions
+        while ((match = this.regex.exec(text)) !== null) {
+            const keyword = match[1];
+            const functionName = match[2];
+            const line = document.lineAt(document.positionAt(match.index).line);
+            const range = new vscode.Range(line.range.start, line.range.start.translate(0, 40));
+
+            // Check if it's a main or build function
+            if (functionName === 'main' || keyword === 'main' || keyword === 'build') {
+                const runCommand = new vscode.CodeLens(range, {
+                    title: '▶ Run',
+                    command: 'zen.run',
+                    arguments: [document.uri, functionName]
+                });
+
+                const buildCommand = new vscode.CodeLens(range.translate(0, 50), {
+                    title: '🔨 Build',
+                    command: 'zen.build',
+                    arguments: [document.uri, functionName]
+                });
+
+                this.codeLenses.push(runCommand);
+                this.codeLenses.push(buildCommand);
+            } else if (keyword === 'fn') {
+                // For regular functions, just add a run option
+                const runCommand = new vscode.CodeLens(range, {
+                    title: '▶ Run',
+                    command: 'zen.run',
+                    arguments: [document.uri, functionName]
+                });
+                this.codeLenses.push(runCommand);
+            }
+        }
+
+        return this.codeLenses;
+    }
+
+    resolveCodeLens(codeLens: vscode.CodeLens): vscode.CodeLens {
+        return codeLens;
+    }
+}
 
 export function activate(context: vscode.ExtensionContext) {
     // Get the path to the language server
@@ -67,6 +122,68 @@ export function activate(context: vscode.ExtensionContext) {
         'Zen Language Server',
         serverOptions,
         clientOptions
+    );
+
+    // Register Code Lens Provider
+    const codeLensProvider = new ZenCodeLensProvider();
+    context.subscriptions.push(
+        vscode.languages.registerCodeLensProvider({ language: 'zen' }, codeLensProvider)
+    );
+
+    // Register run command
+    context.subscriptions.push(
+        vscode.commands.registerCommand('zen.run', async (uri: vscode.Uri, functionName: string) => {
+            const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+            if (!workspaceFolder) {
+                vscode.window.showErrorMessage('No workspace folder found');
+                return;
+            }
+
+            const outputChannel = vscode.window.createOutputChannel('Zen Run');
+            outputChannel.show();
+            outputChannel.appendLine(`Running ${functionName}...`);
+
+            try {
+                const { stdout, stderr } = await execAsync(`zen run ${uri.fsPath}`, {
+                    cwd: workspaceFolder.uri.fsPath
+                });
+                if (stdout) outputChannel.appendLine(stdout);
+                if (stderr) outputChannel.appendLine('STDERR: ' + stderr);
+                outputChannel.appendLine(`✓ ${functionName} completed`);
+            } catch (error: any) {
+                outputChannel.appendLine(`✗ Error running ${functionName}:`);
+                outputChannel.appendLine(error.message);
+                vscode.window.showErrorMessage(`Failed to run ${functionName}: ${error.message}`);
+            }
+        })
+    );
+
+    // Register build command
+    context.subscriptions.push(
+        vscode.commands.registerCommand('zen.build', async (uri: vscode.Uri, functionName: string) => {
+            const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+            if (!workspaceFolder) {
+                vscode.window.showErrorMessage('No workspace folder found');
+                return;
+            }
+
+            const outputChannel = vscode.window.createOutputChannel('Zen Build');
+            outputChannel.show();
+            outputChannel.appendLine(`Building ${functionName}...`);
+
+            try {
+                const { stdout, stderr } = await execAsync(`zen build ${uri.fsPath}`, {
+                    cwd: workspaceFolder.uri.fsPath
+                });
+                if (stdout) outputChannel.appendLine(stdout);
+                if (stderr) outputChannel.appendLine('STDERR: ' + stderr);
+                outputChannel.appendLine(`✓ Build completed`);
+            } catch (error: any) {
+                outputChannel.appendLine(`✗ Build failed:`);
+                outputChannel.appendLine(error.message);
+                vscode.window.showErrorMessage(`Build failed: ${error.message}`);
+            }
+        })
     );
 
     // Start the client
