@@ -1,17 +1,324 @@
-// Zen Standard Library: Vector type
+// Zen Standard Library: Vector Type
+// Generic growable array using Ptr<T>
 
-Vec: {
+{ compiler } = @std
+{ gpa } = @std.memory
+{ ptr } = @std.core
+
+// ============================================================================
+// Vec<T> - Growable Array (Owned, Must Be Freed)
+// ============================================================================
+
+Vec<T>: {
+    data: ptr.Ptr<T>,      // Type-safe pointer to array elements
+    len: usize,            // Current number of elements
+    capacity: usize,       // Allocated capacity (number of elements, not bytes)
+    allocator: gpa.Allocator
+}
+
+// ============================================================================
+// Constructors
+// ============================================================================
+
+// Create new empty vector
+vec_new<T> = (allocator: gpa.Allocator) Vec<T> {
+    return Vec<T> {
+        data: ptr.ptr_none(),
+        len: 0,
+        capacity: 0,
+        allocator: allocator
+    }
+}
+
+// Create vector with initial capacity
+vec_with_capacity<T> = (allocator: gpa.Allocator, initial_capacity: usize) Vec<T> {
+    data = ptr.ptr_allocate(allocator, initial_capacity)
+    
+    return Vec<T> {
+        data: data,
+        len: 0,
+        capacity: initial_capacity,
+        allocator: allocator
+    }
+}
+
+// ============================================================================
+// Properties
+// ============================================================================
+
+// Get current length
+vec_len<T> = (v: Vec<T>) usize {
+    return v.len
+}
+
+// Get allocated capacity
+vec_capacity<T> = (v: Vec<T>) usize {
+    return v.capacity
+}
+
+// Check if empty
+vec_is_empty<T> = (v: Vec<T>) bool {
+    return v.len == 0
+}
+
+// ============================================================================
+// Read Operations
+// ============================================================================
+
+// Get element at index (safe)
+vec_get<T> = (v: Vec<T>, index: usize) Option<T> {
+    if index >= v.len {
+        return Option.None
+    }
+    
+    ptr.ptr_at(v.data, index)
+}
+
+// Get first element
+vec_first<T> = (v: Vec<T>) Option<T> {
+    vec_get(v, 0)
+}
+
+// Get last element
+vec_last<T> = (v: Vec<T>) Option<T> {
+    if v.len == 0 {
+        return Option.None
+    }
+    
+    vec_get(v, v.len - 1)
+}
+
+// ============================================================================
+// Write Operations (Mutable)
+// ============================================================================
+
+// Push element to end (auto-grows)
+vec_push<T> = (v: *Vec<T>, elem: T) void {
+    // Allocate if needed
+    if v.len == 0 && v.capacity == 0 {
+        new_data = ptr.ptr_allocate(v.allocator, 1)
+        v.data = new_data
+        v.capacity = 1
+    }
+    
+    // Grow capacity if full
+    if v.len >= v.capacity {
+        new_capacity = v.capacity * 2
+        new_data = ptr.ptr_allocate(v.allocator, new_capacity)
+        
+        // Copy old data
+        ptr.ptr_copy(v.data, new_data, v.len)
+        
+        // Free old data if it existed
+        v.data ?
+        | Some(_) {
+            ptr.ptr_free(&v.data, v.allocator, v.capacity)
+        }
+        | None {}
+        
+        v.data = new_data
+        v.capacity = new_capacity
+    }
+    
+    // Write element at end
+    target = ptr.ptr_offset(v.data, v.len as i64)
+    target ?
+    | Some(_) {
+        // Get raw address and write
+        base_addr = ptr.ptr_unwrap(v.data)
+        elem_addr = compiler.gep(base_addr as *u8, (v.len * compiler.sizeof(T)) as i64)
+        *(elem_addr as *T) = elem
+        v.len = v.len + 1
+    }
+    | None { /* error: allocation failed */ }
+}
+
+// Pop element from end
+vec_pop<T> = (v: *Vec<T>) Option<T> {
+    if v.len == 0 {
+        return Option.None
+    }
+    
+    v.len = v.len - 1
+    vec_get(*v, v.len)
+}
+
+// Insert at index (shifts elements)
+vec_insert<T> = (v: *Vec<T>, index: usize, elem: T) void {
+    if index > v.len {
+        return  // Out of bounds
+    }
+    
+    // Grow if needed
+    if v.len >= v.capacity {
+        new_capacity = if v.capacity == 0 { 1 } else { v.capacity * 2 }
+        new_data = ptr.ptr_allocate(v.allocator, new_capacity)
+        
+        if v.len > 0 {
+            ptr.ptr_copy(v.data, new_data, v.len)
+        }
+        
+        v.data ?
+        | Some(_) {
+            ptr.ptr_free(&v.data, v.allocator, v.capacity)
+        }
+        | None {}
+        
+        v.data = new_data
+        v.capacity = new_capacity
+    }
+    
+    // Shift elements right from index
+    i = v.len
+    loop(() {
+        if i <= index { break }
+        
+        prev_elem = vec_get(*v, i - 1)
+        prev_elem ?
+        | Some(e) {
+            // Write to position i
+            base_addr = ptr.ptr_unwrap(v.data)
+            target_addr = compiler.gep(base_addr as *u8, (i * compiler.sizeof(T)) as i64)
+            *(target_addr as *T) = e
+        }
+        | None {}
+        
+        i = i - 1
+    })
+    
+    // Write new element at index
+    base_addr = ptr.ptr_unwrap(v.data)
+    elem_addr = compiler.gep(base_addr as *u8, (index * compiler.sizeof(T)) as i64)
+    *(elem_addr as *T) = elem
+    v.len = v.len + 1
+}
+
+// Remove at index
+vec_remove<T> = (v: *Vec<T>, index: usize) Option<T> {
+    if index >= v.len {
+        return Option.None
+    }
+    
+    elem = vec_get(*v, index)
+    
+    // Shift elements left
+    i = index
+    loop(() {
+        if i >= v.len - 1 { break }
+        
+        next_elem = vec_get(*v, i + 1)
+        next_elem ?
+        | Some(e) {
+            base_addr = ptr.ptr_unwrap(v.data)
+            target_addr = compiler.gep(base_addr as *u8, (i * compiler.sizeof(T)) as i64)
+            *(target_addr as *T) = e
+        }
+        | None {}
+        
+        i = i + 1
+    })
+    
+    v.len = v.len - 1
+    return elem
+}
+
+// Clear without deallocating
+vec_clear<T> = (v: *Vec<T>) void {
+    v.len = 0
+}
+
+// ============================================================================
+// Memory Management
+// ============================================================================
+
+// Reserve additional capacity
+vec_reserve<T> = (v: *Vec<T>, additional: usize) void {
+    needed = v.len + additional
+    if needed > v.capacity {
+        new_capacity = needed * 2
+        new_data = ptr.ptr_allocate(v.allocator, new_capacity)
+        
+        if v.len > 0 {
+            ptr.ptr_copy(v.data, new_data, v.len)
+        }
+        
+        v.data ?
+        | Some(_) {
+            ptr.ptr_free(&v.data, v.allocator, v.capacity)
+        }
+        | None {}
+        
+        v.data = new_data
+        v.capacity = new_capacity
+    }
+}
+
+// Shrink to fit
+vec_shrink_to_fit<T> = (v: *Vec<T>) void {
+    if v.len < v.capacity && v.len > 0 {
+        new_data = ptr.ptr_allocate(v.allocator, v.len)
+        ptr.ptr_copy(v.data, new_data, v.len)
+        
+        v.data ?
+        | Some(_) {
+            ptr.ptr_free(&v.data, v.allocator, v.capacity)
+        }
+        | None {}
+        
+        v.data = new_data
+        v.capacity = v.len
+    }
+}
+
+// Deallocate vector
+vec_free<T> = (v: *Vec<T>) void {
+    v.data ?
+    | Some(_) {
+        ptr.ptr_free(&v.data, v.allocator, v.capacity)
+    }
+    | None {}
+    
+    v.len = 0
+    v.capacity = 0
+}
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+// Clone vector
+vec_clone<T> = (v: Vec<T>, allocator: gpa.Allocator) Vec<T> {
+    new_vec = vec_with_capacity(allocator, v.len)
+    
+    i = 0
+    loop(() {
+        if i >= v.len { break }
+        
+        vec_get(v, i) ?
+        | Some(elem) {
+            vec_push(&new_vec, elem)
+        }
+        | None {}
+        
+        i = i + 1
+    })
+    
+    return new_vec
+}
+
+// ============================================================================
+// Deprecated: Fixed-size arrays
+// ============================================================================
+
+// Array - fixed size (backward compatibility)
+Array: {
     data: *u8,
     len: usize
 }
 
+// DynVec - old name for growable vector
 DynVec: {
     data: *u8,
     len: usize,
     capacity: usize
-}
-
-Array: {
-    data: *u8,
-    len: usize
 }

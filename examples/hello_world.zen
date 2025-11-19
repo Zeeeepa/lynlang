@@ -1,25 +1,38 @@
-// Hello World in Zen
-{ io } = @std
+// Hello World in Zen - Pattern Matching & Dynamic Strings
 
-Person: {
-    age: i32,
-    name: StaticString,
-}
+{ io } = @std
+{ string } = @std
+{ gpa } = @std.memory
 
 main = () i32 {
-    person = Person {
-        age: 13,
-        name: "Tom"
-    }
-    person.age > 18 ?
+    allocator = gpa.default_gpa()
+    greeting = string.string_new(allocator)
+    
+    // Build "Hello, World!" dynamically
+    greeting.string_push(72)   // H
+    greeting.string_push(101)  // e
+    greeting.string_push(108)  // l
+    greeting.string_push(108)  // l
+    greeting.string_push(111)  // o
+    greeting.string_push(44)   // ,
+    greeting.string_push(32)   // (space)
+    greeting.string_push(87)   // W
+    greeting.string_push(111)  // o
+    greeting.string_push(114)  // r
+    greeting.string_push(108)  // l
+    greeting.string_push(100)  // d
+    greeting.string_push(33)   // !
+    
+    // Pattern match on length
+    len = greeting.string_len()
+    len > 10 ?
     | true {
-        io.println("Hello, Mr. ${person.name}!")
+        io.println("Long greeting: ${len} characters")
     }
     | false {
-        io.println("Hello, Master ${person.name}!")
+        io.println("Short greeting")
     }
+    
+    greeting.string_free()
     return 0
 }
-
-
-

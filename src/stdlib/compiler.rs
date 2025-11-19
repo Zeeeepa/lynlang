@@ -89,6 +89,17 @@ impl CompilerModule {
             },
         );
 
+        // Type introspection - size of type in bytes
+        functions.insert(
+            "sizeof".to_string(),
+            StdFunction {
+                name: "sizeof".to_string(),
+                params: vec![],
+                return_type: AstType::Usize,
+                is_builtin: true,
+            },
+        );
+
         // Function calling primitives
         functions.insert(
             "call_external".to_string(),

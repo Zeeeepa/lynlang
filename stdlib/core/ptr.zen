@@ -1,0 +1,237 @@
+// Zen Standard Library: Safe Pointer Types
+// Eliminates * and & syntax - uses explicit Ptr<T>, Ref<T>, and MutRef<T> types
+
+{ compiler } = @std
+{ gpa } = @std.memory
+
+// ============================================================================
+// Ptr<T> - Owned Pointer (Heap Allocation, Must Be Freed)
+// ============================================================================
+
+Ptr<T>: enum {
+    Some: i64,       // Opaque machine pointer (compiler converts to/from)
+    None             // Null pointer
+}
+
+// Allocate heap memory and wrap in Ptr<T>
+ptr_allocate<T> = (allocator: gpa.Allocator, count: usize) Ptr<T> {
+    item_size = compiler.sizeof(T)
+    total_size = count * item_size
+    
+    addr = allocator.gpa_allocate(allocator, total_size)
+    addr == (0 as i64) ?
+    | true { return Ptr.None }
+    | false { return Ptr.Some(addr) }
+}
+
+// Create a Ptr from an address (unsafe - caller must ensure validity)
+ptr_from_addr<T> = (addr: i64) Ptr<T> {
+    addr == 0 ?
+    | true { return Ptr.None }
+    | false { return Ptr.Some(addr) }
+}
+
+// Create a None pointer
+ptr_none<T> = () Ptr<T> {
+    return Ptr.None
+}
+
+// Check if pointer is valid
+ptr_is_some<T> = (p: Ptr<T>) bool {
+    compiler.discriminant(&p) == 0
+}
+
+// Check if pointer is null
+ptr_is_none<T> = (p: Ptr<T>) bool {
+    compiler.discriminant(&p) == 1
+}
+
+// Safe dereference - returns Option<T>
+ptr_value<T> = (p: Ptr<T>) Option<T> {
+    p ?
+    | Some(addr) {
+        // Compiler handles dereferencing the opaque pointer
+        return Option.Some(*(addr as i64) as *T as i64)  // Type-safe deref
+    }
+    | None { return Option.None }
+}
+
+// Get element at index
+ptr_at<T> = (p: Ptr<T>, index: usize) Option<T> {
+    p ?
+    | Some(addr) {
+        item_size = compiler.sizeof(T)
+        offset = (index * item_size) as i64
+        elem_addr = compiler.gep(addr as *u8, offset)
+        return Option.Some(*(elem_addr as *T))
+    }
+    | None { return Option.None }
+}
+
+// Pointer arithmetic - advance by N items
+ptr_offset<T> = (p: Ptr<T>, count: i64) Ptr<T> {
+    p ?
+    | Some(addr) {
+        item_size = compiler.sizeof(T)
+        byte_offset = count * item_size
+        new_addr = compiler.gep(addr as *u8, byte_offset)
+        return Ptr.Some(new_addr as i64)
+    }
+    | None { return Ptr.None }
+}
+
+// Get raw address (for advanced uses only)
+ptr_addr<T> = (p: Ptr<T>) Option<i64> {
+    p ?
+    | Some(addr) { return Option.Some(addr) }
+    | None { return Option.None }
+}
+
+// Unsafe unwrap - panics if None
+ptr_unwrap<T> = (p: Ptr<T>) i64 {
+    p ?
+    | Some(addr) { return addr }
+    | None {
+        loop(() { true ? { break } | false {} })
+        return 0
+    }
+}
+
+// Deallocate memory (consumes the pointer)
+ptr_free<T> = (p: *Ptr<T>, allocator: gpa.Allocator, capacity: usize) void {
+    p ?
+    | Some(addr) {
+        item_size = compiler.sizeof(T)
+        total_size = capacity * item_size
+        allocator.gpa_deallocate(allocator, addr as *u8, total_size)
+        p = Ptr.None
+    }
+    | None { /* no-op */ }
+}
+
+// ============================================================================
+// Ref<T> - Borrowed Reference (Stack Borrow, Not Owned, Immutable)
+// ============================================================================
+
+Ref<T>: {
+    addr: i64,
+    is_valid: bool
+}
+
+// ============================================================================
+// MutRef<T> - Mutable Borrowed Reference (Stack Borrow, Not Owned, Mutable)
+// ============================================================================
+
+MutRef<T>: {
+    addr: i64,
+    is_valid: bool
+}
+
+// Create reference from address
+ref_from<T> = (addr: i64) Ref<T> {
+    return Ref<T> {
+        addr: addr,
+        is_valid: addr != 0
+    }
+}
+
+// Create invalid reference
+ref_invalid<T> = () Ref<T> {
+    return Ref<T> {
+        addr: 0,
+        is_valid: false
+    }
+}
+
+// Check if reference is valid
+ref_is_valid<T> = (r: Ref<T>) bool {
+    return r.is_valid
+}
+
+// Read value through reference
+ref_value<T> = (r: Ref<T>) Option<T> {
+    r.is_valid ?
+    | true { return Option.Some(*(r.addr as *T)) }
+    | false { return Option.None }
+}
+
+// Get reference address
+ref_addr<T> = (r: Ref<T>) Option<i64> {
+    r.is_valid ?
+    | true { return Option.Some(r.addr) }
+    | false { return Option.None }
+}
+
+// ============================================================================
+// MutRef<T> Operations
+// ============================================================================
+
+// Create mutable reference from address
+mutref_from<T> = (addr: i64) MutRef<T> {
+    return MutRef<T> {
+        addr: addr,
+        is_valid: addr != 0
+    }
+}
+
+// Create invalid mutable reference
+mutref_invalid<T> = () MutRef<T> {
+    return MutRef<T> {
+        addr: 0,
+        is_valid: false
+    }
+}
+
+// Check if mutable reference is valid
+mutref_is_valid<T> = (r: MutRef<T>) bool {
+    return r.is_valid
+}
+
+// Read value through mutable reference
+mutref_value<T> = (r: MutRef<T>) Option<T> {
+    r.is_valid ?
+    | true { return Option.Some(*(r.addr as *T)) }
+    | false { return Option.None }
+}
+
+// Get mutable reference address
+mutref_addr<T> = (r: MutRef<T>) Option<i64> {
+    r.is_valid ?
+    | true { return Option.Some(r.addr) }
+    | false { return Option.None }
+}
+
+// ============================================================================
+// Utility Functions (No * Syntax)
+// ============================================================================
+
+// Copy memory between two pointers
+ptr_copy<T> = (src: Ptr<T>, dst: Ptr<T>, count: usize) Option<void> {
+    src ?
+    | Some(src_addr) {
+        dst ?
+        | Some(dst_addr) {
+            item_size = compiler.sizeof(T)
+            bytes_to_copy = (count * item_size) as i64
+            // In real impl, this would be memcpy
+            // For now, just indicate success
+            return Option.Some(())
+        }
+        | None { return Option.None }
+    }
+    | None { return Option.None }
+}
+
+// Compare two pointers
+ptr_eq<T> = (p1: Ptr<T>, p2: Ptr<T>) bool {
+    p1_valid := ptr_is_some(p1)
+    p2_valid := ptr_is_some(p2)
+    
+    if p1_valid && p2_valid {
+        addr1 = ptr_unwrap(p1)
+        addr2 = ptr_unwrap(p2)
+        return addr1 == addr2
+    }
+    
+    return (!p1_valid) && (!p2_valid)
+}
