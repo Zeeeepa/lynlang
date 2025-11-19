@@ -129,41 +129,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
-                AstType::Ptr(inner) => {
-                    // For pointer types (including string interpolation results typed as *i8)
+                AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) => {
+                    // For pointer types (Ptr, MutPtr, RawPtr)
                     // We need to load the pointer value from the alloca
-                    if matches!(**inner, AstType::I8) {
-                        // This is likely a string (char pointer)
-                        // Use empty string to let LLVM auto-generate unique names
-                        match self.builder.build_load(
-                            self.context.ptr_type(inkwell::AddressSpace::default()),
-                            ptr,
-                            "",
-                        ) {
-                            Ok(val) => val.into(),
-                            Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
-                        }
-                    } else if matches!(**inner, AstType::Function { .. }) {
-                        // Use empty string to let LLVM auto-generate unique names
-                        match self.builder.build_load(
-                            self.context.ptr_type(inkwell::AddressSpace::default()),
-                            ptr,
-                            "",
-                        ) {
-                            Ok(val) => val.into(),
-                            Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
-                        }
-                    } else {
-                        // Other pointer types - load the pointer value from the alloca
-                        // Use empty string to let LLVM auto-generate unique names
-                        match self.builder.build_load(
-                            self.context.ptr_type(inkwell::AddressSpace::default()),
-                            ptr,
-                            "",
-                        ) {
-                            Ok(val) => val.into(),
-                            Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
-                        }
+                    // All pointer types are loaded as LLVM pointers
+                    // Use empty string to let LLVM auto-generate unique names
+                    match self.builder.build_load(
+                        self.context.ptr_type(inkwell::AddressSpace::default()),
+                        ptr,
+                        "",
+                    ) {
+                        Ok(val) => val.into(),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
                 AstType::Function { .. } => {

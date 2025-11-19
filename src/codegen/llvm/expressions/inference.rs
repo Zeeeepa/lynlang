@@ -224,8 +224,34 @@ pub fn infer_expression_type(compiler: &LLVMCompiler, expr: &Expression) -> Resu
                 Ok(AstType::Void)
             }
             Expression::MethodCall { object, method, .. } => {
-                // Special handling for .raise() method which extracts T from Result<T,E>
-                if method == "raise" {
+                // Special handling for compiler module methods
+                if let Expression::Identifier(name) = &**object {
+                    if name == "compiler" {
+                        // Compiler intrinsic methods
+                       match method.as_str() {
+                            "raw_allocate" | "raw_reallocate" | "raw_ptr_offset" |
+                            "raw_ptr_cast" | "gep" | "gep_struct" | "get_payload" |
+                            "null_ptr" | "load_library" | "get_symbol" | "call_external" => {
+                                // All these methods return *u8 (pointer to u8)
+                                // Use Ptr(U8) which is more standard than RawPtr
+                                return Ok(AstType::Ptr(Box::new(AstType::U8)));
+                           }
+                            "raw_deallocate" | "deallocate" | "inline_c" | "unload_library" | 
+                            "set_discriminant" | "set_payload" => {
+                                // These methods return void
+                                return Ok(AstType::Void);
+                           }
+                            "discriminant" => {
+                                // Returns i64 (the discriminant tag)
+                                return Ok(AstType::I64);
+                           }
+                            _ => {}
+                       }
+                   }
+               }
+               
+               // Special handling for .raise() method which extracts T from Result<T,E>
+               if method == "raise" {
                     // Get the type of the object being raised
                     let object_type = compiler.infer_expression_type(object)?;
                     // If it's Result<T,E>, return T

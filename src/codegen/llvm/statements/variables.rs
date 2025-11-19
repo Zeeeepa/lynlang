@@ -217,6 +217,8 @@ pub fn compile_variable_declaration<'ctx>(
                             }
                             BasicValueEnum::PointerValue(_) => {
                                 // For pointers (including strings), use ptr type
+                                // Store the inferred AST type as Ptr(U8) - the generic pointer type
+                                inferred_ast_type = Some(AstType::Ptr(Box::new(AstType::U8)));
                                 Type::Basic(
                                     compiler.context
                                         .ptr_type(inkwell::AddressSpace::default())
