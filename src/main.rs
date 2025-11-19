@@ -73,14 +73,14 @@ fn print_usage() {
     println!("Usage:");
     println!("  zen                           Start interactive REPL");
     println!("  zen <file.zen>                Compile and run a Zen file");
-    println!("  zen <file.zen> -o <output>    Compile to executable");
-    println!("  zen -o <output> <file.zen>    Compile to executable");
+    println!("  zen <file.zen> -o <output>    Compile to executable (output in target/)");
+    println!("  zen -o <output> <file.zen>    Compile to executable (output in target/)");
     println!("  zen --help                    Show this help message");
     println!();
     println!("Examples:");
     println!("  zen                           # Start REPL");
     println!("  zen hello.zen                 # Run hello.zen file");
-    println!("  zen hello.zen -o hello        # Compile to executable");
+    println!("  zen hello.zen -o hello        # Compile to target/hello");
 }
 
 fn run_repl() -> std::io::Result<()> {
@@ -294,12 +294,6 @@ fn compile_file(args: &[String]) -> std::io::Result<()> {
     let module = compiler
         .get_module(&program)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Compilation error: {}", e)))?;
-
-    // Write LLVM IR for debugging - also in target directory
-    let ir_path = format!("{}.ll", output_file);
-    module
-        .print_to_file(&ir_path)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to write IR: {}", e)))?;
 
     // Get target machine
     let target_triple = TargetMachine::get_default_triple();
