@@ -46,41 +46,61 @@ const execAsync = (0, util_1.promisify)(child_process_1.exec);
 class ZenCodeLensProvider {
     constructor() {
         this.codeLenses = [];
-        this.regex = /^\s*(fn|main|build)\s+(\w+)\s*(\(|{)/gm;
     }
     async provideCodeLenses(document) {
         this.codeLenses = [];
         const text = document.getText();
-        let match;
-        // Find all function definitions, with special focus on main and build functions
-        while ((match = this.regex.exec(text)) !== null) {
-            const keyword = match[1];
-            const functionName = match[2];
-            const line = document.lineAt(document.positionAt(match.index).line);
-            const range = new vscode.Range(line.range.start, line.range.start.translate(0, 40));
-            // Check if it's a main or build function
-            if (functionName === 'main' || keyword === 'main' || keyword === 'build') {
-                const runCommand = new vscode.CodeLens(range, {
+        const lines = text.split('\n');
+        // Patterns to match:
+        // fn main() { ... }
+        // main = fn() { ... }
+        // fn build() { ... }
+        // build = fn() { ... }
+        const mainPattern = /^\s*(?:fn\s+main|main\s*=\s*fn)\s*[({]/;
+        const buildPattern = /^\s*(?:fn\s+build|build\s*=\s*fn)\s*[({]/;
+        const fnPattern = /^\s*fn\s+(\w+)\s*[({]/;
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const lineObj = document.lineAt(i);
+            // Check for main or build functions (these get both Run and Build buttons)
+            if (mainPattern.test(line)) {
+                const range = new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, 20));
+                this.codeLenses.push(new vscode.CodeLens(range, {
                     title: '▶ Run',
                     command: 'zen.run',
-                    arguments: [document.uri, functionName]
-                });
-                const buildCommand = new vscode.CodeLens(range.translate(0, 50), {
+                    arguments: [document.uri, 'main', i]
+                }));
+                this.codeLenses.push(new vscode.CodeLens(range, {
                     title: '🔨 Build',
                     command: 'zen.build',
-                    arguments: [document.uri, functionName]
-                });
-                this.codeLenses.push(runCommand);
-                this.codeLenses.push(buildCommand);
+                    arguments: [document.uri, 'main', i]
+                }));
             }
-            else if (keyword === 'fn') {
-                // For regular functions, just add a run option
-                const runCommand = new vscode.CodeLens(range, {
+            else if (buildPattern.test(line)) {
+                const range = new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, 20));
+                this.codeLenses.push(new vscode.CodeLens(range, {
                     title: '▶ Run',
                     command: 'zen.run',
-                    arguments: [document.uri, functionName]
-                });
-                this.codeLenses.push(runCommand);
+                    arguments: [document.uri, 'build', i]
+                }));
+                this.codeLenses.push(new vscode.CodeLens(range, {
+                    title: '🔨 Build',
+                    command: 'zen.build',
+                    arguments: [document.uri, 'build', i]
+                }));
+            }
+            else {
+                // Regular functions get a Run button
+                const fnMatch = fnPattern.exec(line);
+                if (fnMatch) {
+                    const functionName = fnMatch[1];
+                    const range = new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, 20));
+                    this.codeLenses.push(new vscode.CodeLens(range, {
+                        title: '▶ Run',
+                        command: 'zen.run',
+                        arguments: [document.uri, functionName, i]
+                    }));
+                }
             }
         }
         return this.codeLenses;
@@ -145,7 +165,7 @@ function activate(context) {
     const codeLensProvider = new ZenCodeLensProvider();
     context.subscriptions.push(vscode.languages.registerCodeLensProvider({ language: 'zen' }, codeLensProvider));
     // Register run command
-    context.subscriptions.push(vscode.commands.registerCommand('zen.run', async (uri, functionName) => {
+    context.subscriptions.push(vscode.commands.registerCommand('zen.run', async (uri, functionName, lineNumber) => {
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
         if (!workspaceFolder) {
             vscode.window.showErrorMessage('No workspace folder found');
@@ -153,25 +173,30 @@ function activate(context) {
         }
         const outputChannel = vscode.window.createOutputChannel('Zen Run');
         outputChannel.show();
-        outputChannel.appendLine(`Running ${functionName}...`);
+        outputChannel.appendLine(`▶ Running ${functionName}${lineNumber !== undefined ? ` (line ${lineNumber + 1})` : ''}...`);
+        outputChannel.appendLine('---');
         try {
-            const { stdout, stderr } = await execAsync(`zen run ${uri.fsPath}`, {
-                cwd: workspaceFolder.uri.fsPath
+            // Run the specific file with the zen interpreter
+            const { stdout, stderr } = await execAsync(`zen run "${uri.fsPath}"`, {
+                cwd: workspaceFolder.uri.fsPath,
+                maxBuffer: 1024 * 1024 * 10 // 10MB buffer
             });
             if (stdout)
                 outputChannel.appendLine(stdout);
             if (stderr)
-                outputChannel.appendLine('STDERR: ' + stderr);
-            outputChannel.appendLine(`✓ ${functionName} completed`);
+                outputChannel.appendLine('STDERR:\n' + stderr);
+            outputChannel.appendLine('---');
+            outputChannel.appendLine(`✓ ${functionName} completed successfully`);
         }
         catch (error) {
             outputChannel.appendLine(`✗ Error running ${functionName}:`);
             outputChannel.appendLine(error.message);
+            outputChannel.appendLine('---');
             vscode.window.showErrorMessage(`Failed to run ${functionName}: ${error.message}`);
         }
     }));
     // Register build command
-    context.subscriptions.push(vscode.commands.registerCommand('zen.build', async (uri, functionName) => {
+    context.subscriptions.push(vscode.commands.registerCommand('zen.build', async (uri, functionName, lineNumber) => {
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
         if (!workspaceFolder) {
             vscode.window.showErrorMessage('No workspace folder found');
@@ -179,20 +204,25 @@ function activate(context) {
         }
         const outputChannel = vscode.window.createOutputChannel('Zen Build');
         outputChannel.show();
-        outputChannel.appendLine(`Building ${functionName}...`);
+        outputChannel.appendLine(`🔨 Building ${functionName}${lineNumber !== undefined ? ` (line ${lineNumber + 1})` : ''}...`);
+        outputChannel.appendLine('---');
         try {
-            const { stdout, stderr } = await execAsync(`zen build ${uri.fsPath}`, {
-                cwd: workspaceFolder.uri.fsPath
+            // Build the specific file with zen compiler
+            const { stdout, stderr } = await execAsync(`zen build "${uri.fsPath}"`, {
+                cwd: workspaceFolder.uri.fsPath,
+                maxBuffer: 1024 * 1024 * 10 // 10MB buffer
             });
             if (stdout)
                 outputChannel.appendLine(stdout);
             if (stderr)
-                outputChannel.appendLine('STDERR: ' + stderr);
-            outputChannel.appendLine(`✓ Build completed`);
+                outputChannel.appendLine('STDERR:\n' + stderr);
+            outputChannel.appendLine('---');
+            outputChannel.appendLine(`✓ Build completed successfully`);
         }
         catch (error) {
             outputChannel.appendLine(`✗ Build failed:`);
             outputChannel.appendLine(error.message);
+            outputChannel.appendLine('---');
             vscode.window.showErrorMessage(`Build failed: ${error.message}`);
         }
     }));

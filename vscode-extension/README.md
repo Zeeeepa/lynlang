@@ -5,6 +5,11 @@ This extension provides language support for the Zen programming language in Vis
 ## Features
 
 - **Syntax Highlighting**: Full syntax highlighting for Zen code
+- **CodeLens Actions**: Inline buttons to run and build functions
+  - **▶ Run** button for all functions
+  - **🔨 Build** button for main and build entry points
+  - Automatic detection of `main` and `build` functions
+  - Click to execute directly from your editor
 - **Language Server Protocol**: Advanced IDE features powered by `zen-lsp`
   - Real-time error checking and diagnostics
   - Code completion for types, functions, and keywords
@@ -60,6 +65,16 @@ This extension contributes the following settings:
 2. The extension will automatically activate and start the language server
 3. You'll see syntax highlighting immediately
 4. Error checking and other language features will be available once the language server initializes
+
+### Using CodeLens Actions
+
+1. The extension automatically detects functions in your code
+2. Look for **▶ Run** and **🔨 Build** buttons above function definitions
+3. Click **▶ Run** to execute a function
+4. Click **🔨 Build** to compile a function (available for `main` and `build` functions)
+5. Output appears in the "Zen Run" or "Zen Build" output channel at the bottom
+
+See [CODELENS_FEATURE.md](./CODELENS_FEATURE.md) for detailed information about the CodeLens feature.
 
 ## Development
 
