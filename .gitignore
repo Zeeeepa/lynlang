@@ -58,6 +58,9 @@ test_results.txt
 *.test.out
 *.test.ll
 test_*
+# Except for intentional test source files
+!tests/zen_test_*.zen
+!tests/**/*.zen
 
 # Large files and artifacts
 *.jsonl
