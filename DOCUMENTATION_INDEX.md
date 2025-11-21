@@ -1,7 +1,18 @@
 # Zen Language Documentation Index
 
-**Last Updated**: 2025-11-19  
+**Last Updated**: 2025-11-20  
 **Project Status**: Stdlib self-hosting in progress (4/20 tasks complete)
+
+---
+
+## ⭐ START HERE: Understanding the Architecture
+
+**New to the codebase?** Read these in order:
+1. **[ARCHITECTURE.md](ARCHITECTURE.md)** - Learn the difference between LLVM primitives and Zen features
+2. **[PRIMITIVES_VS_FEATURES.md](PRIMITIVES_VS_FEATURES.md)** - Quick reference: where do I implement something?
+3. **[PRIMITIVE_EXAMPLES.md](PRIMITIVE_EXAMPLES.md)** - See concrete examples from actual code
+
+This is essential for understanding where new features belong.
 
 ---
 
@@ -18,7 +29,9 @@
 - **[INTRINSICS_REFERENCE.md](INTRINSICS_REFERENCE.md)** - Compiler primitives documentation
 
 ### 🏗️ Architecture & Design
-- **[ARCHITECTURE_DIAGRAM.md](ARCHITECTURE_DIAGRAM.md)** - System architecture overview
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - LLVM primitives vs Zen-level features (ESSENTIAL READ)
+- **[PRIMITIVES_VS_FEATURES.md](PRIMITIVES_VS_FEATURES.md)** - Quick reference for where to implement features
+- **[PRIMITIVE_EXAMPLES.md](PRIMITIVE_EXAMPLES.md)** - Concrete code examples from the codebase
 - **[DESIGN_NOTES.md](DESIGN_NOTES.md)** - Historical design decisions
 
 ### 📚 Design Documentation (in design/ folder)

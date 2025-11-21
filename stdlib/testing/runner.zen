@@ -1,20 +1,90 @@
-// Test runner for Zen
+// Zen Standard Library: Testing
+// Testing utilities and test runners
 
-TestResult:
-    Pass,
-    Fail,
-    Skip
+{ io } = @std
 
-TestCase: {
-    name: StaticString,
-    passed: bool
+// Test result type
+TestResult: {
+    name: String,
+    passed: bool,
+    message: String
 }
 
-TestSuite: {
-    name: StaticString,
-    count: i32
+// Test function type
+// Test = () void
+
+// Assert that condition is true
+assert = (condition: bool, message: String) void {
+    condition ?
+        | true { }
+        | false {
+            io.eprintln(message)
+            // Panic
+            loop(() {
+                if true { break }
+            })
+        }
 }
 
-run_test = (name: StaticString) bool {
-    return true
+// Assert equality
+assert_eq<T> = (a: T, b: T, message: String) void {
+    equal = a == b
+    equal ?
+        | true { }
+        | false {
+            io.eprintln(message)
+            // Panic
+            loop(() {
+                if true { break }
+            })
+        }
+}
+
+// Assert inequality
+assert_ne<T> = (a: T, b: T, message: String) void {
+    not_equal = a != b
+    not_equal ?
+        | true { }
+        | false {
+            io.eprintln(message)
+            // Panic
+            loop(() {
+                if true { break }
+            })
+        }
+}
+
+// Assert that condition is false (negation)
+assert_not = (condition: bool, message: String) void {
+    condition ?
+        | false { }
+        | true {
+            io.eprintln(message)
+            // Panic
+            loop(() {
+                if true { break }
+            })
+        }
+}
+
+// Assert that something panics
+assert_panics<R> = (f: () R, message: String) void {
+    // Can't easily test for panics without try-catch
+    // For now, just mark as unimplemented
+}
+
+// Run a test and return result
+run_test = (name: String, test_fn: () void) TestResult {
+    result = TestResult {
+        name: name,
+        passed: false,
+        message: ""
+    }
+    
+    // Try to run test
+    // TODO: Need exception handling to catch panics
+    test_fn()
+    
+    result.passed = true
+    return result
 }

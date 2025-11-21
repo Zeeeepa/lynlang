@@ -1,17 +1,48 @@
 // Zen Standard Library: FFI (Foreign Function Interface)
+// C interoperability and dynamic loading
 
-Library: {
-    handle: *u8
+{ compiler } = @std
+
+// C function pointer type wrapper
+CFuncPtr: {
+    ptr: *u8
 }
 
-load_library = (path: StaticString) *u8 {
-    return compiler.null_ptr()
+// C library handle
+CLibrary: {
+    handle: *u8,
+    path: String
 }
 
-get_symbol = (lib: *u8, name: StaticString) *u8 {
-    return compiler.null_ptr()
+// Load a C library dynamically
+load_library = (path: String) Result<CLibrary, String> {
+    handle = compiler.load_library(path)
+    
+    handle == (0 as *u8) ?
+        | true { Result.Err("Failed to load library") }
+        | false { Result.Ok(CLibrary { handle: handle, path: path }) }
 }
 
-unload_library = (lib: *u8) void {
-    return void
+// Get function pointer from library
+get_function = (lib: CLibrary, symbol: String) Result<CFuncPtr, String> {
+    ptr = compiler.get_symbol(lib.handle, symbol)
+    
+    ptr == (0 as *u8) ?
+        | true { Result.Err("Symbol not found") }
+        | false { Result.Ok(CFuncPtr { ptr: ptr }) }
+}
+
+// Call C function pointer
+call_cfunc = (func: CFuncPtr, args: *u8) *u8 {
+    return compiler.call_external(func.ptr, args)
+}
+
+// Unload library
+unload_library = (lib: CLibrary) void {
+    compiler.unload_library(lib.handle)
+}
+
+// Inline C code compilation
+inline_c = (code: String) void {
+    compiler.inline_c(code)
 }

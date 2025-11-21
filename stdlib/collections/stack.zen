@@ -1,18 +1,64 @@
 // Zen Standard Library: Stack
+// LIFO (Last In First Out) data structure
 
-Stack: {
-    data: *u8,
-    len: usize
+{ compiler } = @std
+{ Vec, vec_new, vec_with_capacity, vec_push, vec_pop, vec_len, vec_is_empty, vec_free } = @std
+
+// Stack<T> - implemented using Vec<T> internally
+Stack<T>: {
+    data: Vec<T>
 }
 
-stack_new = () Stack {
-    return Stack { data: compiler.null_ptr(), len: 0 }
+// Create new empty stack
+stack_new<T> = () Stack<T> {
+    return Stack<T> {
+        data: vec_new()
+    }
 }
 
-stack_push = (stack: Stack, value: i32) void {
-    return void
+// Create stack with capacity
+stack_with_capacity<T> = (capacity: usize) Stack<T> {
+    return Stack<T> {
+        data: vec_with_capacity(capacity)
+    }
 }
 
-stack_pop = (stack: Stack) i32 {
-    return 0
+// Get stack size
+stack_len<T> = (s: Stack<T>) usize {
+    return vec_len(s.data)
+}
+
+// Check if empty
+stack_is_empty<T> = (s: Stack<T>) bool {
+    return vec_is_empty(s.data)
+}
+
+// Push element onto stack
+stack_push<T> = (s: *Stack<T>, elem_size: usize, elem_addr: *u8) void {
+    vec_push(&s.data, elem_size, elem_addr)
+}
+
+// Pop element from stack
+stack_pop<T> = (s: *Stack<T>) void {
+    vec_pop(&s.data)
+}
+
+// Peek at top without removing
+stack_peek_addr<T> = (s: Stack<T>) *u8 {
+    len = vec_len(s.data)
+    if len == 0 {
+        return (0 as *u8)
+    }
+    return vec_get_addr(s.data, len - 1)
+}
+
+// Clear stack
+stack_clear<T> = (s: *Stack<T>) void {
+    // Use internal vec clear
+    s.data.len = 0
+}
+
+// Free stack
+stack_free<T> = (s: *Stack<T>, elem_size: usize) void {
+    vec_free(&s.data, elem_size)
 }

@@ -1,31 +1,82 @@
 // Result type for error handling
-// As per LANGUAGE_SPEC.zen: Result<T, E> for success/failure handling
+// Result<T, E> for success/failure handling
 
 // Result type - represents success (Ok) or failure (Err)
-// Enums are sum types: a value is ONE of the variants, not all of them
 Result<T, E>:
     Ok: T,
     Err: E
 
-// Utility functions for Result creation
-ok = (value: T) Result<T, E> {
+// Create Ok variant
+ok<T, E> = (value: T) Result<T, E> {
     return Result.Ok(value)
 }
 
-err = (error: E) Result<T, E> {
+// Create Err variant
+err<T, E> = (error: E) Result<T, E> {
     return Result.Err(error)
 }
 
 // Check if Result is Ok
-is_ok = (res: Result<T, E>) bool {
+is_ok<T, E> = (res: Result<T, E>) bool {
     res ?
-        | Result.Ok(_) { true }
-        | Result.Err(_) { false }
+        | Ok(_) { true }
+        | Err(_) { false }
 }
 
 // Check if Result is Err
-is_err = (res: Result<T, E>) bool {
+is_err<T, E> = (res: Result<T, E>) bool {
     res ?
-        | Result.Ok(_) { false }
-        | Result.Err(_) { true }
+        | Ok(_) { false }
+        | Err(_) { true }
+}
+
+// Map Ok value
+map<T, U, E> = (res: Result<T, E>, f: (T) U) Result<U, E> {
+    res ?
+        | Ok(val) { Result.Ok(f(val)) }
+        | Err(err) { Result.Err(err) }
+}
+
+// Map Err value
+map_err<T, E, F> = (res: Result<T, E>, f: (E) F) Result<T, F> {
+    res ?
+        | Ok(val) { Result.Ok(val) }
+        | Err(err) { Result.Err(f(err)) }
+}
+
+// Unwrap with default
+unwrap_or<T, E> = (res: Result<T, E>, default: T) T {
+    res ?
+        | Ok(val) { val }
+        | Err(_) { default }
+}
+
+// Get the Ok value or panic
+unwrap<T, E> = (res: Result<T, E>) T {
+    res ?
+        | Ok(val) { val }
+        | Err(_) {
+            // Panic
+            loop(() {
+                if true { break }
+            })
+            return res ?
+                | Ok(v) { v }
+                | Err(_) { return res ? | Ok(v) { v } | Err(_) {} }
+        }
+}
+
+// Get the Err value or panic
+unwrap_err<T, E> = (res: Result<T, E>) E {
+    res ?
+        | Err(err) { err }
+        | Ok(_) {
+            // Panic
+            loop(() {
+                if true { break }
+            })
+            return res ?
+                | Err(e) { e }
+                | Ok(_) { return res ? | Err(e) { e } | Ok(_) {} }
+        }
 }

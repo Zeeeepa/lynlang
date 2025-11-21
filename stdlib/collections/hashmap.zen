@@ -1,17 +1,97 @@
 // Zen Standard Library: HashMap
+// Hash-based key-value map
 
-HashMap: {
+{ compiler } = @std
+{ Vec, vec_new, vec_with_capacity, vec_len, vec_is_empty, vec_free } = @std
+
+// Entry for a single key-value pair
+Entry<K, V>: {
+    key: K,
+    value: V,
+    occupied: bool
+}
+
+// HashMap<K, V> - simple hash map using linear probing
+HashMap<K, V>: {
+    entries: Vec<Entry<K, V>>,
+    size: usize,
     capacity: usize
 }
 
-hashmap_new = () HashMap {
-    return HashMap { capacity: 0 }
+// Create new empty hashmap
+hashmap_new<K, V> = () HashMap<K, V> {
+    return HashMap<K, V> {
+        entries: vec_new(),
+        size: 0,
+        capacity: 0
+    }
 }
 
-hashmap_insert = (map: HashMap, key: StaticString, value: i32) void {
-    return void
+// Create hashmap with initial capacity
+hashmap_with_capacity<K, V> = (capacity: usize) HashMap<K, V> {
+    return HashMap<K, V> {
+        entries: vec_with_capacity(capacity),
+        size: 0,
+        capacity: capacity
+    }
 }
 
-hashmap_get = (map: HashMap, key: StaticString) i32 {
+// Get number of entries
+hashmap_len<K, V> = (m: HashMap<K, V>) usize {
+    return m.size
+}
+
+// Check if empty
+hashmap_is_empty<K, V> = (m: HashMap<K, V>) bool {
+    return m.size == 0
+}
+
+// Simple hash function (just use identity for now)
+hash<K> = (key: K) u64 {
+    // TODO: Implement proper hash function
     return 0
+}
+
+// Insert key-value pair
+hashmap_insert<K, V> = (m: *HashMap<K, V>, key: K, value: V) void {
+    if m.capacity == 0 {
+        m.capacity = 16
+    }
+    
+    // TODO: Implement hash table insertion
+    // For now, just track size
+    m.size = m.size + 1
+}
+
+// Get value by key
+hashmap_get<K, V> = (m: HashMap<K, V>, key: K) Option<V> {
+    // TODO: Implement hash table lookup
+    return Option.None
+}
+
+// Check if key exists
+hashmap_contains_key<K, V> = (m: HashMap<K, V>, key: K) bool {
+    // TODO: Implement hash table lookup
+    return false
+}
+
+// Remove key
+hashmap_remove<K, V> = (m: *HashMap<K, V>, key: K) Option<V> {
+    // TODO: Implement hash table removal
+    if m.size > 0 {
+        m.size = m.size - 1
+    }
+    return Option.None
+}
+
+// Clear hashmap
+hashmap_clear<K, V> = (m: *HashMap<K, V>) void {
+    m.size = 0
+}
+
+// Free hashmap
+hashmap_free<K, V> = (m: *HashMap<K, V>, entry_size: usize) void {
+    vec_free(&m.entries, entry_size)
+    m.size = 0
+    m.capacity = 0
 }

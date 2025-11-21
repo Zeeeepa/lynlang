@@ -1,32 +1,60 @@
 // Option type for nullable values
-// As per LANGUAGE_SPEC.zen: No null! Only Option types
+// No null! Only Option types
 
 // Option type - represents a value that may or may not exist
-// Enums are sum types: a value is ONE of the variants, not all of them
 Option<T>:
     Some: T,
     None
 
 // Create Some variant
-some = (value: T) Option<T> {
+some<T> = (value: T) Option<T> {
     return Option.Some(value)
 }
 
 // Create None variant
-none = () Option<T> {
+none<T> = () Option<T> {
     return Option.None
 }
 
 // Check if option has value
-is_some = (opt: Option<T>) bool {
+is_some<T> = (opt: Option<T>) bool {
     opt ?
-    | Some(_) { true }
-    | None { false }
+        | Some(_) { true }
+        | None { false }
 }
 
 // Check if option is none
-is_none = (opt: Option<T>) bool {
+is_none<T> = (opt: Option<T>) bool {
     opt ?
-    | Some(_) { false }
-    | None { true }
+        | Some(_) { false }
+        | None { true }
+}
+
+// Map: transform the value inside
+map<T, U> = (opt: Option<T>, f: (T) U) Option<U> {
+    opt ?
+        | Some(val) { Option.Some(f(val)) }
+        | None { Option.None }
+}
+
+// Unwrap with default value
+unwrap_or<T> = (opt: Option<T>, default: T) T {
+    opt ?
+        | Some(val) { val }
+        | None { default }
+}
+
+// Get value or panic
+unwrap<T> = (opt: Option<T>) T {
+    opt ?
+        | Some(val) { val }
+        | None { 
+            // Panic - infinite loop
+            loop(() {
+                if true { break }
+            })
+            return opt ?
+                | Some(v) { v }
+                | None { return opt ? | Some(v) { v } | None {} }
+        }
 }

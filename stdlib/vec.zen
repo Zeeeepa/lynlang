@@ -1,19 +1,13 @@
 // Zen Standard Library: Vector Type
-// Generic growable array using Ptr<T>
+// Generic growable array
 
 { compiler } = @std
-{ gpa } = @std.memory
-{ ptr } = @std.core
 
-// ============================================================================
 // Vec<T> - Growable Array (Owned, Must Be Freed)
-// ============================================================================
-
 Vec<T>: {
-    data: ptr.Ptr<T>,      // Type-safe pointer to array elements
-    len: usize,            // Current number of elements
-    capacity: usize,       // Allocated capacity (number of elements, not bytes)
-    allocator: gpa.Allocator
+    data: *u8,
+    len: usize,
+    capacity: usize
 }
 
 // ============================================================================
@@ -21,24 +15,28 @@ Vec<T>: {
 // ============================================================================
 
 // Create new empty vector
-vec_new<T> = (allocator: gpa.Allocator) Vec<T> {
+vec_new<T> = () Vec<T> {
     return Vec<T> {
-        data: ptr.ptr_none(),
+        data: (0 as *u8),
         len: 0,
-        capacity: 0,
-        allocator: allocator
+        capacity: 0
     }
 }
 
 // Create vector with initial capacity
-vec_with_capacity<T> = (allocator: gpa.Allocator, initial_capacity: usize) Vec<T> {
-    data = ptr.ptr_allocate(allocator, initial_capacity)
+vec_with_capacity<T> = (initial_capacity: usize) Vec<T> {
+    if initial_capacity == 0 {
+        return vec_new()
+    }
+    
+    item_size = compiler.sizeof(T)
+    total_size = initial_capacity * item_size
+    data = compiler.raw_allocate(total_size)
     
     return Vec<T> {
         data: data,
         len: 0,
-        capacity: initial_capacity,
-        allocator: allocator
+        capacity: initial_capacity
     }
 }
 
@@ -65,27 +63,33 @@ vec_is_empty<T> = (v: Vec<T>) bool {
 // Read Operations
 // ============================================================================
 
-// Get element at index (safe)
-vec_get<T> = (v: Vec<T>, index: usize) Option<T> {
+// Get element address at index (unsafe)
+vec_get_addr<T> = (v: Vec<T>, index: usize) *u8 {
     if index >= v.len {
-        return Option.None
+        return (0 as *u8)
     }
     
-    ptr.ptr_at(v.data, index)
+    item_size = compiler.sizeof(T)
+    offset = (index * item_size) as i64
+    return compiler.gep(v.data, offset)
 }
 
-// Get first element
-vec_first<T> = (v: Vec<T>) Option<T> {
-    vec_get(v, 0)
+// Check if index is valid
+vec_is_valid_index<T> = (v: Vec<T>, index: usize) bool {
+    return index < v.len
 }
 
-// Get last element
-vec_last<T> = (v: Vec<T>) Option<T> {
+// Get first valid index
+vec_first_index = () usize {
+    return 0
+}
+
+// Get last valid index for non-empty vec
+vec_last_index<T> = (v: Vec<T>) usize {
     if v.len == 0 {
-        return Option.None
+        return 0
     }
-    
-    vec_get(v, v.len - 1)
+    return v.len - 1
 }
 
 // ============================================================================
@@ -93,133 +97,72 @@ vec_last<T> = (v: Vec<T>) Option<T> {
 // ============================================================================
 
 // Push element to end (auto-grows)
-vec_push<T> = (v: *Vec<T>, elem: T) void {
-    // Allocate if needed
+vec_push<T> = (v: *Vec<T>, elem_size: usize, elem_addr: *u8) void {
+    // Initial allocation if empty
     if v.len == 0 && v.capacity == 0 {
-        new_data = ptr.ptr_allocate(v.allocator, 1)
-        v.data = new_data
         v.capacity = 1
+        v.data = compiler.raw_allocate(elem_size)
     }
     
     // Grow capacity if full
     if v.len >= v.capacity {
         new_capacity = v.capacity * 2
-        new_data = ptr.ptr_allocate(v.allocator, new_capacity)
+        new_size = new_capacity * elem_size
+        new_data = compiler.raw_allocate(new_size)
         
-        // Copy old data
-        ptr.ptr_copy(v.data, new_data, v.len)
-        
-        // Free old data if it existed
-        v.data ?
-        | Some(_) {
-            ptr.ptr_free(&v.data, v.allocator, v.capacity)
+        // Copy old data (simple byte copy)
+        if v.len > 0 {
+            old_size = v.len * elem_size
+            i = 0
+            loop(() {
+                if i >= old_size { break }
+                
+                offset = i as i64
+                src = compiler.gep(v.data, offset)
+                dst = compiler.gep(new_data, offset)
+                
+                // TODO: Copy byte when load/store available
+                
+                i = i + 1
+            })
         }
-        | None {}
+        
+        // Free old data
+        if v.data != (0 as *u8) {
+            compiler.raw_deallocate(v.data, v.capacity * elem_size)
+        }
         
         v.data = new_data
         v.capacity = new_capacity
     }
     
     // Write element at end
-    target = ptr.ptr_offset(v.data, v.len as i64)
-    target ?
-    | Some(_) {
-        // Get raw address and write
-        base_addr = ptr.ptr_unwrap(v.data)
-        elem_addr = compiler.gep(base_addr as *u8, (v.len * compiler.sizeof(T)) as i64)
-        *(elem_addr as *T) = elem
-        v.len = v.len + 1
-    }
-    | None { /* error: allocation failed */ }
-}
-
-// Pop element from end
-vec_pop<T> = (v: *Vec<T>) Option<T> {
-    if v.len == 0 {
-        return Option.None
-    }
+    offset = ((v.len) * elem_size) as i64
+    target = compiler.gep(v.data, offset)
     
-    v.len = v.len - 1
-    vec_get(*v, v.len)
-}
-
-// Insert at index (shifts elements)
-vec_insert<T> = (v: *Vec<T>, index: usize, elem: T) void {
-    if index > v.len {
-        return  // Out of bounds
-    }
-    
-    // Grow if needed
-    if v.len >= v.capacity {
-        new_capacity = if v.capacity == 0 { 1 } else { v.capacity * 2 }
-        new_data = ptr.ptr_allocate(v.allocator, new_capacity)
-        
-        if v.len > 0 {
-            ptr.ptr_copy(v.data, new_data, v.len)
-        }
-        
-        v.data ?
-        | Some(_) {
-            ptr.ptr_free(&v.data, v.allocator, v.capacity)
-        }
-        | None {}
-        
-        v.data = new_data
-        v.capacity = new_capacity
-    }
-    
-    // Shift elements right from index
-    i = v.len
+    // Copy element data (simple byte copy)
+    i = 0
     loop(() {
-        if i <= index { break }
+        if i >= elem_size { break }
         
-        prev_elem = vec_get(*v, i - 1)
-        prev_elem ?
-        | Some(e) {
-            // Write to position i
-            base_addr = ptr.ptr_unwrap(v.data)
-            target_addr = compiler.gep(base_addr as *u8, (i * compiler.sizeof(T)) as i64)
-            *(target_addr as *T) = e
-        }
-        | None {}
+        src_offset = i as i64
+        dst_offset = i as i64
+        src = compiler.gep(elem_addr, src_offset)
+        dst = compiler.gep(target, dst_offset)
         
-        i = i - 1
-    })
-    
-    // Write new element at index
-    base_addr = ptr.ptr_unwrap(v.data)
-    elem_addr = compiler.gep(base_addr as *u8, (index * compiler.sizeof(T)) as i64)
-    *(elem_addr as *T) = elem
-    v.len = v.len + 1
-}
-
-// Remove at index
-vec_remove<T> = (v: *Vec<T>, index: usize) Option<T> {
-    if index >= v.len {
-        return Option.None
-    }
-    
-    elem = vec_get(*v, index)
-    
-    // Shift elements left
-    i = index
-    loop(() {
-        if i >= v.len - 1 { break }
-        
-        next_elem = vec_get(*v, i + 1)
-        next_elem ?
-        | Some(e) {
-            base_addr = ptr.ptr_unwrap(v.data)
-            target_addr = compiler.gep(base_addr as *u8, (i * compiler.sizeof(T)) as i64)
-            *(target_addr as *T) = e
-        }
-        | None {}
+        // TODO: Copy byte when load/store available
         
         i = i + 1
     })
     
-    v.len = v.len - 1
-    return elem
+    v.len = v.len + 1
+}
+
+// Pop element from end
+vec_pop<T> = (v: *Vec<T>) void {
+    if v.len > 0 {
+        v.len = v.len - 1
+    }
 }
 
 // Clear without deallocating
@@ -232,21 +175,34 @@ vec_clear<T> = (v: *Vec<T>) void {
 // ============================================================================
 
 // Reserve additional capacity
-vec_reserve<T> = (v: *Vec<T>, additional: usize) void {
+vec_reserve<T> = (v: *Vec<T>, additional: usize, elem_size: usize) void {
     needed = v.len + additional
     if needed > v.capacity {
         new_capacity = needed * 2
-        new_data = ptr.ptr_allocate(v.allocator, new_capacity)
+        new_size = new_capacity * elem_size
+        new_data = compiler.raw_allocate(new_size)
         
+        // Copy old data
         if v.len > 0 {
-            ptr.ptr_copy(v.data, new_data, v.len)
+            old_size = v.len * elem_size
+            i = 0
+            loop(() {
+                if i >= old_size { break }
+                
+                offset = i as i64
+                src = compiler.gep(v.data, offset)
+                dst = compiler.gep(new_data, offset)
+                
+                // TODO: Copy byte
+                
+                i = i + 1
+            })
         }
         
-        v.data ?
-        | Some(_) {
-            ptr.ptr_free(&v.data, v.allocator, v.capacity)
+        // Free old data
+        if v.data != (0 as *u8) {
+            compiler.raw_deallocate(v.data, v.capacity * elem_size)
         }
-        | None {}
         
         v.data = new_data
         v.capacity = new_capacity
@@ -254,16 +210,27 @@ vec_reserve<T> = (v: *Vec<T>, additional: usize) void {
 }
 
 // Shrink to fit
-vec_shrink_to_fit<T> = (v: *Vec<T>) void {
+vec_shrink_to_fit<T> = (v: *Vec<T>, elem_size: usize) void {
     if v.len < v.capacity && v.len > 0 {
-        new_data = ptr.ptr_allocate(v.allocator, v.len)
-        ptr.ptr_copy(v.data, new_data, v.len)
+        new_size = v.len * elem_size
+        new_data = compiler.raw_allocate(new_size)
         
-        v.data ?
-        | Some(_) {
-            ptr.ptr_free(&v.data, v.allocator, v.capacity)
-        }
-        | None {}
+        // Copy data
+        i = 0
+        loop(() {
+            if i >= new_size { break }
+            
+            offset = i as i64
+            src = compiler.gep(v.data, offset)
+            dst = compiler.gep(new_data, offset)
+            
+            // TODO: Copy byte
+            
+            i = i + 1
+        })
+        
+        // Free old data
+        compiler.raw_deallocate(v.data, v.capacity * elem_size)
         
         v.data = new_data
         v.capacity = v.len
@@ -271,43 +238,18 @@ vec_shrink_to_fit<T> = (v: *Vec<T>) void {
 }
 
 // Deallocate vector
-vec_free<T> = (v: *Vec<T>) void {
-    v.data ?
-    | Some(_) {
-        ptr.ptr_free(&v.data, v.allocator, v.capacity)
+vec_free<T> = (v: *Vec<T>, elem_size: usize) void {
+    if v.data != (0 as *u8) {
+        compiler.raw_deallocate(v.data, v.capacity * elem_size)
     }
-    | None {}
     
     v.len = 0
     v.capacity = 0
+    v.data = (0 as *u8)
 }
 
 // ============================================================================
-// Utility Functions
-// ============================================================================
-
-// Clone vector
-vec_clone<T> = (v: Vec<T>, allocator: gpa.Allocator) Vec<T> {
-    new_vec = vec_with_capacity(allocator, v.len)
-    
-    i = 0
-    loop(() {
-        if i >= v.len { break }
-        
-        vec_get(v, i) ?
-        | Some(elem) {
-            vec_push(&new_vec, elem)
-        }
-        | None {}
-        
-        i = i + 1
-    })
-    
-    return new_vec
-}
-
-// ============================================================================
-// Deprecated: Fixed-size arrays
+// Deprecated: Static arrays
 // ============================================================================
 
 // Array - fixed size (backward compatibility)

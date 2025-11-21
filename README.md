@@ -43,8 +43,17 @@ cargo run --bin zen <file.zen>
 cargo run --bin zen examples/showcase.zen
 
 # Run test suite
-python3 scripts/run_tests.py
+cargo test --all
 ```
+
+## Understanding the Architecture
+
+**Before implementing features**, read:
+1. **[ARCHITECTURE.md](./ARCHITECTURE.md)** - LLVM primitives vs Zen-level features
+2. **[PRIMITIVES_VS_FEATURES.md](./PRIMITIVES_VS_FEATURES.md)** - Decision tree for where to code
+3. **[PRIMITIVE_EXAMPLES.md](./PRIMITIVE_EXAMPLES.md)** - Real examples from codebase
+
+This clarifies whether something should be an LLVM intrinsic or Zen code.
 
 ## Language Features by Example
 

@@ -1,26 +1,87 @@
-// Zen Standard Library: Time module
+// Zen Standard Library: Time
+// Time measurement and operations
 
-Time: {
-    nanos: i64
-}
-
-Instant: {
-    nanos: i64
-}
-
+// Duration - represents a span of time
 Duration: {
+    seconds: i64,
     nanos: i64
 }
 
-NANOS_PER_MILLIS = 1000000
-NANOS_PER_SECOND = 1000000000
-NANOS_PER_MINUTE = 60000000000
-NANOS_PER_HOUR = 3600000000000
-
-now = () Time {
-    return Time { nanos: 0 }
+// Instant - represents a point in time
+Instant: {
+    seconds: i64,
+    nanos: i64
 }
 
-monotonic = () Instant {
-    return Instant { nanos: 0 }
+// Create duration from seconds
+duration_from_secs = (secs: i64) Duration {
+    return Duration {
+        seconds: secs,
+        nanos: 0
+    }
+}
+
+// Create duration from milliseconds
+duration_from_millis = (millis: i64) Duration {
+    return Duration {
+        seconds: millis / 1000,
+        nanos: (millis % 1000) * 1000000
+    }
+}
+
+// Get total seconds from duration
+duration_as_secs = (d: Duration) i64 {
+    return d.seconds
+}
+
+// Get total milliseconds from duration
+duration_as_millis = (d: Duration) i64 {
+    return d.seconds * 1000 + d.nanos / 1000000
+}
+
+// Add durations
+duration_add = (a: Duration, b: Duration) Duration {
+    total_nanos = a.nanos + b.nanos
+    carry_secs = total_nanos / 1000000000
+    result_nanos = total_nanos % 1000000000
+    
+    return Duration {
+        seconds: a.seconds + b.seconds + carry_secs,
+        nanos: result_nanos
+    }
+}
+
+// Get current time (requires system call)
+now = () Instant {
+    // Built-in - system call
+    return Instant {
+        seconds: 0,
+        nanos: 0
+    }
+}
+
+// Get elapsed time since instant
+elapsed = (start: Instant) Duration {
+    // Built-in - requires now()
+    return Duration {
+        seconds: 0,
+        nanos: 0
+    }
+}
+
+// Sleep for duration
+sleep = (d: Duration) void {
+    // Built-in - system call
+}
+
+// Sleep for milliseconds
+sleep_millis = (millis: i64) void {
+    d = duration_from_millis(millis)
+    sleep(d)
+}
+
+// Sleep for seconds
+sleep_secs = (secs: i64) void {
+    d = duration_from_secs(secs)
+    sleep(d)
 }

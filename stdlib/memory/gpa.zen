@@ -3,27 +3,32 @@
 
 { compiler } = @std
 
+// General Purpose Allocator - uses system malloc/free
 GPA: {
     id: i32
 }
 
+// Create default GPA instance
 gpa_new = () GPA {
     return GPA { id: 0 }
 }
 
+// Allocate memory
 gpa_allocate = (alloc: GPA, size: usize) *u8 {
     return compiler.raw_allocate(size)
 }
 
+// Deallocate memory
 gpa_deallocate = (alloc: GPA, ptr: *u8, size: usize) void {
     compiler.raw_deallocate(ptr, size)
-    return void
 }
 
+// Reallocate memory
 gpa_reallocate = (alloc: GPA, ptr: *u8, old_size: usize, new_size: usize) *u8 {
     return compiler.raw_reallocate(ptr, old_size, new_size)
 }
 
-default_gpa = () GPA {
-    return GPA { id: 0 }
+// Get default allocator instance
+default_allocator = () GPA {
+    return gpa_new()
 }

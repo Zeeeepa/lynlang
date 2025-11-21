@@ -1,13 +1,39 @@
 // Zen Standard Library: IO Module
+// Input/Output operations
 
+// File descriptor constants
 STDIN = 0
 STDOUT = 1
 STDERR = 2
 
-print = (message: StaticString) void {
-    // Built-in
+// Print to stdout (expects string struct with data and len)
+print = (message: String) void {
+    // Built-in implemented in Rust codegen
 }
 
-println = (message: StaticString) void {
-    // Built-in
+// Print with newline
+println = (message: String) void {
+    // Built-in implemented in Rust codegen
+}
+
+// Print to stderr
+eprint = (message: String) void {
+    // Built-in implemented in Rust codegen
+}
+
+// Print to stderr with newline
+eprintln = (message: String) void {
+    // Built-in implemented in Rust codegen
+}
+
+// Read line from stdin
+read_line = () Result<String, String> {
+    // Built-in implemented in Rust codegen
+    return Result.Err("Not implemented")
+}
+
+// Read with prompt
+read_input = (prompt: String) Result<String, String> {
+    // Built-in implemented in Rust codegen
+    return Result.Err("Not implemented")
 }

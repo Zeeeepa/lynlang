@@ -1,18 +1,83 @@
 // Zen Standard Library: Set
+// Unordered collection of unique elements
 
-Set: {
-    data: *u8,
-    len: usize
+{ compiler } = @std
+{ Vec, vec_new, vec_with_capacity, vec_len, vec_is_empty, vec_free, vec_get_addr } = @std
+
+// Set<T> - implemented using Vec<T> (simplified: just tracks unique items)
+Set<T>: {
+    data: Vec<T>
 }
 
-set_new = () Set {
-    return Set { data: compiler.null_ptr(), len: 0 }
+// Create new empty set
+set_new<T> = () Set<T> {
+    return Set<T> {
+        data: vec_new()
+    }
 }
 
-set_insert = (set: Set, value: i32) void {
-    return void
+// Create set with capacity
+set_with_capacity<T> = (capacity: usize) Set<T> {
+    return Set<T> {
+        data: vec_with_capacity(capacity)
+    }
 }
 
-set_contains = (set: Set, value: i32) bool {
-    return false
+// Get set size
+set_len<T> = (s: Set<T>) usize {
+    return vec_len(s.data)
+}
+
+// Check if empty
+set_is_empty<T> = (s: Set<T>) bool {
+    return vec_is_empty(s.data)
+}
+
+// Check if element exists (naive O(n) search)
+set_contains<T> = (s: Set<T>, index: usize) bool {
+    return index < vec_len(s.data)
+}
+
+// Insert element (caller responsible for uniqueness)
+set_insert<T> = (s: *Set<T>, elem_size: usize, elem_addr: *u8) void {
+    // TODO: Check for duplicates before inserting
+    // For now, just add blindly
+    vec_push(&s.data, elem_size, elem_addr)
+}
+
+// Remove element at index
+set_remove<T> = (s: *Set<T>, index: usize) void {
+    if index < vec_len(s.data) {
+        // Remove by swapping with last element
+        last_index = vec_len(s.data) - 1
+        if index != last_index {
+            last_addr = vec_get_addr(s.data, last_index)
+            target_addr = vec_get_addr(s.data, index)
+            
+            // Copy last element to index position
+            elem_size = compiler.sizeof(T)
+            i = 0
+            loop(() {
+                if i >= elem_size { break }
+                offset = i as i64
+                src = compiler.gep(last_addr, offset)
+                dst = compiler.gep(target_addr, offset)
+                // TODO: Copy byte
+                i = i + 1
+            })
+        }
+        
+        // Decrease length
+        s.data.len = s.data.len - 1
+    }
+}
+
+// Clear set
+set_clear<T> = (s: *Set<T>) void {
+    s.data.len = 0
+}
+
+// Free set
+set_free<T> = (s: *Set<T>, elem_size: usize) void {
+    vec_free(&s.data, elem_size)
 }

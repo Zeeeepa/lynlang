@@ -1,25 +1,172 @@
 // Zen Standard Library: String Type
+// Dynamic growable UTF-8 string
 
 { compiler } = @std
 
+// String - dynamic growable text buffer
 String: {
     data: *u8,
     len: usize,
     capacity: usize
 }
 
+// Create a new empty string
 string_new = () String {
     return String {
-        data: compiler.raw_allocate(1),
+        data: compiler.raw_allocate(16),
         len: 0,
-        capacity: 1
+        capacity: 16
     }
 }
 
-string_from_static = (s: StaticString) String {
-    return String {
-        data: compiler.raw_allocate(1),
-        len: 0,
-        capacity: 1
+// Create string from static data (copy)
+string_from_static = (s: *u8, s_len: usize) String {
+    result = string_new()
+    
+    i = 0
+    loop(() {
+        if i >= s_len { break }
+        
+        offset = i as i64
+        src_byte = compiler.gep(s, offset)
+        dst_byte = compiler.gep(result.data, offset)
+        
+        // TODO: Copy byte
+        
+        i = i + 1
+    })
+    
+    result.len = s_len
+    return result
+}
+
+// Get string length
+string_len = (s: String) usize {
+    return s.len
+}
+
+// Get string capacity
+string_capacity = (s: String) usize {
+    return s.capacity
+}
+
+// Check if empty
+string_is_empty = (s: String) bool {
+    return s.len == 0
+}
+
+// Push a single byte (auto-grow)
+string_push = (s: *String, byte: u8) void {
+    // Grow if needed
+    if s.len >= s.capacity {
+        new_capacity = s.capacity * 2
+        new_data = compiler.raw_allocate(new_capacity)
+        
+        // Copy old data
+        i = 0
+        loop(() {
+            if i >= s.len { break }
+            
+            offset = i as i64
+            src = compiler.gep(s.data, offset)
+            dst = compiler.gep(new_data, offset)
+            
+            // TODO: Copy byte
+            
+            i = i + 1
+        })
+        
+        // Free old data
+        compiler.raw_deallocate(s.data, s.capacity)
+        
+        s.data = new_data
+        s.capacity = new_capacity
     }
+    
+    // Write byte at end
+    offset = (s.len) as i64
+    addr = compiler.gep(s.data, offset)
+    // TODO: Store byte at addr
+    
+    s.len = s.len + 1
+}
+
+// Clear string (keep capacity)
+string_clear = (s: *String) void {
+    s.len = 0
+}
+
+// Deallocate string
+string_free = (s: *String) void {
+    if s.data != (0 as *u8) {
+        compiler.raw_deallocate(s.data, s.capacity)
+    }
+    s.len = 0
+    s.capacity = 0
+    s.data = (0 as *u8)
+}
+
+// Get byte at index
+string_at = (s: String, index: usize) u8 {
+    if index >= s.len {
+        return 0 as u8
+    }
+    
+    offset = index as i64
+    addr = compiler.gep(s.data, offset)
+    // TODO: Load byte from addr
+    return 0 as u8
+}
+
+// Reserve additional capacity
+string_reserve = (s: *String, additional: usize) void {
+    needed = s.len + additional
+    if needed > s.capacity {
+        new_capacity = needed * 2
+        new_data = compiler.raw_allocate(new_capacity)
+        
+        // Copy old data
+        i = 0
+        loop(() {
+            if i >= s.len { break }
+            
+            offset = i as i64
+            src = compiler.gep(s.data, offset)
+            dst = compiler.gep(new_data, offset)
+            
+            // TODO: Copy byte
+            
+            i = i + 1
+        })
+        
+        // Free old data
+        compiler.raw_deallocate(s.data, s.capacity)
+        
+        s.data = new_data
+        s.capacity = new_capacity
+    }
+}
+
+// Clone string
+string_clone = (s: String) String {
+    result = String {
+        data: compiler.raw_allocate(s.capacity),
+        len: s.len,
+        capacity: s.capacity
+    }
+    
+    i = 0
+    loop(() {
+        if i >= s.len { break }
+        
+        offset = i as i64
+        src = compiler.gep(s.data, offset)
+        dst = compiler.gep(result.data, offset)
+        
+        // TODO: Copy byte
+        
+        i = i + 1
+    })
+    
+    return result
 }

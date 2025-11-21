@@ -1,0 +1,83 @@
+// Zen Standard Library: File System
+// File and directory operations
+
+{ compiler } = @std
+
+// File type - represents an open file
+File: {
+    fd: i32,
+    path: String,
+    mode: String
+}
+
+// File open modes
+READ = "r"
+WRITE = "w"
+APPEND = "a"
+READ_WRITE = "rw"
+
+// File open result
+open = (path: String, mode: String) Result<File, String> {
+    // Built-in - requires FFI to libc open()
+    return Result.Err("Not implemented")
+}
+
+// File close
+close = (f: File) Result<void, String> {
+    // Built-in - requires FFI to libc close()
+    return Result.Err("Not implemented")
+}
+
+// Read from file
+read = (f: File, buffer: *u8, size: usize) Result<usize, String> {
+    // Built-in - requires FFI to libc read()
+    return Result.Err("Not implemented")
+}
+
+// Write to file
+write = (f: File, buffer: *u8, size: usize) Result<usize, String> {
+    // Built-in - requires FFI to libc write()
+    return Result.Err("Not implemented")
+}
+
+// Read entire file as string
+read_all = (path: String) Result<String, String> {
+    // Built-in - requires open + read
+    return Result.Err("Not implemented")
+}
+
+// Write entire file
+write_all = (path: String, contents: String) Result<void, String> {
+    // Built-in - requires open + write
+    return Result.Err("Not implemented")
+}
+
+// Check if file exists
+exists = (path: String) bool {
+    // Built-in - requires FFI to libc stat()
+    return false
+}
+
+// Get file size
+file_size = (path: String) Result<usize, String> {
+    // Built-in - requires FFI to libc stat()
+    return Result.Err("Not implemented")
+}
+
+// Delete file
+delete = (path: String) Result<void, String> {
+    // Built-in - requires FFI to libc unlink()
+    return Result.Err("Not implemented")
+}
+
+// Create directory
+mkdir = (path: String) Result<void, String> {
+    // Built-in - requires FFI to libc mkdir()
+    return Result.Err("Not implemented")
+}
+
+// List directory
+read_dir = (path: String) Result<Vec<String>, String> {
+    // Built-in - requires FFI to libc opendir/readdir()
+    return Result.Err("Not implemented")
+}

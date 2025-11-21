@@ -1,7 +1,13 @@
-// Standard Allocator Interface for Zen
-// This file is a stub while allocators are being integrated
-// See gpa.zen for the actual General Purpose Allocator implementation
+// Allocator trait - defines interface for memory management
+// All memory operations go through allocators
 
 Allocator: {
-    id: i32
+    allocate: (self, size: usize) *u8,
+    deallocate: (self, ptr: *u8, size: usize) void,
+    reallocate: (self, ptr: *u8, old_size: usize, new_size: usize) *u8
+}
+
+// Check if allocator succeeded
+allocate_ok = (ptr: *u8) bool {
+    return ptr != (0 as *u8)
 }
