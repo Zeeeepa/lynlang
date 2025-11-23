@@ -5,8 +5,8 @@
 The Zen language compiler has **three distinct stdlib-related folders** that serve different purposes but have overlapping responsibilities, leading to confusion and potential duplication:
 
 1. **`stdlib/`** - Zen source files (`.zen` files) - User-facing standard library
-2. **`src/stdlib/`** - Rust module registry/metadata - Type checking and module resolution
-3. **`src/codegen/llvm/functions/stdlib/`** - LLVM codegen implementations - Runtime code generation
+2. **`src/stdlib_metadata/`** - Rust module registry/metadata - Type checking and module resolution
+3. **`src/codegen/llvm/stdlib/`** - LLVM codegen implementations - Runtime code generation
 
 ## Folder Purposes and Responsibilities
 
@@ -38,13 +38,13 @@ The Zen language compiler has **three distinct stdlib-related folders** that ser
 
 ---
 
-### 2. `src/stdlib/` - Rust Module Registry
+### 2. `src/stdlib_metadata/` - Rust Module Registry
 
-**Location**: `/home/ubuntu/zenlang/src/stdlib/`
+**Location**: `/home/ubuntu/zenlang/src/stdlib_metadata/`
 
 **Purpose**: Provides Rust-side metadata and type information for stdlib modules. Used primarily for:
 - Type checking (`src/typechecker/stdlib.rs`)
-- Module resolution (`src/stdlib/mod.rs`)
+- Module resolution (`src/stdlib_metadata/mod.rs`)
 - Function signature registration
 
 **Contents**:
@@ -77,15 +77,15 @@ pub struct StdFunction {
 - Imported in `src/lib.rs` as `pub mod stdlib;`
 - Used by `src/typechecker/mod.rs` via `use crate::stdlib::StdNamespace;`
 - Functions registered in `src/typechecker/stdlib.rs` for type checking
-- Referenced in `src/stdlib/mod.rs` for `@std.*` resolution
+- Referenced in `src/stdlib_metadata/mod.rs` for `@std.*` resolution
 
 **Status**: **Active but Redundant** - Provides metadata that could be derived from Zen files.
 
 ---
 
-### 3. `src/codegen/llvm/functions/stdlib/` - LLVM Codegen Implementations
+### 3. `src/codegen/llvm/stdlib/` - LLVM Codegen Implementations
 
-**Location**: `/home/ubuntu/zenlang/src/codegen/llvm/functions/stdlib/`
+**Location**: `/home/ubuntu/zenlang/src/codegen/llvm/stdlib/`
 
 **Purpose**: Contains the actual LLVM IR code generation functions for stdlib operations. These are the runtime implementations that get compiled into the final binary.
 
@@ -120,11 +120,11 @@ Module System (src/module_system/mod.rs)
     ↓ Resolves to stdlib/io/io.zen
     ↓
 Type Checker (src/typechecker/mod.rs)
-    ↓ Uses src/stdlib/ for type info
+    ↓ Uses src/stdlib_metadata/ for type info
     ↓ Checks against StdNamespace
     ↓
 Code Generator (src/codegen/llvm/functions/calls.rs)
-    ↓ Routes to src/codegen/llvm/functions/stdlib/io.rs
+    ↓ Routes to src/codegen/llvm/stdlib/io.rs
     ↓ Calls compile_io_println()
     ↓
 LLVM IR Generation
@@ -132,7 +132,7 @@ LLVM IR Generation
 
 **Key Import Points**:
 
-1. **`src/lib.rs`**: `pub mod stdlib;` - Exposes `src/stdlib/` module
+1. **`src/lib.rs`**: `pub mod stdlib_metadata;` - Exposes `src/stdlib_metadata/` module
 2. **`src/typechecker/mod.rs`**: `use crate::stdlib::StdNamespace;` - Uses metadata for type checking
 3. **`src/codegen/llvm/functions/mod.rs`**: `pub mod stdlib;` - Exposes codegen functions
 4. **`src/codegen/llvm/functions/calls.rs`**: `use super::stdlib;` - Routes calls to codegen
@@ -146,7 +146,7 @@ LLVM IR Generation
 ### Function Name Overlap
 
 #### Math Functions
-| Function | `stdlib/math/math.zen` | `src/stdlib/math.rs` | `src/codegen/llvm/functions/stdlib/math.rs` |
+| Function | `stdlib/math/math.zen` | `src/stdlib_metadata/math.rs` | `src/codegen/llvm/stdlib/math.rs` |
 |----------|------------------------|----------------------|---------------------------------------------|
 | `sin`    | ✅ Declared            | ✅ Registered        | ✅ Implemented (`compile_math_function`)     |
 | `cos`    | ✅ Declared            | ✅ Registered        | ✅ Implemented                               |
@@ -164,7 +164,7 @@ LLVM IR Generation
 **Analysis**: All three layers have math functions. This is **intentional** - Zen files declare, Rust metadata registers for type checking, codegen implements.
 
 #### IO Functions
-| Function    | `stdlib/io/io.zen` | `src/stdlib/io.rs` | `src/codegen/llvm/functions/stdlib/io.rs` |
+| Function    | `stdlib/io/io.zen` | `src/stdlib_metadata/io.rs` | `src/codegen/llvm/stdlib/io.rs` |
 |-------------|-------------------|-------------------|-------------------------------------------|
 | `print`     | ✅ Declared       | ✅ Registered     | ✅ Implemented (`compile_io_print`)        |
 | `println`   | ✅ Declared       | ✅ Registered     | ✅ Implemented (`compile_io_println`)      |
@@ -176,7 +176,7 @@ LLVM IR Generation
 **Analysis**: Some IO functions are declared but not fully implemented in codegen. This is **incomplete implementation**, not duplication.
 
 #### Core Functions
-| Function    | `stdlib/core/*.zen` | `src/stdlib/core.rs` | `src/codegen/llvm/functions/stdlib/core.rs` |
+| Function    | `stdlib/core/*.zen` | `src/stdlib_metadata/core.rs` | `src/codegen/llvm/stdlib/core.rs` |
 |-------------|---------------------|---------------------|---------------------------------------------|
 | `assert`    | ❌ Not in Zen       | ✅ Registered       | ✅ Implemented (`compile_core_assert`)      |
 | `panic`     | ❌ Not in Zen       | ✅ Registered       | ✅ Implemented (`compile_core_panic`)       |
@@ -186,7 +186,7 @@ LLVM IR Generation
 **Analysis**: Core functions like `assert` and `panic` are **only in Rust layers**, not in Zen files. This is intentional - they're compiler intrinsics.
 
 #### Compiler Intrinsics
-| Function          | `stdlib/compiler/` | `src/stdlib/compiler.rs` | `src/codegen/llvm/functions/stdlib/compiler.rs` |
+| Function          | `stdlib/compiler/` | `src/stdlib_metadata/compiler.rs` | `src/codegen/llvm/stdlib/compiler.rs` |
 |-------------------|---------------------|-------------------------|-------------------------------------------------|
 | `raw_allocate`    | ✅ Used in Zen      | ✅ Registered           | ✅ Implemented                                   |
 | `raw_deallocate`  | ✅ Used in Zen      | ✅ Registered           | ✅ Implemented                                   |
@@ -197,7 +197,7 @@ LLVM IR Generation
 **Analysis**: Compiler intrinsics are declared in Rust metadata and implemented in codegen. Zen files **use** them but don't declare them (they're compiler magic).
 
 #### FS Functions
-| Function      | `stdlib/fs/fs.zen` | `src/stdlib/fs.rs` | `src/codegen/llvm/functions/stdlib/fs.rs` |
+| Function      | `stdlib/fs/fs.zen` | `src/stdlib_metadata/fs.rs` | `src/codegen/llvm/stdlib/fs.rs` |
 |---------------|-------------------|-------------------|-------------------------------------------|
 | `read_file`   | ✅ Declared       | ✅ Registered     | ✅ Implemented                            |
 | `write_file`  | ✅ Declared       | ✅ Registered     | ✅ Implemented                            |
@@ -215,7 +215,7 @@ LLVM IR Generation
 All three folders are named "stdlib" which makes it unclear which one to modify or where to look for functionality.
 
 ### 2. **Metadata Duplication**
-`src/stdlib/` contains function signatures that could be parsed from `stdlib/*.zen` files instead of being manually maintained in Rust.
+`src/stdlib_metadata/` contains function signatures that could be parsed from `stdlib/*.zen` files instead of being manually maintained in Rust.
 
 ### 3. **Incomplete Implementation**
 Some functions are declared in Zen files and registered in Rust metadata but not implemented in codegen (e.g., `eprint`, `eprintln`, `read_line`).
@@ -238,9 +238,9 @@ It's not always clear which functions should be:
 **Implementation**: Descriptive Names
 
 1. **Kept**: `stdlib/` - User-facing Zen source files
-2. **Renamed**: `src/stdlib/` → `src/stdlib_metadata/`
+2. **Renamed**: `src/stdlib/` → `src/stdlib_metadata/` ✅
    - Makes it clear this is metadata/registry for type checking
-3. **Renamed**: `src/codegen/llvm/functions/stdlib/` → `src/codegen/llvm/stdlib/`
+3. **Renamed**: `src/codegen/llvm/functions/stdlib/` → `src/codegen/llvm/stdlib/` ✅
    - Moved up one level for clarity (stdlib codegen is at same level as functions)
    - Makes it clear this is codegen-specific implementations
 
@@ -253,8 +253,8 @@ It's not always clear which functions should be:
 **Approach**:
 1. Parse `stdlib/*.zen` files during compiler initialization
 2. Extract function signatures automatically
-3. Use parsed signatures for type checking instead of `src/stdlib/*.rs` registries
-4. Keep `src/stdlib/` only for functions that can't be expressed in Zen (compiler intrinsics)
+3. Use parsed signatures for type checking instead of `src/stdlib_metadata/*.rs` registries
+4. Keep `src/stdlib_metadata/` only for functions that can't be expressed in Zen (compiler intrinsics)
 
 **Benefits**:
 - Single source of truth (Zen files)
@@ -311,9 +311,9 @@ It's not always clear which functions should be:
 ## Migration Path
 
 ### Step 1: Rename Folders (Low Risk)
-1. Rename `src/stdlib/` → `src/stdlib_registry/`
+1. ✅ Rename `src/stdlib/` → `src/stdlib_metadata/` (COMPLETED)
 2. Update all imports in codebase
-3. Rename `src/codegen/llvm/functions/stdlib/` → `src/codegen/llvm/stdlib_codegen/`
+3. ✅ Rename `src/codegen/llvm/functions/stdlib/` → `src/codegen/llvm/stdlib/` (COMPLETED)
 4. Update all imports in codebase
 5. Test compilation
 
