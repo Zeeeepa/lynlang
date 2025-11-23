@@ -6,7 +6,7 @@ The Zen language compiler has **three distinct stdlib-related folders** that ser
 
 1. **`stdlib/`** - Zen source files (`.zen` files) - User-facing standard library
 2. **`src/stdlib_metadata/`** - Rust module registry/metadata - Type checking and module resolution
-3. **`src/codegen/llvm/stdlib/`** - LLVM codegen implementations - Runtime code generation
+3. **`src/codegen/llvm/stdlib_codegen/`** - LLVM codegen implementations - Runtime code generation
 
 ## Folder Purposes and Responsibilities
 
@@ -83,9 +83,9 @@ pub struct StdFunction {
 
 ---
 
-### 3. `src/codegen/llvm/stdlib/` - LLVM Codegen Implementations
+### 3. `src/codegen/llvm/stdlib_codegen/` - LLVM Codegen Implementations
 
-**Location**: `/home/ubuntu/zenlang/src/codegen/llvm/stdlib/`
+**Location**: `/home/ubuntu/zenlang/src/codegen/llvm/stdlib_codegen/`
 
 **Purpose**: Contains the actual LLVM IR code generation functions for stdlib operations. These are the runtime implementations that get compiled into the final binary.
 
@@ -124,7 +124,7 @@ Type Checker (src/typechecker/mod.rs)
     ↓ Checks against StdNamespace
     ↓
 Code Generator (src/codegen/llvm/functions/calls.rs)
-    ↓ Routes to src/codegen/llvm/stdlib/io.rs
+    ↓ Routes to src/codegen/llvm/stdlib_codegen/io.rs
     ↓ Calls compile_io_println()
     ↓
 LLVM IR Generation
@@ -146,7 +146,7 @@ LLVM IR Generation
 ### Function Name Overlap
 
 #### Math Functions
-| Function | `stdlib/math/math.zen` | `src/stdlib_metadata/math.rs` | `src/codegen/llvm/stdlib/math.rs` |
+| Function | `stdlib/math/math.zen` | `src/stdlib_metadata/math.rs` | `src/codegen/llvm/stdlib_codegen/math.rs` |
 |----------|------------------------|----------------------|---------------------------------------------|
 | `sin`    | ✅ Declared            | ✅ Registered        | ✅ Implemented (`compile_math_function`)     |
 | `cos`    | ✅ Declared            | ✅ Registered        | ✅ Implemented                               |
@@ -164,7 +164,7 @@ LLVM IR Generation
 **Analysis**: All three layers have math functions. This is **intentional** - Zen files declare, Rust metadata registers for type checking, codegen implements.
 
 #### IO Functions
-| Function    | `stdlib/io/io.zen` | `src/stdlib_metadata/io.rs` | `src/codegen/llvm/stdlib/io.rs` |
+| Function    | `stdlib/io/io.zen` | `src/stdlib_metadata/io.rs` | `src/codegen/llvm/stdlib_codegen/io.rs` |
 |-------------|-------------------|-------------------|-------------------------------------------|
 | `print`     | ✅ Declared       | ✅ Registered     | ✅ Implemented (`compile_io_print`)        |
 | `println`   | ✅ Declared       | ✅ Registered     | ✅ Implemented (`compile_io_println`)      |
@@ -176,7 +176,7 @@ LLVM IR Generation
 **Analysis**: Some IO functions are declared but not fully implemented in codegen. This is **incomplete implementation**, not duplication.
 
 #### Core Functions
-| Function    | `stdlib/core/*.zen` | `src/stdlib_metadata/core.rs` | `src/codegen/llvm/stdlib/core.rs` |
+| Function    | `stdlib/core/*.zen` | `src/stdlib_metadata/core.rs` | `src/codegen/llvm/stdlib_codegen/core.rs` |
 |-------------|---------------------|---------------------|---------------------------------------------|
 | `assert`    | ❌ Not in Zen       | ✅ Registered       | ✅ Implemented (`compile_core_assert`)      |
 | `panic`     | ❌ Not in Zen       | ✅ Registered       | ✅ Implemented (`compile_core_panic`)       |
@@ -186,7 +186,7 @@ LLVM IR Generation
 **Analysis**: Core functions like `assert` and `panic` are **only in Rust layers**, not in Zen files. This is intentional - they're compiler intrinsics.
 
 #### Compiler Intrinsics
-| Function          | `stdlib/compiler/` | `src/stdlib_metadata/compiler.rs` | `src/codegen/llvm/stdlib/compiler.rs` |
+| Function          | `stdlib/compiler/` | `src/stdlib_metadata/compiler.rs` | `src/codegen/llvm/stdlib_codegen/compiler.rs` |
 |-------------------|---------------------|-------------------------|-------------------------------------------------|
 | `raw_allocate`    | ✅ Used in Zen      | ✅ Registered           | ✅ Implemented                                   |
 | `raw_deallocate`  | ✅ Used in Zen      | ✅ Registered           | ✅ Implemented                                   |
@@ -197,7 +197,7 @@ LLVM IR Generation
 **Analysis**: Compiler intrinsics are declared in Rust metadata and implemented in codegen. Zen files **use** them but don't declare them (they're compiler magic).
 
 #### FS Functions
-| Function      | `stdlib/fs/fs.zen` | `src/stdlib_metadata/fs.rs` | `src/codegen/llvm/stdlib/fs.rs` |
+| Function      | `stdlib/fs/fs.zen` | `src/stdlib_metadata/fs.rs` | `src/codegen/llvm/stdlib_codegen/fs.rs` |
 |---------------|-------------------|-------------------|-------------------------------------------|
 | `read_file`   | ✅ Declared       | ✅ Registered     | ✅ Implemented                            |
 | `write_file`  | ✅ Declared       | ✅ Registered     | ✅ Implemented                            |
@@ -240,9 +240,9 @@ It's not always clear which functions should be:
 1. **Kept**: `stdlib/` - User-facing Zen source files
 2. **Renamed**: `src/stdlib/` → `src/stdlib_metadata/` ✅
    - Makes it clear this is metadata/registry for type checking
-3. **Renamed**: `src/codegen/llvm/functions/stdlib/` → `src/codegen/llvm/stdlib/` ✅
-   - Moved up one level for clarity (stdlib codegen is at same level as functions)
-   - Makes it clear this is codegen-specific implementations
+3. **Renamed**: `src/codegen/llvm/functions/stdlib/` → `src/codegen/llvm/stdlib_codegen/` ✅
+   - Moved up one level and renamed for clarity
+   - Makes it clear this is codegen-specific implementations (not user-facing stdlib)
 
 **Status**: ✅ Completed - All imports updated and code compiles successfully.
 
@@ -313,7 +313,7 @@ It's not always clear which functions should be:
 ### Step 1: Rename Folders (Low Risk)
 1. ✅ Rename `src/stdlib/` → `src/stdlib_metadata/` (COMPLETED)
 2. Update all imports in codebase
-3. ✅ Rename `src/codegen/llvm/functions/stdlib/` → `src/codegen/llvm/stdlib/` (COMPLETED)
+3. ✅ Rename `src/codegen/llvm/functions/stdlib/` → `src/codegen/llvm/stdlib_codegen/` (COMPLETED)
 4. Update all imports in codebase
 5. Test compilation
 

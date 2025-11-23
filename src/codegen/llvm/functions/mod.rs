@@ -171,28 +171,28 @@ impl<'ctx> LLVMCompiler<'ctx> {
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib::compile_io_print(self, args)
+        super::stdlib_codegen::compile_io_print(self, args)
     }
     
     fn compile_io_println(
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib::compile_io_println(self, args)
+        super::stdlib_codegen::compile_io_println(self, args)
     }
     
     fn compile_io_print_int(
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib::compile_io_print_int(self, args)
+        super::stdlib_codegen::compile_io_print_int(self, args)
     }
     
     fn compile_io_print_float(
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib::compile_io_print_float(self, args)
+        super::stdlib_codegen::compile_io_print_float(self, args)
     }
     
     fn compile_math_function(
@@ -200,73 +200,73 @@ impl<'ctx> LLVMCompiler<'ctx> {
         name: &str,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib::compile_math_function(self, name, args)
+        super::stdlib_codegen::compile_math_function(self, name, args)
     }
     
     fn compile_core_assert(
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib::compile_core_assert(self, args)
+        super::stdlib_codegen::compile_core_assert(self, args)
     }
     
     fn compile_core_panic(
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib::compile_core_panic(self, args)
+        super::stdlib_codegen::compile_core_panic(self, args)
     }
     
     fn compile_fs_read_file(
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib::compile_fs_read_file(self, args)
+        super::stdlib_codegen::compile_fs_read_file(self, args)
     }
     
     fn compile_fs_write_file(
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib::compile_fs_write_file(self, args)
+        super::stdlib_codegen::compile_fs_write_file(self, args)
     }
     
     fn compile_fs_exists(
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib::compile_fs_exists(self, args)
+        super::stdlib_codegen::compile_fs_exists(self, args)
     }
     
     fn compile_fs_remove_file(
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib::compile_fs_remove_file(self, args)
+        super::stdlib_codegen::compile_fs_remove_file(self, args)
     }
     
     fn compile_fs_create_dir(
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib::compile_fs_create_dir(self, args)
+        super::stdlib_codegen::compile_fs_create_dir(self, args)
     }
     
     fn create_result_ok(
         &mut self,
         value: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib::helpers::create_result_ok(self, value)
+        super::stdlib_codegen::helpers::create_result_ok(self, value)
     }
     
     fn create_result_ok_void(&mut self) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib::helpers::create_result_ok_void(self)
+        super::stdlib_codegen::helpers::create_result_ok_void(self)
     }
     
     fn create_result_err(
         &mut self,
         error: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib::helpers::create_result_err(self, error)
+        super::stdlib_codegen::helpers::create_result_err(self, error)
     }
 }

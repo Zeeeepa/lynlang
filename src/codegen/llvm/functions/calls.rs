@@ -3,7 +3,7 @@ use crate::ast;
 use crate::error::CompileError;
 use inkwell::values::BasicValueEnum;
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
-use super::super::stdlib;
+use super::super::stdlib_codegen;
 
 pub fn compile_function_call<'ctx>(
         compiler: &mut LLVMCompiler<'ctx>,
@@ -21,9 +21,9 @@ pub fn compile_function_call<'ctx>(
             if let Some(angle_pos) = name.find('<') {
                 let base_type = &name[..angle_pos];
                 match base_type {
-                    "HashMap" => return stdlib::compile_hashmap_new(compiler, args),
-                    "HashSet" => return stdlib::compile_hashset_new(compiler, args),
-                    "DynVec" => return stdlib::compile_dynvec_new(compiler, args),
+                    "HashMap" => return stdlib_codegen::compile_hashmap_new(compiler, args),
+                    "HashSet" => return stdlib_codegen::compile_hashset_new(compiler, args),
+                    "DynVec" => return stdlib_codegen::compile_dynvec_new(compiler, args),
                     _ => {
                         // Continue with regular function lookup
                     }
@@ -33,13 +33,13 @@ pub fn compile_function_call<'ctx>(
         
         // Check if this is HashMap.new() or HashSet.new()
         if name == "hashmap_new" {
-            return stdlib::compile_hashmap_new(compiler, args);
+            return stdlib_codegen::compile_hashmap_new(compiler, args);
         }
         if name == "hashset_new" {
-            return stdlib::compile_hashset_new(compiler, args);
+            return stdlib_codegen::compile_hashset_new(compiler, args);
         }
         if name == "dynvec_new" {
-            return stdlib::compile_dynvec_new(compiler, args);
+            return stdlib_codegen::compile_dynvec_new(compiler, args);
         }
         
         // Check if this is a stdlib function call (e.g., io.print)
@@ -81,34 +81,34 @@ pub fn compile_function_call<'ctx>(
                 } else if module == "compiler" {
                     // Handle compiler intrinsics
                     match func {
-                        "inline_c" => return stdlib::compile_inline_c(compiler, args),
-                        "raw_allocate" => return stdlib::compile_raw_allocate(compiler, args),
-                        "raw_deallocate" => return stdlib::compile_raw_deallocate(compiler, args),
-                        "raw_reallocate" => return stdlib::compile_raw_reallocate(compiler, args),
-                        "raw_ptr_offset" => return stdlib::compile_raw_ptr_offset(compiler, args),
-                        "raw_ptr_cast" => return stdlib::compile_raw_ptr_cast(compiler, args),
-                        "call_external" => return stdlib::compile_call_external(compiler, args),
-                        "load_library" => return stdlib::compile_load_library(compiler, args),
-                        "get_symbol" => return stdlib::compile_get_symbol(compiler, args),
-                        "unload_library" => return stdlib::compile_unload_library(compiler, args),
-                        "null_ptr" => return stdlib::compile_null_ptr(compiler, args),
-                        "discriminant" => return stdlib::compile_discriminant(compiler, args),
-                        "set_discriminant" => return stdlib::compile_set_discriminant(compiler, args),
-                        "get_payload" => return stdlib::compile_get_payload(compiler, args),
-                        "set_payload" => return stdlib::compile_set_payload(compiler, args),
-                        "gep" => return stdlib::compile_gep(compiler, args),
-                        "gep_struct" => return stdlib::compile_gep_struct(compiler, args),
+                        "inline_c" => return stdlib_codegen::compile_inline_c(compiler, args),
+                        "raw_allocate" => return stdlib_codegen::compile_raw_allocate(compiler, args),
+                        "raw_deallocate" => return stdlib_codegen::compile_raw_deallocate(compiler, args),
+                        "raw_reallocate" => return stdlib_codegen::compile_raw_reallocate(compiler, args),
+                        "raw_ptr_offset" => return stdlib_codegen::compile_raw_ptr_offset(compiler, args),
+                        "raw_ptr_cast" => return stdlib_codegen::compile_raw_ptr_cast(compiler, args),
+                        "call_external" => return stdlib_codegen::compile_call_external(compiler, args),
+                        "load_library" => return stdlib_codegen::compile_load_library(compiler, args),
+                        "get_symbol" => return stdlib_codegen::compile_get_symbol(compiler, args),
+                        "unload_library" => return stdlib_codegen::compile_unload_library(compiler, args),
+                        "null_ptr" => return stdlib_codegen::compile_null_ptr(compiler, args),
+                        "discriminant" => return stdlib_codegen::compile_discriminant(compiler, args),
+                        "set_discriminant" => return stdlib_codegen::compile_set_discriminant(compiler, args),
+                        "get_payload" => return stdlib_codegen::compile_get_payload(compiler, args),
+                        "set_payload" => return stdlib_codegen::compile_set_payload(compiler, args),
+                        "gep" => return stdlib_codegen::compile_gep(compiler, args),
+                        "gep_struct" => return stdlib_codegen::compile_gep_struct(compiler, args),
                         "load" => {
                             // Extract type parameter from function name if present (e.g., compiler.load<u8>)
                             // For now, infer from context - type_arg will be None
-                            return stdlib::compile_load(compiler, args, None);
+                            return stdlib_codegen::compile_load(compiler, args, None);
                         },
                         "store" => {
                             // Extract type parameter from function name if present
-                            return stdlib::compile_store(compiler, args, None);
+                            return stdlib_codegen::compile_store(compiler, args, None);
                         },
-                        "ptr_to_int" => return stdlib::compile_ptr_to_int(compiler, args),
-                        "int_to_ptr" => return stdlib::compile_int_to_ptr(compiler, args),
+                        "ptr_to_int" => return stdlib_codegen::compile_ptr_to_int(compiler, args),
+                        "int_to_ptr" => return stdlib_codegen::compile_int_to_ptr(compiler, args),
                         _ => {}
                     }
                 } else if module == "Result" {
