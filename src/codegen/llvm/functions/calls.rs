@@ -3,7 +3,7 @@ use crate::ast;
 use crate::error::CompileError;
 use inkwell::values::BasicValueEnum;
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
-use super::stdlib;
+use super::super::stdlib;
 
 pub fn compile_function_call<'ctx>(
         compiler: &mut LLVMCompiler<'ctx>,
@@ -98,6 +98,17 @@ pub fn compile_function_call<'ctx>(
                         "set_payload" => return stdlib::compile_set_payload(compiler, args),
                         "gep" => return stdlib::compile_gep(compiler, args),
                         "gep_struct" => return stdlib::compile_gep_struct(compiler, args),
+                        "load" => {
+                            // Extract type parameter from function name if present (e.g., compiler.load<u8>)
+                            // For now, infer from context - type_arg will be None
+                            return stdlib::compile_load(compiler, args, None);
+                        },
+                        "store" => {
+                            // Extract type parameter from function name if present
+                            return stdlib::compile_store(compiler, args, None);
+                        },
+                        "ptr_to_int" => return stdlib::compile_ptr_to_int(compiler, args),
+                        "int_to_ptr" => return stdlib::compile_int_to_ptr(compiler, args),
                         _ => {}
                     }
                 } else if module == "Result" {

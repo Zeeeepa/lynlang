@@ -1,5 +1,5 @@
 use crate::ast::AstType;
-use crate::stdlib::StdFunction;
+use crate::stdlib_metadata::StdFunction;
 use std::collections::HashMap;
 
 /// The IO module provides input/output operations

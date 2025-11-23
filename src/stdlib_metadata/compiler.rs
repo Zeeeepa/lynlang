@@ -209,6 +209,57 @@ impl CompilerModule {
             },
         );
 
+        // Memory load/store intrinsics - generic functions
+        functions.insert(
+            "load".to_string(),
+            StdFunction {
+                name: "load".to_string(),
+                params: vec![("ptr".to_string(), AstType::RawPtr(Box::new(AstType::U8)))],
+                return_type: AstType::Generic {
+                    name: "T".to_string(),
+                    type_args: vec![],
+                },
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "store".to_string(),
+            StdFunction {
+                name: "store".to_string(),
+                params: vec![
+                    ("ptr".to_string(), AstType::RawPtr(Box::new(AstType::U8))),
+                    ("value".to_string(), AstType::Generic {
+                        name: "T".to_string(),
+                        type_args: vec![],
+                    }),
+                ],
+                return_type: AstType::Void,
+                is_builtin: true,
+            },
+        );
+
+        // Pointer <-> Integer conversion intrinsics (replaces 'as' keyword)
+        functions.insert(
+            "ptr_to_int".to_string(),
+            StdFunction {
+                name: "ptr_to_int".to_string(),
+                params: vec![("ptr".to_string(), AstType::RawPtr(Box::new(AstType::U8)))],
+                return_type: AstType::I64,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "int_to_ptr".to_string(),
+            StdFunction {
+                name: "int_to_ptr".to_string(),
+                params: vec![("addr".to_string(), AstType::I64)],
+                return_type: AstType::RawPtr(Box::new(AstType::U8)),
+                is_builtin: true,
+            },
+        );
+
         // GEP for struct field access - variant that operates on typed pointers
         functions.insert(
             "gep_struct".to_string(),

@@ -2,6 +2,7 @@
 // Thin wrapper around system malloc/free/realloc
 
 { compiler } = @std
+{ Allocator } = @std.memory.allocator
 
 // General Purpose Allocator - uses system malloc/free
 GPA: {
@@ -13,22 +14,35 @@ gpa_new = () GPA {
     return GPA { id: 0 }
 }
 
-// Allocate memory
-gpa_allocate = (alloc: GPA, size: usize) *u8 {
-    return compiler.raw_allocate(size)
-}
-
-// Deallocate memory
-gpa_deallocate = (alloc: GPA, ptr: *u8, size: usize) void {
-    compiler.raw_deallocate(ptr, size)
-}
-
-// Reallocate memory
-gpa_reallocate = (alloc: GPA, ptr: *u8, old_size: usize, new_size: usize) *u8 {
-    return compiler.raw_reallocate(ptr, old_size, new_size)
-}
-
 // Get default allocator instance
-default_allocator = () GPA {
+default_gpa = () GPA {
     return gpa_new()
+}
+
+// Implement Allocator trait for GPA
+GPA.implements(Allocator, {
+    allocate = (self: GPA, size: usize) *u8 {
+        return compiler.raw_allocate(size)
+    },
+    
+    deallocate = (self: GPA, ptr: *u8, size: usize) void {
+        compiler.raw_deallocate(ptr, size)
+    },
+    
+    reallocate = (self: GPA, ptr: *u8, old_size: usize, new_size: usize) *u8 {
+        return compiler.raw_reallocate(ptr, old_size, new_size)
+    }
+})
+
+// Legacy function-based API (for backward compatibility)
+gpa_allocate = (alloc: GPA, size: usize) *u8 {
+    return alloc.allocate(size)
+}
+
+gpa_deallocate = (alloc: GPA, ptr: *u8, size: usize) void {
+    alloc.deallocate(ptr, size)
+}
+
+gpa_reallocate = (alloc: GPA, ptr: *u8, old_size: usize, new_size: usize) *u8 {
+    return alloc.reallocate(ptr, old_size, new_size)
 }

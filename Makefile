@@ -1,7 +1,7 @@
 # Zen Language Makefile
 # Provides convenient build and test commands
 
-.PHONY: all build test clean install lsp format check help
+.PHONY: all build test clean install lsp format check help test-lsp-diagnostics
 
 # Default target
 all: build
@@ -42,6 +42,12 @@ lsp:
 	@echo "Building Zen LSP server..."
 	@cargo build --release --bin zen-lsp
 	@echo "✓ LSP server built"
+
+# Run LSP parser diagnostics tests
+test-lsp-diagnostics:
+	@echo "Running LSP parser diagnostics tests..."
+	@python3 tests/lsp/test_parser_diagnostics.py
+	@echo "✓ LSP diagnostics tests complete"
 
 # Format all Rust code
 format:
@@ -100,6 +106,7 @@ help:
 	@echo "  make test-file FILE=<path> - Run specific test"
 	@echo "  make install     - Install the compiler"
 	@echo "  make lsp         - Build the LSP server"
+	@echo "  make test-lsp-diagnostics - Run LSP parser diagnostics tests"
 	@echo "  make format      - Format all code"
 	@echo "  make check       - Check code without building"
 	@echo "  make lint        - Run clippy linter"

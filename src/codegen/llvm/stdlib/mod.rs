@@ -19,7 +19,7 @@ pub use compiler::*;
 pub use collections::*;
 
 // All functions are now delegated to their respective modules
-use super::super::LLVMCompiler;
+use super::LLVMCompiler;
 use crate::ast;
 use crate::error::CompileError;
 use inkwell::values::BasicValueEnum;
@@ -264,4 +264,36 @@ pub fn compile_gep_struct<'ctx>(
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     compiler::compile_gep_struct(compiler, args)
+}
+
+// Delegate to compiler module - load/store intrinsics
+pub fn compile_load<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+    type_arg: Option<&ast::AstType>,
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_load(compiler, args, type_arg)
+}
+
+pub fn compile_store<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+    type_arg: Option<&ast::AstType>,
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_store(compiler, args, type_arg)
+}
+
+// Delegate to compiler module - pointer conversion intrinsics
+pub fn compile_ptr_to_int<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_ptr_to_int(compiler, args)
+}
+
+pub fn compile_int_to_ptr<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_int_to_ptr(compiler, args)
 }

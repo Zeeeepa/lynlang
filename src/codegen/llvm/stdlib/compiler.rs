@@ -1,10 +1,11 @@
 //! Compiler intrinsics codegen - inline_c, raw_allocate, etc.
 
-use super::super::super::LLVMCompiler;
+use super::super::{LLVMCompiler, Type};
 use crate::ast;
 use crate::error::CompileError;
 use inkwell::module::Linkage;
 use inkwell::values::BasicValueEnum;
+use inkwell::types::{BasicType, BasicTypeEnum};
 
 /// Compile compiler.inline_c() - Inline C code compilation
 pub fn compile_inline_c<'ctx>(
@@ -511,4 +512,162 @@ pub fn compile_gep_struct<'ctx>(
     };
 
     Ok(result_ptr.into())
+}
+
+/// Compile compiler.load<T>() - Load value from pointer
+/// Generic function that loads a value of type T from a pointer
+pub fn compile_load<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+    type_arg: Option<&ast::AstType>,
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 1 {
+        return Err(CompileError::TypeError(
+            format!("compiler.load expects 1 argument (ptr), got {}", args.len()),
+            None,
+        ));
+    }
+
+    let ptr = compiler.compile_expression(&args[0])?;
+    
+    // Get the type to load - either from type_arg or default to i32
+    let load_type = if let Some(ty) = type_arg {
+        compiler.to_llvm_type(ty)?
+    } else {
+        // Default to i32 if type not specified
+        Type::Basic(compiler.context.i32_type().into())
+    };
+
+    // Get the basic type for loading
+    let basic_type = match load_type {
+        Type::Basic(b) => b,
+        _ => return Err(CompileError::TypeError(
+            "compiler.load can only load basic types".to_string(),
+            None,
+        )),
+    };
+
+    // Cast pointer to pointer-to-T
+    let ptr_type = match basic_type {
+        BasicTypeEnum::IntType(t) => t.ptr_type(inkwell::AddressSpace::default()),
+        BasicTypeEnum::FloatType(t) => t.ptr_type(inkwell::AddressSpace::default()),
+        BasicTypeEnum::PointerType(t) => t.ptr_type(inkwell::AddressSpace::default()),
+        BasicTypeEnum::StructType(t) => t.ptr_type(inkwell::AddressSpace::default()),
+        _ => compiler.context.ptr_type(inkwell::AddressSpace::default()),
+    };
+    
+    let typed_ptr = compiler.builder.build_pointer_cast(
+        ptr.into_pointer_value(),
+        ptr_type,
+        "typed_ptr"
+    )?;
+
+    // Load the value
+    let loaded = compiler.builder.build_load(basic_type, typed_ptr, "loaded_value")?;
+    Ok(loaded)
+}
+
+/// Compile compiler.store<T>() - Store value to pointer
+/// Generic function that stores a value of type T to a pointer
+pub fn compile_store<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+    type_arg: Option<&ast::AstType>,
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 2 {
+        return Err(CompileError::TypeError(
+            format!("compiler.store expects 2 arguments (ptr, value), got {}", args.len()),
+            None,
+        ));
+    }
+
+    let ptr = compiler.compile_expression(&args[0])?;
+    let value = compiler.compile_expression(&args[1])?;
+
+    // Get the type to store - either from type_arg or infer from value type
+    let store_type = if let Some(ty) = type_arg {
+        compiler.to_llvm_type(ty)?
+    } else {
+        // Infer from value type
+        match value {
+            BasicValueEnum::IntValue(iv) => Type::Basic(iv.get_type().into()),
+            BasicValueEnum::FloatValue(fv) => Type::Basic(fv.get_type().into()),
+            BasicValueEnum::PointerValue(_) => Type::Basic(compiler.context.ptr_type(inkwell::AddressSpace::default()).into()),
+            BasicValueEnum::StructValue(sv) => Type::Struct(sv.get_type()),
+            _ => Type::Basic(compiler.context.i32_type().into()),
+        }
+    };
+
+    // Get the basic type for storing and pointer type
+    let (basic_type, ptr_type) = match store_type {
+        Type::Basic(b) => {
+            let ptr_ty = match b {
+                BasicTypeEnum::IntType(t) => t.ptr_type(inkwell::AddressSpace::default()),
+                BasicTypeEnum::FloatType(t) => t.ptr_type(inkwell::AddressSpace::default()),
+                BasicTypeEnum::PointerType(t) => t.ptr_type(inkwell::AddressSpace::default()),
+                BasicTypeEnum::StructType(t) => t.ptr_type(inkwell::AddressSpace::default()),
+                _ => compiler.context.ptr_type(inkwell::AddressSpace::default()),
+            };
+            (b, ptr_ty)
+        },
+        Type::Struct(st) => {
+            let ptr_ty = st.ptr_type(inkwell::AddressSpace::default());
+            // Convert struct to BasicTypeEnum for build_store
+            (st.as_basic_type_enum(), ptr_ty)
+        },
+        _ => return Err(CompileError::TypeError(
+            "compiler.store can only store basic types or structs".to_string(),
+            None,
+        )),
+    };
+    
+    let typed_ptr = compiler.builder.build_pointer_cast(
+        ptr.into_pointer_value(),
+        ptr_type,
+        "typed_ptr"
+    )?;
+
+    // Store the value
+    compiler.builder.build_store(typed_ptr, value)?;
+
+    // Return void
+    Ok(compiler.context.i32_type().const_zero().into())
+}
+
+/// Compile compiler.ptr_to_int() - Convert pointer to integer
+pub fn compile_ptr_to_int<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 1 {
+        return Err(CompileError::TypeError(
+            format!("compiler.ptr_to_int expects 1 argument (ptr), got {}", args.len()),
+            None,
+        ));
+    }
+
+    let ptr = compiler.compile_expression(&args[0])?;
+    let ptr_val = ptr.into_pointer_value();
+    let i64_type = compiler.context.i64_type();
+    let int_val = compiler.builder.build_ptr_to_int(ptr_val, i64_type, "ptr_to_int")?;
+    Ok(int_val.into())
+}
+
+/// Compile compiler.int_to_ptr() - Convert integer to pointer
+pub fn compile_int_to_ptr<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 1 {
+        return Err(CompileError::TypeError(
+            format!("compiler.int_to_ptr expects 1 argument (addr), got {}", args.len()),
+            None,
+        ));
+    }
+
+    let addr = compiler.compile_expression(&args[0])?;
+    let int_val = addr.into_int_value();
+    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
+    let ptr_val = compiler.builder.build_int_to_ptr(int_val, ptr_type, "int_to_ptr")?;
+    Ok(ptr_val.into())
 }

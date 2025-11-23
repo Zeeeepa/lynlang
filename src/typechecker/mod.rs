@@ -12,7 +12,7 @@ pub mod statement_checking;
 
 use crate::ast::{AstType, Declaration, Expression, Function, Program, Statement};
 use crate::error::{CompileError, Result};
-use crate::stdlib::StdNamespace;
+use crate::stdlib_metadata::StdNamespace;
 use behaviors::{BehaviorResolver, MethodInfo};
 use std::collections::{HashMap, HashSet};
 

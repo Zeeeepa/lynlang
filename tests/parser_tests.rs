@@ -36,3 +36,31 @@ main = () void {
     }
 }
 
+#[test]
+fn test_parse_ternary_with_comparison() {
+    // Test that comparison operators followed by ternary operator parse correctly
+    // This tests expressions like "x > y ? | true { } | false { }"
+    let code = r#"
+test = () void {
+    x = 5
+    y = 3
+    result = x > y ? | true { 1 } | false { 0 }
+    result2 = x >= y ? | true { 1 } | false { 0 }
+    result3 = x < y ? | true { 1 } | false { 0 }
+    result4 = x <= y ? | true { 1 } | false { 0 }
+}
+"#;
+
+    let lexer = Lexer::new(code);
+    let mut parser = Parser::new(lexer);
+
+    match parser.parse_program() {
+        Ok(_program) => {
+            // If parsing succeeds, the fix is working
+        }
+        Err(e) => {
+            panic!("Parse error for ternary with comparison: {:?}", e);
+        }
+    }
+}
+

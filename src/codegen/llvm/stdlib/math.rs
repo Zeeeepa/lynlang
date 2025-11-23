@@ -1,6 +1,6 @@
 //! Math module codegen - sqrt, sin, cos, etc.
 
-use super::super::super::LLVMCompiler;
+use super::super::LLVMCompiler;
 use crate::ast;
 use crate::error::CompileError;
 use inkwell::values::BasicValueEnum;

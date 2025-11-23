@@ -23,6 +23,7 @@ mod literals;
 mod patterns;
 mod pointers;
 mod statements;
+mod stdlib;
 mod strings;
 mod structs;
 mod symbols;

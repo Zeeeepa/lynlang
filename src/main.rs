@@ -14,7 +14,7 @@ mod error;
 mod lexer;
 mod module_system;
 mod parser;
-mod stdlib;
+mod stdlib_metadata;
 mod type_system;
 mod typechecker;
 

@@ -8,118 +8,106 @@
 // ============================================================================
 
 Ptr<T>: 
-    Some: *u8,
+    Some: i64,
     None
 
 // Allocate memory and wrap in Ptr<T>
-ptr_allocate<T> = (size: usize) Ptr<T> {
+Ptr<T>.allocate = (size: usize) Ptr<T> {
     addr = compiler.raw_allocate(size)
-    addr == (0 as *u8) ?
+    null_ptr = compiler.int_to_ptr(0)
+    addr == null_ptr ?
         | true { return Ptr.None }
-        | false { return Ptr.Some(addr) }
+        | false { 
+            addr_int = compiler.ptr_to_int(addr)
+            return Ptr.Some(addr_int)
+        }
 }
 
 // Create a Ptr from an address (caller must ensure validity)
-ptr_from_addr<T> = (addr: *u8) Ptr<T> {
-    addr == (0 as *u8) ?
+Ptr<T>.from_addr = (addr: *u8) Ptr<T> {
+    null_ptr = compiler.int_to_ptr(0)
+    addr == null_ptr ?
         | true { return Ptr.None }
-        | false { return Ptr.Some(addr) }
+        | false { 
+            addr_int = compiler.ptr_to_int(addr)
+            return Ptr.Some(addr_int)
+        }
 }
 
 // Create a None pointer
-ptr_none<T> = () Ptr<T> {
+Ptr<T>.none = () Ptr<T> {
     return Ptr.None
 }
 
 // Check if pointer is valid
-ptr_is_some<T> = (p: Ptr<T>) bool {
-    p ?
+Ptr<T>.is_some = (self: Ptr<T>) bool {
+    self ?
         | Some(_) { true }
         | None { false }
 }
 
 // Check if pointer is null
-ptr_is_none<T> = (p: Ptr<T>) bool {
-    p ?
+Ptr<T>.is_none = (self: Ptr<T>) bool {
+    self ?
         | Some(_) { false }
         | None { true }
 }
 
 // Get element at index (no dereferencing yet - just calculate offset)
-ptr_at<T> = (p: Ptr<T>, index: usize) Ptr<T> {
-    p ?
-        | Some(addr) {
+Ptr<T>.at = (self: Ptr<T>, index: usize) Ptr<T> {
+    self ?
+        | Some(addr_i64) {
+            addr = compiler.int_to_ptr(addr_i64)
             item_size = compiler.sizeof(T)
-            offset = (index * item_size) as i64
+            offset = index * item_size
             new_addr = compiler.gep(addr, offset)
-            return Ptr.Some(new_addr)
+            new_addr_int = compiler.ptr_to_int(new_addr)
+            return Ptr.Some(new_addr_int)
         }
         | None { return Ptr.None }
 }
 
 // Pointer arithmetic - advance by N items
-ptr_offset<T> = (p: Ptr<T>, count: i64) Ptr<T> {
-    p ?
-        | Some(addr) {
+Ptr<T>.offset = (self: Ptr<T>, count: i64) Ptr<T> {
+    self ?
+        | Some(addr_i64) {
+            addr = compiler.int_to_ptr(addr_i64)
             item_size = compiler.sizeof(T)
             byte_offset = count * item_size
             new_addr = compiler.gep(addr, byte_offset)
-            return Ptr.Some(new_addr)
+            new_addr_int = compiler.ptr_to_int(new_addr)
+            return Ptr.Some(new_addr_int)
         }
         | None { return Ptr.None }
 }
 
 // Get raw address
-ptr_addr<T> = (p: Ptr<T>) *u8 {
-    p ?
-        | Some(addr) { addr }
-        | None { 0 as *u8 }
+Ptr<T>.addr = (self: Ptr<T>) *u8 {
+    self ?
+        | Some(addr_i64) { compiler.int_to_ptr(addr_i64) }
+        | None { compiler.int_to_ptr(0) }
 }
 
 // Unsafe unwrap - gets address or null
-ptr_unwrap<T> = (p: Ptr<T>) *u8 {
-    p ?
-        | Some(addr) { addr }
-        | None { 0 as *u8 }
+Ptr<T>.unwrap = (self: Ptr<T>) *u8 {
+    self ?
+        | Some(addr_i64) { compiler.int_to_ptr(addr_i64) }
+        | None { compiler.int_to_ptr(0) }
 }
 
 // Deallocate memory
-ptr_free<T> = (p: Ptr<T>, size: usize) void {
-    p ?
-        | Some(addr) {
+Ptr<T>.free = (self: Ptr<T>, size: usize) void {
+    self ?
+        | Some(addr_i64) {
+            addr = compiler.int_to_ptr(addr_i64)
             compiler.raw_deallocate(addr, size)
         }
         | None { }
 }
 
-// Copy between pointers (requires manual loop in Zen since no memcpy)
-ptr_copy<T> = (src: Ptr<T>, dst: Ptr<T>, count: usize) void {
-    src ?
-        | Some(src_addr) {
-            dst ?
-                | Some(dst_addr) {
-                    item_size = compiler.sizeof(T)
-                    i = 0
-                    loop(() {
-                        if i >= count { break }
-                        
-                        offset = (i * item_size) as i64
-                        src_elem = compiler.gep(src_addr, offset)
-                        dst_elem = compiler.gep(dst_addr, offset)
-                        
-                        // TODO: Copy elem via memcpy
-                        
-                        i = i + 1
-                    })
-                }
-                | None { }
-        }
-        | None { }
-}
-
 // Compare two pointers for equality
-ptr_eq<T> = (p1: Ptr<T>, p2: Ptr<T>) bool {
-    addr1 = ptr_addr(p1)
-    addr2 = ptr_addr(p2)
+Ptr<T>.eq = (self: Ptr<T>, other: Ptr<T>) bool {
+    addr1 = self.addr()
+    addr2 = other.addr()
     return addr1 == addr2
 }

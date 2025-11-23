@@ -1,30 +1,30 @@
-// Hello World in Zen - Pattern Matching & Dynamic Strings
+// Hello World in Zen - Pattern Matching & Dynamic Strings with UFC API
 
 { io } = @std
-{ string } = @std
+{ String } = @std
 { gpa } = @std.memory
 
 main = () i32 {
     allocator = gpa.default_gpa()
-    greeting = string.string_new(allocator)
+    greeting = String.new(allocator)
     
-    // Build "Hello, World!" dynamically
-    greeting.string_push(72)   // H
-    greeting.string_push(101)  // e
-    greeting.string_push(108)  // l
-    greeting.string_push(108)  // l
-    greeting.string_push(111)  // o
-    greeting.string_push(44)   // ,
-    greeting.string_push(32)   // (space)
-    greeting.string_push(87)   // W
-    greeting.string_push(111)  // o
-    greeting.string_push(114)  // r
-    greeting.string_push(108)  // l
-    greeting.string_push(100)  // d
-    greeting.string_push(33)   // !
+    // Build "Hello, World!" dynamically using UFC methods
+    greeting.push(72)   // H
+    greeting.push(101)  // e
+    greeting.push(108)  // l
+    greeting.push(108)  // l
+    greeting.push(111)  // o
+    greeting.push(44)   // ,
+    greeting.push(32)   // (space)
+    greeting.push(87)   // W
+    greeting.push(111)  // o
+    greeting.push(114)  // r
+    greeting.push(108)  // l
+    greeting.push(100)  // d
+    greeting.push(33)   // !
     
     // Pattern match on length
-    len = greeting.string_len()
+    len = greeting.len()
     len > 10 ?
     | true {
         io.println("Long greeting: ${len} characters")
@@ -33,6 +33,6 @@ main = () i32 {
         io.println("Short greeting")
     }
     
-    greeting.string_free()
+    greeting.free()
     return 0
 }

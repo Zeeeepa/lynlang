@@ -1,6 +1,6 @@
 //! Collections codegen - HashMap, HashSet, DynVec constructors
 
-use super::super::super::LLVMCompiler;
+use super::super::LLVMCompiler;
 use crate::ast;
 use crate::error::CompileError;
 use inkwell::module::Linkage;

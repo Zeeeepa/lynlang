@@ -7,8 +7,23 @@ pub fn parse_binary_expression(parser: &mut Parser, precedence: u8) -> Result<Ex
     let mut left = parse_unary_expression(parser)?;
 
     loop {
+        // Check for ternary operator '?' first, before checking for other operators
+        // This ensures that expressions like "x > y ?" are handled correctly
+        // The ternary operator has precedence lower than comparison operators
+        if parser.current_token == Token::Question {
+            // Handle pattern matching with low precedence (but higher than assignment)
+            // This ensures x < y ? ... parses as (x < y) ? ...
+            if precedence < 1 {
+                // Pattern match has very low precedence
+                parser.next_token(); // consume '?'
+                left = super::patterns::parse_pattern_match(parser, left)?;
+            } else {
+                // If we're in a recursive call with higher precedence, break
+                // so the outer call (with lower precedence) can handle the '?'
+                break;
+            }
         // Check for 'as' identifier for type casting
-        if let Token::Identifier(id) = &parser.current_token {
+        } else if let Token::Identifier(id) = &parser.current_token {
             if id == "as" {
                 parser.next_token(); // consume 'as'
                 let target_type = parser.parse_type()?;
@@ -34,6 +49,8 @@ pub fn parse_binary_expression(parser: &mut Parser, precedence: u8) -> Result<Ex
                         inclusive: op_clone == "..=",
                     };
                 } else {
+                    // Parse right-hand side, but stop early if we encounter '?' 
+                    // so the outer call can handle the ternary operator
                     let right = parse_binary_expression(parser, next_prec)?;
                     left = Expression::BinaryOp {
                         left: Box::new(left),
@@ -41,16 +58,6 @@ pub fn parse_binary_expression(parser: &mut Parser, precedence: u8) -> Result<Ex
                         right: Box::new(right),
                     };
                 }
-            } else {
-                break;
-            }
-        } else if parser.current_token == Token::Question {
-            // Handle pattern matching with low precedence (but higher than assignment)
-            // This ensures x < y ? ... parses as (x < y) ? ...
-            if precedence < 1 {
-                // Pattern match has very low precedence
-                parser.next_token(); // consume '?'
-                left = super::patterns::parse_pattern_match(parser, left)?;
             } else {
                 break;
             }

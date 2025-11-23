@@ -691,20 +691,45 @@ impl<'a> Parser<'a> {
                                 self.parse_trait_requirement(type_name)?,
                             ));
                         } else {
-                            // Not a recognized method, restore and error
-                            self.lexer.position = saved_position;
-                            self.lexer.read_position = saved_read_position;
-                            self.lexer.current_char = saved_current_char;
-                            self.current_token = saved_current_token;
-                            self.peek_token = saved_peek_token;
+                            // Check if this is a method definition: Type.method = (params) returnType { ... }
+                            // Look ahead to see if next token is '='
+                            if self.peek_token == Token::Operator("=".to_string()) {
+                                // This is a method definition: Type.method = (params) returnType { ... }
+                                // Build the compound function name "Type.method"
+                                let full_function_name = format!("{}.{}", type_name, method_name);
+                                
+                                // We're currently at the method name token
+                                // We need to parse: method = (params) returnType { ... }
+                                // But parse_function expects to start at the function name
+                                // So we'll parse it normally - the current token is the method name
+                                // and parse_function will consume it and the '=' after
+                                
+                                // Actually, parse_function expects the name to be current_token
+                                // and it will consume it. Since we're at "method" and need "Type.method",
+                                // we need to handle this specially.
+                                
+                                // Parse the function, but we need to construct the name as "Type.method"
+                                // Let's parse it and then fix the name
+                                let mut func = self.parse_function()?;
+                                // Fix the function name to be the compound name
+                                func.name = full_function_name;
+                                declarations.push(Declaration::Function(func));
+                            } else {
+                                // Not a recognized method and not a method definition, restore and error
+                                self.lexer.position = saved_position;
+                                self.lexer.read_position = saved_read_position;
+                                self.lexer.current_char = saved_current_char;
+                                self.current_token = saved_current_token;
+                                self.peek_token = saved_peek_token;
 
-                            return Err(CompileError::SyntaxError(
-                                format!(
-                                    "Expected 'implements' or 'requires' after '{}.'",
-                                    type_name
-                                ),
-                                Some(self.current_span.clone()),
-                            ));
+                                return Err(CompileError::SyntaxError(
+                                    format!(
+                                        "Expected 'implements' or 'requires' after '{}.'",
+                                        type_name
+                                    ),
+                                    Some(self.current_span.clone()),
+                                ));
+                            }
                         }
                     } else {
                         // Not an identifier, restore and error
