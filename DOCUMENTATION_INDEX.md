@@ -483,7 +483,7 @@ cargo test pattern   # Specific tests
 
 ### File Locations
 ```
-Compiler Intrinsics:  src/stdlib/compiler.rs
+Compiler Intrinsics:  src/stdlib_metadata/compiler.rs
 Codegen:              src/codegen/llvm/functions/
 Standard Library:     stdlib/
 Tests:                tests/
