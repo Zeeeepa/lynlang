@@ -30,6 +30,7 @@ This is essential for understanding where new features belong.
 
 ### 🏗️ Architecture & Design
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - LLVM primitives vs Zen-level features (ESSENTIAL READ)
+- **[docs/stdlib-architecture.md](docs/stdlib-architecture.md)** - Stdlib folder structure and organization
 - **[PRIMITIVES_VS_FEATURES.md](PRIMITIVES_VS_FEATURES.md)** - Quick reference for where to implement features
 - **[PRIMITIVE_EXAMPLES.md](PRIMITIVE_EXAMPLES.md)** - Concrete code examples from the codebase
 - **[DESIGN_NOTES.md](DESIGN_NOTES.md)** - Historical design decisions

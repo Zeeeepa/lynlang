@@ -26,7 +26,7 @@ main = () i32 {
 ```
 
 **Problems**:
-1. `io.println()` is hardcoded in `src/stdlib/io.rs` (85 lines)
+1. `io.println()` is hardcoded in `src/stdlib_metadata/io.rs` (85 lines)
 2. `StaticString` forces compile-time strings (no runtime string manipulation)
 3. No allocator in use, can't build collections
 4. `String` in `stdlib/string.zen` is a stub (skeleton only)
@@ -36,13 +36,13 @@ main = () i32 {
 ## Immediate Action Items (Next 1-2 Days)
 
 ### 1. Verify Compiler Intrinsics Are Complete
-**File**: `src/stdlib/compiler.rs`
+**File**: `src/stdlib_metadata/compiler.rs`
 **Status**: 13 intrinsics defined ✅
 **Action**: Quick audit
 
 ```bash
 # Check current primitives:
-grep -A 2 'pub fn\|functions.insert' src/stdlib/compiler.rs | head -40
+grep -A 2 'pub fn\|functions.insert' src/stdlib_metadata/compiler.rs | head -40
 ```
 
 **Checklist**:
@@ -103,7 +103,7 @@ string_free(s: *String) -> void
 **Deliverable**: Ensure all 13 intrinsics are exposed and working
 
 ```
-src/stdlib/compiler.rs
+src/stdlib_metadata/compiler.rs
 ├── raw_allocate .................... ✅ (line 30)
 ├── raw_deallocate .................. ✅ (line 40)
 ├── raw_reallocate .................. ✅ (line 53)
@@ -122,7 +122,7 @@ src/stdlib/compiler.rs
 
 **Action**: Add `null_ptr()` if missing
 ```rust
-// In src/stdlib/compiler.rs
+// In src/stdlib_metadata/compiler.rs
 functions.insert(
     "null_ptr".to_string(),
     StdFunction {
@@ -339,7 +339,7 @@ vec_get = (v: Vec<T>, index: usize) Option<T> {
 ### 1. sizeof<T>() Intrinsic
 **Status**: ❌ Not in compiler.rs
 **Impact**: Can't implement Vec<T>, HashMap, etc.
-**Solution**: Add to src/stdlib/compiler.rs
+**Solution**: Add to src/stdlib_metadata/compiler.rs
 ```rust
 functions.insert(
     "sizeof".to_string(),
@@ -495,7 +495,7 @@ fn test_vec_get_oob() {
 1. ✅ `examples/hello_world.zen` compiles without changes
 2. ✅ All 87 tests still pass
 3. ❌ → ✅ Add 20+ new stdlib tests
-4. ✅ No Rust code in `src/stdlib/` except compiler module
+4. ✅ No Rust code in `src/stdlib_metadata/` except compiler module
 5. ✅ All stdlib modules are self-hosted (.zen files)
 6. ✅ String type works with dynamic allocation
 7. ✅ Collections use allocator pattern
@@ -525,7 +525,7 @@ cargo test --all 2>&1 | grep "test result"
 
 - STDLIB_MIGRATION_PLAN.md - Strategic overview
 - STATUS_CURRENT.md - Current progress (4/20 tasks)
-- src/stdlib/compiler.rs - Intrinsic definitions
+- src/stdlib_metadata/compiler.rs - Intrinsic definitions
 - stdlib/memory/gpa.zen - Allocator implementation
 - examples/hello_world.zen - Example to refactor
 
@@ -535,7 +535,7 @@ cargo test --all 2>&1 | grep "test result"
 
 **START HERE**: Run audit on compiler.rs to identify missing intrinsics
 ```bash
-grep 'functions.insert' src/stdlib/compiler.rs | wc -l
+grep 'functions.insert' src/stdlib_metadata/compiler.rs | wc -l
 # Should show 13 + 2 missing (null_ptr, sizeof)
 ```
 

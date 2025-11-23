@@ -608,7 +608,7 @@ TOTAL: 12 core primitives + 4 FFI placeholders
 
 ### Step 1: Add sizeof() Intrinsic
 ```rust
-// src/stdlib/compiler.rs
+// src/stdlib_metadata/compiler.rs
 functions.insert("sizeof".to_string(), ...)
 ```
 

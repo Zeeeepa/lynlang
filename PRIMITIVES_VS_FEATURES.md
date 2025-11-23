@@ -19,7 +19,7 @@
 
 ## The 13 LLVM Primitives (Can't Be Moved to Zen)
 
-Located: `src/stdlib/compiler.rs` (declarations) + `src/codegen/llvm/functions/stdlib/compiler.rs` (implementation)
+Located: `src/stdlib_metadata/compiler.rs` (declarations) + `src/codegen/llvm/stdlib_codegen/compiler.rs` (implementation)
 
 ### Memory (3)
 ```zen
@@ -50,8 +50,8 @@ set_payload(enum_ptr: *u8, data: *u8) -> void
 
 ### External Functions (2, location varies)
 ```zen
-io.println(msg: string) -> void  // src/stdlib/io.rs
-inline_c(code: string) -> void   // src/stdlib/compiler.rs
+io.println(msg: string) -> void  // src/stdlib_metadata/io.rs
+inline_c(code: string) -> void   // src/stdlib_metadata/compiler.rs
 ```
 
 ---
@@ -146,18 +146,18 @@ vec_capacity_grow_to = (vec: *Vec<T>, new_capacity: usize, alloc: Allocator) {
 **Answer**: YES (random number generation needs OS entropy)
 
 **Implementation**:
-1. Declare in `src/stdlib/math.rs`
-2. Implement in `src/codegen/llvm/functions/stdlib/math.rs`
+1. Declare in `src/stdlib_metadata/math.rs`
+2. Implement in `src/codegen/llvm/stdlib_codegen/math.rs`
 3. Optionally wrap in `stdlib/math/random.zen`
 
 **Files to change**:
-- `src/stdlib/math.rs` - Add function declaration
-- `src/codegen/llvm/functions/stdlib/math.rs` - Add code generation
+- `src/stdlib_metadata/math.rs` - Add function declaration
+- `src/codegen/llvm/stdlib_codegen/math.rs` - Add code generation
 - `stdlib/math/random.zen` - Optional Zen wrapper
 
 **Example** (Rust):
 ```rust
-// src/stdlib/math.rs
+// src/stdlib_metadata/math.rs
 functions.insert("next".to_string(), StdFunction {
     name: "next".to_string(),
     params: vec![],
@@ -165,7 +165,7 @@ functions.insert("next".to_string(), StdFunction {
     is_builtin: true,
 });
 
-// src/codegen/llvm/functions/stdlib/math.rs
+// src/codegen/llvm/stdlib_codegen/math.rs
 pub fn compile_random_next<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     _args: &[ast::Expression],
@@ -192,13 +192,13 @@ pub fn compile_random_next<'ctx>(
 **Answer**: YES (stat/access system call)
 
 **Implementation**:
-1. Declare in `src/stdlib/fs.rs`
-2. Implement in `src/codegen/llvm/functions/stdlib/fs.rs`
+1. Declare in `src/stdlib_metadata/fs.rs`
+2. Implement in `src/codegen/llvm/stdlib_codegen/fs.rs`
 3. Optionally wrap in `stdlib/fs.zen`
 
 **Files to change**:
-- `src/stdlib/fs.rs` - Add function declaration
-- `src/codegen/llvm/functions/stdlib/fs.rs` - Add code generation  
+- `src/stdlib_metadata/fs.rs` - Add function declaration
+- `src/codegen/llvm/stdlib_codegen/fs.rs` - Add code generation  
 - `stdlib/fs.zen` - Optional Zen wrapper
 
 ---
@@ -231,9 +231,9 @@ option_map = (opt: Option<T>, f: (T) -> U) Option<U> {
 
 If you determine something MUST be an LLVM primitive:
 
-- [ ] Add declaration in `src/stdlib/my_module.rs` with `is_builtin: true`
-- [ ] Add code generation in `src/codegen/llvm/functions/stdlib/my_module.rs`
-- [ ] Register function call routing in `src/codegen/llvm/functions/stdlib/mod.rs`
+- [ ] Add declaration in `src/stdlib_metadata/my_module.rs` with `is_builtin: true`
+- [ ] Add code generation in `src/codegen/llvm/stdlib_codegen/my_module.rs`
+- [ ] Register function call routing in `src/codegen/llvm/stdlib_codegen/mod.rs`
 - [ ] Add tests in `tests/`
 - [ ] Document in `INTRINSICS_REFERENCE.md`
 - [ ] Add example usage in `examples/`
@@ -257,7 +257,7 @@ file_read = (path: string) string {
 
 ❌ **Mistake 2**: Making an LLVM primitive when Zen would work
 ```rust
-// src/stdlib/string.rs - WRONG
+// src/stdlib_metadata/string.rs - WRONG
 pub fn compile_string_reverse(...) {
     // Complex LLVM IR generation
     // When it could be in Zen!
@@ -298,8 +298,8 @@ main = () {
 |------|-------|----------|------|
 | Type definitions | `stdlib/*/type.zen` | Zen | Yes |
 | Safe wrappers | `stdlib/*/safe.zen` | Zen | Yes |
-| LLVM primitives | `src/stdlib/*.rs` | Rust | No (internal) |
-| Codegen impl | `src/codegen/llvm/functions/stdlib/*.rs` | Rust | No (internal) |
+| LLVM primitives | `src/stdlib_metadata/*.rs` | Rust | No (internal) |
+| Codegen impl | `src/codegen/llvm/stdlib_codegen/*.rs` | Rust | No (internal) |
 | Tests | `tests/` | Rust or Zen | N/A |
 | Examples | `examples/` | Zen | Yes |
 

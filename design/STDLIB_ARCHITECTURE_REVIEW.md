@@ -30,11 +30,11 @@ person.age > 18 ?
 ```
 
 **Issues identified:**
-1. `io.println()` is hardcoded in Rust (`src/stdlib/io.rs`), not self-hosted
+1. `io.println()` is hardcoded in Rust (`src/stdlib_metadata/io.rs`), not self-hosted
 2. `StaticString` is compiler-only, no dynamic String in stdlib
 3. `io` module is just a stub: `io: { id: i32 }` in stdlib/std.zen
 
-### Current Stdlib Structure (src/stdlib/mod.rs)
+### Current Stdlib Structure (src/stdlib_metadata/mod.rs)
 
 ```
 StdNamespace
@@ -49,13 +49,13 @@ StdNamespace
 
 **Problem**: Each module has TWO implementations:
 - `stdlib/io/io.zen` - Stub file (just declares function signatures)
-- `src/stdlib/io.rs` - Actual Rust implementation (hardcoded)
+- `src/stdlib_metadata/io.rs` - Actual Rust implementation (hardcoded)
 
 ---
 
 ## Compiler Primitives Available (13 total)
 
-All in `src/stdlib/compiler.rs`, exposed via `@std.compiler`:
+All in `src/stdlib_metadata/compiler.rs`, exposed via `@std.compiler`:
 
 ### Memory Operations (3)
 - `raw_allocate(size: usize) -> Ptr<u8>` - malloc wrapper
@@ -86,7 +86,7 @@ All in `src/stdlib/compiler.rs`, exposed via `@std.compiler`:
 ## What Needs Self-Hosting
 
 ### Phase 1: IO Module (Immediate)
-**Current**: Hardcoded in `src/stdlib/io.rs` (85 lines)
+**Current**: Hardcoded in `src/stdlib_metadata/io.rs` (85 lines)
 **Target**: Implement in `stdlib/io/io.zen`
 
 ```zen
@@ -106,7 +106,7 @@ println = (message: StaticString) void {
 **Solution**: Keep them as built-ins in codegen, but document in stdlib.
 
 ### Phase 2: String Type (Partially Done)
-**Current**: `stdlib/string.zen` has skeleton, `src/stdlib/string.rs` has Rust impl
+**Current**: `stdlib/string.zen` has skeleton, `src/stdlib_metadata/string.rs` has Rust impl
 **Target**: Complete self-hosted String using allocator
 
 ```zen
@@ -252,7 +252,7 @@ From tests/:
 
 ### 1. Verify/Complete Compiler Primitives ✅ (Done)
 ```
-src/stdlib/compiler.rs
+src/stdlib_metadata/compiler.rs
 ├── ✅ Memory ops (raw_allocate, raw_deallocate, raw_reallocate)
 ├── ✅ Pointer ops (gep, gep_struct, raw_ptr_cast)
 ├── ✅ Enum ops (discriminant, set_discriminant, get_payload, set_payload)
@@ -333,11 +333,11 @@ stdlib/collections/queue.zen     - Queue
 **Current state**:
 ```
 stdlib/io/io.zen              ← Stubs only
-src/stdlib/io.rs              ← Real implementation
+src/stdlib_metadata/io.rs              ← Real implementation
 ```
 
 **Solution**: 
-- Remove `src/stdlib/io.rs`
+- Remove `src/stdlib_metadata/io.rs`
 - Complete `stdlib/io/io.zen` with real implementations
 - For built-ins only (print/println), document that they're compiler intrinsics
 
@@ -493,7 +493,7 @@ main = () i32 {
 - Tests are comprehensive (87 tests passing)
 
 **Main work**:
-1. Remove Rust implementations from `src/stdlib/`
+1. Remove Rust implementations from `src/stdlib_metadata/`
 2. Complete Zen implementations in `stdlib/`
 3. Ensure allocator integration works
 4. Eliminate hardcoded Option/Result from compiler

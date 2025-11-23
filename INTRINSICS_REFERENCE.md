@@ -307,7 +307,7 @@ cargo test --test gep_intrinsics
 - `TASK_16_COMPLETION.md` - Enum intrinsics design and implementation
 - `TASK_17_COMPLETION.md` - GEP intrinsics design and implementation
 - `STDLIB_MIGRATION_PLAN.md` - Overall self-hosting strategy
-- `src/stdlib/compiler.rs` - Intrinsic definitions
+- `src/stdlib_metadata/compiler.rs` - Intrinsic definitions
 
 ---
 

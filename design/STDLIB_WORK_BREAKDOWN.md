@@ -21,7 +21,7 @@ The `examples/hello_world.zen` example works, but relies on hardcoded Rust imple
 
 ### What's Hardcoded in Rust ❌
 ```
-src/stdlib/
+src/stdlib_metadata/
 ├── compiler.rs ............ 13 intrinsics ✅ GOOD (stays in Rust)
 ├── core.rs ............... Option/Result (hardcoded) ❌ MOVE TO STDLIB
 ├── io.rs ................. println, print, etc (hardcoded) ❌ NEEDS WORK
@@ -49,7 +49,7 @@ stdlib/
 
 ## Compiler Primitives: Current Inventory
 
-**File**: `src/stdlib/compiler.rs` (232 lines)
+**File**: `src/stdlib_metadata/compiler.rs` (232 lines)
 
 ### Memory Operations (3)
 ```rust
@@ -125,7 +125,7 @@ stdlib/
 ## Priority 1: Add Missing Intrinsics (0.5 days)
 
 ### Task 1.1: Add null_ptr()
-**File**: `src/stdlib/compiler.rs`
+**File**: `src/stdlib_metadata/compiler.rs`
 **Lines**: Add around line 90 (after raw_ptr_cast)
 
 ```rust
@@ -150,7 +150,7 @@ ptr = compiler.null_ptr()
 **Why**: Safe way to create null pointers, alternative to casting integers
 
 ### Task 1.2: Add sizeof<T>()
-**File**: `src/stdlib/compiler.rs`
+**File**: `src/stdlib_metadata/compiler.rs`
 **Lines**: Add around line 100
 
 ```rust
@@ -378,7 +378,7 @@ main = () i32 {
 ### Current State
 **Files**:
 - `src/type_system/ast.rs` - Hardcoded Option/Result enum definitions
-- `src/stdlib/result.rs` - Hardcoded Option/Result in compiler
+- `src/stdlib_metadata/result.rs` - Hardcoded Option/Result in compiler
 - `stdlib/core/option.zen` - Stub
 - `stdlib/core/result.zen` - Stub
 
@@ -480,7 +480,7 @@ result_unwrap = (res: Result<T, E>) T {
 
 ### Compiler Changes Required
 1. Remove `create_option_type()` from `src/type_system/ast.rs`
-2. Remove Option/Result handling from `src/stdlib/result.rs`
+2. Remove Option/Result handling from `src/stdlib_metadata/result.rs`
 3. Update `src/typechecker/` to import Option/Result from stdlib instead
 4. Update pattern matching to work with stdlib definitions
 5. Ensure generic type checking still works
@@ -623,7 +623,7 @@ fn test_vec_free() { ... }
 
 ### Current State
 **Files**:
-- `src/stdlib/io.rs` - 102 lines of hardcoded Rust
+- `src/stdlib_metadata/io.rs` - 102 lines of hardcoded Rust
 - `stdlib/io/io.zen` - 13-line stub
 
 ### Functions in Rust (needs removal)
@@ -700,7 +700,7 @@ Week 3:
 ## Success Metrics
 
 ### Code Metrics
-- [ ] Zero Rust code in `src/stdlib/` except `compiler.rs`
+- [ ] Zero Rust code in `src/stdlib_metadata/` except `compiler.rs`
 - [ ] 500+ lines of new Zen code in `stdlib/`
 - [ ] 50+ new tests added (100% passing)
 
@@ -728,12 +728,12 @@ Week 3:
    ```
 
 2. **Add null_ptr() intrinsic** (10 mins)
-   - Edit: `src/stdlib/compiler.rs`
+   - Edit: `src/stdlib_metadata/compiler.rs`
    - Add function to StdFunction map
    - Run: `cargo build` to verify
 
 3. **Add sizeof() intrinsic** (10 mins)
-   - Edit: `src/stdlib/compiler.rs`
+   - Edit: `src/stdlib_metadata/compiler.rs`
    - Add function to StdFunction map
    - Run: `cargo build` to verify
 
@@ -754,6 +754,6 @@ Week 3:
 - STDLIB_MIGRATION_PLAN.md - Strategic plan
 - STATUS_CURRENT.md - Current progress
 - examples/hello_world.zen - Example to test
-- src/stdlib/compiler.rs - Intrinsics file
+- src/stdlib_metadata/compiler.rs - Intrinsics file
 - stdlib/string.zen - String skeleton
 - stdlib/memory/gpa.zen - Allocator impl

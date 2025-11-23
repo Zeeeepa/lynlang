@@ -6,7 +6,7 @@
 
 ## Example 1: raw_allocate (LLVM Primitive)
 
-### Declaration: `src/stdlib/compiler.rs`
+### Declaration: `src/stdlib_metadata/compiler.rs`
 ```rust
 functions.insert(
     "raw_allocate".to_string(),
@@ -19,7 +19,7 @@ functions.insert(
 );
 ```
 
-### Implementation: `src/codegen/llvm/functions/stdlib/compiler.rs`
+### Implementation: `src/codegen/llvm/stdlib_codegen/compiler.rs`
 ```rust
 pub fn compile_raw_allocate<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
@@ -237,7 +237,7 @@ vec_get = (vec: Vec<T>, index: usize) Option<T> {
 
 ## Example 6: io.println (LLVM Primitive)
 
-### Declaration: `src/stdlib/io.rs`
+### Declaration: `src/stdlib_metadata/io.rs`
 ```rust
 functions.insert(
     "println".to_string(),
@@ -250,7 +250,7 @@ functions.insert(
 );
 ```
 
-### Implementation: `src/codegen/llvm/functions/stdlib/io.rs`
+### Implementation: `src/codegen/llvm/stdlib_codegen/io.rs`
 ```rust
 pub fn compile_io_println<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
@@ -299,13 +299,13 @@ Not practical - it's already the low-level operation.
 
 ## Example 7: sizeof (LLVM Primitive)
 
-### Declaration: `src/stdlib/compiler.rs`
+### Declaration: `src/stdlib_metadata/compiler.rs`
 ```rust
 // sizeof is special - it's a generic function
 // Handled specially in type checking and codegen
 ```
 
-### Implementation: `src/codegen/llvm/functions/stdlib/compiler.rs`
+### Implementation: `src/codegen/llvm/stdlib_codegen/compiler.rs`
 ```rust
 pub fn compile_sizeof<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
@@ -338,7 +338,7 @@ size = compiler.sizeof(String)  // Returns layout size of String struct
 
 ## Example 8: gep (LLVM Primitive)
 
-### Declaration: `src/stdlib/compiler.rs`
+### Declaration: `src/stdlib_metadata/compiler.rs`
 ```rust
 functions.insert(
     "gep".to_string(),
@@ -354,7 +354,7 @@ functions.insert(
 );
 ```
 
-### Implementation: `src/codegen/llvm/functions/stdlib/compiler.rs`
+### Implementation: `src/codegen/llvm/stdlib_codegen/compiler.rs`
 ```rust
 pub fn compile_gep<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
@@ -393,10 +393,10 @@ offset_ptr = compiler.gep(base_ptr, byte_offset)
 
 | Feature | Location | Language | LLVM Direct? | Can Be Zen? | Notes |
 |---------|----------|----------|--------------|------------|-------|
-| raw_allocate | src/stdlib/compiler.rs | Rust | Yes (malloc) | No | Needs libc |
-| gep | src/stdlib/compiler.rs | Rust | Yes (GEP inst) | No | Direct LLVM |
-| sizeof | src/stdlib/compiler.rs | Rust | Yes (layout) | No | Type info |
-| io.println | src/stdlib/io.rs | Rust | Yes (printf) | No | Needs libc |
+| raw_allocate | src/stdlib_metadata/compiler.rs | Rust | Yes (malloc) | No | Needs libc |
+| gep | src/stdlib_metadata/compiler.rs | Rust | Yes (GEP inst) | No | Direct LLVM |
+| sizeof | src/stdlib_metadata/compiler.rs | Rust | Yes (layout) | No | Type info |
+| io.println | src/stdlib_metadata/io.rs | Rust | Yes (printf) | No | Needs libc |
 | GPA | stdlib/memory/gpa.zen | Zen | No | Yes | Wraps primitives |
 | Ptr<T> | stdlib/core/ptr.zen | Zen | No | Yes | Wraps gep, sizeof |
 | String | stdlib/string.zen | Zen | No | Yes | Uses gep, sizeof |

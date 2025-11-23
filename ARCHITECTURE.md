@@ -22,21 +22,21 @@ LLVM primitives are **compiler intrinsics** defined in Rust that directly genera
 
 ### Location
 ```
-src/stdlib/          - Function declarations
-src/codegen/llvm/functions/stdlib/  - LLVM IR generation
+src/stdlib_metadata/          - Function declarations/metadata
+src/codegen/llvm/stdlib_codegen/  - LLVM IR generation
 ```
 
 ### Current LLVM Primitives (13 total)
 
 #### Memory Operations
 ```rust
-// src/stdlib/compiler.rs defines these:
+// src/stdlib_metadata/compiler.rs defines these:
 raw_allocate(size: usize) -> *u8
 raw_deallocate(ptr: *u8, size: usize) -> void
 raw_reallocate(ptr: *u8, old_size: usize, new_size: usize) -> *u8
 ```
 
-**Implemented in**: `src/codegen/llvm/functions/stdlib/compiler.rs:compile_raw_allocate()`
+**Implemented in**: `src/codegen/llvm/stdlib_codegen/compiler.rs:compile_raw_allocate()`
 
 **Why LLVM primitive**: Must call C `malloc`/`free` which requires external function linking
 
@@ -47,7 +47,7 @@ gep_struct(ptr: *u8, field: i32) -> *u8     // GEP for struct fields
 raw_ptr_cast(ptr: *u8) -> *u8               // Type reinterpret (0-cost)
 ```
 
-**Implemented in**: `src/codegen/llvm/functions/stdlib/compiler.rs:compile_gep()`
+**Implemented in**: `src/codegen/llvm/stdlib_codegen/compiler.rs:compile_gep()`
 
 **Why LLVM primitive**: Direct LLVM GEP instruction, no Zen equivalent
 
@@ -56,7 +56,7 @@ raw_ptr_cast(ptr: *u8) -> *u8               // Type reinterpret (0-cost)
 sizeof<T>() -> usize    // Size in bytes
 ```
 
-**Implemented in**: `src/codegen/llvm/functions/stdlib/compiler.rs:compile_sizeof()`
+**Implemented in**: `src/codegen/llvm/stdlib_codegen/compiler.rs:compile_sizeof()`
 
 **Why LLVM primitive**: Compile-time type layout information
 
@@ -68,7 +68,7 @@ get_payload(enum_ptr: *u8) -> *u8
 set_payload(enum_ptr: *u8, data: *u8) -> void
 ```
 
-**Implemented in**: `src/codegen/llvm/functions/stdlib/compiler.rs:compile_discriminant()`
+**Implemented in**: `src/codegen/llvm/stdlib_codegen/compiler.rs:compile_discriminant()`
 
 **Why LLVM primitive**: Direct access to enum layout (discriminant at offset 0, payload at offset 8)
 
@@ -81,8 +81,8 @@ These are built **on top of** LLVM primitives using Zen code. They wrap primitiv
 ### Location
 ```
 stdlib/                     - Zen implementations
-src/stdlib/                 - Rust declarations
-src/codegen/llvm/functions/stdlib/  - Code generation
+src/stdlib_metadata/        - Rust declarations/metadata
+src/codegen/llvm/stdlib_codegen/  - Code generation
 ```
 
 ### Current Zen-Level Features
@@ -296,7 +296,7 @@ Does it need to...
 
 ### Standard Library (Declarations)
 ```
-src/stdlib/
+src/stdlib_metadata/
 ├─ compiler.rs      ← LLVM primitives (allocate, gep, sizeof, etc.)
 ├─ io.rs            ← IO functions (println, read_line)
 ├─ math.rs          ← Math functions (sin, cos, sqrt)
@@ -306,7 +306,7 @@ src/stdlib/
 
 ### Code Generation (Implementation)
 ```
-src/codegen/llvm/functions/stdlib/
+src/codegen/llvm/stdlib_codegen/
 ├─ compiler.rs      ← Generates LLVM IR for raw_allocate, gep, sizeof
 ├─ io.rs            ← Generates calls to libc write/read
 ├─ math.rs          ← Generates calls to libm
@@ -338,13 +338,13 @@ stdlib/
    → Implement in Zen (`stdlib/*.zen`)
 
 **2. Does it need direct hardware access or C functions?**
-   → Implement as LLVM primitive (Rust in `src/stdlib/` + `src/codegen/llvm/functions/stdlib/`)
+   → Implement as LLVM primitive (Rust in `src/stdlib_metadata/` + `src/codegen/llvm/stdlib_codegen/`)
 
 **3. Does it need both?**
    → Create Zen wrapper around LLVM primitive
    ```rust
-   // src/stdlib/my_module.rs - declare primitive
-   // src/codegen/llvm/functions/stdlib/my_module.rs - implement in LLVM
+   // src/stdlib_metadata/my_module.rs - declare primitive
+   // src/codegen/llvm/stdlib_codegen/my_module.rs - implement in LLVM
    // stdlib/my_module.zen - wrap with safe API
    ```
 
@@ -370,7 +370,7 @@ This doesn't need an LLVM primitive - it uses existing `string_push`, which alre
 
 ### Example: Adding `Float.sin()`
 
-**Step 1**: Declare in Rust (src/stdlib/math.rs)
+**Step 1**: Declare in Rust (src/stdlib_metadata/math.rs)
 ```rust
 functions.insert(
     "sin".to_string(),
@@ -383,7 +383,7 @@ functions.insert(
 );
 ```
 
-**Step 2**: Implement LLVM code generation (src/codegen/llvm/functions/stdlib/math.rs)
+**Step 2**: Implement LLVM code generation (src/codegen/llvm/stdlib_codegen/math.rs)
 ```rust
 pub fn compile_sin<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
@@ -457,11 +457,11 @@ test_vec_push = () void {
 
 ### Symptom: Compilation fails with "Unknown function"
 **Likely cause**: Missing LLVM primitive declaration  
-**Check**: `src/stdlib/compiler.rs` - is the function registered?
+**Check**: `src/stdlib_metadata/compiler.rs` - is the function registered?
 
 ### Symptom: Wrong LLVM IR generated
 **Likely cause**: Bug in code generation  
-**Check**: `src/codegen/llvm/functions/stdlib/compiler.rs` - is IR correct?
+**Check**: `src/codegen/llvm/stdlib_codegen/compiler.rs` - is IR correct?
 
 ### Symptom: Zen code won't compile
 **Likely cause**: Missing Zen implementation or type error  
