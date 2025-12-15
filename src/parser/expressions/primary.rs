@@ -426,9 +426,48 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                     return Ok(Expression::None);
                 }
 
-                // Check for Vec<T, size>() constructor
+                // Check for Vec<T, size>() constructor vs Vec<T> { ... } struct literal vs Vec<T>.method()
                 if name == "Vec" && parser.current_token == Token::Operator("<".to_string()) {
-                    return super::collections::parse_vec_constructor(parser);
+                    // Look ahead to see what follows Vec<...>
+                    let saved_position = parser.lexer.position;
+                    let saved_read_position = parser.lexer.read_position;
+                    let saved_current_char = parser.lexer.current_char;
+                    let saved_current_token = parser.current_token.clone();
+                    let saved_peek_token = parser.peek_token.clone();
+                    let saved_current_span = parser.current_span.clone();
+                    let saved_peek_span = parser.peek_span.clone();
+
+                    // Skip past the generic type: Vec<T> or Vec<T, U, ...>
+                    parser.next_token(); // consume '<'
+                    let mut depth = 1;
+                    while depth > 0 && parser.current_token != Token::Eof {
+                        if parser.current_token == Token::Operator("<".to_string()) {
+                            depth += 1;
+                        } else if parser.current_token == Token::Operator(">".to_string()) {
+                            depth -= 1;
+                        }
+                        parser.next_token();
+                    }
+
+                    // Check what follows the generic type
+                    let is_struct_literal = parser.current_token == Token::Symbol('{');
+                    let is_method_call = parser.current_token == Token::Symbol('.');
+                    let is_constructor = parser.current_token == Token::Symbol('(');
+
+                    // Restore parser state
+                    parser.lexer.position = saved_position;
+                    parser.lexer.read_position = saved_read_position;
+                    parser.lexer.current_char = saved_current_char;
+                    parser.current_token = saved_current_token;
+                    parser.peek_token = saved_peek_token;
+                    parser.current_span = saved_current_span;
+                    parser.peek_span = saved_peek_span;
+
+                    if !is_struct_literal && !is_method_call && is_constructor {
+                        // Vec<T, size>() constructor - only if followed by ()
+                        return super::collections::parse_vec_constructor(parser);
+                    }
+                    // Otherwise fall through to normal expression parsing (struct literal or method call)
                 }
 
                 // Check for DynVec<T>() or DynVec<T1, T2, ...>() constructor
@@ -1114,8 +1153,86 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                 super::collections::parse_array_literal(parser)
             }
             Token::Symbol('{') => {
-                // Block expression: { statements... }
-                super::blocks::parse_block_expression(parser)
+                // Disambiguate between block expression and anonymous struct literal
+                // Anonymous struct literals look like: { identifier: <value>, ... }
+                // Block expressions contain statements
+
+                // Save parser state for look-ahead
+                let saved_lexer_pos = parser.lexer.position;
+                let saved_lexer_read_pos = parser.lexer.read_position;
+                let saved_lexer_char = parser.lexer.current_char;
+                let saved_current_token = parser.current_token.clone();
+                let saved_peek_token = parser.peek_token.clone();
+                let saved_current_span = parser.current_span.clone();
+                let saved_peek_span = parser.peek_span.clone();
+
+                parser.next_token(); // consume '{'
+
+                // Check if this looks like a struct literal
+                let is_struct_literal = match &parser.current_token {
+                    Token::Symbol('}') => {
+                        // Empty braces {} - treat as empty block for backwards compatibility
+                        false
+                    }
+                    Token::Identifier(field_name) => {
+                        // Check if followed by ':'
+                        if parser.peek_token == Token::Symbol(':') {
+                            // Look at what comes after the ':'
+                            let _field = field_name.clone();
+                            parser.next_token(); // consume identifier
+                            parser.next_token(); // consume ':'
+
+                            // If the next token is clearly a value (not a type), it's a struct literal
+                            match &parser.current_token {
+                                // Literals are definitely values
+                                Token::StringLiteral(_) => true,
+                                Token::Integer(_) | Token::Float(_) => true,
+
+                                // Boolean literals
+                                Token::Identifier(id) if id == "true" || id == "false" => true,
+
+                                // None is a value (Option::None)
+                                Token::Identifier(id) if id == "None" => true,
+
+                                // Lowercase identifiers that aren't primitive types are likely variables (values)
+                                Token::Identifier(id) => {
+                                    let first_char = id.chars().next().unwrap_or('a');
+                                    let is_primitive = matches!(id.as_str(),
+                                        "i8" | "i16" | "i32" | "i64" |
+                                        "u8" | "u16" | "u32" | "u64" | "usize" |
+                                        "f32" | "f64" | "bool" | "void"
+                                    );
+                                    first_char.is_lowercase() && !is_primitive
+                                }
+
+                                // Array literal suggests value context
+                                Token::Symbol('[') => true,
+
+                                _ => false,
+                            }
+                        } else {
+                            false
+                        }
+                    }
+                    _ => false,
+                };
+
+                // Restore parser state
+                parser.lexer.position = saved_lexer_pos;
+                parser.lexer.read_position = saved_lexer_read_pos;
+                parser.lexer.current_char = saved_lexer_char;
+                parser.current_token = saved_current_token;
+                parser.peek_token = saved_peek_token;
+                parser.current_span = saved_current_span;
+                parser.peek_span = saved_peek_span;
+
+                if is_struct_literal {
+                    // Parse as anonymous struct literal (empty name)
+                    super::structs::parse_struct_literal(parser, String::new(), '{', '}')
+                } else {
+                    // Block expression: { statements... }
+                    super::blocks::parse_block_expression(parser)
+                }
             }
             _ => Err(CompileError::SyntaxError(
                 format!("Unexpected token: {:?}", parser.current_token),

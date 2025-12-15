@@ -466,6 +466,43 @@ impl TypeChecker {
                                 }
                                 return Ok(AstType::Ptr(Box::new(AstType::U8)));
                             }
+                            ("compiler", "int_to_ptr") => {
+                                if args.len() != 1 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.int_to_ptr() expects 1 argument (addr: i64), got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::RawPtr(Box::new(AstType::U8)));
+                            }
+                            ("compiler", "ptr_to_int") => {
+                                if args.len() != 1 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.ptr_to_int() expects 1 argument (ptr), got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::I64);
+                            }
+                            ("compiler", "load") => {
+                                if args.len() != 1 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.load() expects 1 argument (ptr), got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                // Returns generic T - use I32 as default for type inference
+                                return Ok(AstType::I32);
+                            }
+                            ("compiler", "store") => {
+                                if args.len() != 2 {
+                                    return Err(CompileError::TypeError(
+                                        format!("compiler.store() expects 2 arguments (ptr, value), got {}", args.len()),
+                                        None,
+                                    ));
+                                }
+                                return Ok(AstType::Void);
+                            }
                             // GEP intrinsics
                             ("compiler", "gep") => {
                                 if args.len() != 2 {
@@ -522,11 +559,15 @@ impl TypeChecker {
                                 }
                                 return Ok(AstType::Void);
                             }
-                            // Standard library functions
-                            ("io", "print" | "println" | "print_int" | "print_float") => {
+                            // Core library functions
+                            ("core", "assert" | "panic") => {
                                 return Ok(AstType::Void)
                             }
-                            ("io", "read_line") => return Ok(crate::ast::resolve_string_struct_type()),
+                            // Standard library functions
+                            ("io", "print" | "println" | "print_int" | "print_float" | "eprint" | "eprintln") => {
+                                return Ok(AstType::Void)
+                            }
+                            ("io", "read_line" | "read_input") => return Ok(crate::ast::resolve_string_struct_type()),
                             ("math", "abs") => return Ok(AstType::I32),
                             ("math", "sqrt") => return Ok(AstType::F64),
                             ("math", "sin" | "cos" | "tan") => return Ok(AstType::F64),
