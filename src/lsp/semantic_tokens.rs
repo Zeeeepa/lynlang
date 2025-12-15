@@ -108,9 +108,18 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
     let mut _in_struct = false;
     let mut _in_allocator_context = false;
 
+    // Track generic type context for distinguishing < > as brackets vs operators
+    // When we see a type name like Ptr, Vec, HashMap followed by <, we're in generic context
+    let mut generic_depth: i32 = 0;  // Nesting depth for generics
+    let mut last_was_type_name = false;  // Was the previous identifier a type name?
+
     while let Some((line_idx, line)) = line_iter.next() {
         let mut char_idx = 0;
         let mut chars = line.chars().peekable();
+
+        // Reset type context at line boundaries (generic types don't span lines)
+        // But keep generic_depth for multi-line generics
+        last_was_type_name = false;
 
         while let Some(ch) = chars.next() {
             let start = char_idx;
@@ -351,6 +360,15 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
 
                 prev_line = line_idx as u32;
                 prev_start = start as u32;
+                last_was_type_name = false;  // Number can't be followed by generic <
+                continue;
+            }
+
+            // Handle comma - reset type context but stay in generic depth
+            if ch == ',' {
+                // Inside generics like HashMap<K, V>, comma separates type args
+                // Each new type arg could be a type name, so we just reset
+                last_was_type_name = false;
                 continue;
             }
 
@@ -397,13 +415,28 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                     "f32" | "f64" | "bool" | "void" => (TYPE_TYPE, MOD_DEFAULT_LIBRARY),
 
                     // Zen-specific types
-                    "String" | "StaticString" => (TYPE_TYPE, MOD_DEFAULT_LIBRARY),
-                    "Option" | "Result" => (TYPE_ENUM, MOD_DEFAULT_LIBRARY),
+                    "String" | "StaticString" => {
+                        last_was_type_name = true;
+                        (TYPE_TYPE, MOD_DEFAULT_LIBRARY)
+                    }
+                    "Option" | "Result" => {
+                        last_was_type_name = true;
+                        (TYPE_ENUM, MOD_DEFAULT_LIBRARY)
+                    }
                     "HashMap" | "DynVec" | "Vec" | "Array" | "HashSet" => {
                         _in_allocator_context = true; // These types need allocators
+                        last_was_type_name = true;
                         (TYPE_CLASS, MOD_DEFAULT_LIBRARY)
                     }
-                    "Allocator" => (TYPE_INTERFACE, MOD_DEFAULT_LIBRARY | MOD_ABSTRACT),
+                    // Pointer types - these always take generic parameters
+                    "Ptr" | "MutPtr" | "RawPtr" => {
+                        last_was_type_name = true;
+                        (TYPE_TYPE, MOD_DEFAULT_LIBRARY)
+                    }
+                    "Allocator" => {
+                        last_was_type_name = true;
+                        (TYPE_INTERFACE, MOD_DEFAULT_LIBRARY | MOD_ABSTRACT)
+                    }
 
                     // Allocator-related functions (highlight specially)
                     "get_default_allocator" => (TYPE_FUNCTION, MOD_DEFAULT_LIBRARY | MOD_STATIC),
@@ -414,17 +447,34 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                     // Function names (when we know we're after 'fn')
                     _ if in_function && prev_line == line_idx as u32 => {
                         in_function = false;
+                        last_was_type_name = false;
                         (TYPE_FUNCTION, MOD_DECLARATION | MOD_DEFINITION)
                     }
 
                     // Allocator-related identifiers get special highlighting
-                    _ if is_allocator_related => (TYPE_INTERFACE, MOD_ABSTRACT),
+                    _ if is_allocator_related => {
+                        last_was_type_name = false;
+                        (TYPE_INTERFACE, MOD_ABSTRACT)
+                    }
 
                     // UFC calls get method highlighting
-                    _ if is_ufc_call => (TYPE_VARIABLE, 0), // Will be followed by method
+                    _ if is_ufc_call => {
+                        last_was_type_name = false;
+                        (TYPE_VARIABLE, 0) // Will be followed by method
+                    }
 
-                    // Default to variable
-                    _ => (TYPE_VARIABLE, 0),
+                    // Uppercase identifiers are likely user-defined types (structs, enums)
+                    // This handles things like: MyStruct<T>, CustomType<K, V>
+                    _ if word.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) => {
+                        last_was_type_name = true;
+                        (TYPE_TYPE, 0)
+                    }
+
+                    // Default to variable (lowercase identifiers)
+                    _ => {
+                        last_was_type_name = false;
+                        (TYPE_VARIABLE, 0)
+                    }
                 };
 
                 let delta_line = line_idx as u32 - prev_line;
@@ -516,8 +566,64 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                 continue;
             }
 
-            // Other operators
-            if "+-*/%&|^!<>=".contains(ch) {
+            // Handle < and > specially - they could be generic brackets or comparison operators
+            if ch == '<' {
+                if last_was_type_name {
+                    // This < is opening a generic type parameter: Ptr<T>, Vec<i32>
+                    generic_depth += 1;
+                    // Don't emit a semantic token - let TextMate grammar handle it as bracket
+                    // This allows bracket matching to work for generics
+                } else {
+                    // This < is a comparison operator: n < 10
+                    let delta_line = line_idx as u32 - prev_line;
+                    let delta_start = if delta_line == 0 {
+                        start as u32 - prev_start
+                    } else {
+                        start as u32
+                    };
+                    tokens.push(SemanticToken {
+                        delta_line,
+                        delta_start,
+                        length: 1,
+                        token_type: TYPE_OPERATOR,
+                        token_modifiers_bitset: 0,
+                    });
+                    prev_line = line_idx as u32;
+                    prev_start = start as u32;
+                }
+                last_was_type_name = false;
+                continue;
+            }
+
+            if ch == '>' {
+                if generic_depth > 0 {
+                    // This > is closing a generic type parameter
+                    generic_depth -= 1;
+                    // Don't emit a semantic token - let TextMate grammar handle it as bracket
+                } else {
+                    // This > is a comparison operator: n > 0
+                    let delta_line = line_idx as u32 - prev_line;
+                    let delta_start = if delta_line == 0 {
+                        start as u32 - prev_start
+                    } else {
+                        start as u32
+                    };
+                    tokens.push(SemanticToken {
+                        delta_line,
+                        delta_start,
+                        length: 1,
+                        token_type: TYPE_OPERATOR,
+                        token_modifiers_bitset: 0,
+                    });
+                    prev_line = line_idx as u32;
+                    prev_start = start as u32;
+                }
+                last_was_type_name = false;
+                continue;
+            }
+
+            // Other operators (not < or >)
+            if "+-*/%&|^!=".contains(ch) {
                 let delta_line = line_idx as u32 - prev_line;
                 let delta_start = if delta_line == 0 {
                     start as u32 - prev_start
@@ -535,6 +641,7 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
 
                 prev_line = line_idx as u32;
                 prev_start = start as u32;
+                last_was_type_name = false;
             }
         }
     }
