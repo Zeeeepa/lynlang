@@ -333,7 +333,7 @@ pub fn compile_set_discriminant<'ctx>(
     let enum_ptr = compiler.compile_expression(&args[0])?;
     let discriminant = compiler.compile_expression(&args[1])?;
     
-    let i32_type = compiler.context.i32_type();
+    let _i32_type = compiler.context.i32_type();
     
     // Cast to i32* to access discriminant
     let enum_ptr_cast = compiler.builder.build_pointer_cast(
@@ -599,7 +599,7 @@ pub fn compile_store<'ctx>(
     };
 
     // Get the basic type for storing and pointer type
-    let (basic_type, ptr_type) = match store_type {
+    let (_basic_type, ptr_type) = match store_type {
         Type::Basic(b) => {
             let ptr_ty = match b {
                 BasicTypeEnum::IntType(t) => t.ptr_type(inkwell::AddressSpace::default()),

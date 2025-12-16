@@ -1,6 +1,8 @@
 // Zen Standard Library: IO Module
 // Input/Output operations
 
+{ Result } = @std.core.result
+
 // File descriptor constants
 STDIN = 0
 STDOUT = 1

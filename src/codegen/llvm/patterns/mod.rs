@@ -7,6 +7,7 @@ mod enum_pattern;
 mod struct_pattern;
 mod helpers;
 
-// Re-export helpers for use in compile.rs
+// Helpers are used by compile.rs via super::helpers
+#[allow(unused_imports)]
 pub use helpers::*;
 

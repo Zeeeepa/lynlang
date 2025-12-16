@@ -1,20 +1,22 @@
 pub mod behaviors;
-pub mod inference;
-pub mod scope;
-pub mod stdlib;
-pub mod self_resolution;
-pub mod types;
-pub mod validation;
-pub mod type_resolution;
 pub mod declaration_checking;
 pub mod function_checking;
+pub mod inference;
+pub mod intrinsics;
+pub mod method_types;
+pub mod scope;
+pub mod self_resolution;
 pub mod statement_checking;
+pub mod stdlib;
+pub mod type_resolution;
+pub mod types;
+pub mod validation;
 
 use crate::ast::{AstType, Declaration, Expression, Function, Program, Statement};
 use crate::error::{CompileError, Result};
 use crate::stdlib_metadata::StdNamespace;
-use behaviors::{BehaviorResolver, MethodInfo};
-use std::collections::{HashMap, HashSet};
+use behaviors::BehaviorResolver;
+use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
 pub struct VariableInfo {
@@ -300,7 +302,12 @@ impl TypeChecker {
             Expression::String(_) => Ok(AstType::StaticString),  // String literals are static strings
             Expression::Identifier(name) => {
                 // eprintln!("DEBUG TypeChecker: Looking up identifier '{}'", name);
-                // First check if it's a function name
+                // First check if it's a variable (includes function parameters)
+                // This takes priority over function names to allow shadowing
+                if let Ok(var_type) = self.get_variable_type(name) {
+                    return Ok(var_type);
+                }
+                // Then check if it's a function name
                 if let Some(sig) = self.functions.get(name) {
                     // Return function pointer type
                     Ok(AstType::FunctionPointer {
@@ -330,17 +337,17 @@ impl TypeChecker {
                                 })
                             }
                             _ => {
-                                // Unknown generic type, try as variable
-                                self.get_variable_type(name)
+                                // Unknown generic type - already checked as variable above
+                                Err(CompileError::UndeclaredVariable(name.clone(), None))
                             }
                         }
                     } else {
-                        // Shouldn't happen, but try as variable
-                        self.get_variable_type(name)
+                        // Shouldn't happen
+                        Err(CompileError::UndeclaredVariable(name.clone(), None))
                     }
                 } else {
-                    // Otherwise check if it's a variable
-                    self.get_variable_type(name)
+                    // Not a variable, not a function, not a type - undeclared
+                    Err(CompileError::UndeclaredVariable(name.clone(), None))
                 }
             }
             Expression::BinaryOp { left, op, right } => {
@@ -354,18 +361,10 @@ impl TypeChecker {
                         let module = parts[0];
                         let func = parts[1];
 
-                        // Handle stdlib function return types
-                        match (module, func) {
-                            // Compiler primitives - low-level operations
-                            ("compiler", "inline_c") => {
-                                // Validate inline_c takes a string literal
-                                if args.len() != 1 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.inline_c() expects exactly 1 argument (string literal), got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                // Check first arg is a string
+                        // Check compiler intrinsics first
+                        if let Some(result) = intrinsics::check_compiler_intrinsic(module, func, args.len()) {
+                            // Special case for inline_c: validate string argument
+                            if module == "compiler" && func == "inline_c" && args.len() == 1 {
                                 let arg_type = self.infer_expression_type(&args[0])?;
                                 match arg_type {
                                     AstType::StaticString | AstType::StaticLiteral => {},
@@ -374,248 +373,46 @@ impl TypeChecker {
                                         None,
                                     )),
                                 }
-                                return Ok(AstType::Void);
                             }
-                            ("compiler", "raw_allocate") => {
-                                if args.len() != 1 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.raw_allocate() expects 1 argument (size: usize), got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::Ptr(Box::new(AstType::U8)));
-                            }
-                            ("compiler", "raw_deallocate") => {
-                                if args.len() != 2 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.raw_deallocate() expects 2 arguments (ptr, size), got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::Void);
-                            }
-                            ("compiler", "raw_reallocate") => {
-                                if args.len() != 3 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.raw_reallocate() expects 3 arguments (ptr, old_size, new_size), got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::Ptr(Box::new(AstType::U8)));
-                            }
-                            ("compiler", "raw_ptr_offset") => {
-                                if args.len() != 2 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.raw_ptr_offset() expects 2 arguments (ptr, offset), got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::RawPtr(Box::new(AstType::U8)));
-                            }
-                            ("compiler", "raw_ptr_cast") => {
-                                if args.len() != 1 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.raw_ptr_cast() expects 1 argument (ptr), got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::RawPtr(Box::new(AstType::U8)));
-                            }
-                            ("compiler", "call_external") => {
-                                if args.len() != 2 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.call_external() expects 2 arguments (func_ptr, args), got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::RawPtr(Box::new(AstType::U8)));
-                            }
-                            ("compiler", "load_library") => {
-                                if args.len() != 1 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.load_library() expects 1 argument (path: string), got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::RawPtr(Box::new(AstType::U8)));
-                            }
-                            ("compiler", "get_symbol") => {
-                                if args.len() != 2 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.get_symbol() expects 2 arguments (lib_handle, symbol_name), got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::RawPtr(Box::new(AstType::U8)));
-                            }
-                            ("compiler", "unload_library") => {
-                                if args.len() != 1 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.unload_library() expects 1 argument (lib_handle), got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::Void);
-                            }
-                            ("compiler", "null_ptr") => {
-                                if args.len() != 0 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.null_ptr() expects 0 arguments, got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::Ptr(Box::new(AstType::U8)));
-                            }
-                            ("compiler", "int_to_ptr") => {
-                                if args.len() != 1 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.int_to_ptr() expects 1 argument (addr: i64), got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::RawPtr(Box::new(AstType::U8)));
-                            }
-                            ("compiler", "ptr_to_int") => {
-                                if args.len() != 1 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.ptr_to_int() expects 1 argument (ptr), got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::I64);
-                            }
-                            ("compiler", "load") => {
-                                if args.len() != 1 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.load() expects 1 argument (ptr), got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                // Returns generic T - use I32 as default for type inference
-                                return Ok(AstType::I32);
-                            }
-                            ("compiler", "store") => {
-                                if args.len() != 2 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.store() expects 2 arguments (ptr, value), got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::Void);
-                            }
-                            // GEP intrinsics
-                            ("compiler", "gep") => {
-                                if args.len() != 2 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.gep() expects 2 arguments (ptr, offset), got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::Ptr(Box::new(AstType::U8)));
-                            }
-                            ("compiler", "gep_struct") => {
-                                if args.len() != 2 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.gep_struct() expects 2 arguments (ptr, field_index), got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::Ptr(Box::new(AstType::U8)));
-                            }
-                            // Enum intrinsics
-                            ("compiler", "discriminant") => {
-                                if args.len() != 1 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.discriminant() expects 1 argument, got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::I64);
-                            }
-                            ("compiler", "set_discriminant") => {
-                                if args.len() != 2 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.set_discriminant() expects 2 arguments, got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::Void);
-                            }
-                            ("compiler", "get_payload") => {
-                                if args.len() != 1 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.get_payload() expects 1 argument, got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::Ptr(Box::new(AstType::U8)));
-                            }
-                            ("compiler", "set_payload") => {
-                                if args.len() != 2 {
-                                    return Err(CompileError::TypeError(
-                                        format!("compiler.set_payload() expects 2 arguments, got {}", args.len()),
-                                        None,
-                                    ));
-                                }
-                                return Ok(AstType::Void);
-                            }
-                            // Core library functions
-                            ("core", "assert" | "panic") => {
-                                return Ok(AstType::Void)
-                            }
-                            // Standard library functions
-                            ("io", "print" | "println" | "print_int" | "print_float" | "eprint" | "eprintln") => {
-                                return Ok(AstType::Void)
-                            }
-                            ("io", "read_line" | "read_input") => return Ok(crate::ast::resolve_string_struct_type()),
-                            ("math", "abs") => return Ok(AstType::I32),
-                            ("math", "sqrt") => return Ok(AstType::F64),
-                            ("math", "sin" | "cos" | "tan") => return Ok(AstType::F64),
-                            ("math", "floor" | "ceil") => return Ok(AstType::I32),
-                            ("math", "pow") => return Ok(AstType::F64),
-                            ("math", "min" | "max") => return Ok(AstType::I32),
-                            ("string", "len") => return Ok(AstType::I32),
-                            ("string", "concat") => return Ok(crate::ast::resolve_string_struct_type()),
-                            ("mem", "alloc") => return Ok(AstType::Ptr(Box::new(AstType::U8))),
-                            ("mem", "free") => return Ok(AstType::Void),
-                            ("fs", "read_file") => {
-                                let string_type = crate::ast::resolve_string_struct_type();
-                                return Ok(AstType::Generic {
-                                    name: "Result".to_string(),
-                                    type_args: vec![string_type.clone(), string_type],
-                                })
-                            }
-                            ("fs", "write_file") => {
-                                return Ok(AstType::Generic {
-                                    name: "Result".to_string(),
-                                    type_args: vec![
-                                        AstType::Void,
-                                        crate::ast::resolve_string_struct_type(),
-                                    ],
-                                })
-                            }
-                            ("fs", "exists") => return Ok(AstType::Bool),
-                            ("fs", "remove_file") => {
-                                return Ok(AstType::Generic {
-                                    name: "Result".to_string(),
-                                    type_args: vec![
-                                        AstType::Void,
-                                        crate::ast::resolve_string_struct_type(),
-                                    ],
-                                })
-                            }
-                            ("fs", "create_dir") => {
-                                return Ok(AstType::Generic {
-                                    name: "Result".to_string(),
-                                    type_args: vec![
-                                        AstType::Void,
-                                        crate::ast::resolve_string_struct_type(),
-                                    ],
-                                })
-                            }
-                            _ => {}
+                            return result;
+                        }
+
+                        // Check stdlib functions
+                        if let Some(return_type) = intrinsics::check_stdlib_function(module, func) {
+                            return Ok(return_type);
                         }
                     }
+                }
+
+                // Check if this is the cast() builtin function
+                if name == "cast" {
+                    // cast(value, type) returns the target type
+                    if args.len() == 2 {
+                        // Second argument should be a type identifier
+                        if let Expression::Identifier(type_name) = &args[1] {
+                            return match type_name.as_str() {
+                                "i8" => Ok(AstType::I8),
+                                "i16" => Ok(AstType::I16),
+                                "i32" => Ok(AstType::I32),
+                                "i64" => Ok(AstType::I64),
+                                "u8" => Ok(AstType::U8),
+                                "u16" => Ok(AstType::U16),
+                                "u32" => Ok(AstType::U32),
+                                "u64" => Ok(AstType::U64),
+                                "usize" => Ok(AstType::Usize),
+                                "f32" => Ok(AstType::F32),
+                                "f64" => Ok(AstType::F64),
+                                _ => Err(CompileError::TypeError(
+                                    format!("cast() target type '{}' is not a valid primitive type", type_name),
+                                    None,
+                                )),
+                            };
+                        }
+                    }
+                    return Err(CompileError::TypeError(
+                        "cast() expects 2 arguments: cast(value, type)".to_string(),
+                        None,
+                    ));
                 }
 
                 // Check if this is a generic type constructor like HashMap<K,V>()
@@ -1022,7 +819,7 @@ impl TypeChecker {
             }
             Expression::Return(expr) => self.infer_expression_type(expr),
             Expression::EnumVariant {
-                enum_name, variant, payload
+                enum_name, variant, payload: _
             } => {
                 // Infer the type of an enum variant
                 // If enum_name is empty, search for an enum with this variant
@@ -1135,173 +932,48 @@ impl TypeChecker {
                 // Special handling for string methods (both StaticString and String struct)
                 let is_string_struct = matches!(effective_type, AstType::Struct { name, .. } if name == "String");
                 if is_string_struct || *effective_type == AstType::StaticString || *effective_type == AstType::StaticLiteral {
-                    // Common string methods with hardcoded return types for now
-                    match method.as_str() {
-                        "len" => return Ok(AstType::I64),
-                        "to_i32" => {
-                            return Ok(AstType::Generic {
-                                name: "Option".to_string(),
-                                type_args: vec![AstType::I32],
-                            })
-                        }
-                        "to_i64" => {
-                            return Ok(AstType::Generic {
-                                name: "Option".to_string(),
-                                type_args: vec![AstType::I64],
-                            })
-                        }
-                        "to_f32" => {
-                            return Ok(AstType::Generic {
-                                name: "Option".to_string(),
-                                type_args: vec![AstType::F32],
-                            })
-                        }
-                        "to_f64" => {
-                            return Ok(AstType::Generic {
-                                name: "Option".to_string(),
-                                type_args: vec![AstType::F64],
-                            })
-                        }
-                        "substr" => {
-                            // substr returns same type as input (static stays static, dynamic stays dynamic)
-                            return Ok(if is_string_struct { crate::ast::resolve_string_struct_type() } else { AstType::StaticString })
-                        }
-                        "char_at" => return Ok(AstType::I32),
-                        "split" => {
-                            // split returns array of same string type as input
-                            let string_type = if is_string_struct { crate::ast::resolve_string_struct_type() } else { AstType::StaticString };
-                            return Ok(AstType::Generic {
-                                name: "Array".to_string(),
-                                type_args: vec![string_type],
-                            })
-                        }
-                        "trim" => {
-                            // trim returns same type as input
-                            return Ok(if is_string_struct { crate::ast::resolve_string_struct_type() } else { AstType::StaticString })
-                        }
-                        "to_upper" => {
-                            // to_upper returns same type as input
-                            return Ok(if is_string_struct { crate::ast::resolve_string_struct_type() } else { AstType::StaticString })
-                        }
-                        "to_lower" => {
-                            // to_lower returns same type as input
-                            return Ok(if is_string_struct { crate::ast::resolve_string_struct_type() } else { AstType::StaticString })
-                        }
-                        "contains" => return Ok(AstType::Bool),
-                        "starts_with" => return Ok(AstType::Bool),
-                        "ends_with" => return Ok(AstType::Bool),
-                        "index_of" => return Ok(AstType::I64),
-                        _ => {}
+                    if let Some(return_type) = method_types::infer_string_method_type(method, is_string_struct) {
+                        return Ok(return_type);
                     }
                 }
 
-                // Special handling for .raise() method which extracts T from Result<T,E>
-                if method == "raise" {
-                    // Get the type of the object being raised
-                    if let AstType::Generic { name, type_args } = &object_type {
-                        if name == "Result" && type_args.len() == 2 {
-                            // The raise() method returns the Ok type (T) from Result<T,E>
-                            return Ok(type_args[0].clone());
-                        }
-                    }
-                    // If not a Result type, return Void (will error during compilation)
-                    return Ok(AstType::Void);
-                }
-                
                 // Special handling for built-in methods like .loop()
                 if method == "loop" {
                     // .loop() on ranges and collections returns void
                     return Ok(AstType::Void);
                 }
                 
-                // Special handling for HashMap/HashSet/Vec methods
+                // Special handling for HashMap/HashSet methods
                 if let AstType::Generic { name, type_args } = &object_type {
                     if name == "HashMap" {
-                        match method.as_str() {
-                            "size" | "len" => return Ok(AstType::I64),
-                            "is_empty" => return Ok(AstType::Bool),
-                            "clear" => return Ok(AstType::Void),
-                            "contains" => return Ok(AstType::Bool),
-                            "remove" => {
-                                // HashMap.remove() returns Option<V>
-                                if type_args.len() >= 2 {
-                                    return Ok(AstType::Generic {
-                                        name: "Option".to_string(),
-                                        type_args: vec![type_args[1].clone()],
-                                    });
-                                }
-                            }
-                            "get" => {
-                                // HashMap.get() returns Option<V>
-                                if type_args.len() >= 2 {
-                                    return Ok(AstType::Generic {
-                                        name: "Option".to_string(),
-                                        type_args: vec![type_args[1].clone()],
-                                    });
-                                }
-                            }
-                            "insert" => return Ok(AstType::Void),
-                            _ => {}
+                        if let Some(return_type) = method_types::infer_hashmap_method_type(method, type_args) {
+                            return Ok(return_type);
                         }
                     } else if name == "HashSet" {
-                        match method.as_str() {
-                            "size" | "len" => return Ok(AstType::I64),
-                            "is_empty" => return Ok(AstType::Bool),
-                            "clear" => return Ok(AstType::Void),
-                            "contains" => return Ok(AstType::Bool),
-                            "insert" => return Ok(AstType::Bool),
-                            "remove" => return Ok(AstType::Bool),
-                            _ => {}
+                        if let Some(return_type) = method_types::infer_hashset_method_type(method) {
+                            return Ok(return_type);
+                        }
+                    } else if name == "Result" {
+                        if let Some(return_type) = method_types::infer_result_method_type(method, type_args) {
+                            return Ok(return_type);
                         }
                     }
                 }
                 
                 // Special handling for Vec<T, N> methods
                 if let AstType::Vec { element_type, .. } = &object_type {
-                    match method.as_str() {
-                        "get" => return Ok(element_type.as_ref().clone()),  // Returns element directly
-                        "pop" => return Ok(AstType::Generic {               // Returns Option<element>
-                            name: "Option".to_string(),
-                            type_args: vec![element_type.as_ref().clone()],
-                        }),
-                        "len" | "capacity" => return Ok(AstType::I64),
-                        "push" | "set" | "clear" => return Ok(AstType::Void),
-                        _ => {}
+                    if let Some(return_type) = method_types::infer_vec_method_type(method, element_type) {
+                        return Ok(return_type);
                     }
                 }
 
                 // Special handling for pointer methods (only if not already handled above)
                 // These are explicit pointer operations, not method calls on the dereferenced type
                 if dereferenced_type.is_none() {
-                    match &object_type {
-                        AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_) => {
-                            if method == "val" {
-                                // Dereference pointer
-                                return match object_type {
-                                    AstType::Ptr(inner)
-                                    | AstType::MutPtr(inner)
-                                    | AstType::RawPtr(inner) => Ok(inner.as_ref().clone()),
-                                    _ => unreachable!(),
-                                };
-                            } else if method == "addr" {
-                                // Get address as usize
-                                return Ok(AstType::Usize);
-                            }
+                    if let AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) = &object_type {
+                        if let Some(return_type) = method_types::infer_pointer_method_type(method, inner) {
+                            return Ok(return_type);
                         }
-                        _ => {}
-                    }
-                }
-
-                // Special handling for Result.raise()
-                if method == "raise" {
-                    match object_type {
-                        AstType::Generic { name, type_args }
-                            if name == "Result" && !type_args.is_empty() =>
-                        {
-                            return Ok(type_args[0].clone());
-                        }
-                        // Legacy Result type removed - all Results are Generic now
-                        _ => {}
                     }
                 }
 

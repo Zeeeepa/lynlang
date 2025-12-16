@@ -2,7 +2,7 @@
 
 use lsp_types::*;
 use std::collections::HashMap;
-use crate::ast::{Declaration, Expression, Statement};
+use crate::ast::{Declaration, Statement};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use super::types::SymbolInfo;

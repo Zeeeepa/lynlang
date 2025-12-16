@@ -260,6 +260,17 @@ impl CompilerModule {
             },
         );
 
+        // Null pointer constant
+        functions.insert(
+            "null_ptr".to_string(),
+            StdFunction {
+                name: "null_ptr".to_string(),
+                params: vec![],
+                return_type: AstType::RawPtr(Box::new(AstType::U8)),
+                is_builtin: true,
+            },
+        );
+
         // GEP for struct field access - variant that operates on typed pointers
         functions.insert(
             "gep_struct".to_string(),

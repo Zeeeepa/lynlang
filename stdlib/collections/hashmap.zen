@@ -53,14 +53,14 @@ hash<K> = (key: K) u64 {
 }
 
 // Insert key-value pair
-hashmap_insert<K, V> = (m: *HashMap<K, V>, key: K, value: V) void {
-    if m.capacity == 0 {
-        m.capacity = 16
-    }
-    
+hashmap_insert<K, V> = (m: MutPtr<HashMap<K, V>>, key: K, value: V) void {
+    m.val.capacity == 0 ?
+        | true { m.val.capacity = 16 }
+        | false { }
+
     // TODO: Implement hash table insertion
     // For now, just track size
-    m.size = m.size + 1
+    m.val.size = m.val.size + 1
 }
 
 // Get value by key
@@ -76,22 +76,22 @@ hashmap_contains_key<K, V> = (m: HashMap<K, V>, key: K) bool {
 }
 
 // Remove key
-hashmap_remove<K, V> = (m: *HashMap<K, V>, key: K) Option<V> {
+hashmap_remove<K, V> = (m: MutPtr<HashMap<K, V>>, key: K) Option<V> {
     // TODO: Implement hash table removal
-    if m.size > 0 {
-        m.size = m.size - 1
-    }
+    m.val.size > 0 ?
+        | true { m.val.size = m.val.size - 1 }
+        | false { }
     return Option.None
 }
 
 // Clear hashmap
-hashmap_clear<K, V> = (m: *HashMap<K, V>) void {
-    m.size = 0
+hashmap_clear<K, V> = (m: MutPtr<HashMap<K, V>>) void {
+    m.val.size = 0
 }
 
 // Free hashmap
-hashmap_free<K, V> = (m: *HashMap<K, V>, entry_size: usize) void {
-    vec_free(&m.entries, entry_size)
-    m.size = 0
-    m.capacity = 0
+hashmap_free<K, V> = (m: MutPtr<HashMap<K, V>>, entry_size: usize) void {
+    vec_free(m.val.entries.mut_ref(), entry_size)
+    m.val.size = 0
+    m.val.capacity = 0
 }

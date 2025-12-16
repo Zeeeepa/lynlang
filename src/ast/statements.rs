@@ -2,6 +2,24 @@
 
 use super::expressions::Expression;
 use super::types::AstType;
+use crate::error::Span;
+
+/// A statement with optional source location information
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpannedStatement {
+    pub stmt: Statement,
+    pub span: Option<Span>,
+}
+
+impl SpannedStatement {
+    pub fn new(stmt: Statement, span: Option<Span>) -> Self {
+        Self { stmt, span }
+    }
+    
+    pub fn without_span(stmt: Statement) -> Self {
+        Self { stmt, span: None }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
@@ -14,11 +32,13 @@ pub enum Statement {
         initializer: Option<Expression>,
         is_mutable: bool, // true for ::= and :: T =, false for := and : T =
         declaration_type: VariableDeclarationType,
+        span: Option<Span>, // Source location for error reporting
     },
     #[allow(dead_code)]
     VariableAssignment {
         name: String,
         value: Expression,
+        span: Option<Span>,
     },
     PointerAssignment {
         pointer: Expression,

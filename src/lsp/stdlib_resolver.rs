@@ -1,7 +1,6 @@
 // Stdlib Module Resolver for LSP
 // Handles resolution of @std module paths to actual files
 
-use lsp_types::Url;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 

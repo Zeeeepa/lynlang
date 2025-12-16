@@ -24,6 +24,7 @@ pub fn compile_variable_declaration<'ctx>(
             initializer,
             is_mutable,
             declaration_type,
+            ..
         } => (name, type_, initializer, is_mutable, declaration_type),
         _ => {
             return Err(CompileError::InternalError(
@@ -350,10 +351,14 @@ pub fn compile_variable_declaration<'ctx>(
             }
         }
 
-        // Store the value
-        compiler.builder
-            .build_store(alloca, value)
-            .map_err(|e| CompileError::from(e))?;
+        // Store the value using coercing_store to handle type mismatches
+        // (e.g., i64 literal into i32 alloca - this was causing memory corruption)
+        compiler.coercing_store(
+            value,
+            alloca,
+            basic_type,
+            &format!("variable '{}'", name),
+        )?;
 
         // Determine the AST type to store
         let ast_type_to_store = if let Some(type_) = type_ {
@@ -444,7 +449,7 @@ pub fn compile_assignment<'ctx>(
     statement: &Statement,
 ) -> Result<(), CompileError> {
     match statement {
-        Statement::VariableAssignment { name, value } => {
+        Statement::VariableAssignment { name, value, .. } => {
             // Get the variable info
             let var_info = compiler.variables.get(name).cloned()
                 .ok_or_else(|| CompileError::UndeclaredVariable(name.clone(), None))?;

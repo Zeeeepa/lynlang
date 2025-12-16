@@ -31,10 +31,9 @@ queue_with_capacity<T> = (capacity: usize) Queue<T> {
 
 // Get queue size
 queue_len<T> = (q: Queue<T>) usize {
-    if q.tail >= q.head {
-        return q.tail - q.head
-    }
-    return 0
+    q.tail >= q.head ?
+        | true { return q.tail - q.head }
+        | false { return 0 }
 }
 
 // Check if empty
@@ -43,35 +42,35 @@ queue_is_empty<T> = (q: Queue<T>) bool {
 }
 
 // Enqueue element
-queue_enqueue<T> = (q: *Queue<T>, elem_size: usize, elem_addr: *u8) void {
-    vec_push(&q.data, elem_size, elem_addr)
-    q.tail = q.tail + 1
+queue_enqueue<T> = (q: MutPtr<Queue<T>>, elem_size: usize, elem_addr: RawPtr<u8>) void {
+    vec_push(q.val.data.mut_ref(), elem_size, elem_addr)
+    q.val.tail = q.val.tail + 1
 }
 
 // Dequeue element (conceptually - just advance head)
-queue_dequeue<T> = (q: *Queue<T>) void {
-    if q.head < q.tail {
-        q.head = q.head + 1
-    }
+queue_dequeue<T> = (q: MutPtr<Queue<T>>) void {
+    q.val.head < q.val.tail ?
+        | true { q.val.head = q.val.head + 1 }
+        | false { }
 }
 
 // Peek at front without removing
-queue_peek_addr<T> = (q: Queue<T>) *u8 {
-    if q.head >= q.tail {
-        return (0 as *u8)
-    }
+queue_peek_addr<T> = (q: Queue<T>) RawPtr<u8> {
+    q.head >= q.tail ?
+        | true { return compiler.int_to_ptr(0) }
+        | false { }
     return vec_get_addr(q.data, q.head)
 }
 
 // Clear queue
-queue_clear<T> = (q: *Queue<T>) void {
-    q.head = 0
-    q.tail = 0
+queue_clear<T> = (q: MutPtr<Queue<T>>) void {
+    q.val.head = 0
+    q.val.tail = 0
 }
 
 // Free queue
-queue_free<T> = (q: *Queue<T>, elem_size: usize) void {
-    vec_free(&q.data, elem_size)
-    q.head = 0
-    q.tail = 0
+queue_free<T> = (q: MutPtr<Queue<T>>, elem_size: usize) void {
+    vec_free(q.val.data.mut_ref(), elem_size)
+    q.val.head = 0
+    q.val.tail = 0
 }

@@ -128,23 +128,15 @@ impl ModuleResolver {
     }
 
     /// Resolve module references in an expression
+    /// Note: We no longer rewrite function names because:
+    /// 1. The codegen handles module.function patterns directly (e.g., io.println)
+    /// 2. The typechecker registers functions with the original names
     #[allow(dead_code)]
     fn resolve_expression(&self, expr: &mut Expression) -> Result<(), String> {
         match expr {
-            Expression::FunctionCall { name, args } => {
-                // Check if this is a qualified module call
-                if let Some((module_path, symbol)) = self.resolve_qualified_name(name) {
-                    if !self.is_exported(&module_path, &symbol) {
-                        return Err(format!(
-                            "Symbol '{}' is not exported from module '{}'",
-                            symbol, module_path
-                        ));
-                    }
-                    // Rewrite to fully qualified name for codegen
-                    *name = format!("{}_{}", module_path.replace('.', "_"), symbol);
-                }
-
-                // Resolve arguments
+            Expression::FunctionCall { name: _, args } => {
+                // Don't rewrite function names - codegen handles qualified names directly
+                // Just resolve arguments
                 for arg in args {
                     self.resolve_expression(arg)?;
                 }

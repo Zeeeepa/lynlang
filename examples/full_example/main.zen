@@ -47,7 +47,7 @@ multiply = (a: i32, b: i32) i32 {
 divide = (a: f64, b: f64) i32 {
     b == 0.0 ?
         | true { return -1 }
-        | false { return (a / b) as i32 }
+        | false { return cast(a / b, i32) }
 }
 
 greet = (name: StaticString) void {

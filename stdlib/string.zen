@@ -55,26 +55,26 @@ String.is_empty = (self: String) bool {
 // ============================================================================
 
 // Push a single byte (auto-grow)
-String.push = (self: *String, byte: u8) void {
+String.push = (self: MutPtr<String>, byte: u8) void {
     // Grow if needed
-    self.len >= self.capacity ?
+    self.val.len >= self.val.capacity ?
     | true {
-        new_capacity = self.capacity * 2
-        old_addr = self.data.addr()
-        old_size = self.capacity
-        new_addr = self.allocator.reallocate(old_addr, old_size, new_capacity)
-        self.data = Ptr<u8>.from_addr(new_addr)
-        self.capacity = new_capacity
+        new_capacity = self.val.capacity * 2
+        old_addr = self.val.data.addr()
+        old_size = self.val.capacity
+        new_addr = self.val.allocator.reallocate(old_addr, old_size, new_capacity)
+        self.val.data = Ptr<u8>.from_addr(new_addr)
+        self.val.capacity = new_capacity
     }
     | false { }
 
     // Write byte at end
-    raw_addr = self.data.addr()
-    offset_i64 = self.len
+    raw_addr = self.val.data.addr()
+    offset_i64 = self.val.len
     target = compiler.gep(raw_addr, offset_i64)
     compiler.store<u8>(target, byte)
 
-    self.len = self.len + 1
+    self.val.len = self.val.len + 1
 }
 
 // Get byte at index
@@ -90,21 +90,21 @@ String.at = (self: String, index: usize) u8 {
 }
 
 // Clear string (keep capacity)
-String.clear = (self: *String) void {
-    self.len = 0
+String.clear = (self: MutPtr<String>) void {
+    self.val.len = 0
 }
 
 // Reserve additional capacity
-String.reserve = (self: *String, additional: usize) void {
-    needed = self.len + additional
-    needed > self.capacity ?
+String.reserve = (self: MutPtr<String>, additional: usize) void {
+    needed = self.val.len + additional
+    needed > self.val.capacity ?
     | true {
         new_capacity = needed * 2
-        old_addr = self.data.addr()
-        old_size = self.capacity
-        new_addr = self.allocator.reallocate(old_addr, old_size, new_capacity)
-        self.data = Ptr<u8>.from_addr(new_addr)
-        self.capacity = new_capacity
+        old_addr = self.val.data.addr()
+        old_size = self.val.capacity
+        new_addr = self.val.allocator.reallocate(old_addr, old_size, new_capacity)
+        self.val.data = Ptr<u8>.from_addr(new_addr)
+        self.val.capacity = new_capacity
     }
     | false { }
 }
@@ -114,12 +114,12 @@ String.reserve = (self: *String, additional: usize) void {
 // ============================================================================
 
 // Deallocate string
-String.free = (self: *String) void {
-    raw_addr = self.data.addr()
-    self.allocator.deallocate(raw_addr, self.capacity)
-    self.data = Ptr<u8>.none()
-    self.len = 0
-    self.capacity = 0
+String.free = (self: MutPtr<String>) void {
+    raw_addr = self.val.data.addr()
+    self.val.allocator.deallocate(raw_addr, self.val.capacity)
+    self.val.data = Ptr<u8>.none()
+    self.val.len = 0
+    self.val.capacity = 0
 }
 
 // Clone string (requires allocator for new allocation)

@@ -83,10 +83,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // Pattern matching
             Expression::QuestionMatch { .. } | Expression::Conditional { .. } => patterns::compile_pattern_match(self, expr),
             
-            // Other
-            Expression::Block(_) => {
-                // Block expressions are handled in statements.rs
-                Err(CompileError::InternalError("Block expressions should be handled in statements.rs".to_string(), None))
+            // Block expressions - compile statements and return last expression value
+            Expression::Block(statements) => {
+                compile_block_expression(self, statements)
             }
             Expression::Closure { .. } => calls::compile_closure(self, expr),
             Expression::Comptime(_) => utils::compile_comptime_expression(self, expr),
@@ -134,6 +133,45 @@ impl<'ctx> LLVMCompiler<'ctx> {
         index: &Expression,
     ) -> Result<inkwell::values::PointerValue<'ctx>, CompileError> {
         collections::compile_array_index_address(self, array, index)
+    }
+}
+
+/// Compile a block expression - executes statements and returns the last expression's value
+fn compile_block_expression<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    statements: &[crate::ast::Statement],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    use crate::ast::Statement;
+
+    if statements.is_empty() {
+        // Empty block returns void/unit (i32 0 as placeholder)
+        return Ok(compiler.context.i32_type().const_int(0, false).into());
+    }
+
+    // Compile all statements except the last one
+    for stmt in &statements[..statements.len() - 1] {
+        compiler.compile_statement(stmt)?;
+    }
+
+    // Handle the last statement specially - if it's an expression, return its value
+    let last_stmt = &statements[statements.len() - 1];
+    match last_stmt {
+        Statement::Expression(expr) => {
+            // The last expression is the block's return value
+            compiler.compile_expression(expr)
+        }
+        Statement::Return(_expr) => {
+            // If the last statement is a return, compile it normally
+            // The actual return happens in the statement, but we need to return something here
+            compiler.compile_statement(last_stmt)?;
+            // Return a dummy value since the return already happened
+            Ok(compiler.context.i32_type().const_int(0, false).into())
+        }
+        _ => {
+            // Other statements don't produce a value, compile and return void
+            compiler.compile_statement(last_stmt)?;
+            Ok(compiler.context.i32_type().const_int(0, false).into())
+        }
     }
 }
 

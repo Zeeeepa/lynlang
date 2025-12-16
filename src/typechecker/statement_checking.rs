@@ -1,6 +1,6 @@
 //! Statement type checking
 
-use crate::ast::{AstType, Expression, LoopKind, Statement};
+use crate::ast::{AstType, LoopKind, Statement};
 use crate::error::{CompileError, Result};
 use crate::typechecker::TypeChecker;
 
@@ -14,7 +14,7 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
                 type_,
                 initializer,
                 is_mutable,
-                
+                span,
                 ..
             } => {
                 // Check if this is an assignment to a forward-declared variable
@@ -37,7 +37,7 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
                                         "Type mismatch: variable '{}' declared as {:?} but initialized with {:?}",
                                         name, var_info.type_, inferred_type
                                     ),
-                                    None
+                                    span.clone()
                                 ));
                             }
                             checker.mark_variable_initialized(name)?;
@@ -52,7 +52,7 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
                                         "Type mismatch: cannot assign {:?} to variable '{}' of type {:?}",
                                         inferred_type, name, var_info.type_
                                     ),
-                                    None
+                                    span.clone()
                                 ));
                             }
                             // Reassignment is allowed for mutable variables
@@ -61,7 +61,7 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
                             // Immutable variable already initialized - cannot reassign
                             return Err(CompileError::TypeError(
                                 format!("Cannot reassign immutable variable '{}'", name),
-                                None,
+                                span.clone(),
                             ));
                         }
                     }
@@ -77,7 +77,7 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
                                     "Type mismatch: variable '{}' declared as {:?} but initialized with {:?}",
                                     name, declared_type, inferred_type
                                 ),
-                                None
+                                span.clone()
                             ));
                         }
                         checker.declare_variable_with_init(
@@ -104,11 +104,11 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
                             "Cannot infer type for variable '{}' without initializer",
                             name
                         ),
-                        None,
+                        span.clone(),
                     ));
                 }
             }
-            Statement::VariableAssignment { name, value } => {
+            Statement::VariableAssignment { name, value, .. } => {
                 // Check if variable exists
                 if !checker.variable_exists(name) {
                     // This is a new immutable declaration using = operator

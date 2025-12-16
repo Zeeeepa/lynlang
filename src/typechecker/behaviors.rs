@@ -52,8 +52,52 @@ pub struct MethodInfo {
 impl BehaviorResolver {
     #[allow(dead_code)]
     pub fn new() -> Self {
+        let mut behaviors = HashMap::new();
+        
+        // Pre-register the Allocator trait from stdlib/memory/allocator.zen
+        // This is needed because imports don't load trait definitions into the typechecker
+        behaviors.insert(
+            "Allocator".to_string(),
+            BehaviorInfo {
+                name: "Allocator".to_string(),
+                type_params: vec![],
+                methods: vec![
+                    BehaviorMethodInfo {
+                        name: "allocate".to_string(),
+                        param_types: vec![
+                            AstType::Generic { name: "Self".to_string(), type_args: vec![] },
+                            AstType::Usize,
+                        ],
+                        return_type: AstType::RawPtr(Box::new(AstType::U8)),
+                        has_self: true,
+                    },
+                    BehaviorMethodInfo {
+                        name: "deallocate".to_string(),
+                        param_types: vec![
+                            AstType::Generic { name: "Self".to_string(), type_args: vec![] },
+                            AstType::RawPtr(Box::new(AstType::U8)),
+                            AstType::Usize,
+                        ],
+                        return_type: AstType::Void,
+                        has_self: true,
+                    },
+                    BehaviorMethodInfo {
+                        name: "reallocate".to_string(),
+                        param_types: vec![
+                            AstType::Generic { name: "Self".to_string(), type_args: vec![] },
+                            AstType::RawPtr(Box::new(AstType::U8)),
+                            AstType::Usize,
+                            AstType::Usize,
+                        ],
+                        return_type: AstType::RawPtr(Box::new(AstType::U8)),
+                        has_self: true,
+                    },
+                ],
+            },
+        );
+        
         Self {
-            behaviors: HashMap::new(),
+            behaviors,
             implementations: HashMap::new(),
             inherent_methods: HashMap::new(),
         }

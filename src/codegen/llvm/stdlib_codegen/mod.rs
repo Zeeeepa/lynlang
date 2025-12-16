@@ -9,14 +9,11 @@ pub mod compiler;
 pub mod collections;
 pub mod helpers;
 
-// Re-export all functions for backward compatibility
+// Re-export io functions for backward compatibility
 pub use io::*;
-pub use math::*;
-pub use core::*;
-pub use helpers::*;
-pub use fs::*;
-pub use compiler::*;
-pub use collections::*;
+
+// Note: Other modules (math, core, helpers, fs, compiler, collections) are 
+// available via their module paths when needed
 
 // All functions are now delegated to their respective modules
 use super::LLVMCompiler;

@@ -2,7 +2,7 @@
 
 use crate::ast::{AstType, Declaration, Expression};
 use crate::error::{CompileError, Result};
-use crate::typechecker::{FunctionSignature, StructInfo, TypeChecker, EnumInfo};
+use crate::typechecker::{FunctionSignature, StructInfo, TypeChecker};
 use crate::typechecker::behaviors::MethodInfo;
 use crate::typechecker::validation;
 

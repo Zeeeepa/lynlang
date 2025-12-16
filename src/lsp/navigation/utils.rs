@@ -1,7 +1,6 @@
 // Shared utility functions for navigation module
 
 use lsp_types::*;
-use super::super::types::Document;
 
 /// Find the symbol (identifier) at the given position in the document
 pub fn find_symbol_at_position(content: &str, position: Position) -> Option<String> {

@@ -4,7 +4,6 @@ use lsp_server::{Request, Response};
 use lsp_types::*;
 use serde_json::Value;
 use super::super::document_store::DocumentStore;
-use super::super::utils::format_type;
 use super::utils::find_symbol_at_position;
 
 /// Extract type name from a detail string like "name: Type" or "val: Result<f64, E>"

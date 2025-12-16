@@ -151,3 +151,21 @@ copysign = (x: f64, y: f64) f64 {
     // Built-in - calls libm copysign
     return x
 }
+
+// ============================================================================
+// Integer bounds constants
+// Useful for safe conversions and overflow checking
+// ============================================================================
+
+// Signed integer bounds
+I8_MIN = 0 - 128
+I8_MAX = 127
+I16_MIN = 0 - 32768
+I16_MAX = 32767
+I32_MIN = 0 - 2147483648
+I32_MAX = 2147483647
+
+// Unsigned integer bounds (as i64 for comparison)
+U8_MAX = 255
+U16_MAX = 65535
+U32_MAX = 4294967295

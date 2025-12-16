@@ -21,7 +21,7 @@ assert = (condition: bool, message: String) void {
             io.eprintln(message)
             // Panic
             loop(() {
-                if true { break }
+                true ? { break }
             })
         }
 }
@@ -35,7 +35,7 @@ assert_eq<T> = (a: T, b: T, message: String) void {
             io.eprintln(message)
             // Panic
             loop(() {
-                if true { break }
+                true ? { break }
             })
         }
 }
@@ -49,7 +49,7 @@ assert_ne<T> = (a: T, b: T, message: String) void {
             io.eprintln(message)
             // Panic
             loop(() {
-                if true { break }
+                true ? { break }
             })
         }
 }
@@ -62,7 +62,7 @@ assert_not = (condition: bool, message: String) void {
             io.eprintln(message)
             // Panic
             loop(() {
-                if true { break }
+                true ? { break }
             })
         }
 }

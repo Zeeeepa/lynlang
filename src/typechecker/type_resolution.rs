@@ -1,7 +1,6 @@
 //! Type resolution - converting Generic types to Struct types, handling forward references
 
 use crate::ast::AstType;
-use crate::error::Result;
 use crate::typechecker::TypeChecker;
 use std::collections::HashSet;
 

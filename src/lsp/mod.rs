@@ -3,6 +3,7 @@
 // Submodules
 pub mod types;
 pub mod utils;
+pub mod analyzer;
 pub mod document_store;
 pub mod type_inference;
 pub mod symbols;

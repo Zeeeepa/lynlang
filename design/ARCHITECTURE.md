@@ -1,8 +1,5 @@
 # Zen Compiler Architecture: LLVM Primitives vs Zen-Level Features
 
-**Last Updated**: 2025-11-20  
-**Status**: Active Reference  
-
 ---
 
 ## Overview

@@ -1,18 +1,43 @@
-
-// keywords: `if/else/while/for/match/async/await/impl/trait/class/interface/null`
-// - Only two @ symbols: `@std` (standard library) and `@this` (current scope)
-// - Pattern matching with `?` operator, no `match` or `switch`
+// ============================================================================
+// ZEN LANGUAGE SPECIFICATION
+// ============================================================================
+//
+// REJECTED KEYWORDS (not in Zen):
+//   `if/else/while/for/match/switch/async/await/impl/trait/class/interface/null`
+//
+// CORE PRINCIPLES:
+// - Only TWO @ symbols: `@std` (standard library) and `@this` (current scope)
+// - Pattern matching with `?` operator replaces if/else/match/switch
 // - UFC (Uniform Function Call) - any function can be called as method
 // - Allocators determine sync/async behavior (no function coloring)
 // - Explicit pointer types: `Ptr<>`, `MutPtr<>`, `RawPtr<>` (no `*` or `&`)
 // - No null/nil - only `Option<T>` with `.Some(T)` and `.None`
 // - No unions, no tuples - only structs and enums
-// - Assignment operators: `=` (immutable), `::=` (mutable), `:` (type definition)
-// - Constant declaration: `:=` (constant with explicit type, e.g., `x : u8 := 10`)
-// - Error propagation with `.raise()` not exceptions
-// - Loops: `loop()` for infinite, `.loop()` for collections, ranges like `(0..10)`
-// - Traits via `.implements()` and `.requires()` from `@std.meta`
-// - Compile-time metaprogramming with full AST access
+// - Type casting with `cast(value, Type)` function (no `as` keyword)
+//
+// ASSIGNMENT OPERATORS:
+//   `=`   immutable binding
+//   `::=` mutable binding
+//   `:=`  constant with inferred type
+//   `:`   type annotation
+//
+// ERROR HANDLING:
+// - Result<T, E> for fallible operations
+// - `.raise()` for error propagation (not exceptions)
+//
+// LOOPS:
+// - `loop()` for infinite loops
+// - `.loop()` for collection iteration
+// - `(0..10)` range syntax
+//
+// METAPROGRAMMING (First-Class, No Special Syntax):
+// - `meta` is a regular module imported from `@std`
+// - Traits via `.implements()` and `.requires()`
+// - Auto-derive via `.derive()`
+// - Compile-time execution is IMPLICIT (compiler infers when possible)
+// - Reflection via `meta.type_info()` - regular function, not @ builtin
+// - Static assertions via `meta.static_assert()` - regular function
+// - NO `@meta.*` syntax - metaprogramming uses regular function calls
 
 // ============================================================================
 // build.zen
@@ -55,8 +80,8 @@ builder = (b :: Build) void {
         name: "SDL2",
     }
 
-    Pattern matching for OS-specific paths
-    TODO: Uncomment when sdl2_library is defined
+    // Pattern matching for OS-specific paths
+    // TODO: Uncomment when sdl2_library is defined
     std.os ? 
         | Linux {
             sdl2_library.path = "/usr/lib/x86_64-linux-gnu/libSDL2.so"
@@ -73,8 +98,8 @@ builder = (b :: Build) void {
 
     build.add_dependency("sdl2-game", sdl2_library)
 
-    External dependencies from GitHub
-    TODO: Support anonymous struct literals
+    // External dependencies from GitHub
+    // TODO: Support anonymous struct literals
     builder
         .add_dependency({
             name: "ecs",
@@ -89,20 +114,31 @@ builder = (b :: Build) void {
 // src/main.zen
 // ============================================================================
 
-// Imports - only @std and @this are special
-{ io,
-  maths
- } = @std
+// ============================================================================
+// IMPORTS - only @std and @this are special @ symbols
+// ============================================================================
+
+// Core utilities
+{ io, math } = @std
 { String, StringBuilder } = @std
 
-{ requires, implements, reflect, meta, inline, simd } = @std
+// Memory management
+{ GPA, AsyncPool, Allocator } = @std
 
-{ GPA, AsyncPool, Allocator} = @std
+// Collections
+{ Vec, DynVec } = @std
 
-{ Vec, DynVec} = @std
-
+// Concurrency
 { Actor, Channel, Mutex, AtomicU32 } = @std
 
+// Metaprogramming - regular module, not special syntax!
+// This gives you: type_info, static_assert, derive traits, comptime utilities
+{ meta } = @std
+
+// Low-level operations
+{ inline, simd } = @std
+
+// External packages
 sdl2 = @std.import("sdl2")
 ecs = @std.import("ecs")
 
@@ -250,17 +286,21 @@ create_fibonacci = () Actor {
 }
 
 
-// AST reflection and metaprogramming example
+// ============================================================================
+// METAPROGRAMMING - Using the meta module (regular functions, no @ syntax!)
+// ============================================================================
+
+// Type reflection - meta.type_info() is a regular function
 inspect_type = (T: type) void {
-    ast = reflect.ast(T)
-    ast.kind ?
+    info = meta.type_info(T)  // Regular function call, not @typeInfo
+    info.kind ?
         | Struct(s) {
             io.println("Struct: ${s.name}")
             s.fields.loop((f) {
                 io.println("  Field: ${f.name}: ${f.type}")
             })
         }
-        | Enum(e) {  // Enum types like Shape: Circle, Rectangle
+        | Enum(e) {
             io.println("Enum: ${e.name}")
             e.variants.loop((v) {
                 io.println("  Variant: ${v.name}")
@@ -281,14 +321,26 @@ inspect_type = (T: type) void {
         }
 }
 
-// Compile-time AST modification
-@meta.comptime((){
-    original = reflect.ast(parse_radius)
+// Static assertions - regular function, evaluated at compile time
+meta.static_assert(sizeof(Point) == 16, "Point must be 16 bytes")
+
+// Compile-time AST modification - regular function, no @ syntax
+// The compiler knows this runs at comptime because it operates on types/AST
+meta.transform(parse_radius, (original) {
     new_body = original.body.prepend(
-        AST.Call("io.println", ["Parsing radius from: ${s}"])
+        meta.ast.call("io.println", ["Parsing radius from: ${s}"])
     )
-    meta.replace(parse_radius, original.with_body(new_body))
+    return original.with_body(new_body)
 })
+
+// Auto-derive common traits - method call syntax, not @derive
+Point.derive(meta.Debug)       // Auto-generate debug printing
+Point.derive(meta.Clone)       // Auto-generate cloning
+Point.derive(meta.Eq)          // Auto-generate equality comparison
+Point.derive(meta.Serialize)   // Auto-generate serialization
+
+// Or derive multiple at once
+Circle.derive(meta.Debug, meta.Clone, meta.Eq)
 
 
 // Inline C/LLVM for low-level control
@@ -303,6 +355,46 @@ vector_add = (a: Vec<f32, 8>, b: Vec<f32, 8>) Vec<f32, 8> {
     return simd.add(a, b)
 }
 
+
+// ============================================================================
+// IMPLICIT COMPILE-TIME EVALUATION
+// ============================================================================
+// No special `comptime` keyword needed! The compiler automatically evaluates
+// expressions at compile time when all inputs are known at compile time.
+
+// This function can run at either compile-time OR runtime
+factorial = (n: u64) u64 {
+    n == 0 ?
+        | true { return 1 }
+        | false { return n * factorial(n - 1) }
+}
+
+// Compiler evaluates at compile time - result baked into binary
+FACTORIAL_10 = factorial(10)  // Computed at compile time: 3628800
+
+// Compiler evaluates at runtime - input not known until execution
+compute_factorial = (user_input: u64) u64 {
+    return factorial(user_input)  // Computed at runtime
+}
+
+// Lookup tables - computed at compile time, embedded in binary
+SINE_TABLE = (0..360).map((deg) {
+    rad = cast(deg, f64) * math.pi / 180.0
+    return math.sin(rad)
+})
+
+// Compile-time string processing
+GREETING = "Hello, " + "World!"  // Concatenated at compile time
+
+// Type-based compile-time decisions using pattern matching
+Storage<T> = meta.type_info(T).size <= 8 ?
+    | true { Inline: T }           // Small types stored inline
+    | false { Heap: Ptr<T> }       // Large types stored on heap
+
+
+// ============================================================================
+// MAIN FUNCTION
+// ============================================================================
 
 main = () void {
 
@@ -514,7 +606,189 @@ module.exports = {
 // Imports in other files would look like:
 // Circle2D = module.import("shapes2d").Circle
 // Rectangle2D = module.import("shapes2d").Rectangle
-// 
+//
 // Or grab the whole module:
 // shapes = module.import("shapes2d")
 // my_circle = shapes.Circle { ... }
+
+
+// ============================================================================
+// @std.meta MODULE REFERENCE
+// ============================================================================
+// The meta module provides metaprogramming capabilities as REGULAR FUNCTIONS.
+// No special @ syntax needed - metaprogramming is first-class in Zen.
+//
+// DESIGN PRINCIPLE:
+//   "Everything that can be expressed as a regular function, should be."
+//   The only @ symbols in Zen are @std and @this - nothing else.
+
+// ----------------------------------------------------------------------------
+// TYPE INTROSPECTION
+// ----------------------------------------------------------------------------
+
+// meta.type_info(T) -> TypeInfo
+// Returns detailed information about any type
+TypeInfo: {
+    name: String,
+    size: usize,
+    alignment: usize,
+    kind: TypeKind,
+}
+
+TypeKind:
+    Struct: { fields: []FieldInfo },
+    Enum: { variants: []VariantInfo },
+    Function: { params: []ParamInfo, return_type: type },
+    Primitive: { name: String },
+    Pointer: { pointee: type, mutability: Mutability },
+    Array: { element: type, length: usize },
+    Generic: { base: type, args: []type }
+
+// meta.fields(T) -> []FieldInfo
+// Shorthand for getting struct fields
+
+// meta.variants(T) -> []VariantInfo
+// Shorthand for getting enum variants
+
+// meta.sizeof(T) -> usize
+// Returns size of type in bytes (also available as `sizeof(T)`)
+
+// meta.alignof(T) -> usize
+// Returns alignment of type in bytes
+
+// ----------------------------------------------------------------------------
+// STATIC ASSERTIONS
+// ----------------------------------------------------------------------------
+
+// meta.static_assert(condition, message)
+// Compile-time assertion - fails compilation if condition is false
+// Example: meta.static_assert(sizeof(Packet) == 64, "wrong size")
+
+// ----------------------------------------------------------------------------
+// AUTO-DERIVE TRAITS
+// ----------------------------------------------------------------------------
+
+// Type.derive(Trait) or Type.derive(Trait1, Trait2, ...)
+// Auto-generates trait implementations
+
+// Available derive traits:
+meta.Debug      // Generate debug string representation
+meta.Clone      // Generate deep copy functionality
+meta.Eq         // Generate equality comparison (==, !=)
+meta.Ord        // Generate ordering comparison (<, >, <=, >=)
+meta.Hash       // Generate hash function
+meta.Default    // Generate default constructor
+meta.Serialize  // Generate serialization to bytes/JSON
+meta.Deserialize // Generate deserialization from bytes/JSON
+
+// Example:
+// Person.derive(meta.Debug, meta.Clone, meta.Eq)
+
+// ----------------------------------------------------------------------------
+// AST MANIPULATION
+// ----------------------------------------------------------------------------
+
+// meta.ast.call(fn_name, args) -> ASTNode
+// Creates a function call AST node
+
+// meta.ast.literal(value) -> ASTNode
+// Creates a literal value AST node
+
+// meta.ast.block(statements) -> ASTNode
+// Creates a block of statements
+
+// meta.transform(target, transformer_fn)
+// Transforms a function/type at compile time
+// Example:
+// meta.transform(my_function, (ast) {
+//     return ast.body.prepend(logging_statement)
+// })
+
+// ----------------------------------------------------------------------------
+// SOURCE LOCATION
+// ----------------------------------------------------------------------------
+
+// meta.file() -> String
+// Returns current source file path
+
+// meta.line() -> u32
+// Returns current line number
+
+// meta.column() -> u32
+// Returns current column number
+
+// meta.function_name() -> String
+// Returns name of enclosing function
+
+// meta.caller() -> SourceLocation
+// Returns location of caller (for logging/debugging)
+
+// ----------------------------------------------------------------------------
+// CONDITIONAL COMPILATION
+// ----------------------------------------------------------------------------
+
+// Use pattern matching on compile-time values - no special syntax!
+//
+// target.os ?
+//     | Linux { ... }
+//     | Macos { ... }
+//     | Windows { ... }
+//
+// target.arch ?
+//     | X86_64 { ... }
+//     | Arm64 { ... }
+//     | Wasm { ... }
+//
+// The compiler eliminates unreachable branches at compile time.
+
+// ----------------------------------------------------------------------------
+// EMBED FILES
+// ----------------------------------------------------------------------------
+
+// meta.embed_file(path) -> []u8
+// Embeds file contents as byte array at compile time
+// Example: SHADER_SOURCE = meta.embed_file("shaders/vertex.glsl")
+
+// meta.embed_string(path) -> String
+// Embeds file contents as string at compile time
+
+// ----------------------------------------------------------------------------
+// CODE GENERATION
+// ----------------------------------------------------------------------------
+
+// meta.generate_struct(name, fields) -> type
+// Dynamically generate a struct type at compile time
+
+// meta.generate_enum(name, variants) -> type
+// Dynamically generate an enum type at compile time
+
+// Example: Generate struct from JSON schema
+// UserType = meta.generate_struct("User", json.parse(meta.embed_file("schema.json")))
+
+
+// ============================================================================
+// WHY NO @ BUILTINS?
+// ============================================================================
+//
+// Many languages use @ or # for metaprogramming:
+//   Zig:  @typeInfo(), @compileLog(), @embedFile()
+//   Rust: #[derive(...)], #[cfg(...)]
+//
+// This creates a "two-class citizen" problem:
+//   - Regular code follows one set of rules
+//   - Meta code follows different rules
+//   - They don't compose the same way
+//   - You're learning two languages
+//
+// Zen's approach:
+//   - meta is just a module like io or math
+//   - meta functions are regular functions
+//   - Compile-time evaluation is IMPLICIT (compiler figures it out)
+//   - Everything composes uniformly
+//   - One language, one set of rules
+//
+// The ONLY @ symbols in Zen:
+//   @std  - Access the standard library namespace
+//   @this - Access the current scope (for defer, etc.)
+//
+// These are namespace/scope access, NOT metaprogramming escape hatches.

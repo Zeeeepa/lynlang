@@ -101,11 +101,13 @@ pub fn parse_call_expression(parser: &mut Parser, function_name: String) -> Resu
                     parser.next_token();
 
                     // Check for pointer-specific operations and method calls
-                    if member == "val" {
-                        // Pointer dereference: ptr.val
+                    // Only treat .val and .addr as pointer operations if NOT followed by ()
+                    // This allows user-defined .val() and .addr() methods to work
+                    if member == "val" && parser.current_token != Token::Symbol('(') {
+                        // Pointer dereference: ptr.val (not a method call)
                         expr = Expression::PointerDereference(Box::new(expr));
-                    } else if member == "addr" {
-                        // Pointer address: expr.addr
+                    } else if member == "addr" && parser.current_token != Token::Symbol('(') {
+                        // Pointer address: expr.addr (not a method call)
                         expr = Expression::PointerAddress(Box::new(expr));
                     } else if member == "ref" && parser.current_token == Token::Symbol('(') {
                         // Reference creation: expr.ref()
@@ -263,9 +265,7 @@ pub fn parse_call_expression_with_object(
                     // Check for closure syntax: (params) { body }
                     if parser.current_token == Token::Symbol('(') {
                         // Try to parse as closure
-                        let saved_pos = parser.lexer.position;
-                        let saved_read_pos = parser.lexer.read_position;
-                        let saved_char = parser.lexer.current_char;
+                        let saved_state = parser.lexer.save_state();
                         let saved_current = parser.current_token.clone();
                         let saved_peek = parser.peek_token.clone();
 
@@ -302,18 +302,14 @@ pub fn parse_call_expression_with_object(
                                 });
                             } else {
                                 // Not a closure, restore and parse as expression
-                                parser.lexer.position = saved_pos;
-                                parser.lexer.read_position = saved_read_pos;
-                                parser.lexer.current_char = saved_char;
+                                parser.lexer.restore_state(saved_state);
                                 parser.current_token = saved_current;
                                 parser.peek_token = saved_peek;
                                 arguments.push(parser.parse_expression()?);
                             }
                         } else {
                             // Not a closure, restore and parse as expression
-                            parser.lexer.position = saved_pos;
-                            parser.lexer.read_position = saved_read_pos;
-                            parser.lexer.current_char = saved_char;
+                            parser.lexer.restore_state(saved_state);
                             parser.current_token = saved_current;
                             parser.peek_token = saved_peek;
                             arguments.push(parser.parse_expression()?);
@@ -423,11 +419,13 @@ pub fn parse_call_expression_with_object(
                     parser.next_token();
 
                     // Check for pointer-specific operations and method calls
-                    if member == "val" {
-                        // Pointer dereference: ptr.val
+                    // Only treat .val and .addr as pointer operations if NOT followed by ()
+                    // This allows user-defined .val() and .addr() methods to work
+                    if member == "val" && parser.current_token != Token::Symbol('(') {
+                        // Pointer dereference: ptr.val (not a method call)
                         expr = Expression::PointerDereference(Box::new(expr));
-                    } else if member == "addr" {
-                        // Pointer address: expr.addr
+                    } else if member == "addr" && parser.current_token != Token::Symbol('(') {
+                        // Pointer address: expr.addr (not a method call)
                         expr = Expression::PointerAddress(Box::new(expr));
                     } else if member == "ref" && parser.current_token == Token::Symbol('(') {
                         // Reference creation: expr.ref()

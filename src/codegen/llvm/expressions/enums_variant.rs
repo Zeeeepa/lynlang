@@ -39,8 +39,8 @@ pub fn compile_enum_variant<'ctx>(
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         // eprintln!("[DEBUG] compile_enum_variant: {}.{}, has_payload: {}", enum_name, variant, payload.is_some());
         // Save the current generic context before potentially overwriting it with nested compilation
-        let saved_ok_type = compiler.generic_type_context.get("Result_Ok_Type").cloned();
-        let saved_err_type = compiler.generic_type_context.get("Result_Err_Type").cloned();
+        let _saved_ok_type = compiler.generic_type_context.get("Result_Ok_Type").cloned();
+        let _saved_err_type = compiler.generic_type_context.get("Result_Err_Type").cloned();
         
         // Track Result<T, E> type information when compiling Result variants
         // This happens BEFORE we compile the payload, so we know what type this Result should be

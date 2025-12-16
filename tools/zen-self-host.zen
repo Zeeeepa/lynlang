@@ -2,6 +2,7 @@
 // Uses the Zen standard library compiler to compile Zen code
 
 {io, fs, string, core, build} = @std
+{ Result } = @std.core.result
 
 // Compilation options
 CompileOptions: {

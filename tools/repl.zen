@@ -78,7 +78,7 @@ print_help = () void   {
 }
 
 // Get prompt string
-get_prompt = (state: Ptr<ReplState>) string   {
+get_prompt = (state: Ptr<ReplState>) string {
     state.in_multiline ? {
         return BLUE + "... " + RESET
     }
@@ -100,7 +100,7 @@ remove_continuation = (line: string) string   {
 }
 
 // Process special commands
-process_command = (state: MutPtr<ReplState>, input: string) bool   {
+process_command = (state: MutPtr<ReplState>, input: string) bool {
     parts := string.split(input, " ")
     if (parts.len == 0) return false
     
@@ -149,7 +149,7 @@ process_command = (state: MutPtr<ReplState>, input: string) bool   {
         }
         return true
     } else if (command == "reset") {
-        *state = new_repl_state()
+        state.val = new_repl_state()
         print_colored(GREEN, "REPL state reset\n")
         return true
     } else if (command == "history") {
@@ -176,7 +176,7 @@ process_command = (state: MutPtr<ReplState>, input: string) bool   {
 }
 
 // Evaluate Zen expression
-evaluate = (state: MutPtr<ReplState>, input: string) void   {
+evaluate = (state: MutPtr<ReplState>, input: string) void {
     // Add to history
     state.history.append(input)
     
@@ -231,7 +231,7 @@ evaluate = (state: MutPtr<ReplState>, input: string) void   {
 }
 
 // Save session to file
-save_session = (state: Ptr<ReplState>, filename: string) void   {
+save_session = (state: Ptr<ReplState>, filename: string) void {
     content := string.Builder.new()
     content.append("// Zen REPL session\n")
     content.append("// Generated on " + get_timestamp() + "\n\n")
@@ -250,7 +250,7 @@ save_session = (state: Ptr<ReplState>, filename: string) void   {
 }
 
 // Load and execute file
-load_file = (state: MutPtr<ReplState>, filename: string) void   {
+load_file = (state: MutPtr<ReplState>, filename: string) void {
     content := fs.read_file(filename)
     content.is_error() ? {
         print_colored(RED, "Error loading file: " + content.error() + "\n")
@@ -271,7 +271,7 @@ load_file = (state: MutPtr<ReplState>, filename: string) void   {
 }
 
 // Main REPL loop
-repl_loop = () void   {
+repl_loop = () void {
     state := new_repl_state()
     print_banner()
     
@@ -330,7 +330,7 @@ repl_loop = () void   {
 }
 
 // Entry point
-main = () i32   {
+main = () i32 {
     // Set up signal handlers for graceful exit
     setup_signal_handlers()
     

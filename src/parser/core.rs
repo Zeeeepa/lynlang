@@ -79,10 +79,12 @@ impl<'a> Parser<'a> {
     /// Peek at the token after peek_token (two tokens ahead)
     /// This is a simplified version - in a full implementation we'd cache this
     pub fn peek_peek_token(&mut self) -> Option<Token> {
-        // Save current state
+        // Save current state (including line/column for accurate error reporting)
         let saved_pos = self.lexer.position;
         let saved_read_pos = self.lexer.read_position;
         let saved_char = self.lexer.current_char;
+        let saved_line = self.lexer.line;
+        let saved_column = self.lexer.column;
         
         // Advance past current and peek tokens
         let _ = self.lexer.next_token_with_span();
@@ -93,6 +95,8 @@ impl<'a> Parser<'a> {
         self.lexer.position = saved_pos;
         self.lexer.read_position = saved_read_pos;
         self.lexer.current_char = saved_char;
+        self.lexer.line = saved_line;
+        self.lexer.column = saved_column;
         
         Some(next_next.token)
     }

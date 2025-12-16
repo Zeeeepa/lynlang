@@ -98,7 +98,7 @@ pub fn handle_definition(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
                     
                     if let Some(file_path) = store.stdlib_resolver.resolve_module_path(module_path) {
                         if let Ok(uri) = Url::from_file_path(&file_path) {
-                            if let Some(doc) = store.documents.get(&uri) {
+                            if let Some(_doc) = store.documents.get(&uri) {
                                 let location = Location {
                                     uri: uri.clone(),
                                     range: Range {

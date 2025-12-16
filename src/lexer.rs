@@ -29,6 +29,16 @@ pub struct TokenWithSpan {
     pub span: Span,
 }
 
+/// Saved lexer state for backtracking during parsing
+#[derive(Clone)]
+pub struct LexerState {
+    pub position: usize,
+    pub read_position: usize,
+    pub current_char: Option<char>,
+    pub line: usize,
+    pub column: usize,
+}
+
 #[derive(Clone)]
 pub struct Lexer<'a> {
     pub input: &'a str,
@@ -51,6 +61,26 @@ impl<'a> Lexer<'a> {
         };
         lexer.read_char();
         lexer
+    }
+
+    /// Save the current lexer state for backtracking
+    pub fn save_state(&self) -> LexerState {
+        LexerState {
+            position: self.position,
+            read_position: self.read_position,
+            current_char: self.current_char,
+            line: self.line,
+            column: self.column,
+        }
+    }
+
+    /// Restore a previously saved lexer state
+    pub fn restore_state(&mut self, state: LexerState) {
+        self.position = state.position;
+        self.read_position = state.read_position;
+        self.current_char = state.current_char;
+        self.line = state.line;
+        self.column = state.column;
     }
 
     fn read_char(&mut self) {
@@ -86,8 +116,9 @@ impl<'a> Lexer<'a> {
         // Record position AFTER skipping whitespace/comments
         let start_pos = self.position;
         let start_line = self.line;
-        // Column is already 0-based now
-        let start_column = self.column;
+        // Column tracks position AFTER read, so subtract 1 to get 0-based position of current_char
+        // (column is 1-based count of chars read, we want 0-based index of current char)
+        let start_column = if self.column > 0 { self.column - 1 } else { 0 };
 
         let token = match self.current_char {
             Some('@') => {

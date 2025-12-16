@@ -429,9 +429,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                 // Check for Vec<T, size>() constructor vs Vec<T> { ... } struct literal vs Vec<T>.method()
                 if name == "Vec" && parser.current_token == Token::Operator("<".to_string()) {
                     // Look ahead to see what follows Vec<...>
-                    let saved_position = parser.lexer.position;
-                    let saved_read_position = parser.lexer.read_position;
-                    let saved_current_char = parser.lexer.current_char;
+                    let saved_state = parser.lexer.save_state();
                     let saved_current_token = parser.current_token.clone();
                     let saved_peek_token = parser.peek_token.clone();
                     let saved_current_span = parser.current_span.clone();
@@ -455,9 +453,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                     let is_constructor = parser.current_token == Token::Symbol('(');
 
                     // Restore parser state
-                    parser.lexer.position = saved_position;
-                    parser.lexer.read_position = saved_read_position;
-                    parser.lexer.current_char = saved_current_char;
+                    parser.lexer.restore_state(saved_state);
                     parser.current_token = saved_current_token;
                     parser.peek_token = saved_peek_token;
                     parser.current_span = saved_current_span;
@@ -623,9 +619,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                     // Struct literal: Person ( age: 20, name: "John" )
                     // Function call: Person ( arg1, arg2 )
                     // We look for the pattern: identifier followed by ':'
-                    let saved_pos = parser.lexer.position;
-                    let saved_read_pos = parser.lexer.read_position;
-                    let saved_char = parser.lexer.current_char;
+                    let saved_state = parser.lexer.save_state();
                     let saved_token = parser.current_token.clone();
                     let saved_peek = parser.peek_token.clone();
                     
@@ -641,9 +635,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                     };
                     
                     // Restore state
-                    parser.lexer.position = saved_pos;
-                    parser.lexer.read_position = saved_read_pos;
-                    parser.lexer.current_char = saved_char;
+                    parser.lexer.restore_state(saved_state);
                     parser.current_token = saved_token;
                     parser.peek_token = saved_peek;
                     
@@ -800,12 +792,51 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                             };
                             parser.next_token();
 
+                            // Check for generic method call: obj.method<T>(args)
+                            // We need to handle this BEFORE falling through to member access
+                            let member_with_generics = if parser.current_token == Token::Operator("<".to_string()) {
+                                // This could be a generic method call
+                                // Use lookahead to check if this looks like type args
+                                if super::collections::looks_like_generic_type_args(parser) {
+                                    parser.next_token(); // consume '<'
+                                    let mut type_args = Vec::new();
+                                    
+                                    loop {
+                                        type_args.push(parser.parse_type()?);
+                                        
+                                        if parser.current_token == Token::Symbol(',') {
+                                            parser.next_token(); // consume ','
+                                        } else if parser.current_token == Token::Operator(">".to_string()) {
+                                            parser.next_token(); // consume '>'
+                                            break;
+                                        } else {
+                                            return Err(CompileError::SyntaxError(
+                                                "Expected ',' or '>' in generic type arguments".to_string(),
+                                                Some(parser.current_span.clone()),
+                                            ));
+                                        }
+                                    }
+                                    
+                                    let type_args_str = type_args.iter()
+                                        .map(|t| format!("{}", t))
+                                        .collect::<Vec<_>>()
+                                        .join(", ");
+                                    format!("{}<{}>", member, type_args_str)
+                                } else {
+                                    member.clone()
+                                }
+                            } else {
+                                member.clone()
+                            };
+
                             // Check for pointer-specific operations first
-                            if member == "val" {
-                                // Pointer dereference: ptr.val
+                            // Only treat .val and .addr as pointer operations if NOT followed by ()
+                            // This allows user-defined .val() and .addr() methods to work
+                            if member == "val" && parser.current_token != Token::Symbol('(') {
+                                // Pointer dereference: ptr.val (not a method call)
                                 expr = Expression::PointerDereference(Box::new(expr));
-                            } else if member == "addr" {
-                                // Pointer address: expr.addr
+                            } else if member == "addr" && parser.current_token != Token::Symbol('(') {
+                                // Pointer address: expr.addr (not a method call)
                                 expr = Expression::PointerAddress(Box::new(expr));
                             } else if member == "ref" && parser.current_token == Token::Symbol('(') {
                                 // Reference creation: expr.ref()
@@ -868,21 +899,21 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                                         // This looks like an enum variant constructor
                                         expr = Expression::EnumVariant {
                                             enum_name: enum_name.clone(),
-                                            variant: member,
+                                            variant: member_with_generics,
                                             payload: None,
                                         };
                                     } else {
-                                        // Regular member access
+                                        // Regular member access (use generics if present)
                                         expr = Expression::MemberAccess {
                                             object: Box::new(expr),
-                                            member,
+                                            member: member_with_generics,
                                         };
                                     }
                                 } else {
-                                    // Regular member access
+                                    // Regular member access (use generics if present for method calls)
                                     expr = Expression::MemberAccess {
                                         object: Box::new(expr),
-                                        member,
+                                        member: member_with_generics,
                                     };
                                 }
                             }
@@ -1007,6 +1038,72 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                 let mut is_closure = false;
                 let mut closure_return_type: Option<AstType> = None;
                 let mut params = vec![];
+
+                // IMPORTANT: Use lookahead to determine if this is a closure or expression
+                // BEFORE consuming tokens. This prevents ambiguity errors.
+                // If we see (identifier followed by an operator OR a '.', it's definitely an expression.
+                // - Binary operator: (a + b)
+                // - Member access: (foo.bar ...)
+                let is_definitely_expression = if let Token::Identifier(_) = &parser.current_token {
+                    // Check what comes after the identifier using peek
+                    // It's an expression if followed by a binary operator OR member access (.)
+                    parser.peek_token == Token::Symbol('.') ||
+                    matches!(
+                        &parser.peek_token,
+                        Token::Operator(op) if matches!(op.as_str(), 
+                            "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">=" |
+                            "&&" | "||" | "&" | "|" | "^" | "<<" | ">>" | ".." | "..="
+                        )
+                    )
+                } else {
+                    false
+                };
+
+                // If it's definitely an expression, parse it as such
+                if is_definitely_expression {
+                    let mut expr = parser.parse_expression()?;
+                    if parser.current_token != Token::Symbol(')') {
+                        return Err(CompileError::SyntaxError(
+                            format!(
+                                "Expected ')' after parenthesized expression, got {:?}",
+                                parser.current_token
+                            ),
+                            Some(parser.current_span.clone()),
+                        ));
+                    }
+                    parser.next_token(); // consume ')'
+
+                    // Check for UFC method chaining after parenthesized expression
+                    loop {
+                        match &parser.current_token {
+                            Token::Symbol('.') => {
+                                // Member access or method call
+                                parser.next_token();
+                                if let Token::Identifier(member) = &parser.current_token.clone() {
+                                    let member_clone = member.clone();
+                                    parser.next_token();
+
+                                    // Check if it's a method call
+                                    if parser.current_token == Token::Symbol('(') {
+                                        expr = super::calls::parse_call_expression_with_object(
+                                            parser,
+                                            expr,
+                                            member_clone,
+                                        )?;
+                                    } else {
+                                        // Member access
+                                        expr = Expression::MemberAccess {
+                                            object: Box::new(expr),
+                                            member: member_clone,
+                                        };
+                                    }
+                                }
+                            }
+                            _ => break,
+                        }
+                    }
+                    return Ok(expr);
+                }
 
                 // Check if this looks like a closure parameter list
                 if let Token::Identifier(param_name) = &parser.current_token {
@@ -1158,9 +1255,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                 // Block expressions contain statements
 
                 // Save parser state for look-ahead
-                let saved_lexer_pos = parser.lexer.position;
-                let saved_lexer_read_pos = parser.lexer.read_position;
-                let saved_lexer_char = parser.lexer.current_char;
+                let saved_state = parser.lexer.save_state();
                 let saved_current_token = parser.current_token.clone();
                 let saved_peek_token = parser.peek_token.clone();
                 let saved_current_span = parser.current_span.clone();
@@ -1218,9 +1313,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                 };
 
                 // Restore parser state
-                parser.lexer.position = saved_lexer_pos;
-                parser.lexer.read_position = saved_lexer_read_pos;
-                parser.lexer.current_char = saved_lexer_char;
+                parser.lexer.restore_state(saved_state);
                 parser.current_token = saved_current_token;
                 parser.peek_token = saved_peek_token;
                 parser.current_span = saved_current_span;

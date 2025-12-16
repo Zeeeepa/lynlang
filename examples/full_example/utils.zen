@@ -10,7 +10,7 @@
 string_length = (s: StaticString) i32 {
     len := 0
     loop(() {
-        s[len as u64] == 0 ? { break }
+        s[cast(len, u64)] == 0 ? { break }
         len = len + 1
     })
     return len
@@ -19,10 +19,10 @@ string_length = (s: StaticString) i32 {
 string_equals = (a: StaticString, b: StaticString) bool {
     i := 0
     loop(() {
-        a[i as u64] == 0 ? { 
-            return b[i as u64] == 0
+        a[cast(i, u64)] == 0 ? {
+            return b[cast(i, u64)] == 0
         }
-        a[i as u64] != b[i as u64] ? {
+        a[cast(i, u64)] != b[cast(i, u64)] ? {
             return false
         }
         i = i + 1
@@ -45,7 +45,7 @@ abs = (n: i32) i32 {
 factorial = (n: u32) u64 {
     n == 0 ?
         | true { return 1 }
-        | false { return (n as u64) * factorial(n - 1) }
+        | false { return cast(n, u64) * factorial(n - 1) }
 }
 
 // Check if number is even
@@ -145,7 +145,7 @@ run_utils_demo = () void {
     // Math utilities
     io.println("\nMath Utilities:")
     io.println("  abs(-5) = ${abs(-5)}")
-    io.println("  factorial(5) = ${factorial(5 as u32)}")
+    io.println("  factorial(5) = ${factorial(cast(5, u32))}")
     io.println("  is_even(4) = ${is_even(4)}")
     io.println("  max(5, 10) = ${max_i32(5, 10)}")
     io.println("  min(5, 10) = ${min_i32(5, 10)}")

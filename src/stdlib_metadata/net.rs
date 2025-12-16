@@ -267,7 +267,7 @@ fn create_tcp_functions() -> Vec<Declaration> {
                         ],
                     }),
                     is_mutable: false,
-                    declaration_type: VariableDeclarationType::ExplicitImmutable,
+                    declaration_type: VariableDeclarationType::ExplicitImmutable, span: None,
                 },
                 // More implementation...
                 Statement::Return(Expression::StructLiteral {
@@ -422,7 +422,7 @@ fn create_udp_functions() -> Vec<Declaration> {
                         ],
                     }),
                     is_mutable: false,
-                    declaration_type: VariableDeclarationType::ExplicitImmutable,
+                    declaration_type: VariableDeclarationType::ExplicitImmutable, span: None,
                 },
                 Statement::Return(Expression::StructLiteral {
                     name: "UdpSocket".to_string(),

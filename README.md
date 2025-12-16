@@ -6,9 +6,7 @@ A revolutionary programming language with **ZERO KEYWORDS**. All control flow th
 
 > *"No keywords. Pure expression. Allocator-driven concurrency."*
 
-## 🎯 Project Status
-
-**For the latest development status, see [STATUS.md](./STATUS.md).**
+## Project Status
 
 The Zen language has achieved significant progress with core language features working well. The project maintains a strong test suite and continues to evolve toward a complete implementation of the zero-keywords design philosophy.
 
@@ -46,14 +44,15 @@ cargo run --bin zen examples/showcase.zen
 cargo test --all
 ```
 
-## Understanding the Architecture
+## Documentation
 
-**Before implementing features**, read:
-1. **[ARCHITECTURE.md](./ARCHITECTURE.md)** - LLVM primitives vs Zen-level features
-2. **[PRIMITIVES_VS_FEATURES.md](./PRIMITIVES_VS_FEATURES.md)** - Decision tree for where to code
-3. **[PRIMITIVE_EXAMPLES.md](./PRIMITIVE_EXAMPLES.md)** - Real examples from codebase
+- **[docs/QUICK_START.md](./docs/QUICK_START.md)** - Getting started guide
+- **[docs/INTRINSICS_REFERENCE.md](./docs/INTRINSICS_REFERENCE.md)** - Compiler intrinsics reference
 
-This clarifies whether something should be an LLVM intrinsic or Zen code.
+**For contributors**, see the `design/` folder:
+- `ARCHITECTURE.md` - LLVM primitives vs Zen-level features
+- `PRIMITIVES_VS_FEATURES.md` - Decision tree for where to implement
+- `PRIMITIVE_EXAMPLES.md` - Real examples from codebase
 
 ## Language Features by Example
 
@@ -358,7 +357,7 @@ The Zen compiler itself is built using **Cargo** (Rust's build system) with a **
 
 **The compiler is built with `cargo` and `make`. The `build.zen` system is a future, self-hosted goal and is not yet functional.**
 
-See [`DESIGN_NOTES.md`](./DESIGN_NOTES.md#-build-system-architecture) for details.
+See the `design/` folder for architecture details.
 
 ### Future: Self-Hosted build.zen
 
@@ -370,24 +369,17 @@ The long-term vision is a self-hosted build system written in Zen. Example `buil
 
 **Current Status: 90% Language Core Complete | Active Development**
 
-### Test Suite Health (2025-01-27)
-- **195 active tests** passing
-- **7 disabled tests** - require unimplemented features (behaviors, pointers, inline.c FFI)
-- **2 known critical bugs** - See [`tests/known_bugs/README.md`](./tests/known_bugs/README.md) for details:
-  - Nested struct field access bug (CRITICAL)
-  - Method resolution on references (MEDIUM)
-- **Range loop parser issue** - `(0..10).loop()` executes once instead of iterating (see [`DESIGN_NOTES.md`](./DESIGN_NOTES.md))
-- **Test runner script** - `./scripts/run_tests.sh` for easy testing
-
-**Note**: While most features work well, there are known issues documented in `DESIGN_NOTES.md` and `tests/known_bugs/`. The compiler is actively being improved.
+### Test Suite
+Run tests with `cargo test --all`. See `tests/` for integration tests and `tests/lsp/` for LSP feature tests.
 
 ### Project Structure
-- `/` - Root contains only LANGUAGE_SPEC.zen and config files
-- `/tests/` - 202 total test files properly organized (195 active, 7 disabled)
-- `/examples/` - Example programs including showcase.zen
-- `/stdlib/` - Standard library modules with allocators and behaviors
+- `/` - Root contains LANGUAGE_SPEC.zen and configuration
 - `/src/` - Compiler source (Rust/LLVM)
-- `/scripts/` - Test runner and build scripts
+- `/stdlib/` - Standard library modules (Zen code)
+- `/tests/` - Integration and unit tests
+- `/examples/` - Example programs including showcase.zen
+- `/design/` - Architecture and design documentation
+- `/tools/` - Future self-hosted tooling (non-functional)
 
 ### Working Features
 - ✅ **Zero keywords design** - Complete
@@ -398,7 +390,7 @@ The long-term vision is a self-hosted build system written in Zen. Example `buil
 - ✅ **UFC** - Method chaining and overloading  
 - ✅ **String interpolation** - `"${expr}"` syntax
 - ✅ **String methods** - `.len()`, `.substr()`, `.char_at()`, `.split()`, `.to_i32()`, `.to_i64()`, `.to_f64()`, `.trim()`, `.contains()`, `.starts_with()`, `.ends_with()`, `.index_of()`
-- ⚠️ **Range iteration** - `(0..10).loop()`, `(1..=5).loop()` (parser issue: currently executes once instead of iterating - see [`DESIGN_NOTES.md`](./DESIGN_NOTES.md))
+- ⚠️ **Range iteration** - `(0..10).loop()`, `(1..=5).loop()` (parser issue: currently executes once instead of iterating)
 - ✅ **Range structs** - Can store and use ranges as values
 - ✅ **Infinite loops** - `loop()` with break/continue
 - ✅ **Block expressions** - Return last expression

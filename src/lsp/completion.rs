@@ -908,7 +908,7 @@ fn get_module_path_completions(base: &str, store: &DocumentStore) -> Vec<Complet
     } else if base.starts_with("@std.") {
         // Handle nested paths like @std.collections -> show hashmap, list, etc.
         let submodule = base.strip_prefix("@std.").unwrap_or("");
-        let submodule_path = format!("@std.{}", submodule);
+        let _submodule_path = format!("@std.{}", submodule);
         
         // Try to resolve the submodule to see what's inside  
         // Note: resolve_module_path returns the file path, but we need the directory

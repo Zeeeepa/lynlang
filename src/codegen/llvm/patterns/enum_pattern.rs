@@ -5,7 +5,7 @@ use super::super::{symbols, LLVMCompiler};
 use crate::ast::Pattern;
 use crate::error::CompileError;
 use inkwell::values::{BasicValueEnum, IntValue};
-use inkwell::{AddressSpace, IntPredicate};
+use inkwell::IntPredicate;
 
 /// Compile an enum variant pattern match
 pub fn compile_enum_variant_pattern<'ctx>(

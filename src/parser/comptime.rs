@@ -28,9 +28,7 @@ impl<'a> Parser<'a> {
                     // Look ahead to see if this is an import
                     let saved_current = self.current_token.clone();
                     let saved_peek = self.peek_token.clone();
-                    let saved_pos = self.lexer.position;
-                    let saved_read = self.lexer.read_position;
-                    let saved_char = self.lexer.current_char;
+                    let saved_state = self.lexer.save_state();
 
                     self.next_token(); // Move to :=
                     self.next_token(); // Move past :=
@@ -64,9 +62,7 @@ impl<'a> Parser<'a> {
                     // Restore state
                     self.current_token = saved_current;
                     self.peek_token = saved_peek;
-                    self.lexer.position = saved_pos;
-                    self.lexer.read_position = saved_read;
-                    self.lexer.current_char = saved_char;
+                    self.lexer.restore_state(saved_state);
 
                     if is_import {
                         return Err(CompileError::SyntaxError(

@@ -2,23 +2,25 @@
 // C interoperability and dynamic loading
 
 { compiler } = @std
+{ Result } = @std.core.result
 
 // C function pointer type wrapper
 CFuncPtr: {
-    ptr: *u8
+    ptr: RawPtr<u8>
 }
 
 // C library handle
 CLibrary: {
-    handle: *u8,
+    handle: RawPtr<u8>,
     path: String
 }
 
 // Load a C library dynamically
 load_library = (path: String) Result<CLibrary, String> {
     handle = compiler.load_library(path)
-    
-    handle == (0 as *u8) ?
+    null_ptr = compiler.int_to_ptr(0)
+
+    handle == null_ptr ?
         | true { Result.Err("Failed to load library") }
         | false { Result.Ok(CLibrary { handle: handle, path: path }) }
 }
@@ -26,14 +28,15 @@ load_library = (path: String) Result<CLibrary, String> {
 // Get function pointer from library
 get_function = (lib: CLibrary, symbol: String) Result<CFuncPtr, String> {
     ptr = compiler.get_symbol(lib.handle, symbol)
-    
-    ptr == (0 as *u8) ?
+    null_ptr = compiler.int_to_ptr(0)
+
+    ptr == null_ptr ?
         | true { Result.Err("Symbol not found") }
         | false { Result.Ok(CFuncPtr { ptr: ptr }) }
 }
 
 // Call C function pointer
-call_cfunc = (func: CFuncPtr, args: *u8) *u8 {
+call_cfunc = (func: CFuncPtr, args: RawPtr<u8>) RawPtr<u8> {
     return compiler.call_external(func.ptr, args)
 }
 

@@ -1,72 +1,26 @@
-# Test Suite
+# Tests
 
-**Last Updated**: 2025-01-27
-
-## Test Organization
-
-### Unit Tests (in `src/`)
-- Lexer, parser, typechecker unit tests
-- Run with: `cargo test --lib`
-
-### Integration Tests (in `tests/`)
-
-#### Parser Integration (`parser_integration.rs`)
-- Tests that code parses correctly
-- Does NOT test codegen or execution
-- **Limitation**: Won't catch codegen bugs
-
-#### Lexer Integration (`lexer_integration.rs`)
-- Tests token recognition
-- Verifies lexer handles all syntax correctly
-
-#### Codegen Integration (`codegen_integration.rs`) ⭐ **NEW**
-- **Actually compiles code** (not just parses)
-- Catches LLVM verification errors
-- Tests control flow, phi nodes, GEP operations
-- **8 tests** covering critical codegen bugs
-
-#### LSP Tests (`lsp/`)
-- Language Server Protocol tests
-- Python-based integration tests
-- See `lsp/README.md` for details
-
-### Known Bugs (`known_bugs/`)
-- Tests that expose known bugs
-- Excluded from main test suite
-- See `known_bugs/README.md` for details
-
-## Running Tests
-
+## Rust Tests
 ```bash
-# All tests
-cargo test
-
-# Specific test suites
-cargo test --test codegen_integration
-cargo test --test parser_integration
-cargo test --test lexer_integration
-
-# LSP tests
-cd tests/lsp && python3 test_unified_lsp.py
+cargo test          # All tests
+cargo test --tests  # Integration tests only
 ```
 
-## Test Coverage
+## LSP Tests
+```bash
+python3 tests/lsp/test_lsp.py
+```
 
-See [`CODEGEN_BUGS_REVIEW.md`](./CODEGEN_BUGS_REVIEW.md) for:
-- Bugs found and fixed
-- Test coverage analysis
-- Known issues and recommendations
+## Test Files
 
-## Adding New Tests
-
-1. **Parser/Lexer tests**: Add to `parser_integration.rs` or `lexer_integration.rs`
-2. **Codegen tests**: Add to `codegen_integration.rs` (use `compile_code()` helper)
-3. **LSP tests**: Add to `lsp/test_unified_lsp.py`
-
-## Test Coverage Gaps
-
-- ⚠️ Execution/runtime tests (compile AND run)
-- ⚠️ Stdlib-based tests (Option/Result pattern matching)
-- ⚠️ Complex nested control flow
-- ⚠️ Property-based testing
-
+| File | Tests | Description |
+|------|-------|-------------|
+| `codegen_integration.rs` | 8 | LLVM codegen |
+| `parser_integration.rs` | 10 | Parser syntax |
+| `lexer_integration.rs` | 8 | Lexer tokens |
+| `allocator_compilation.rs` | 11 | Memory allocation |
+| `lsp_text_edit.rs` | 11 | LSP text edits |
+| `lexer_tests.rs` | 2 | Lexer edge cases |
+| `parser_tests.rs` | 2 | Parser edge cases |
+| `lsp/test_lsp.py` | 21 | LSP JSON-RPC |
+| `lsp/client.py` | - | LSP client library |

@@ -461,6 +461,7 @@ impl Monomorphizer {
                 initializer,
                 is_mutable,
                 declaration_type,
+                span,
             } => {
                 let transformed_init = if let Some(init) = initializer {
                     Some(self.transform_expression(init)?)
@@ -473,12 +474,14 @@ impl Monomorphizer {
                     initializer: transformed_init,
                     is_mutable,
                     declaration_type,
+                    span,
                 })
             }
-            crate::ast::Statement::VariableAssignment { name, value } => {
+            crate::ast::Statement::VariableAssignment { name, value, span } => {
                 Ok(crate::ast::Statement::VariableAssignment {
                     name,
                     value: self.transform_expression(value)?,
+                    span,
                 })
             }
             other => Ok(other),

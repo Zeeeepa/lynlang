@@ -14,6 +14,7 @@ impl AstType {
                 | AstType::U16
                 | AstType::U32
                 | AstType::U64
+                | AstType::Usize
                 | AstType::F32
                 | AstType::F64
         )
@@ -31,6 +32,7 @@ impl AstType {
                 | AstType::U16
                 | AstType::U32
                 | AstType::U64
+                | AstType::Usize
         )
     }
 
@@ -52,7 +54,7 @@ impl AstType {
     pub fn is_unsigned_integer(&self) -> bool {
         matches!(
             self,
-            AstType::U8 | AstType::U16 | AstType::U32 | AstType::U64
+            AstType::U8 | AstType::U16 | AstType::U32 | AstType::U64 | AstType::Usize
         )
     }
 
@@ -62,7 +64,7 @@ impl AstType {
             AstType::I8 | AstType::U8 => Some(8),
             AstType::I16 | AstType::U16 => Some(16),
             AstType::I32 | AstType::U32 | AstType::F32 => Some(32),
-            AstType::I64 | AstType::U64 | AstType::F64 => Some(64),
+            AstType::I64 | AstType::U64 | AstType::F64 | AstType::Usize => Some(64), // usize is 64-bit on 64-bit platforms
             AstType::Bool => Some(1),
             _ => None,
         }
@@ -73,7 +75,7 @@ impl AstType {
     pub fn default_value(&self) -> String {
         match self {
             AstType::I8 | AstType::I16 | AstType::I32 | AstType::I64 => "0".to_string(),
-            AstType::U8 | AstType::U16 | AstType::U32 | AstType::U64 => "0".to_string(),
+            AstType::U8 | AstType::U16 | AstType::U32 | AstType::U64 | AstType::Usize => "0".to_string(),
             AstType::F32 | AstType::F64 => "0.0".to_string(),
             AstType::Bool => "false".to_string(),
             AstType::Struct { name, .. } if name == "String" => "\"\"".to_string(),

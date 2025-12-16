@@ -77,32 +77,66 @@ fn register_core_module(checker: &mut TypeChecker, alias: &str) {
 
 fn register_compiler_module(checker: &mut TypeChecker, alias: &str) {
         // Register compiler intrinsics - these are handled specially in codegen
-        // Using Ptr(U8) instead of RawPtr(U8) for consistency with codegen
+        // Using RawPtr(U8) for pointer types to match stdlib usage
+        let raw_ptr_u8 = AstType::RawPtr(Box::new(AstType::U8));
         let ptr_u8 = AstType::Ptr(Box::new(AstType::U8));
         let compiler_funcs = vec![
             ("inline_c", vec![AstType::StaticString], AstType::Void),
-            ("raw_allocate", vec![AstType::Usize], ptr_u8.clone()),
-            ("raw_deallocate", vec![ptr_u8.clone(), AstType::Usize], AstType::Void),
-            ("raw_reallocate", vec![ptr_u8.clone(), AstType::Usize, AstType::Usize], ptr_u8.clone()),
-            ("raw_ptr_offset", vec![ptr_u8.clone(), AstType::I64], ptr_u8.clone()),
-            ("raw_ptr_cast", vec![ptr_u8.clone()], ptr_u8.clone()),
-            ("call_external", vec![ptr_u8.clone(), ptr_u8.clone()], ptr_u8.clone()),
-            ("load_library", vec![AstType::StaticString], ptr_u8.clone()),
-            ("get_symbol", vec![ptr_u8.clone(), AstType::StaticString], ptr_u8.clone()),
-            ("unload_library", vec![ptr_u8.clone()], AstType::Void),
-            ("null_ptr", vec![], ptr_u8.clone()),
+            // Memory primitives
+            ("raw_allocate", vec![AstType::Usize], raw_ptr_u8.clone()),
+            ("raw_deallocate", vec![raw_ptr_u8.clone(), AstType::Usize], AstType::Void),
+            ("raw_reallocate", vec![raw_ptr_u8.clone(), AstType::Usize, AstType::Usize], raw_ptr_u8.clone()),
+            ("raw_ptr_offset", vec![raw_ptr_u8.clone(), AstType::I64], raw_ptr_u8.clone()),
+            ("raw_ptr_cast", vec![raw_ptr_u8.clone()], raw_ptr_u8.clone()),
+            ("call_external", vec![raw_ptr_u8.clone(), raw_ptr_u8.clone()], raw_ptr_u8.clone()),
+            ("load_library", vec![AstType::StaticString], raw_ptr_u8.clone()),
+            ("get_symbol", vec![raw_ptr_u8.clone(), AstType::StaticString], raw_ptr_u8.clone()),
+            ("unload_library", vec![raw_ptr_u8.clone()], AstType::Void),
+            ("null_ptr", vec![], raw_ptr_u8.clone()),
             // GEP intrinsics
-            ("gep", vec![ptr_u8.clone(), AstType::Usize], ptr_u8.clone()),
-            ("gep_struct", vec![ptr_u8.clone(), AstType::I32], ptr_u8.clone()),
+            ("gep", vec![raw_ptr_u8.clone(), AstType::I64], raw_ptr_u8.clone()),
+            ("gep_struct", vec![raw_ptr_u8.clone(), AstType::I32], raw_ptr_u8.clone()),
             // Enum intrinsics
-            ("discriminant", vec![AstType::I64], AstType::I64), // Takes enum as i64 union
-            ("set_discriminant", vec![AstType::I64, AstType::I64], AstType::Void),
-            ("get_payload", vec![AstType::I64], ptr_u8.clone()), // Returns payload pointer
-            ("set_payload", vec![AstType::I64, ptr_u8.clone()], AstType::Void),
+            ("discriminant", vec![raw_ptr_u8.clone()], AstType::I32),
+            ("set_discriminant", vec![raw_ptr_u8.clone(), AstType::I32], AstType::Void),
+            ("get_payload", vec![raw_ptr_u8.clone()], raw_ptr_u8.clone()),
+            ("set_payload", vec![raw_ptr_u8.clone(), raw_ptr_u8.clone()], AstType::Void),
+            // Type introspection - sizeof takes a type parameter, returns usize
+            // Note: sizeof(T) is special - it takes a type, not a value. Type checker handles this specially.
+            ("sizeof", vec![], AstType::Usize),
+            // Pointer <-> Integer conversion intrinsics
+            ("ptr_to_int", vec![raw_ptr_u8.clone()], AstType::I64),
+            ("int_to_ptr", vec![AstType::I64], raw_ptr_u8.clone()),
+            // Memory load/store intrinsics (generic - actual type determined by usage)
+            ("load", vec![raw_ptr_u8.clone()], AstType::I64), // Returns generic T, use I64 as placeholder
+            ("store", vec![raw_ptr_u8.clone(), AstType::I64], AstType::Void), // Takes generic T
         ];
 
         for (name, args, ret) in compiler_funcs {
             register_function(checker, alias, name, args, ret);
+        }
+        
+        // Also register with Ptr type for backwards compatibility
+        let ptr_funcs = vec![
+            ("raw_allocate", vec![AstType::Usize], ptr_u8.clone()),
+            ("raw_deallocate", vec![ptr_u8.clone(), AstType::Usize], AstType::Void),
+        ];
+        
+        for (name, args, ret) in ptr_funcs {
+            let qualified_name = format!("{}.{}_ptr", alias, name);
+            let params = args
+                .into_iter()
+                .enumerate()
+                .map(|(i, t)| (format!("arg{}", i), t))
+                .collect();
+            checker.functions.insert(
+                qualified_name,
+                FunctionSignature {
+                    params,
+                    return_type: ret,
+                    is_external: true,
+                },
+            );
         }
     }
 

@@ -630,7 +630,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Fallback to UFC (Uniform Function Call): object.method(args) -> method(object, args)
         // This handles cases like vec_ref.get(0) where vec_ref is &DynVec<String>
         // Try to find a function with the method name that takes the object as first parameter
-        if let Some(func_signature) = self.function_types.get(method_name) {
+        if let Some(_func_signature) = self.function_types.get(method_name) {
             // Check if first parameter matches the object type (or dereferenced type)
             // func_signature is AstType, we need to extract params from it
             // For now, just try calling the function - if it exists, it should work

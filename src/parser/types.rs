@@ -103,17 +103,27 @@ impl<'a> Parser<'a> {
                         }
                     }
                     "Vec" => {
-                        // Vec<T, size> - Fixed-size vector with compile-time size
+                        // Vec<T> - Generic vector type OR Vec<T, size> - fixed-size array
                         if self.current_token == Token::Operator("<".to_string()) {
                             self.next_token();
 
                             // Parse element type
                             let element_type = self.parse_type()?;
 
-                            // Expect comma
+                            // Check if it's Vec<T> (generic) or Vec<T, size> (fixed-size)
+                            if self.current_token == Token::Operator(">".to_string()) {
+                                // Vec<T> - generic vector, treat as user-defined generic type
+                                self.next_token();
+                                return Ok(AstType::Generic {
+                                    name: "Vec".to_string(),
+                                    type_args: vec![element_type],
+                                });
+                            }
+
+                            // Expect comma for Vec<T, size>
                             if self.current_token != Token::Symbol(',') {
                                 return Err(CompileError::SyntaxError(
-                                    "Expected ',' after element type in Vec<T, size>".to_string(),
+                                    "Expected '>' or ',' in Vec type".to_string(),
                                     Some(self.current_span.clone()),
                                 ));
                             }
@@ -368,7 +378,7 @@ impl<'a> Parser<'a> {
 
                 // Parse parameter types
                 while self.current_token != Token::Symbol(')') {
-                    // Check if it's a parameter with name (name: Type)
+                    // Check if it's a parameter with name (name: Type) or just a type
                     if let Token::Identifier(param_name) = &self.current_token {
                         let name = param_name.clone();
 
@@ -382,19 +392,26 @@ impl<'a> Parser<'a> {
                                 type_args: vec![],
                             });
                         } else {
+                            // Look ahead to see if this is "name: Type" or just "Type"
+                            // Save state for potential rollback
+                            let saved_state = self.lexer.save_state();
+                            let saved_current_token = self.current_token.clone();
+                            let saved_peek_token = self.peek_token.clone();
+                            let saved_span = self.current_span.clone();
+
                             self.next_token();
 
-                            // Expect colon after parameter name
+                            // Check if next token is colon (named parameter)
                             if self.current_token == Token::Symbol(':') {
                                 self.next_token();
                                 param_types.push(self.parse_type()?);
                             } else {
-                                // It was actually a type name, go back
-                                return Err(CompileError::SyntaxError(
-                                    "Expected ':' after parameter name in function type"
-                                        .to_string(),
-                                    Some(self.current_span.clone()),
-                                ));
+                                // Not a named parameter, restore and parse as type
+                                self.lexer.restore_state(saved_state);
+                                self.current_token = saved_current_token;
+                                self.peek_token = saved_peek_token;
+                                self.current_span = saved_span;
+                                param_types.push(self.parse_type()?);
                             }
                         }
                     } else {

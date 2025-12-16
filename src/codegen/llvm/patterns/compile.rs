@@ -3,7 +3,7 @@ use super::super::VariableInfo;
 use crate::ast::Pattern;
 use crate::error::CompileError;
 use inkwell::values::{BasicValueEnum, IntValue};
-use inkwell::{AddressSpace, IntPredicate};
+use inkwell::AddressSpace;
 use std::collections::HashMap;
 
 // Import helpers

@@ -195,6 +195,34 @@ impl<'ctx> LLVMCompiler<'ctx> {
         super::stdlib_codegen::compile_io_print_float(self, args)
     }
     
+    fn compile_io_eprint(
+        &mut self,
+        args: &[ast::Expression],
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        super::stdlib_codegen::compile_io_eprint(self, args)
+    }
+    
+    fn compile_io_eprintln(
+        &mut self,
+        args: &[ast::Expression],
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        super::stdlib_codegen::compile_io_eprintln(self, args)
+    }
+    
+    fn compile_io_read_line(
+        &mut self,
+        args: &[ast::Expression],
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        super::stdlib_codegen::compile_io_read_line(self, args)
+    }
+    
+    fn compile_io_read_input(
+        &mut self,
+        args: &[ast::Expression],
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        super::stdlib_codegen::compile_io_read_input(self, args)
+    }
+    
     fn compile_math_function(
         &mut self,
         name: &str,

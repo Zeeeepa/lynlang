@@ -2,12 +2,13 @@
 // All memory operations go through allocators
 
 Allocator: {
-    allocate: (self, size: usize) *u8,
-    deallocate: (self, ptr: *u8, size: usize) void,
-    reallocate: (self, ptr: *u8, old_size: usize, new_size: usize) *u8
+    allocate: (self, size: usize) RawPtr<u8>,
+    deallocate: (self, ptr: RawPtr<u8>, size: usize) void,
+    reallocate: (self, ptr: RawPtr<u8>, old_size: usize, new_size: usize) RawPtr<u8>
 }
 
 // Check if allocator succeeded
-allocate_ok = (ptr: *u8) bool {
-    return ptr != (0 as *u8)
+allocate_ok = (ptr: RawPtr<u8>) bool {
+    null_ptr = compiler.int_to_ptr(0)
+    return ptr != null_ptr
 }

@@ -149,10 +149,10 @@ executeBuildFile = (build_file: String, args: Args) !void {
         install_prefix: "./build",
         build_dir: "./build",
         cache_dir: "./.cache",
-        executables: []*Build.Executable{},
-        libraries: []*Build.Library{},
-        tests: []*Build.Test{},
-        steps: []*Build.Step{},
+        executables: []Ptr<Build.Executable>{},
+        libraries: []Ptr<Build.Library>{},
+        tests: []Ptr<Build.Test>{},
+        steps: []Ptr<Build.Step>{},
         options_map: std.HashMap(String, anytype).init()
     }
     
@@ -437,7 +437,7 @@ handleInit = (args: Args) !void {
     // Create build.zen
     build_content := `Build := @import("std").Build
 
-build = (b: *Build) void   {
+build = (b: MutPtr<Build>) void {
     target := b.standardTargetOptions(.{})
     optimize := b.standardOptimizeOption(.{})
     

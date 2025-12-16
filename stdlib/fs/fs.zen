@@ -2,6 +2,7 @@
 // File and directory operations
 
 { compiler } = @std
+{ Result } = @std.core.result
 
 // File type - represents an open file
 File: {
@@ -29,13 +30,13 @@ close = (f: File) Result<void, String> {
 }
 
 // Read from file
-read = (f: File, buffer: *u8, size: usize) Result<usize, String> {
+read = (f: File, buffer: RawPtr<u8>, size: usize) Result<usize, String> {
     // Built-in - requires FFI to libc read()
     return Result.Err("Not implemented")
 }
 
 // Write to file
-write = (f: File, buffer: *u8, size: usize) Result<usize, String> {
+write = (f: File, buffer: RawPtr<u8>, size: usize) Result<usize, String> {
     // Built-in - requires FFI to libc write()
     return Result.Err("Not implemented")
 }

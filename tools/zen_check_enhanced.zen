@@ -115,7 +115,7 @@ SyntaxChecker.new = (config: CheckerConfig) SyntaxChecker => {
 }
 
 // Check a single file
-SyntaxChecker.check_file = (self: &SyntaxChecker, path: string) CheckResult => {
+SyntaxChecker.check_file = (self: MutPtr<SyntaxChecker>, path: string) CheckResult => {
     // Read file
     content := fs.read_file(path) ?
         | Ok(c) => c
@@ -204,7 +204,7 @@ SyntaxChecker.check_file = (self: &SyntaxChecker, path: string) CheckResult => {
 }
 
 // Check lexical issues
-check_lexical_issues = (result: &CheckResult, tokens: []Token, config: CheckerConfig) void => {
+check_lexical_issues = (result: MutPtr<CheckResult>, tokens: []Token, config: CheckerConfig) void => {
     // Check for invalid characters
     loop token in tokens {
         token.type == .Invalid ? | true => {
@@ -242,7 +242,7 @@ check_lexical_issues = (result: &CheckResult, tokens: []Token, config: CheckerCo
 }
 
 // Check syntax issues
-check_syntax_issues = (result: &CheckResult, ast: AST, config: CheckerConfig) void => {
+check_syntax_issues = (result: MutPtr<CheckResult>, ast: AST, config: CheckerConfig) void => {
     // Check for comptime imports (critical issue)
     loop node in ast.nodes {
         node.type == .ComptimeBlock ? | true => {
@@ -287,7 +287,7 @@ check_syntax_issues = (result: &CheckResult, ast: AST, config: CheckerConfig) vo
 }
 
 // Check for comptime imports (should not be wrapped in comptime)
-check_comptime_imports = (result: &CheckResult, node: ASTNode) void => {
+check_comptime_imports = (result: MutPtr<CheckResult>, node: ASTNode) void => {
     loop stmt in node.statements {
         stmt.type == .Assignment ? | true => {
             // Check if it's an import
@@ -316,7 +316,7 @@ check_comptime_imports = (result: &CheckResult, node: ASTNode) void => {
 }
 
 // Check semantic issues
-check_semantic_issues = (result: &CheckResult, ast: TypedAST, config: CheckerConfig) void => {
+check_semantic_issues = (result: MutPtr<CheckResult>, ast: TypedAST, config: CheckerConfig) void => {
     // Check for type mismatches
     loop expr in ast.expressions {
         expr.expected_type != expr.actual_type ? | true => {
@@ -347,7 +347,7 @@ check_semantic_issues = (result: &CheckResult, ast: TypedAST, config: CheckerCon
 }
 
 // Apply linting rules
-apply_lint_rules = (result: &CheckResult, ast: TypedAST, config: CheckerConfig) void => {
+apply_lint_rules = (result: MutPtr<CheckResult>, ast: TypedAST, config: CheckerConfig) void => {
     loop rule in config.enabled_rules {
         rule ?
             | UnusedImport => check_unused_imports(result, ast)
@@ -364,7 +364,7 @@ apply_lint_rules = (result: &CheckResult, ast: TypedAST, config: CheckerConfig) 
 }
 
 // Check style issues
-check_style_issues = (result: &CheckResult, content: string, config: CheckerConfig) void => {
+check_style_issues = (result: MutPtr<CheckResult>, content: string, config: CheckerConfig) void => {
     lines := string.split(content, "\n");
     
     i := 0;
@@ -401,7 +401,7 @@ check_style_issues = (result: &CheckResult, content: string, config: CheckerConf
 }
 
 // Check for long functions
-check_long_functions = (result: &CheckResult, ast: TypedAST, config: CheckerConfig) void => {
+check_long_functions = (result: MutPtr<CheckResult>, ast: TypedAST, config: CheckerConfig) void => {
     loop func in ast.functions {
         line_count := func.end_line - func.start_line;
         
@@ -418,7 +418,7 @@ check_long_functions = (result: &CheckResult, ast: TypedAST, config: CheckerConf
 }
 
 // Check for deep nesting
-check_deep_nesting = (result: &CheckResult, ast: TypedAST, config: CheckerConfig) void => {
+check_deep_nesting = (result: MutPtr<CheckResult>, ast: TypedAST, config: CheckerConfig) void => {
     loop func in ast.functions {
         max_depth := calculate_nesting_depth(func.body);
         
@@ -463,7 +463,7 @@ analyze_file_stats = (content: string) FileStats => {
 }
 
 // Format output with colors
-format_output = (result: &CheckResult, use_colors: bool) string => {
+format_output = (result: Ptr<CheckResult>, use_colors: bool) string => {
     // ANSI color codes
     RED := use_colors ? | true => "\x1b[31m" | false => "";
     YELLOW := use_colors ? | true => "\x1b[33m" | false => "";
@@ -539,7 +539,7 @@ check = (paths: []string, config: CheckerConfig) i32 => {
                          result.hints.len > 0;
             
             has_issues ? | true => {
-                output := format_output(&result, true);
+                output := format_output(result.ref(), true);
                 io.print(output);
                 io.print("\n")
             }

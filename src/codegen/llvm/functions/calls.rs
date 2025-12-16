@@ -56,6 +56,10 @@ pub fn compile_function_call<'ctx>(
                         "println" => return compiler.compile_io_println(args),
                         "print_int" => return compiler.compile_io_print_int(args),
                         "print_float" => return compiler.compile_io_print_float(args),
+                        "eprint" => return compiler.compile_io_eprint(args),
+                        "eprintln" => return compiler.compile_io_eprintln(args),
+                        "read_line" => return compiler.compile_io_read_line(args),
+                        "read_input" => return compiler.compile_io_read_input(args),
                         _ => {}
                     }
                 } else if module == "math" {
@@ -134,6 +138,11 @@ pub fn compile_function_call<'ctx>(
         // Check if this is a direct call to math functions (available from @std)
         if name == "min" || name == "max" || name == "abs" {
             return compiler.compile_math_function(name, args);
+        }
+        
+        // Check if this is the cast() builtin function
+        if name == "cast" {
+            return compile_cast_builtin(compiler, args);
         }
 
         // First check if this is a direct function call
@@ -468,4 +477,120 @@ pub fn compile_function_call<'ctx>(
             Err(CompileError::UndeclaredFunction(name.to_string(), None))
         }
     }
+
+/// Compile the cast(value, type) builtin function
+/// Converts a value to a target type (integer/float conversions)
+fn compile_cast_builtin<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 2 {
+        return Err(CompileError::TypeError(
+            format!("cast() expects 2 arguments (value, type), got {}", args.len()),
+            None,
+        ));
+    }
+    
+    // Infer the source type BEFORE compiling (so we know signedness)
+    let source_type = super::super::expressions::inference::infer_expression_type(compiler, &args[0])
+        .unwrap_or(crate::ast::AstType::I32); // Default to signed i32 if inference fails
+    
+    // Compile the value to cast
+    let value = compiler.compile_expression(&args[0])?;
+    
+    // The second argument should be a type identifier
+    let target_type = match &args[1] {
+        ast::Expression::Identifier(type_name) => {
+            match type_name.as_str() {
+                "i8" => crate::ast::AstType::I8,
+                "i16" => crate::ast::AstType::I16,
+                "i32" => crate::ast::AstType::I32,
+                "i64" => crate::ast::AstType::I64,
+                "u8" => crate::ast::AstType::U8,
+                "u16" => crate::ast::AstType::U16,
+                "u32" => crate::ast::AstType::U32,
+                "u64" => crate::ast::AstType::U64,
+                "usize" => crate::ast::AstType::Usize,
+                "f32" => crate::ast::AstType::F32,
+                "f64" => crate::ast::AstType::F64,
+                _ => return Err(CompileError::TypeError(
+                    format!("cast() target type '{}' is not a valid primitive type", type_name),
+                    None,
+                )),
+            }
+        }
+        _ => return Err(CompileError::TypeError(
+            "cast() second argument must be a type name (e.g., i32, f64)".to_string(),
+            None,
+        )),
+    };
+    
+    // Get the LLVM target type
+    let llvm_target_type = compiler.to_llvm_type(&target_type)?;
+    let target_basic_type = match llvm_target_type {
+        super::super::Type::Basic(b) => b,
+        _ => return Err(CompileError::TypeError(
+            "cast() target must be a basic type".to_string(),
+            None,
+        )),
+    };
+    
+    // Perform the cast based on source and target types
+    match (value, target_basic_type) {
+        // Int to Int
+        (BasicValueEnum::IntValue(int_val), BasicTypeEnum::IntType(target_int)) => {
+            let src_bits = int_val.get_type().get_bit_width();
+            let dst_bits = target_int.get_bit_width();
+            
+            if src_bits == dst_bits {
+                Ok(int_val.into())
+            } else if src_bits < dst_bits {
+                // Extend - use sign extend for signed source, zero extend for unsigned source
+                if source_type.is_unsigned_integer() {
+                    Ok(compiler.builder.build_int_z_extend(int_val, target_int, "cast_zext")?.into())
+                } else {
+                    Ok(compiler.builder.build_int_s_extend(int_val, target_int, "cast_sext")?.into())
+                }
+            } else {
+                // Truncate
+                Ok(compiler.builder.build_int_truncate(int_val, target_int, "cast_trunc")?.into())
+            }
+        }
+        // Float to Float
+        (BasicValueEnum::FloatValue(float_val), BasicTypeEnum::FloatType(target_float)) => {
+            let src_bits = if float_val.get_type() == compiler.context.f32_type() { 32 } else { 64 };
+            let dst_bits = if target_float == compiler.context.f32_type() { 32 } else { 64 };
+            
+            if src_bits == dst_bits {
+                Ok(float_val.into())
+            } else if src_bits < dst_bits {
+                Ok(compiler.builder.build_float_ext(float_val, target_float, "cast_fext")?.into())
+            } else {
+                Ok(compiler.builder.build_float_trunc(float_val, target_float, "cast_ftrunc")?.into())
+            }
+        }
+        // Int to Float
+        (BasicValueEnum::IntValue(int_val), BasicTypeEnum::FloatType(target_float)) => {
+            // Use the inferred source type to determine signedness
+            if source_type.is_unsigned_integer() {
+                Ok(compiler.builder.build_unsigned_int_to_float(int_val, target_float, "cast_uitofp")?.into())
+            } else {
+                Ok(compiler.builder.build_signed_int_to_float(int_val, target_float, "cast_sitofp")?.into())
+            }
+        }
+        // Float to Int
+        (BasicValueEnum::FloatValue(float_val), BasicTypeEnum::IntType(target_int)) => {
+            if target_type.is_unsigned_integer() {
+                Ok(compiler.builder.build_float_to_unsigned_int(float_val, target_int, "cast_fptoui")?.into())
+            } else {
+                Ok(compiler.builder.build_float_to_signed_int(float_val, target_int, "cast_fptosi")?.into())
+            }
+        }
+        _ => Err(CompileError::TypeError(
+            format!("Cannot cast {:?} to {:?}", value.get_type(), target_basic_type),
+            None,
+        )),
+    }
+}
+
 

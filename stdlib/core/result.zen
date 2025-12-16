@@ -58,7 +58,7 @@ unwrap<T, E> = (res: Result<T, E>) T {
         | Err(_) {
             // Panic
             loop(() {
-                if true { break }
+                true ? { break }
             })
             return res ?
                 | Ok(v) { v }
@@ -73,7 +73,7 @@ unwrap_err<T, E> = (res: Result<T, E>) E {
         | Ok(_) {
             // Panic
             loop(() {
-                if true { break }
+                true ? { break }
             })
             return res ?
                 | Err(e) { e }

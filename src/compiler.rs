@@ -211,6 +211,7 @@ impl<'ctx> Compiler<'ctx> {
                 initializer,
                 is_mutable,
                 declaration_type,
+                span,
             } => {
                 let processed_initializer = if let Some(init) = initializer {
                     Some(self.process_expression_comptime(init, interpreter)?)
@@ -224,11 +225,13 @@ impl<'ctx> Compiler<'ctx> {
                     initializer: processed_initializer,
                     is_mutable,
                     declaration_type,
+                    span,
                 })
             }
-            Statement::VariableAssignment { name, value } => Ok(Statement::VariableAssignment {
+            Statement::VariableAssignment { name, value, span } => Ok(Statement::VariableAssignment {
                 name,
                 value: self.process_expression_comptime(value, interpreter)?,
+                span,
             }),
             Statement::PointerAssignment { pointer, value } => Ok(Statement::PointerAssignment {
                 pointer: self.process_expression_comptime(pointer, interpreter)?,

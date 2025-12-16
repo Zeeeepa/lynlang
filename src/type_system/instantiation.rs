@@ -177,6 +177,7 @@ impl<'a> TypeInstantiator<'a> {
                 initializer,
                 is_mutable,
                 declaration_type,
+                span,
             } => Ok(Statement::VariableDeclaration {
                 name: name.clone(),
                 type_: type_.as_ref().map(|t| substitution.apply(t)),
@@ -185,6 +186,7 @@ impl<'a> TypeInstantiator<'a> {
                     .map(|e| self.instantiate_expression(e, substitution)),
                 is_mutable: *is_mutable,
                 declaration_type: declaration_type.clone(),
+                span: span.clone(),
             }),
             Statement::Expression(expr) => Ok(Statement::Expression(
                 self.instantiate_expression(expr, substitution),

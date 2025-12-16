@@ -46,7 +46,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let alloca = self
             .builder
             .build_alloca(llvm_type, &format!("{}_tmp", name))?;
-        for (field_name, field_index, _field_type, field_expr) in fields_with_info {
+        for (field_name, field_index, field_type, field_expr) in fields_with_info {
             let field_val = self.compile_expression(&field_expr)?;
             let field_ptr = self.builder.build_struct_gep(
                 llvm_type,
@@ -54,7 +54,24 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 field_index as u32,
                 &format!("{}_ptr", field_name),
             )?;
-            self.builder.build_store(field_ptr, field_val)?;
+            // Get the expected LLVM type for this field
+            let field_llvm_type = self.to_llvm_type(&field_type)?;
+            let expected_type = match field_llvm_type {
+                super::Type::Basic(ty) => ty,
+                super::Type::Struct(st) => st.as_basic_type_enum(),
+                _ => {
+                    // For other types (pointers, void), just use direct store
+                    self.builder.build_store(field_ptr, field_val)?;
+                    continue;
+                }
+            };
+            // Use coercing_store to handle type mismatches (e.g., i64 literal into i32 field)
+            self.coercing_store(
+                field_val,
+                field_ptr,
+                expected_type,
+                &format!("struct field '{}.{}'", name, field_name),
+            )?;
         }
         match self
             .builder
@@ -995,10 +1012,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
             .build_struct_gep(struct_type, struct_alloca, field_index as u32, "field_ptr")
             .map_err(|e| CompileError::from(e))?;
 
-        // Store the value to the field
-        self.builder
-            .build_store(field_ptr, value)
-            .map_err(|e| CompileError::from(e))?;
+        // Get the expected field type for coercion
+        let field_type = struct_type_info
+            .fields
+            .get(field_name)
+            .map(|(_, ty)| ty.clone())
+            .unwrap();
+        let field_llvm_type = self.to_llvm_type(&field_type)?;
+        let expected_type = match field_llvm_type {
+            super::Type::Basic(ty) => ty,
+            super::Type::Struct(st) => st.as_basic_type_enum(),
+            _ => {
+                // For other types, use direct store
+                self.builder
+                    .build_store(field_ptr, value)
+                    .map_err(|e| CompileError::from(e))?;
+                return Ok(());
+            }
+        };
+
+        // Store the value to the field with type coercion
+        self.coercing_store(
+            value,
+            field_ptr,
+            expected_type,
+            &format!("struct field '{}.{}'", struct_name, field_name),
+        )?;
         Ok(())
     }
 }

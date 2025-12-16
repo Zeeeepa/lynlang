@@ -347,6 +347,143 @@ impl<'ctx> LLVMCompiler<'ctx> {
             .ok_or_else(|| CompileError::UndeclaredVariable(name.to_string(), None))
     }
 
+    // ============================================================================
+    // TYPE-SAFE IR GENERATION HELPERS
+    // These catch type mismatches at compile time instead of causing runtime segfaults
+    // ============================================================================
+
+    /// Type-safe store that verifies the value type matches the expected type.
+    /// This prevents bugs like storing i64 into an i32 alloca.
+    pub fn verified_store(
+        &self,
+        value: BasicValueEnum<'ctx>,
+        ptr: PointerValue<'ctx>,
+        expected_type: BasicTypeEnum<'ctx>,
+        context: &str,  // For error messages, e.g., "variable 'x'" or "struct field 'name'"
+    ) -> Result<(), CompileError> {
+        let value_type = value.get_type();
+
+        // Check for type mismatch
+        let mismatch = match (value_type, expected_type) {
+            (BasicTypeEnum::IntType(vt), BasicTypeEnum::IntType(et)) => {
+                vt.get_bit_width() != et.get_bit_width()
+            }
+            (BasicTypeEnum::FloatType(vt), BasicTypeEnum::FloatType(et)) => {
+                // Compare by checking if they're the same type
+                vt != et
+            }
+            (BasicTypeEnum::PointerType(_), BasicTypeEnum::PointerType(_)) => {
+                // Opaque pointers are always compatible
+                false
+            }
+            (BasicTypeEnum::StructType(vt), BasicTypeEnum::StructType(et)) => {
+                // Struct types should match exactly
+                vt != et
+            }
+            (BasicTypeEnum::ArrayType(vt), BasicTypeEnum::ArrayType(et)) => {
+                vt != et
+            }
+            (BasicTypeEnum::VectorType(vt), BasicTypeEnum::VectorType(et)) => {
+                vt != et
+            }
+            // Different type categories = mismatch
+            _ => {
+                // Special case: pointer and int can be compatible in some contexts
+                // But generally different categories are a mismatch
+                !matches!(
+                    (&value_type, &expected_type),
+                    (BasicTypeEnum::PointerType(_), BasicTypeEnum::IntType(_)) |
+                    (BasicTypeEnum::IntType(_), BasicTypeEnum::PointerType(_))
+                )
+            }
+        };
+
+        if mismatch {
+            return Err(CompileError::InternalError(
+                format!(
+                    "LLVM IR type mismatch in store for {}: value has type {:?} but storage expects {:?}. \
+                     This is a compiler bug - please report it.",
+                    context,
+                    value_type,
+                    expected_type
+                ),
+                None,
+            ));
+        }
+
+        self.builder
+            .build_store(ptr, value)
+            .map_err(|e| CompileError::from(e))?;
+        Ok(())
+    }
+
+    /// Type-safe store with automatic type coercion for integers.
+    /// If value is an integer and sizes don't match, it will truncate or extend as needed.
+    /// Returns the (possibly coerced) value that was stored.
+    pub fn coercing_store(
+        &self,
+        value: BasicValueEnum<'ctx>,
+        ptr: PointerValue<'ctx>,
+        expected_type: BasicTypeEnum<'ctx>,
+        _context: &str,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        let final_value = if let BasicValueEnum::IntValue(int_val) = value {
+            if let BasicTypeEnum::IntType(expected_int_type) = expected_type {
+                let val_bits = int_val.get_type().get_bit_width();
+                let expected_bits = expected_int_type.get_bit_width();
+
+                if val_bits > expected_bits {
+                    // Truncate
+                    self.builder
+                        .build_int_truncate(int_val, expected_int_type, "trunc")
+                        .map_err(|e| CompileError::from(e))?
+                        .into()
+                } else if val_bits < expected_bits {
+                    // Zero-extend
+                    self.builder
+                        .build_int_z_extend(int_val, expected_int_type, "zext")
+                        .map_err(|e| CompileError::from(e))?
+                        .into()
+                } else {
+                    value
+                }
+            } else {
+                value
+            }
+        } else {
+            value
+        };
+
+        self.builder
+            .build_store(ptr, final_value)
+            .map_err(|e| CompileError::from(e))?;
+        Ok(final_value)
+    }
+
+    /// Type-safe load that returns a value with the correct type.
+    /// Uses a unique name counter to avoid LLVM naming conflicts.
+    pub fn verified_load(
+        &mut self,
+        ptr: PointerValue<'ctx>,
+        expected_type: BasicTypeEnum<'ctx>,
+        name_hint: &str,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        self.load_counter += 1;
+        let name = format!("{}_{}", name_hint, self.load_counter);
+
+        self.builder
+            .build_load(expected_type, ptr, &name)
+            .map_err(|e| CompileError::from(e))
+    }
+
+    /// Debug helper: Print type information for troubleshooting IR generation issues
+    #[allow(dead_code)]
+    pub fn debug_type_info(&self, label: &str, value: BasicValueEnum<'ctx>) {
+        if std::env::var("DEBUG_TYPES").is_ok() {
+            eprintln!("[DEBUG_TYPES] {}: {:?}", label, value.get_type());
+        }
+    }
+
     pub fn declare_variable(
         &mut self,
         name: &str,

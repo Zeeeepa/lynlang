@@ -230,6 +230,17 @@ fn promote_numeric_types(left: &AstType, right: &AstType) -> Result<AstType> {
     }
     // Both are integers
     else if left.is_integer() && right.is_integer() {
+        // Special case: if both are Usize, keep Usize
+        if matches!(left, AstType::Usize) && matches!(right, AstType::Usize) {
+            return Ok(AstType::Usize);
+        }
+        // If one is Usize and other is compatible unsigned, promote to Usize
+        if matches!(left, AstType::Usize) || matches!(right, AstType::Usize) {
+            if left.is_unsigned_integer() && right.is_unsigned_integer() {
+                return Ok(AstType::Usize);
+            }
+        }
+        
         // Promote to the larger size
         let left_size = left.bit_size().unwrap_or(32);
         let right_size = right.bit_size().unwrap_or(32);

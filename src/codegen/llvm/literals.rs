@@ -129,7 +129,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
-                AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) => {
+                AstType::Ptr(_inner) | AstType::MutPtr(_inner) | AstType::RawPtr(_inner) => {
                     // For pointer types (Ptr, MutPtr, RawPtr)
                     // We need to load the pointer value from the alloca
                     // All pointer types are loaded as LLVM pointers
@@ -356,15 +356,24 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
 
-        // Allocate buffer for the result (using a reasonable max size)
-        let buffer_size = 1024;
-        let buffer_type = self.context.i8_type().array_type(buffer_size);
-        let buffer = self.builder.build_alloca(buffer_type, "str_buffer")?;
-        let buffer_ptr = self.builder.build_pointer_cast(
-            buffer,
-            self.context.ptr_type(AddressSpace::default()),
-            "buffer_ptr",
-        )?;
+        // Allocate buffer dynamically using malloc to avoid stack corruption issues
+        // with multiple string interpolations in the same function
+        let buffer_size = 256u64; // Reduced from 1024 - sufficient for most interpolations
+
+        // Get or declare malloc
+        let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+            let i64_type = self.context.i64_type();
+            let ptr_type = self.context.ptr_type(AddressSpace::default());
+            let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+            self.module.add_function("malloc", fn_type, None)
+        });
+
+        // Allocate the buffer
+        let buffer_size_val = self.context.i64_type().const_int(buffer_size, false);
+        let buffer_call = self.builder.build_call(malloc_fn, &[buffer_size_val.into()], "str_buffer")?;
+        let buffer_ptr = buffer_call.try_as_basic_value().left()
+            .ok_or_else(|| CompileError::InternalError("malloc should return a pointer".to_string(), None))?
+            .into_pointer_value();
 
         // Build the format string
         let format_ptr = self

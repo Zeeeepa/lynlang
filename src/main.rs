@@ -295,6 +295,11 @@ fn compile_file(args: &[String]) -> std::io::Result<()> {
         .get_module(&program)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Compilation error: {}", e)))?;
 
+    // Debug: Print LLVM IR if DEBUG_LLVM is set
+    if std::env::var("DEBUG_LLVM").is_ok() {
+        eprintln!("LLVM IR:\n{}", module.print_to_string().to_string());
+    }
+
     // Get target machine
     let target_triple = TargetMachine::get_default_triple();
     let target = Target::from_triple(&target_triple).map_err(|e| {

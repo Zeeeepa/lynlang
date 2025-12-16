@@ -2,6 +2,7 @@
 // TCP/UDP sockets and HTTP operations
 
 { compiler } = @std
+{ Result } = @std.core.result
 
 // Socket address
 SocketAddr: {
@@ -46,13 +47,13 @@ tcp_accept = (listener: TcpListener) Result<TcpSocket, String> {
 }
 
 // Send on socket
-tcp_send = (socket: TcpSocket, buffer: *u8, size: usize) Result<usize, String> {
+tcp_send = (socket: TcpSocket, buffer: RawPtr<u8>, size: usize) Result<usize, String> {
     // Built-in - requires FFI to libc send
     return Result.Err("Not implemented")
 }
 
 // Receive on socket
-tcp_recv = (socket: TcpSocket, buffer: *u8, size: usize) Result<usize, String> {
+tcp_recv = (socket: TcpSocket, buffer: RawPtr<u8>, size: usize) Result<usize, String> {
     // Built-in - requires FFI to libc recv
     return Result.Err("Not implemented")
 }
@@ -70,13 +71,13 @@ udp_socket = (addr: SocketAddr) Result<UdpSocket, String> {
 }
 
 // Send UDP packet
-udp_send = (socket: UdpSocket, buffer: *u8, size: usize) Result<usize, String> {
+udp_send = (socket: UdpSocket, buffer: RawPtr<u8>, size: usize) Result<usize, String> {
     // Built-in - requires FFI to libc sendto
     return Result.Err("Not implemented")
 }
 
 // Receive UDP packet
-udp_recv = (socket: UdpSocket, buffer: *u8, size: usize) Result<usize, String> {
+udp_recv = (socket: UdpSocket, buffer: RawPtr<u8>, size: usize) Result<usize, String> {
     // Built-in - requires FFI to libc recvfrom
     return Result.Err("Not implemented")
 }

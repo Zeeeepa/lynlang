@@ -361,7 +361,7 @@ impl ComptimeInterpreter {
                 Ok(None)
             }
 
-            Statement::VariableAssignment { name, value } => {
+            Statement::VariableAssignment { name, value, .. } => {
                 let val = self.evaluate_expression(value)?;
                 self.env.set(name, val)?;
                 Ok(None)

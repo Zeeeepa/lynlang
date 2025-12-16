@@ -34,31 +34,31 @@ stack_is_empty<T> = (s: Stack<T>) bool {
 }
 
 // Push element onto stack
-stack_push<T> = (s: *Stack<T>, elem_size: usize, elem_addr: *u8) void {
-    vec_push(&s.data, elem_size, elem_addr)
+stack_push<T> = (s: MutPtr<Stack<T>>, elem_size: usize, elem_addr: RawPtr<u8>) void {
+    vec_push(s.val.data.mut_ref(), elem_size, elem_addr)
 }
 
 // Pop element from stack
-stack_pop<T> = (s: *Stack<T>) void {
-    vec_pop(&s.data)
+stack_pop<T> = (s: MutPtr<Stack<T>>) void {
+    vec_pop(s.val.data.mut_ref())
 }
 
 // Peek at top without removing
-stack_peek_addr<T> = (s: Stack<T>) *u8 {
+stack_peek_addr<T> = (s: Stack<T>) RawPtr<u8> {
     len = vec_len(s.data)
-    if len == 0 {
-        return (0 as *u8)
-    }
+    len == 0 ?
+        | true { return compiler.int_to_ptr(0) }
+        | false { }
     return vec_get_addr(s.data, len - 1)
 }
 
 // Clear stack
-stack_clear<T> = (s: *Stack<T>) void {
+stack_clear<T> = (s: MutPtr<Stack<T>>) void {
     // Use internal vec clear
-    s.data.len = 0
+    s.val.data.len = 0
 }
 
 // Free stack
-stack_free<T> = (s: *Stack<T>, elem_size: usize) void {
-    vec_free(&s.data, elem_size)
+stack_free<T> = (s: MutPtr<Stack<T>>, elem_size: usize) void {
+    vec_free(s.val.data.mut_ref(), elem_size)
 }

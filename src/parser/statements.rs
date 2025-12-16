@@ -28,9 +28,7 @@ impl<'a> Parser<'a> {
                     let var_name = name.clone();
                     let saved_current = self.current_token.clone();
                     let saved_peek = self.peek_token.clone();
-                    let saved_lex_pos = self.lexer.position;
-                    let saved_lex_read = self.lexer.read_position;
-                    let saved_lex_char = self.lexer.current_char;
+                    let saved_lex_state = self.lexer.save_state();
 
                     // Look ahead to see if this is a module import
                     self.next_token(); // Move to :=
@@ -44,9 +42,7 @@ impl<'a> Parser<'a> {
                             true
                         } else if id == "build" {
                             // Check for build.import pattern
-                            let saved_pos = self.lexer.position;
-                            let saved_read_pos = self.lexer.read_position;
-                            let saved_char = self.lexer.current_char;
+                            let saved_state = self.lexer.save_state();
                             let saved_current = self.current_token.clone();
                             let saved_peek = self.peek_token.clone();
 
@@ -58,9 +54,7 @@ impl<'a> Parser<'a> {
                                 };
 
                             // Restore position AND tokens
-                            self.lexer.position = saved_pos;
-                            self.lexer.read_position = saved_read_pos;
-                            self.lexer.current_char = saved_char;
+                            self.lexer.restore_state(saved_state);
                             self.current_token = saved_current;
                             self.peek_token = saved_peek;
 
@@ -75,9 +69,7 @@ impl<'a> Parser<'a> {
                     // Restore complete state
                     self.current_token = saved_current;
                     self.peek_token = saved_peek;
-                    self.lexer.position = saved_lex_pos;
-                    self.lexer.read_position = saved_lex_read;
-                    self.lexer.current_char = saved_lex_char;
+                    self.lexer.restore_state(saved_lex_state);
 
                     if is_module_import {
                         // Parse as module import
@@ -212,9 +204,7 @@ impl<'a> Parser<'a> {
                     // Need to look ahead to distinguish
 
                     // Save state for restoration
-                    let saved_position = self.lexer.position;
-                    let saved_read_position = self.lexer.read_position;
-                    let saved_current_char = self.lexer.current_char;
+                    let saved_state = self.lexer.save_state();
                     let saved_current_token = self.current_token.clone();
                     let saved_peek_token = self.peek_token.clone();
 
@@ -226,9 +216,7 @@ impl<'a> Parser<'a> {
                     let is_function = self.current_token == Token::Symbol('(');
 
                     // Restore state
-                    self.lexer.position = saved_position;
-                    self.lexer.read_position = saved_read_position;
-                    self.lexer.current_char = saved_current_char;
+                    self.lexer.restore_state(saved_state);
                     self.current_token = saved_current_token;
                     self.peek_token = saved_peek_token;
 
@@ -283,18 +271,14 @@ impl<'a> Parser<'a> {
                     };
 
                     // Look ahead to see what type of declaration this is
-                    let saved_position = self.lexer.position;
-                    let saved_read_position = self.lexer.read_position;
-                    let saved_current_char = self.lexer.current_char;
+                    let saved_state = self.lexer.save_state();
                     let saved_current_token = self.current_token.clone();
                     let saved_peek_token = self.peek_token.clone();
 
                     // If generics, need to look ahead to determine struct vs function
                     if self.peek_token == Token::Operator("<".to_string()) {
                         // Look ahead to see if it's a struct or a function with generics
-                        let saved_position = self.lexer.position;
-                        let saved_read_position = self.lexer.read_position;
-                        let saved_current_char = self.lexer.current_char;
+                        let saved_inner_state = self.lexer.save_state();
                         let saved_current = self.current_token.clone();
                         let saved_peek = self.peek_token.clone();
                         let saved_span = self.current_span.clone();
@@ -321,33 +305,29 @@ impl<'a> Parser<'a> {
                             // FIRST check if this is an impl block: Type<T>.impl = { ... }
                             if self.current_token == Token::Symbol('.') {
                                 // Save state before checking
-                                let saved_after_generics = (
-                                    self.lexer.position,
-                                    self.lexer.read_position,
-                                    self.lexer.current_char,
-                                    self.current_token.clone(),
-                                    self.peek_token.clone(),
-                                );
+                                let saved_after_generics_state = self.lexer.save_state();
+                                let saved_after_generics_current = self.current_token.clone();
+                                let saved_after_generics_peek = self.peek_token.clone();
                                 
                                 self.next_token();
                                 if let Token::Identifier(method_name) = &self.current_token {
-                                    if method_name == "impl" {
-                                        // This IS an impl block! Parse it
-                                        // Restore to beginning and parse properly
-                                        self.lexer.position = saved_position;
-                                        self.lexer.read_position = saved_read_position;
-                                        self.lexer.current_char = saved_current_char;
+                                    let method_name = method_name.clone();
+
+                                    // Check if this is a method definition: Type<T>.method = ...
+                                    if self.peek_token == Token::Operator("=".to_string()) {
+                                        // This is a method definition! Restore and parse properly
+                                        self.lexer.restore_state(saved_inner_state);
                                         self.current_token = saved_current.clone();
                                         self.peek_token = saved_peek.clone();
                                         self.current_span = saved_span.clone();
                                         self.peek_span = saved_peek_span.clone();
-                                        
+
                                         // Parse type name with generics
                                         let mut type_name = if let Token::Identifier(name) = &self.current_token {
                                             name.clone()
                                         } else {
                                             return Err(CompileError::SyntaxError(
-                                                "Expected type name for impl block".to_string(),
+                                                "Expected type name".to_string(),
                                                 Some(self.current_span.clone()),
                                             ));
                                         };
@@ -372,41 +352,39 @@ impl<'a> Parser<'a> {
                                                 break;
                                             }
                                         }
-                                        
-                                        // Now parse .impl = { ... }
-                                        if self.current_token == Token::Symbol('.') {
-                                            self.next_token();
-                                            if let Token::Identifier(method_name) = &self.current_token {
-                                                if method_name == "impl" {
-                                                    self.next_token();
-                                                    if self.current_token == Token::Operator("=".to_string()) {
-                                                        self.next_token();
-                                                        declarations.push(Declaration::ImplBlock(
-                                                            self.parse_impl_block(type_name)?,
-                                                        ));
-                                                        continue; // Skip to next declaration
-                                                    }
-                                                }
+
+                                        // Now at '.', consume it
+                                        self.next_token(); // consume '.'
+
+                                        if method_name == "impl" {
+                                            // impl block: Type<T>.impl = { ... }
+                                            self.next_token(); // consume 'impl'
+                                            if self.current_token == Token::Operator("=".to_string()) {
+                                                self.next_token();
+                                                declarations.push(Declaration::ImplBlock(
+                                                    self.parse_impl_block(type_name)?,
+                                                ));
+                                                continue;
                                             }
+                                            return Err(CompileError::SyntaxError(
+                                                "Expected '=' after 'impl'".to_string(),
+                                                Some(self.current_span.clone()),
+                                            ));
+                                        } else {
+                                            // Method definition: Type<T>.method = (params) ReturnType { ... }
+                                            let full_function_name = format!("{}.{}", type_name, method_name);
+                                            let mut func = self.parse_function()?;
+                                            func.name = full_function_name;
+                                            declarations.push(Declaration::Function(func));
+                                            continue;
                                         }
-                                        
-                                        return Err(CompileError::SyntaxError(
-                                            "Expected '=' after 'impl'".to_string(),
-                                            Some(self.current_span.clone()),
-                                        ));
                                     }
                                 }
-                                
-                                // Not an impl block - restore and skip struct/enum/function parsing
-                                // (since '.' after generics is not valid for those)
-                                self.lexer.position = saved_after_generics.0;
-                                self.lexer.read_position = saved_after_generics.1;
-                                self.lexer.current_char = saved_after_generics.2;
-                                self.current_token = saved_after_generics.3.clone();
-                                self.peek_token = saved_after_generics.4.clone();
-                                
-                                // Skip to next declaration - '.' after generics without 'impl' is invalid
-                                continue;
+
+                                // Not a recognized pattern - restore and continue
+                                self.lexer.restore_state(saved_after_generics_state);
+                                self.current_token = saved_after_generics_current.clone();
+                                self.peek_token = saved_after_generics_peek.clone();
                             }
 
                             // Check what comes after the generics
@@ -415,18 +393,20 @@ impl<'a> Parser<'a> {
                             let is_enum = self.current_token == Token::Symbol(':')
                                 && (matches!(&self.peek_token, Token::Identifier(_))
                                     || self.peek_token == Token::Symbol('.')); // Support .Variant syntax (enums use commas, not pipes)
-                                                                               // Generic function: name<T>(params) return_type { ... }
+                            // Generic function: name<T>(params) return_type { ... }
+                            // or name<T> = (params) return_type { ... }
                             let is_generic_function = self.current_token == Token::Symbol('(');
+                            let is_equals_function = self.current_token == Token::Operator("=".to_string())
+                                && self.peek_token == Token::Symbol('(');
                             let is_function = (self.current_token == Token::Symbol(':')
                                 && self.peek_token == Token::Symbol('('))
-                                || is_generic_function;
+                                || is_generic_function
+                                || is_equals_function;
                             let is_behavior = self.current_token == Token::Symbol(':')
                                 && matches!(&self.peek_token, Token::Identifier(name) if name == "behavior");
 
                             // Restore lexer state
-                            self.lexer.position = saved_position;
-                            self.lexer.read_position = saved_read_position;
-                            self.lexer.current_char = saved_current_char;
+                            self.lexer.restore_state(saved_inner_state);
                             self.current_token = saved_current;
                             self.peek_token = saved_peek;
                             self.current_span = saved_span;
@@ -446,9 +426,7 @@ impl<'a> Parser<'a> {
                             }
                         } else {
                             // Malformed generics, restore and try to parse as struct
-                            self.lexer.position = saved_position;
-                            self.lexer.read_position = saved_read_position;
-                            self.lexer.current_char = saved_current_char;
+                            self.lexer.restore_state(saved_inner_state);
                             self.current_token = saved_current;
                             self.peek_token = saved_peek;
                             self.current_span = saved_span;
@@ -461,13 +439,9 @@ impl<'a> Parser<'a> {
                         if self.peek_token == Token::Symbol('.') || 
                            self.peek_token == Token::Operator("<".to_string()) {
                             // Save state before trying to parse impl
-                            let saved_before_impl = (
-                                self.lexer.position,
-                                self.lexer.read_position,
-                                self.lexer.current_char,
-                                self.current_token.clone(),
-                                self.peek_token.clone(),
-                            );
+                            let saved_before_impl_state = self.lexer.save_state();
+                            let saved_before_impl_current = self.current_token.clone();
+                            let saved_before_impl_peek = self.peek_token.clone();
                             
                             // Try to parse as impl block
                             if let Token::Identifier(name) = &self.current_token {
@@ -518,11 +492,9 @@ impl<'a> Parser<'a> {
                             }
                             
                             // Not an impl block, restore state
-                            self.lexer.position = saved_before_impl.0;
-                            self.lexer.read_position = saved_before_impl.1;
-                            self.lexer.current_char = saved_before_impl.2;
-                            self.current_token = saved_before_impl.3.clone();
-                            self.peek_token = saved_before_impl.4.clone();
+                            self.lexer.restore_state(saved_before_impl_state);
+                            self.current_token = saved_before_impl_current.clone();
+                            self.peek_token = saved_before_impl_peek.clone();
                         }
                         
                         // Need to look ahead to determine if it's a struct, enum, behavior, trait, or function
@@ -540,13 +512,9 @@ impl<'a> Parser<'a> {
                         let (is_struct, is_trait) =
                             if matches!(&self.current_token, Token::Symbol('{')) {
                                 // Look ahead to see if it contains method signatures (trait) or fields (struct)
-                                let saved = (
-                                    self.lexer.position,
-                                    self.lexer.read_position,
-                                    self.lexer.current_char,
-                                    self.current_token.clone(),
-                                    self.peek_token.clone(),
-                                );
+                                let saved_trait_state = self.lexer.save_state();
+                                let saved_trait_current = self.current_token.clone();
+                                let saved_trait_peek = self.peek_token.clone();
 
                                 self.next_token(); // consume '{'
 
@@ -563,11 +531,9 @@ impl<'a> Parser<'a> {
                                     };
 
                                 // Restore state
-                                self.lexer.position = saved.0;
-                                self.lexer.read_position = saved.1;
-                                self.lexer.current_char = saved.2;
-                                self.current_token = saved.3;
-                                self.peek_token = saved.4;
+                                self.lexer.restore_state(saved_trait_state);
+                                self.current_token = saved_trait_current;
+                                self.peek_token = saved_trait_peek;
 
                                 if looks_like_trait {
                                     (false, true)
@@ -579,9 +545,7 @@ impl<'a> Parser<'a> {
                             };
 
                         // Restore lexer state
-                        self.lexer.position = saved_position;
-                        self.lexer.read_position = saved_read_position;
-                        self.lexer.current_char = saved_current_char;
+                        self.lexer.restore_state(saved_state);
                         self.current_token = saved_current_token;
                         self.peek_token = saved_peek_token;
 
@@ -640,18 +604,14 @@ impl<'a> Parser<'a> {
                     };
 
                     // Save state for potential backtrack
-                    let saved_position = self.lexer.position;
-                    let saved_read_position = self.lexer.read_position;
-                    let saved_current_char = self.lexer.current_char;
+                    let saved_impl_state = self.lexer.save_state();
                     let saved_current_token = self.current_token.clone();
                     let saved_peek_token = self.peek_token.clone();
 
                     // Now check for '.'
                     if self.current_token != Token::Symbol('.') {
                         // Not an impl block, restore and continue
-                        self.lexer.position = saved_position;
-                        self.lexer.read_position = saved_read_position;
-                        self.lexer.current_char = saved_current_char;
+                        self.lexer.restore_state(saved_impl_state);
                         self.current_token = saved_current_token;
                         self.peek_token = saved_peek_token;
                         // Continue parsing as something else
@@ -716,9 +676,7 @@ impl<'a> Parser<'a> {
                                 declarations.push(Declaration::Function(func));
                             } else {
                                 // Not a recognized method and not a method definition, restore and error
-                                self.lexer.position = saved_position;
-                                self.lexer.read_position = saved_read_position;
-                                self.lexer.current_char = saved_current_char;
+                                self.lexer.restore_state(saved_impl_state);
                                 self.current_token = saved_current_token;
                                 self.peek_token = saved_peek_token;
 
@@ -733,9 +691,7 @@ impl<'a> Parser<'a> {
                         }
                     } else {
                         // Not an identifier, restore and error
-                        self.lexer.position = saved_position;
-                        self.lexer.read_position = saved_read_position;
-                        self.lexer.current_char = saved_current_char;
+                        self.lexer.restore_state(saved_impl_state);
                         self.current_token = saved_current_token;
                         self.peek_token = saved_peek_token;
 
@@ -778,9 +734,7 @@ impl<'a> Parser<'a> {
                     // Need to look ahead to distinguish
 
                     // Save state for restoration
-                    let saved_position = self.lexer.position;
-                    let saved_read_position = self.lexer.read_position;
-                    let saved_current_char = self.lexer.current_char;
+                    let saved_fn_state = self.lexer.save_state();
                     let saved_current_token = self.current_token.clone();
                     let saved_peek_token = self.peek_token.clone();
 
@@ -798,18 +752,13 @@ impl<'a> Parser<'a> {
                     let is_function = self.current_token == Token::Symbol('(');
 
                     // Restore state
-                    self.lexer.position = saved_position;
-                    self.lexer.read_position = saved_read_position;
-                    self.lexer.current_char = saved_current_char;
+                    self.lexer.restore_state(saved_fn_state);
                     self.current_token = saved_current_token;
                     self.peek_token = saved_peek_token;
 
                     if is_function {
                         // Function declaration: name = (params) returnType { ... }
-                        // Check if it's prefixed with 'pub'
-                        let is_public = false; // Will be set by checking previous token if needed
-                        let mut func = self.parse_function()?;
-                        // Note: pub parsing will be handled in parse_function
+                        let func = self.parse_function()?;
                         declarations.push(Declaration::Function(func));
                     } else {
                         // Variable declaration: name = value
@@ -1258,6 +1207,9 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_variable_declaration(&mut self) -> Result<Statement> {
+        // Capture span at start of declaration for error reporting
+        let start_span = self.current_span.clone();
+        
         let name = if let Token::Identifier(name) = &self.current_token {
             name.clone()
         } else {
@@ -1316,6 +1268,7 @@ impl<'a> Parser<'a> {
                             initializer: None,
                             is_mutable: false,
                             declaration_type: VariableDeclarationType::ExplicitImmutable,
+                            span: Some(start_span),
                         });
                     }
                 }
@@ -1337,6 +1290,7 @@ impl<'a> Parser<'a> {
                         initializer: None,
                         is_mutable: true,
                         declaration_type: VariableDeclarationType::ExplicitMutable,
+                        span: Some(start_span),
                     });
                 }
             }
@@ -1367,6 +1321,7 @@ impl<'a> Parser<'a> {
             initializer: Some(initializer),
             is_mutable,
             declaration_type,
+            span: Some(start_span),
         })
     }
 
@@ -1431,6 +1386,9 @@ impl<'a> Parser<'a> {
 
     #[allow(dead_code)]
     fn parse_variable_assignment(&mut self) -> Result<Statement> {
+        // Capture span at start of assignment for error reporting
+        let start_span = self.current_span.clone();
+        
         // Parse as either declaration or assignment - typechecker will determine which
         let name = if let Token::Identifier(name) = &self.current_token {
             name.clone()
@@ -1461,7 +1419,7 @@ impl<'a> Parser<'a> {
 
         // Return a VariableAssignment statement - the typechecker will determine if this is valid
         // (i.e., if the variable was declared as mutable with ::=)
-        Ok(Statement::VariableAssignment { name, value })
+        Ok(Statement::VariableAssignment { name, value, span: Some(start_span) })
     }
 
     fn parse_destructuring_import(&mut self) -> Result<Statement> {

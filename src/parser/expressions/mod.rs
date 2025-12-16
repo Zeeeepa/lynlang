@@ -5,6 +5,8 @@ pub mod structs;
 pub mod patterns;
 pub mod collections;
 pub mod blocks;
+pub mod control_flow;
+pub mod literals;
 
 use super::core::Parser;
 use crate::ast::Expression;

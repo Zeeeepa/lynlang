@@ -126,6 +126,7 @@ fn transform_statement_self_types(stmt: &Statement, concrete_type: &str) -> Resu
             declaration_type,
             initializer,
             is_mutable,
+            span,
         } => Ok(Statement::VariableDeclaration {
             name: name.clone(),
             type_: type_
@@ -137,6 +138,7 @@ fn transform_statement_self_types(stmt: &Statement, concrete_type: &str) -> Resu
                 .map(|e| transform_expression_self_types(e, concrete_type))
                 .transpose()?,
             is_mutable: *is_mutable,
+            span: span.clone(),
         }),
         Statement::Expression(expr) => Ok(Statement::Expression(transform_expression_self_types(
             expr,
