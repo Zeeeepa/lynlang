@@ -18,7 +18,8 @@ pub fn exit_scope(checker: &mut TypeChecker) {
 
 /// Declare a variable in the current scope
 pub fn declare_variable(checker: &mut TypeChecker, name: &str, type_: AstType, is_mutable: bool, span: Option<Span>) -> Result<()> {
-        if variable_exists(checker, name) {
+        // Only check current scope for duplicates - shadowing from outer scopes is allowed
+        if variable_exists_in_current_scope(checker, name) {
             return Err(CompileError::TypeError(
                 format!("Variable '{}' already declared in this scope", name),
                 span,
@@ -52,7 +53,8 @@ pub fn declare_variable_with_init(
         is_initialized: bool,
         span: Option<Span>,
     ) -> Result<()> {
-        if variable_exists(checker, name) {
+        // Only check current scope for duplicates - shadowing from outer scopes is allowed
+        if variable_exists_in_current_scope(checker, name) {
             return Err(CompileError::TypeError(
                 format!("Variable '{}' already declared in this scope", name),
                 span,
@@ -141,5 +143,10 @@ pub fn get_variable_info(checker: &TypeChecker, name: &str) -> Result<VariableIn
 /// Check if a variable exists in any scope
 pub fn variable_exists(checker: &TypeChecker, name: &str) -> bool {
         checker.scopes.iter().rev().any(|scope| scope.contains_key(name))
+    }
+
+/// Check if a variable exists in the current (innermost) scope only
+pub fn variable_exists_in_current_scope(checker: &TypeChecker, name: &str) -> bool {
+        checker.scopes.last().map(|scope| scope.contains_key(name)).unwrap_or(false)
     }
 
