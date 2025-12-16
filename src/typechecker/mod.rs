@@ -13,7 +13,7 @@ pub mod types;
 pub mod validation;
 
 use crate::ast::{AstType, Declaration, Expression, Function, Program, Statement};
-use crate::error::{CompileError, Result};
+use crate::error::{CompileError, Result, Span};
 use crate::stdlib_metadata::StdNamespace;
 use behaviors::BehaviorResolver;
 use std::collections::HashMap;
@@ -1264,7 +1264,11 @@ impl TypeChecker {
     }
 
     fn declare_variable(&mut self, name: &str, type_: AstType, is_mutable: bool) -> Result<()> {
-        scope::declare_variable(self, name, type_, is_mutable)
+        scope::declare_variable(self, name, type_, is_mutable, None)
+    }
+    
+    fn declare_variable_with_span(&mut self, name: &str, type_: AstType, is_mutable: bool, span: Option<Span>) -> Result<()> {
+        scope::declare_variable(self, name, type_, is_mutable, span)
     }
 
     fn declare_variable_with_init(
@@ -1274,7 +1278,18 @@ impl TypeChecker {
         is_mutable: bool,
         is_initialized: bool,
     ) -> Result<()> {
-        scope::declare_variable_with_init(self, name, type_, is_mutable, is_initialized)
+        scope::declare_variable_with_init(self, name, type_, is_mutable, is_initialized, None)
+    }
+    
+    fn declare_variable_with_init_and_span(
+        &mut self,
+        name: &str,
+        type_: AstType,
+        is_mutable: bool,
+        is_initialized: bool,
+        span: Option<Span>,
+    ) -> Result<()> {
+        scope::declare_variable_with_init(self, name, type_, is_mutable, is_initialized, span)
     }
 
     fn mark_variable_initialized(&mut self, name: &str) -> Result<()> {

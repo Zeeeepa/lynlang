@@ -3,7 +3,7 @@
 
 use super::{TypeChecker, VariableInfo, EnumInfo};
 use crate::ast::AstType;
-use crate::error::{CompileError, Result};
+use crate::error::{CompileError, Result, Span};
 use std::collections::HashMap;
 
 /// Enter a new scope
@@ -17,11 +17,11 @@ pub fn exit_scope(checker: &mut TypeChecker) {
     }
 
 /// Declare a variable in the current scope
-pub fn declare_variable(checker: &mut TypeChecker, name: &str, type_: AstType, is_mutable: bool) -> Result<()> {
+pub fn declare_variable(checker: &mut TypeChecker, name: &str, type_: AstType, is_mutable: bool, span: Option<Span>) -> Result<()> {
         if variable_exists(checker, name) {
             return Err(CompileError::TypeError(
                 format!("Variable '{}' already declared in this scope", name),
-                None,
+                span,
             ));
         }
 
@@ -36,7 +36,7 @@ pub fn declare_variable(checker: &mut TypeChecker, name: &str, type_: AstType, i
         } else {
             return Err(CompileError::InternalError(
                 "No active scope".to_string(),
-                None,
+                span,
             ));
         }
 
@@ -50,11 +50,12 @@ pub fn declare_variable_with_init(
         type_: AstType,
         is_mutable: bool,
         is_initialized: bool,
+        span: Option<Span>,
     ) -> Result<()> {
         if variable_exists(checker, name) {
             return Err(CompileError::TypeError(
                 format!("Variable '{}' already declared in this scope", name),
-                None,
+                span,
             ));
         }
 
@@ -69,7 +70,7 @@ pub fn declare_variable_with_init(
         } else {
             return Err(CompileError::InternalError(
                 "No active scope".to_string(),
-                None,
+                span,
             ));
         }
 

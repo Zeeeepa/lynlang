@@ -80,23 +80,25 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
                                 span.clone()
                             ));
                         }
-                        checker.declare_variable_with_init(
+                        checker.declare_variable_with_init_and_span(
                             name,
                             declared_type.clone(),
                             *is_mutable,
                             true,
+                            span.clone(),
                         )?;
                     } else {
                         // Inferred type from initializer
-                        checker.declare_variable_with_init(name, inferred_type, *is_mutable, true)?;
+                        checker.declare_variable_with_init_and_span(name, inferred_type, *is_mutable, true, span.clone())?;
                     }
                 } else if let Some(declared_type) = type_ {
                     // Forward declaration without initializer
-                    checker.declare_variable_with_init(
+                    checker.declare_variable_with_init_and_span(
                         name,
                         declared_type.clone(),
                         *is_mutable,
                         false,
+                        span.clone(),
                     )?;
                 } else {
                     return Err(CompileError::TypeError(
@@ -108,12 +110,12 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
                     ));
                 }
             }
-            Statement::VariableAssignment { name, value, .. } => {
+            Statement::VariableAssignment { name, value, span } => {
                 // Check if variable exists
                 if !checker.variable_exists(name) {
                     // This is a new immutable declaration using = operator
                     let value_type = checker.infer_expression_type(value)?;
-                    checker.declare_variable_with_init(name, value_type.clone(), false, true)?;
+                    checker.declare_variable_with_init_and_span(name, value_type.clone(), false, true, span.clone())?;
                 // false = immutable
                 } else {
                     // This is an assignment to existing variable
