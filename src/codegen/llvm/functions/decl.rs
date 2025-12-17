@@ -261,7 +261,7 @@ pub fn compile_function_body<'ctx>(
     let stmt_count = function.body.len();
     for (i, statement) in function.body.iter().enumerate() {
         if i == stmt_count - 1 {
-            if let ast::Statement::Expression(expr) = statement {
+            if let ast::Statement::Expression { expr, .. } = statement {
                 if !matches!(actual_return_type, AstType::Void) {
                     let value = compiler.compile_expression(expr)?;
                     compiler.builder.build_return(Some(&value))?;

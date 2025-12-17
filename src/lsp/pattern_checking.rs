@@ -42,7 +42,7 @@ fn check_pattern_exhaustiveness_with_depth(
     
     for stmt in statements {
         match stmt {
-            crate::ast::Statement::Expression(expr) | crate::ast::Statement::Return(expr) => {
+            crate::ast::Statement::Expression { expr, .. } | crate::ast::Statement::Return { expr, .. } => {
                 check_exhaustiveness_in_expression(
                     expr,
                     diagnostics,

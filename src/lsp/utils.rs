@@ -105,8 +105,26 @@ fn extract_search_terms(error: &CompileError) -> Vec<String> {
                     terms.push(name.to_string());
                 }
             }
-            // "Cannot compare types X and Y" - harder to find, skip for now
-            // "Cannot apply X to types Y and Z" - extract operator context
+            // "'foo' is not a function" -> search for "foo("
+            if msg.starts_with('\'') {
+                if let Some(end_quote) = msg[1..].find('\'') {
+                    let name = &msg[1..end_quote + 1];
+                    if !name.is_empty() {
+                        terms.push(format!("{}(", name)); // Function call
+                        terms.push(name.to_string());
+                    }
+                }
+            }
+            // "Undeclared variable: 'foo'" -> search for "foo"
+            if let Some(idx) = msg.find("Undeclared variable: '") {
+                let start = idx + 22;
+                if let Some(end) = msg[start..].find('\'') {
+                    let name = &msg[start..start + end];
+                    if !name.is_empty() {
+                        terms.push(name.to_string());
+                    }
+                }
+            }
         }
         CompileError::UndeclaredVariable(name, _) => {
             terms.push(name.clone());

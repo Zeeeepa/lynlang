@@ -10,8 +10,8 @@ use crate::error::CompileError;
 impl<'ctx> LLVMCompiler<'ctx> {
     pub fn compile_statement(&mut self, statement: &Statement) -> Result<(), CompileError> {
         match statement {
-            Statement::Expression(expr) => expressions::compile_expression_statement(self, expr),
-            Statement::Return(expr) => control::compile_return(self, expr),
+            Statement::Expression { expr, .. } => expressions::compile_expression_statement(self, expr),
+            Statement::Return { expr, .. } => control::compile_return(self, expr),
             Statement::VariableDeclaration { .. } => variables::compile_variable_declaration(self, statement),
             Statement::VariableAssignment { .. } => variables::compile_assignment(self, statement),
             Statement::PointerAssignment { .. } => variables::compile_assignment(self, statement),

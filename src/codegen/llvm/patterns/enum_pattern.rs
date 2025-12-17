@@ -44,14 +44,12 @@ pub fn compile_enum_variant_pattern<'ctx>(
     let discriminant = if scrutinee_val.is_pointer_value() {
         // Extract discriminant from pointer
         let enum_struct_type = enum_info.llvm_type;
-        let discriminant_gep = unsafe {
-            compiler.builder.build_struct_gep(
-                enum_struct_type,
-                scrutinee_val.into_pointer_value(),
-                0,
-                "discriminant_ptr",
-            )?
-        };
+        let discriminant_gep = compiler.builder.build_struct_gep(
+            enum_struct_type,
+            scrutinee_val.into_pointer_value(),
+            0,
+            "discriminant_ptr",
+        )?;
         compiler.builder.build_load(
             compiler.context.i64_type(),
             discriminant_gep,
@@ -155,14 +153,12 @@ fn extract_enum_payload<'ctx>(
         let enum_struct_type = enum_info.llvm_type;
         // Check if enum has payload field
         if enum_struct_type.count_fields() > 1 {
-            let payload_gep = unsafe {
-                compiler.builder.build_struct_gep(
-                    enum_struct_type,
-                    scrutinee_val.into_pointer_value(),
-                    1,
-                    "payload_ptr",
-                )?
-            };
+            let payload_gep = compiler.builder.build_struct_gep(
+                enum_struct_type,
+                scrutinee_val.into_pointer_value(),
+                1,
+                "payload_ptr",
+            )?;
 
             // Get the actual payload type from the enum struct
             let payload_type = enum_struct_type

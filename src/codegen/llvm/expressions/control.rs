@@ -18,11 +18,16 @@ pub fn compile_loop<'ctx>(
             .context
             .append_basic_block(compiler.current_function.unwrap(), "after_loop");
 
+        // Extract the actual body from the closure wrapper if present
+        let actual_body = match body.as_ref() {
+            Expression::Closure { body: closure_body, .. } => closure_body.as_ref(),
+            other => other,
+        };
+
         // Infer return type from break expressions in the body
-        // For now, default to void if no break value is found
-        let return_type = compiler.infer_expression_type(body)?;
+        let return_type = compiler.infer_expression_type(actual_body)?;
         
-        // Create a phi node for the return value (if loop returns a value)
+        // Check if loop returns a value
         let has_return_value = !matches!(return_type, crate::ast::AstType::Void);
         
         // Push loop context for break/continue
@@ -34,8 +39,8 @@ pub fn compile_loop<'ctx>(
             .map_err(|e| CompileError::from(e))?;
         compiler.builder.position_at_end(loop_body);
 
-        // Compile body - this may contain break/continue
-        let body_value = compiler.compile_expression(body)?;
+        // Compile actual body (unwrapped from closure)
+        let body_value = compiler.compile_expression(actual_body)?;
 
         // If body didn't terminate (no break/return), loop back
         let current_block = compiler.builder.get_insert_block().unwrap();
@@ -49,12 +54,9 @@ pub fn compile_loop<'ctx>(
         compiler.builder.position_at_end(after_loop_block);
 
         // If loop returns a value, we need a phi node
-        // For now, return the body value or void
         if has_return_value {
-            // TODO: Implement phi node for break values
             Ok(body_value)
         } else {
-            // Return void for loops without return values
             Ok(compiler.context.i64_type().const_zero().into())
         }
     } else {

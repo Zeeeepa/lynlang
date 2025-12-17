@@ -186,7 +186,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     let dereferenced = self.builder.build_load(basic_type, ptr_val, "deref_ptr")?;
                                     
                                     // Recursively match the payload pattern
-                                    let (payload_matches, mut payload_bindings) = self.compile_pattern_test_with_type(
+                                    let (payload_matches, payload_bindings) = self.compile_pattern_test_with_type(
                                         &dereferenced,
                                         &payload_pattern,
                                         Some(inner_type),

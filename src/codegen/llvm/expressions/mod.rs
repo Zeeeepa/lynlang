@@ -156,11 +156,11 @@ fn compile_block_expression<'ctx>(
     // Handle the last statement specially - if it's an expression, return its value
     let last_stmt = &statements[statements.len() - 1];
     match last_stmt {
-        Statement::Expression(expr) => {
+        Statement::Expression { expr, .. } => {
             // The last expression is the block's return value
             compiler.compile_expression(expr)
         }
-        Statement::Return(_expr) => {
+        Statement::Return { .. } => {
             // If the last statement is a return, compile it normally
             // The actual return happens in the statement, but we need to return something here
             compiler.compile_statement(last_stmt)?;

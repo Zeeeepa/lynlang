@@ -155,10 +155,10 @@ impl Monomorphizer {
         stmt: &crate::ast::Statement,
     ) -> Result<(), String> {
         match stmt {
-            crate::ast::Statement::Expression(expr) => {
+            crate::ast::Statement::Expression { expr, .. } => {
                 self.collect_instantiations_from_expression(expr)
             }
-            crate::ast::Statement::Return(expr) => {
+            crate::ast::Statement::Return { expr, .. } => {
                 self.collect_instantiations_from_expression(expr)
             }
             crate::ast::Statement::VariableDeclaration {
@@ -449,12 +449,14 @@ impl Monomorphizer {
         stmt: crate::ast::Statement,
     ) -> Result<crate::ast::Statement, String> {
         match stmt {
-            crate::ast::Statement::Expression(expr) => Ok(crate::ast::Statement::Expression(
-                self.transform_expression(expr)?,
-            )),
-            crate::ast::Statement::Return(expr) => Ok(crate::ast::Statement::Return(
-                self.transform_expression(expr)?,
-            )),
+            crate::ast::Statement::Expression { expr, span } => Ok(crate::ast::Statement::Expression {
+                expr: self.transform_expression(expr)?,
+                span,
+            }),
+            crate::ast::Statement::Return { expr, span } => Ok(crate::ast::Statement::Return {
+                expr: self.transform_expression(expr)?,
+                span,
+            }),
             crate::ast::Statement::VariableDeclaration {
                 name,
                 type_,

@@ -188,12 +188,14 @@ impl<'a> TypeInstantiator<'a> {
                 declaration_type: declaration_type.clone(),
                 span: span.clone(),
             }),
-            Statement::Expression(expr) => Ok(Statement::Expression(
-                self.instantiate_expression(expr, substitution),
-            )),
-            Statement::Return(expr) => Ok(Statement::Return(
-                self.instantiate_expression(expr, substitution),
-            )),
+            Statement::Expression { expr, span } => Ok(Statement::Expression {
+                expr: self.instantiate_expression(expr, substitution),
+                span: span.clone(),
+            }),
+            Statement::Return { expr, span } => Ok(Statement::Return {
+                expr: self.instantiate_expression(expr, substitution),
+                span: span.clone(),
+            }),
             Statement::Loop { kind, label, body } => {
                 use crate::ast::LoopKind;
                 let new_kind = match kind {

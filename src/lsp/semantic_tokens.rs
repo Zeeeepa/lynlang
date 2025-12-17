@@ -1,6 +1,8 @@
 // Semantic Tokens Module for Zen LSP
 // Handles textDocument/semanticTokens/full requests
 
+#![allow(dead_code)]
+
 use lsp_server::{Request, Response, ResponseError, ErrorCode};
 use lsp_types::*;
 use serde_json::Value;
@@ -111,7 +113,7 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
     // Track generic type context for distinguishing < > as brackets vs operators
     // When we see a type name like Ptr, Vec, HashMap followed by <, we're in generic context
     let mut generic_depth: i32 = 0;  // Nesting depth for generics
-    let mut last_was_type_name = false;  // Was the previous identifier a type name?
+    let mut last_was_type_name;  // Was the previous identifier a type name?
 
     while let Some((line_idx, line)) = line_iter.next() {
         let mut char_idx = 0;
@@ -157,7 +159,7 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
             // String literals (including triple-quoted strings and format expressions)
             if ch == '"' {
                 let string_start = start;
-                let mut string_start_char_idx = char_idx;
+                let string_start_char_idx = char_idx;
                 let mut escaped = false;
                 let mut is_triple = false;
                 

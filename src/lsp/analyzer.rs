@@ -70,7 +70,7 @@ fn run_compiler_analysis(program: &Program, content: &str) -> Vec<Diagnostic> {
 pub fn check_allocator_usage(statements: &[Statement], diagnostics: &mut Vec<Diagnostic>, content: &str) {
     for stmt in statements {
         match stmt {
-            Statement::Expression(expr) | Statement::Return(expr) => {
+            Statement::Expression { expr, .. } | Statement::Return { expr, .. } => {
                 check_allocator_in_expression(expr, diagnostics, content);
             }
             Statement::VariableDeclaration { initializer: Some(expr), .. } |
@@ -292,7 +292,7 @@ fn find_variable_type_in_statements(var_name: &str, stmts: &[Statement]) -> Opti
                     }
                 }
             }
-            Statement::Expression(expr) | Statement::Return(expr) => {
+            Statement::Expression { expr, .. } | Statement::Return { expr, .. } => {
                 if let Some(type_str) = find_variable_in_expression(var_name, expr) {
                     return Some(type_str);
                 }

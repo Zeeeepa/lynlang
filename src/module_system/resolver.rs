@@ -108,7 +108,7 @@ impl ModuleResolver {
     #[allow(dead_code)]
     fn resolve_statement(&self, stmt: &mut Statement) -> Result<(), String> {
         match stmt {
-            Statement::Expression(expr) => self.resolve_expression(expr),
+            Statement::Expression { expr, .. } => self.resolve_expression(expr),
             Statement::VariableDeclaration { initializer, .. } => {
                 if let Some(init) = initializer {
                     self.resolve_expression(init)?;
@@ -116,7 +116,7 @@ impl ModuleResolver {
                 Ok(())
             }
             Statement::VariableAssignment { value, .. } => self.resolve_expression(value),
-            Statement::Return(expr) => self.resolve_expression(expr),
+            Statement::Return { expr, .. } => self.resolve_expression(expr),
             Statement::Loop { body, .. } => {
                 for s in body {
                     self.resolve_statement(s)?;

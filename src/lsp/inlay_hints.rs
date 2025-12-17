@@ -96,11 +96,11 @@ fn collect_hints_from_statements(
                     }
                 }
             }
-            Statement::Expression(expr) => {
+            Statement::Expression { expr, .. } => {
                 // Collect parameter hints from standalone expressions
                 collect_param_hints_from_expression(expr, content, doc, store, hints);
             }
-            Statement::Return(expr) => {
+            Statement::Return { expr, .. } => {
                 // Collect parameter hints from return expressions
                 collect_param_hints_from_expression(expr, content, doc, store, hints);
             }

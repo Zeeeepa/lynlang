@@ -475,7 +475,7 @@ pub fn infer_expression_type(compiler: &LLVMCompiler, expr: &Expression) -> Resu
                         // Handle special cases for pattern binding
                         if let Expression::Block(stmts) = &arm.body {
                             if stmts.len() == 1 {
-                                if let crate::ast::Statement::Expression(Expression::Identifier(_)) = &stmts[0] {
+                                if let crate::ast::Statement::Expression { expr: Expression::Identifier(_), .. } = &stmts[0] {
                                     // This is likely a pattern binding variable, assume I32 for now
                                     return Ok(AstType::I32);
                                 }
@@ -533,11 +533,11 @@ pub fn infer_expression_type(compiler: &LLVMCompiler, expr: &Expression) -> Resu
                 // Block takes the type of its last expression
                 if let Some(last_stmt) = stmts.last() {
                     match last_stmt {
-                        crate::ast::Statement::Expression(expr) => {
+                        crate::ast::Statement::Expression { expr, .. } => {
                             // If the last statement is an expression, the block evaluates to its type
                             compiler.infer_expression_type(expr)
                         }
-                        crate::ast::Statement::Return(_) => {
+                        crate::ast::Statement::Return { .. } => {
                             // If the block ends with a return, it doesn't evaluate to a value
                             // Instead, it's void since control flow leaves the block
                             Ok(AstType::Void)
@@ -736,7 +736,7 @@ pub fn infer_closure_return_type(compiler: &LLVMCompiler, body: &Expression) -> 
                 for arm in arms {
                     if let Expression::Block(statements) = &arm.body {
                         for stmt in statements {
-                            if let crate::ast::Statement::Return(ret_expr) = stmt {
+                            if let crate::ast::Statement::Return { expr: ret_expr, .. } = stmt {
                                 let ret_type = infer_expression_type(compiler, ret_expr)?;
                                 if ret_type != AstType::Void {
                                     return Ok(ret_type);
@@ -750,7 +750,7 @@ pub fn infer_closure_return_type(compiler: &LLVMCompiler, body: &Expression) -> 
             Expression::Block(statements) => {
                 // Look for the last expression or a return statement
                 for stmt in statements {
-                    if let crate::ast::Statement::Return(ret_expr) = stmt {
+                    if let crate::ast::Statement::Return { expr: ret_expr, .. } = stmt {
                         // Recursively infer the return type, especially for closures that just return a Result
                         return infer_expression_type(compiler, ret_expr);
                     }
@@ -758,10 +758,10 @@ pub fn infer_closure_return_type(compiler: &LLVMCompiler, body: &Expression) -> 
                 // Check if the last statement is an expression
                 if let Some(last_stmt) = statements.last() {
                     match last_stmt {
-                        crate::ast::Statement::Expression(expr) => {
+                        crate::ast::Statement::Expression { expr, .. } => {
                             return infer_expression_type(compiler, expr);
                         }
-                        crate::ast::Statement::Return(expr) => {
+                        crate::ast::Statement::Return { expr, .. } => {
                             return infer_expression_type(compiler, expr);
                         }
                         _ => {}

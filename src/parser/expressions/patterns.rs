@@ -90,7 +90,7 @@ pub fn parse_pattern_match(parser: &mut Parser, scrutinee: Expression) -> Result
                         if parser.current_token == Token::Symbol(';') {
                             // It's a statement, not the final expression
                             parser.next_token();
-                            statements.push(crate::ast::Statement::Expression(expr));
+                            statements.push(crate::ast::Statement::Expression { expr, span: None });
                         } else {
                             // It's the final expression
                             final_expr = Some(expr);
@@ -115,7 +115,7 @@ pub fn parse_pattern_match(parser: &mut Parser, scrutinee: Expression) -> Result
                 if !statements.is_empty() || final_expr.is_some() {
                     // If there's a final expression, add it to the statements
                     if let Some(expr) = final_expr {
-                        statements.push(crate::ast::Statement::Expression(expr));
+                        statements.push(crate::ast::Statement::Expression { expr, span: None });
                     }
                     Expression::Block(statements)
                 } else {

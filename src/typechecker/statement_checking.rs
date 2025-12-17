@@ -6,8 +6,6 @@ use crate::typechecker::TypeChecker;
 
 /// Type check a statement
 pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Result<()> {
-        // Note: Import validation is handled in check_declaration for ComptimeBlocks
-
         match statement {
             Statement::VariableDeclaration {
                 name,
@@ -17,8 +15,7 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
                 span,
                 ..
             } => {
-                // Check if this is an assignment to a forward-declared variable
-                // This happens when we have: x: i32 (forward decl) then x = 10 (initialization)
+                checker.set_current_span(span.clone());
                 if let Some(init_expr) = initializer {
                     // Check if variable already exists (forward declaration case)
                     if checker.variable_exists(name) {
@@ -111,7 +108,7 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
                 }
             }
             Statement::VariableAssignment { name, value, span } => {
-                // Check if variable exists
+                checker.set_current_span(span.clone());
                 if !checker.variable_exists(name) {
                     // This is a new immutable declaration using = operator
                     let value_type = checker.infer_expression_type(value)?;
@@ -131,7 +128,7 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
                                     "Type mismatch in initial assignment to '{}': expected {:?}, got {:?}",
                                     name, var_info.type_, value_type
                                 ),
-                                None
+                                checker.get_current_span()
                             ));
                         }
                         // Mark as initialized
@@ -141,7 +138,7 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
                         if !var_info.is_mutable {
                             return Err(CompileError::TypeError(
                                 format!("Cannot reassign to immutable variable '{}'", name),
-                                None,
+                                checker.get_current_span(),
                             ));
                         }
 
@@ -153,17 +150,19 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
                                     "Type mismatch: cannot assign {:?} to variable '{}' of type {:?}",
                                     value_type, name, var_info.type_
                                 ),
-                                None
+                                checker.get_current_span()
                             ));
                         }
                     }
                 }
             }
-            Statement::Return(expr) => {
+            Statement::Return { expr, span } => {
+                checker.set_current_span(span.clone());
                 let _return_type = checker.infer_expression_type(expr)?;
                 // TODO: Check against function return type
             }
-            Statement::Expression(expr) => {
+            Statement::Expression { expr, span } => {
+                checker.set_current_span(span.clone());
                 checker.infer_expression_type(expr)?;
             }
             Statement::Loop { kind, body, .. } => {
@@ -184,7 +183,7 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
                                     "Loop condition must be boolean or integer, got {:?}",
                                     cond_type
                                 ),
-                                None,
+                                checker.get_current_span(),
                             ));
                         }
                     }

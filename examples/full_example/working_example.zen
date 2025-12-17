@@ -54,7 +54,7 @@ greet = (name: StaticString) void {
 }
 
 format_person = (person: Person) StaticString {
-    person_str := "${person.name} (age ${person.age})"
+    person_str = "${person.name} (age ${person.age})"
     return person_str
 }
 
@@ -107,7 +107,7 @@ main = () void {
     // Loop example
     io.println("\nLooping (0-4):")
     io.print("  ")
-    i := 0
+    i ::= 0
     loop(() {
         i >= 5 ? { break }
         io.print("${i} ")

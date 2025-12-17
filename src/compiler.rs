@@ -237,12 +237,14 @@ impl<'ctx> Compiler<'ctx> {
                 pointer: self.process_expression_comptime(pointer, interpreter)?,
                 value: self.process_expression_comptime(value, interpreter)?,
             }),
-            Statement::Return(expr) => Ok(Statement::Return(
-                self.process_expression_comptime(expr, interpreter)?,
-            )),
-            Statement::Expression(expr) => Ok(Statement::Expression(
-                self.process_expression_comptime(expr, interpreter)?,
-            )),
+            Statement::Return { expr, span } => Ok(Statement::Return {
+                expr: self.process_expression_comptime(expr, interpreter)?,
+                span,
+            }),
+            Statement::Expression { expr, span } => Ok(Statement::Expression {
+                expr: self.process_expression_comptime(expr, interpreter)?,
+                span,
+            }),
             Statement::Loop { kind, label, body } => Ok(Statement::Loop {
                 kind,
                 label,
@@ -252,7 +254,7 @@ impl<'ctx> Compiler<'ctx> {
                 // Execute the comptime block inline
                 interpreter.execute_comptime_block(&statements)?;
                 // Comptime blocks don't produce runtime statements
-                Ok(Statement::Expression(Expression::Integer32(0))) // placeholder
+                Ok(Statement::Expression { expr: Expression::Integer32(0), span: None }) // placeholder
             }
             other => Ok(other),
         }

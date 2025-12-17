@@ -114,7 +114,7 @@ impl<'a> Parser<'a> {
             // It's a comptime expression, wrap it in a statement
             self.next_token(); // consume 'comptime'
             let expr = self.parse_comptime_expression()?;
-            Ok(Statement::Expression(expr))
+            Ok(Statement::Expression { expr, span: None })
         }
     }
 }

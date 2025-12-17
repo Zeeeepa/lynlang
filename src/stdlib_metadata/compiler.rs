@@ -12,7 +12,7 @@ pub struct CompilerModule {
 impl CompilerModule {
     pub fn new() -> Self {
         let mut functions = HashMap::new();
-        let mut types = HashMap::new();
+        let types = HashMap::new();
 
         // inline.c() - Inline C code compilation
         functions.insert(

@@ -367,12 +367,12 @@ impl ComptimeInterpreter {
                 Ok(None)
             }
 
-            Statement::Expression(expr) => {
+            Statement::Expression { expr, .. } => {
                 let value = self.evaluate_expression(expr)?;
                 Ok(Some(value))
             }
 
-            Statement::Return(expr) => {
+            Statement::Return { expr, .. } => {
                 let value = self.evaluate_expression(expr)?;
                 Ok(Some(value))
             }

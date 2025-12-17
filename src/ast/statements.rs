@@ -23,8 +23,14 @@ impl SpannedStatement {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
-    Expression(Expression),
-    Return(Expression),
+    Expression {
+        expr: Expression,
+        span: Option<Span>,
+    },
+    Return {
+        expr: Expression,
+        span: Option<Span>,
+    },
     // Enhanced variable declarations supporting all Zen syntax
     VariableDeclaration {
         name: String,

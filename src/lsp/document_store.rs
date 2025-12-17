@@ -629,8 +629,8 @@ impl DocumentStore {
     fn find_references_in_statements(&self, statements: &[Statement], symbols: &mut HashMap<String, SymbolInfo>) {
         for stmt in statements {
             match stmt {
-                Statement::Expression(expr) => self.find_references_in_expression(expr, symbols),
-                Statement::Return(expr) => self.find_references_in_expression(expr, symbols),
+                Statement::Expression { expr, .. } => self.find_references_in_expression(expr, symbols),
+                Statement::Return { expr, .. } => self.find_references_in_expression(expr, symbols),
                 Statement::VariableDeclaration { initializer: Some(expr), .. } => {
                     self.find_references_in_expression(expr, symbols);
                 }

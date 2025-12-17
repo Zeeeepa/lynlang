@@ -140,14 +140,14 @@ fn transform_statement_self_types(stmt: &Statement, concrete_type: &str) -> Resu
             is_mutable: *is_mutable,
             span: span.clone(),
         }),
-        Statement::Expression(expr) => Ok(Statement::Expression(transform_expression_self_types(
-            expr,
-            concrete_type,
-        )?)),
-        Statement::Return(expr) => Ok(Statement::Return(transform_expression_self_types(
-            expr,
-            concrete_type,
-        )?)),
+        Statement::Expression { expr, span } => Ok(Statement::Expression {
+            expr: transform_expression_self_types(expr, concrete_type)?,
+            span: span.clone(),
+        }),
+        Statement::Return { expr, span } => Ok(Statement::Return {
+            expr: transform_expression_self_types(expr, concrete_type)?,
+            span: span.clone(),
+        }),
         Statement::Loop { kind, label, body } => {
             Ok(Statement::Loop {
                 kind: kind.clone(), // LoopKind doesn't contain types

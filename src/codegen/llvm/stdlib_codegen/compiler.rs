@@ -547,14 +547,8 @@ pub fn compile_load<'ctx>(
         )),
     };
 
-    // Cast pointer to pointer-to-T
-    let ptr_type = match basic_type {
-        BasicTypeEnum::IntType(t) => t.ptr_type(inkwell::AddressSpace::default()),
-        BasicTypeEnum::FloatType(t) => t.ptr_type(inkwell::AddressSpace::default()),
-        BasicTypeEnum::PointerType(t) => t.ptr_type(inkwell::AddressSpace::default()),
-        BasicTypeEnum::StructType(t) => t.ptr_type(inkwell::AddressSpace::default()),
-        _ => compiler.context.ptr_type(inkwell::AddressSpace::default()),
-    };
+    // Cast pointer to pointer-to-T (LLVM 15+ uses opaque pointers)
+    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
     
     let typed_ptr = compiler.builder.build_pointer_cast(
         ptr.into_pointer_value(),
@@ -598,23 +592,11 @@ pub fn compile_store<'ctx>(
         }
     };
 
-    // Get the basic type for storing and pointer type
-    let (_basic_type, ptr_type) = match store_type {
-        Type::Basic(b) => {
-            let ptr_ty = match b {
-                BasicTypeEnum::IntType(t) => t.ptr_type(inkwell::AddressSpace::default()),
-                BasicTypeEnum::FloatType(t) => t.ptr_type(inkwell::AddressSpace::default()),
-                BasicTypeEnum::PointerType(t) => t.ptr_type(inkwell::AddressSpace::default()),
-                BasicTypeEnum::StructType(t) => t.ptr_type(inkwell::AddressSpace::default()),
-                _ => compiler.context.ptr_type(inkwell::AddressSpace::default()),
-            };
-            (b, ptr_ty)
-        },
-        Type::Struct(st) => {
-            let ptr_ty = st.ptr_type(inkwell::AddressSpace::default());
-            // Convert struct to BasicTypeEnum for build_store
-            (st.as_basic_type_enum(), ptr_ty)
-        },
+    // Get the basic type for storing (LLVM 15+ uses opaque pointers)
+    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
+    let _basic_type = match store_type {
+        Type::Basic(b) => b,
+        Type::Struct(st) => st.as_basic_type_enum(),
         _ => return Err(CompileError::TypeError(
             "compiler.store can only store basic types or structs".to_string(),
             None,
