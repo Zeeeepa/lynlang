@@ -1,64 +1,83 @@
 // Zen Standard Library: Stack
 // LIFO (Last In First Out) data structure
+// Uses compile-time generics with Vec<T>
 
 { compiler } = @std
-{ Vec, vec_new, vec_with_capacity, vec_push, vec_pop, vec_len, vec_is_empty, vec_free } = @std
+{ Ptr, Option } = @std.core
+{ Allocator } = @std.memory.allocator
 
 // Stack<T> - implemented using Vec<T> internally
 Stack<T>: {
-    data: Vec<T>
+    data: Vec<T>,
+    allocator: Allocator
 }
+
+// ============================================================================
+// Constructors
+// ============================================================================
 
 // Create new empty stack
-stack_new<T> = () Stack<T> {
+Stack<T>.new = (allocator: Allocator) Stack<T> {
     return Stack<T> {
-        data: vec_new()
+        data: Vec<T>.new(allocator),
+        allocator: allocator
     }
 }
 
-// Create stack with capacity
-stack_with_capacity<T> = (capacity: usize) Stack<T> {
+// Create stack with initial capacity
+Stack<T>.with_capacity = (allocator: Allocator, capacity: usize) Stack<T> {
     return Stack<T> {
-        data: vec_with_capacity(capacity)
+        data: Vec<T>.with_capacity(allocator, capacity),
+        allocator: allocator
     }
 }
+
+// ============================================================================
+// Properties
+// ============================================================================
 
 // Get stack size
-stack_len<T> = (s: Stack<T>) usize {
-    return vec_len(s.data)
+Stack<T>.len = (self: Stack<T>) usize {
+    return self.data.len()
 }
 
 // Check if empty
-stack_is_empty<T> = (s: Stack<T>) bool {
-    return vec_is_empty(s.data)
+Stack<T>.is_empty = (self: Stack<T>) bool {
+    return self.data.is_empty()
 }
+
+// ============================================================================
+// Operations
+// ============================================================================
 
 // Push element onto stack
-stack_push<T> = (s: MutPtr<Stack<T>>, elem_size: usize, elem_addr: RawPtr<u8>) void {
-    vec_push(s.val.data.mut_ref(), elem_size, elem_addr)
+Stack<T>.push = (self: MutPtr<Stack<T>>, elem: T) void {
+    self.val.data.mut_ref().push(elem)
 }
 
-// Pop element from stack
-stack_pop<T> = (s: MutPtr<Stack<T>>) void {
-    vec_pop(s.val.data.mut_ref())
+// Pop element from stack (removes top)
+Stack<T>.pop = (self: MutPtr<Stack<T>>) void {
+    self.val.data.mut_ref().pop()
 }
 
-// Peek at top without removing
-stack_peek_addr<T> = (s: Stack<T>) RawPtr<u8> {
-    len = vec_len(s.data)
+// Peek at top element without removing
+Stack<T>.peek = (self: Stack<T>) Option<T> {
+    len = self.data.len()
     len == 0 ?
-        | true { return compiler.int_to_ptr(0) }
-        | false { }
-    return vec_get_addr(s.data, len - 1)
+        | true { return Option.None }
+        | false { return self.data.get(len - 1) }
 }
 
 // Clear stack
-stack_clear<T> = (s: MutPtr<Stack<T>>) void {
-    // Use internal vec clear
-    s.val.data.len = 0
+Stack<T>.clear = (self: MutPtr<Stack<T>>) void {
+    self.val.data.mut_ref().clear()
 }
 
-// Free stack
-stack_free<T> = (s: MutPtr<Stack<T>>, elem_size: usize) void {
-    vec_free(s.val.data.mut_ref(), elem_size)
+// ============================================================================
+// Memory Management
+// ============================================================================
+
+// Free stack memory
+Stack<T>.free = (self: MutPtr<Stack<T>>) void {
+    self.val.data.mut_ref().free()
 }

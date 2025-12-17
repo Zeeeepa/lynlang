@@ -1,8 +1,10 @@
 // Zen Standard Library: HashMap
 // Hash-based key-value map
+// Uses compile-time generics with Vec<T>
 
 { compiler } = @std
-{ Vec, vec_new, vec_with_capacity, vec_len, vec_is_empty, vec_free } = @std
+{ Ptr, Option } = @std.core
+{ Allocator } = @std.memory.allocator
 
 // Entry for a single key-value pair
 Entry<K, V>: {
@@ -15,83 +17,107 @@ Entry<K, V>: {
 HashMap<K, V>: {
     entries: Vec<Entry<K, V>>,
     size: usize,
-    capacity: usize
+    capacity: usize,
+    allocator: Allocator
 }
 
+// ============================================================================
+// Constructors
+// ============================================================================
+
 // Create new empty hashmap
-hashmap_new<K, V> = () HashMap<K, V> {
+HashMap<K, V>.new = (allocator: Allocator) HashMap<K, V> {
     return HashMap<K, V> {
-        entries: vec_new(),
+        entries: Vec<Entry<K, V>>.new(allocator),
         size: 0,
-        capacity: 0
+        capacity: 0,
+        allocator: allocator
     }
 }
 
 // Create hashmap with initial capacity
-hashmap_with_capacity<K, V> = (capacity: usize) HashMap<K, V> {
+HashMap<K, V>.with_capacity = (allocator: Allocator, capacity: usize) HashMap<K, V> {
     return HashMap<K, V> {
-        entries: vec_with_capacity(capacity),
+        entries: Vec<Entry<K, V>>.with_capacity(allocator, capacity),
         size: 0,
-        capacity: capacity
+        capacity: capacity,
+        allocator: allocator
     }
 }
 
+// ============================================================================
+// Properties
+// ============================================================================
+
 // Get number of entries
-hashmap_len<K, V> = (m: HashMap<K, V>) usize {
-    return m.size
+HashMap<K, V>.len = (self: HashMap<K, V>) usize {
+    return self.size
 }
 
 // Check if empty
-hashmap_is_empty<K, V> = (m: HashMap<K, V>) bool {
-    return m.size == 0
+HashMap<K, V>.is_empty = (self: HashMap<K, V>) bool {
+    return self.size == 0
 }
 
-// Simple hash function (just use identity for now)
+// ============================================================================
+// Hash Function
+// ============================================================================
+
+// Simple hash function (placeholder - returns 0)
+// TODO: Implement proper hash function
 hash<K> = (key: K) u64 {
-    // TODO: Implement proper hash function
     return 0
 }
 
+// ============================================================================
+// Operations
+// ============================================================================
+
 // Insert key-value pair
-hashmap_insert<K, V> = (m: MutPtr<HashMap<K, V>>, key: K, value: V) void {
-    m.val.capacity == 0 ?
-        | true { m.val.capacity = 16 }
+HashMap<K, V>.insert = (self: MutPtr<HashMap<K, V>>, key: K, value: V) void {
+    self.val.capacity == 0 ?
+        | true { self.val.capacity = 16 }
         | false { }
 
-    // TODO: Implement hash table insertion
+    // TODO: Implement hash table insertion with linear probing
     // For now, just track size
-    m.val.size = m.val.size + 1
+    self.val.size = self.val.size + 1
 }
 
 // Get value by key
-hashmap_get<K, V> = (m: HashMap<K, V>, key: K) Option<V> {
+HashMap<K, V>.get = (self: HashMap<K, V>, key: K) Option<V> {
     // TODO: Implement hash table lookup
     return Option.None
 }
 
 // Check if key exists
-hashmap_contains_key<K, V> = (m: HashMap<K, V>, key: K) bool {
+HashMap<K, V>.contains_key = (self: HashMap<K, V>, key: K) bool {
     // TODO: Implement hash table lookup
     return false
 }
 
-// Remove key
-hashmap_remove<K, V> = (m: MutPtr<HashMap<K, V>>, key: K) Option<V> {
+// Remove key and return value
+HashMap<K, V>.remove = (self: MutPtr<HashMap<K, V>>, key: K) Option<V> {
     // TODO: Implement hash table removal
-    m.val.size > 0 ?
-        | true { m.val.size = m.val.size - 1 }
+    self.val.size > 0 ?
+        | true { self.val.size = self.val.size - 1 }
         | false { }
     return Option.None
 }
 
 // Clear hashmap
-hashmap_clear<K, V> = (m: MutPtr<HashMap<K, V>>) void {
-    m.val.size = 0
+HashMap<K, V>.clear = (self: MutPtr<HashMap<K, V>>) void {
+    self.val.size = 0
+    self.val.entries.mut_ref().clear()
 }
 
-// Free hashmap
-hashmap_free<K, V> = (m: MutPtr<HashMap<K, V>>, entry_size: usize) void {
-    vec_free(m.val.entries.mut_ref(), entry_size)
-    m.val.size = 0
-    m.val.capacity = 0
+// ============================================================================
+// Memory Management
+// ============================================================================
+
+// Free hashmap memory
+HashMap<K, V>.free = (self: MutPtr<HashMap<K, V>>) void {
+    self.val.entries.mut_ref().free()
+    self.val.size = 0
+    self.val.capacity = 0
 }

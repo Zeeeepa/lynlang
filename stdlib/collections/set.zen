@@ -1,89 +1,94 @@
 // Zen Standard Library: Set
 // Unordered collection of unique elements
+// Uses compile-time generics with Vec<T>
 
 { compiler } = @std
-{ Vec, vec_new, vec_with_capacity, vec_len, vec_is_empty, vec_free, vec_get_addr } = @std
+{ Ptr, Option } = @std.core
+{ Allocator } = @std.memory.allocator
 
-// Set<T> - implemented using Vec<T> (simplified: just tracks unique items)
+// Set<T> - implemented using Vec<T> (simplified: linear search)
 Set<T>: {
-    data: Vec<T>
+    data: Vec<T>,
+    allocator: Allocator
 }
+
+// ============================================================================
+// Constructors
+// ============================================================================
 
 // Create new empty set
-set_new<T> = () Set<T> {
+Set<T>.new = (allocator: Allocator) Set<T> {
     return Set<T> {
-        data: vec_new()
+        data: Vec<T>.new(allocator),
+        allocator: allocator
     }
 }
 
-// Create set with capacity
-set_with_capacity<T> = (capacity: usize) Set<T> {
+// Create set with initial capacity
+Set<T>.with_capacity = (allocator: Allocator, capacity: usize) Set<T> {
     return Set<T> {
-        data: vec_with_capacity(capacity)
+        data: Vec<T>.with_capacity(allocator, capacity),
+        allocator: allocator
     }
 }
+
+// ============================================================================
+// Properties
+// ============================================================================
 
 // Get set size
-set_len<T> = (s: Set<T>) usize {
-    return vec_len(s.data)
+Set<T>.len = (self: Set<T>) usize {
+    return self.data.len()
 }
 
 // Check if empty
-set_is_empty<T> = (s: Set<T>) bool {
-    return vec_is_empty(s.data)
+Set<T>.is_empty = (self: Set<T>) bool {
+    return self.data.is_empty()
 }
 
-// Check if element exists (naive O(n) search)
-set_contains<T> = (s: Set<T>, index: usize) bool {
-    return index < vec_len(s.data)
+// ============================================================================
+// Operations
+// ============================================================================
+
+// Check if element exists at index (bounds check)
+Set<T>.contains_index = (self: Set<T>, index: usize) bool {
+    return index < self.data.len()
 }
 
 // Insert element (caller responsible for uniqueness)
-set_insert<T> = (s: MutPtr<Set<T>>, elem_size: usize, elem_addr: RawPtr<u8>) void {
-    // TODO: Check for duplicates before inserting
-    // For now, just add blindly
-    vec_push(s.val.data.mut_ref(), elem_size, elem_addr)
+// TODO: Add proper duplicate checking with equality comparison
+Set<T>.insert = (self: MutPtr<Set<T>>, elem: T) void {
+    self.val.data.mut_ref().push(elem)
 }
 
-// Remove element at index
-set_remove<T> = (s: MutPtr<Set<T>>, index: usize) void {
-    index < vec_len(s.val.data) ?
+// Remove element at index (swap-remove for O(1))
+Set<T>.remove_at = (self: MutPtr<Set<T>>, index: usize) void {
+    len = self.val.data.len()
+    index < len ?
         | true {
-            // Remove by swapping with last element
-            last_index = vec_len(s.val.data) - 1
+            // Swap with last element if not already last
+            last_index = len - 1
             index != last_index ?
                 | true {
-                    last_addr = vec_get_addr(s.val.data, last_index)
-                    target_addr = vec_get_addr(s.val.data, index)
-
-                    // Copy last element to index position
-                    elem_size = compiler.sizeof(T)
-                    i ::= 0
-                    loop(() {
-                        i >= elem_size ?
-                            | true { break }
-                            | false { }
-                        offset = cast(i, i64)
-                        src = compiler.gep(last_addr, offset)
-                        dst = compiler.gep(target_addr, offset)
-                        // TODO: Copy byte
-                        i = i + 1
-                    })
+                    // TODO: swap elements when we have proper element access
                 }
                 | false { }
-
-            // Decrease length
-            s.val.data.len = s.val.data.len - 1
+            // Pop the last element
+            self.val.data.mut_ref().pop()
         }
         | false { }
 }
 
 // Clear set
-set_clear<T> = (s: MutPtr<Set<T>>) void {
-    s.val.data.len = 0
+Set<T>.clear = (self: MutPtr<Set<T>>) void {
+    self.val.data.mut_ref().clear()
 }
 
-// Free set
-set_free<T> = (s: MutPtr<Set<T>>, elem_size: usize) void {
-    vec_free(s.val.data.mut_ref(), elem_size)
+// ============================================================================
+// Memory Management
+// ============================================================================
+
+// Free set memory
+Set<T>.free = (self: MutPtr<Set<T>>) void {
+    self.val.data.mut_ref().free()
 }

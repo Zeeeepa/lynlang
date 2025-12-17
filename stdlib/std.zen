@@ -1,23 +1,30 @@
 // Zen Standard Library Entry Point
 // Re-exports all standard library modules
+// Types use method-based API: Type.method(self, args)
 
-// Core modules
-{ Option, some, none, is_some, is_none, map, unwrap_or, unwrap } = @std.core.option
-{ Result, ok, err, is_ok, is_err, map, map_err, unwrap, unwrap_err } = @std.core.result
-{ Ptr, ptr_allocate, ptr_from_addr, ptr_none, ptr_is_some, ptr_is_none, ptr_at, ptr_offset, ptr_addr, ptr_unwrap, ptr_free, ptr_copy, ptr_eq } = @std.core.ptr
+// Core modules - Option and Result types
+{ Option } = @std.core.option
+{ Result } = @std.core.result
+{ Ptr } = @std.core.ptr
 
-// Memory management
-{ Allocator, allocate_ok } = @std.memory.allocator
-{ GPA, gpa_new, gpa_allocate, gpa_deallocate, gpa_reallocate, default_allocator } = @std.memory.gpa
+// Memory management - Allocators
+{ Allocator } = @std.memory.allocator
+{ GPA } = @std.memory.gpa
 
-// String
-{ String, string_new, string_from_static, string_len, string_capacity, string_is_empty, string_push, string_clear, string_free, string_at, string_reserve, string_clone } = @std.string
+// String type (use String.new, String.len, etc.)
+{ String } = @std.string
 
-// Vector
-{ Vec, vec_new, vec_with_capacity, vec_len, vec_capacity, vec_is_empty, vec_get_addr, vec_is_valid_index, vec_first_index, vec_last_index, vec_push, vec_pop, vec_clear, vec_reserve, vec_shrink_to_fit, vec_free, Array, DynVec } = @std.vec
+// Vector type (use Vec<T>.new, Vec<T>.push, etc.)
+{ Vec } = @std.vec
 
-// IO
+// Collections (use Type<T>.new, Type<T>.method, etc.)
+{ Queue } = @std.collections.queue
+{ Stack } = @std.collections.stack
+{ Set } = @std.collections.set
+{ HashMap } = @std.collections.hashmap
+
+// IO functions
 { STDIN, STDOUT, STDERR, print, println, eprint, eprintln, read_line, read_input } = @std.io.io
 
-// Math
+// Math functions
 { PI, E, sin, cos, tan, asin, acos, atan, atan2, sinh, cosh, tanh, exp, log, log10, log2, pow, sqrt, cbrt, floor, ceil, round, trunc, fabs, fmod, remainder, fmin, fmax, copysign } = @std.math.math

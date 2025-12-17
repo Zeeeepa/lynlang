@@ -1,76 +1,97 @@
 // Zen Standard Library: Queue
 // FIFO (First In First Out) data structure
+// Uses compile-time generics with Vec<T>
 
 { compiler } = @std
-{ Vec, vec_new, vec_with_capacity, vec_push, vec_pop, vec_len, vec_is_empty, vec_free, vec_get_addr } = @std
+{ Ptr, Option } = @std.core
+{ Allocator } = @std.memory.allocator
 
-// Queue<T> - implemented using Vec<T> internally with head/tail
+// Queue<T> - implemented using Vec<T> internally with head/tail indices
 Queue<T>: {
     data: Vec<T>,
     head: usize,
-    tail: usize
+    tail: usize,
+    allocator: Allocator
 }
+
+// ============================================================================
+// Constructors
+// ============================================================================
 
 // Create new empty queue
-queue_new<T> = () Queue<T> {
+Queue<T>.new = (allocator: Allocator) Queue<T> {
     return Queue<T> {
-        data: vec_new(),
+        data: Vec<T>.new(allocator),
         head: 0,
-        tail: 0
+        tail: 0,
+        allocator: allocator
     }
 }
 
-// Create queue with capacity
-queue_with_capacity<T> = (capacity: usize) Queue<T> {
+// Create queue with initial capacity
+Queue<T>.with_capacity = (allocator: Allocator, capacity: usize) Queue<T> {
     return Queue<T> {
-        data: vec_with_capacity(capacity),
+        data: Vec<T>.with_capacity(allocator, capacity),
         head: 0,
-        tail: 0
+        tail: 0,
+        allocator: allocator
     }
 }
+
+// ============================================================================
+// Properties
+// ============================================================================
 
 // Get queue size
-queue_len<T> = (q: Queue<T>) usize {
-    q.tail >= q.head ?
-        | true { return q.tail - q.head }
+Queue<T>.len = (self: Queue<T>) usize {
+    self.tail >= self.head ?
+        | true { return self.tail - self.head }
         | false { return 0 }
 }
 
 // Check if empty
-queue_is_empty<T> = (q: Queue<T>) bool {
-    return q.head >= q.tail
+Queue<T>.is_empty = (self: Queue<T>) bool {
+    return self.head >= self.tail
 }
 
-// Enqueue element
-queue_enqueue<T> = (q: MutPtr<Queue<T>>, elem_size: usize, elem_addr: RawPtr<u8>) void {
-    vec_push(q.val.data.mut_ref(), elem_size, elem_addr)
-    q.val.tail = q.val.tail + 1
+// ============================================================================
+// Operations
+// ============================================================================
+
+// Enqueue element at the back
+Queue<T>.enqueue = (self: MutPtr<Queue<T>>, elem: T) void {
+    self.val.data.mut_ref().push(elem)
+    self.val.tail = self.val.tail + 1
 }
 
-// Dequeue element (conceptually - just advance head)
-queue_dequeue<T> = (q: MutPtr<Queue<T>>) void {
-    q.val.head < q.val.tail ?
-        | true { q.val.head = q.val.head + 1 }
+// Dequeue element from front (advances head pointer)
+Queue<T>.dequeue = (self: MutPtr<Queue<T>>) void {
+    self.val.head < self.val.tail ?
+        | true { self.val.head = self.val.head + 1 }
         | false { }
 }
 
-// Peek at front without removing
-queue_peek_addr<T> = (q: Queue<T>) RawPtr<u8> {
-    q.head >= q.tail ?
-        | true { return compiler.int_to_ptr(0) }
-        | false { }
-    return vec_get_addr(q.data, q.head)
+// Peek at front element without removing
+Queue<T>.peek = (self: Queue<T>) Option<T> {
+    self.head >= self.tail ?
+        | true { return Option.None }
+        | false { return self.data.get(self.head) }
 }
 
-// Clear queue
-queue_clear<T> = (q: MutPtr<Queue<T>>) void {
-    q.val.head = 0
-    q.val.tail = 0
+// Clear queue (reset indices)
+Queue<T>.clear = (self: MutPtr<Queue<T>>) void {
+    self.val.head = 0
+    self.val.tail = 0
+    self.val.data.mut_ref().clear()
 }
 
-// Free queue
-queue_free<T> = (q: MutPtr<Queue<T>>, elem_size: usize) void {
-    vec_free(q.val.data.mut_ref(), elem_size)
-    q.val.head = 0
-    q.val.tail = 0
+// ============================================================================
+// Memory Management
+// ============================================================================
+
+// Free queue memory
+Queue<T>.free = (self: MutPtr<Queue<T>>) void {
+    self.val.data.mut_ref().free()
+    self.val.head = 0
+    self.val.tail = 0
 }
