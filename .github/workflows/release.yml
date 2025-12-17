@@ -1,0 +1,148 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v0.7.1)'
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: zen-linux-x86_64
+          - target: x86_64-apple-darwin
+            os: macos-13
+            name: zen-macos-x86_64
+          - target: aarch64-apple-darwin
+            os: macos-14
+            name: zen-macos-arm64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            name: zen-windows-x86_64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install LLVM (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 18
+          sudo apt-get install -y llvm-18-dev libpolly-18-dev
+          echo "LLVM_SYS_181_PREFIX=/usr/lib/llvm-18" >> $GITHUB_ENV
+
+      - name: Install LLVM (macOS)
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          brew install llvm@18
+          echo "LLVM_SYS_181_PREFIX=$(brew --prefix llvm@18)" >> $GITHUB_ENV
+          echo "$(brew --prefix llvm@18)/bin" >> $GITHUB_PATH
+
+      - name: Install LLVM (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install llvm --version=18.1.8 -y
+          echo "LLVM_SYS_181_PREFIX=C:\Program Files\LLVM" >> $env:GITHUB_ENV
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.target }}-cargo-
+
+      - name: Build Release Binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare Binary (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/zen dist/
+          cp target/${{ matrix.target }}/release/zen-lsp dist/ || true
+          chmod +x dist/*
+          cd dist && tar -czvf ../${{ matrix.name }}.tar.gz *
+
+      - name: Prepare Binary (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          mkdir dist
+          copy target\${{ matrix.target }}\release\zen.exe dist\
+          copy target\${{ matrix.target }}\release\zen-lsp.exe dist\ 2>nul || echo "zen-lsp not found"
+          cd dist && 7z a -tzip ..\${{ matrix.name }}.zip *
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            ${{ matrix.name }}.tar.gz
+            ${{ matrix.name }}.zip
+          if-no-files-found: ignore
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Get Version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: List Artifacts
+        run: find artifacts -type f -name "*.tar.gz" -o -name "*.zip"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Zen ${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
