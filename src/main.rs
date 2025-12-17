@@ -182,35 +182,24 @@ fn run_file(file_path: &str) -> std::io::Result<()> {
         })?;
 
     // Find and run main function
-    match execution_engine.get_function_value("main") {
+    let exit_code = match execution_engine.get_function_value("main") {
         Ok(main_fn) => {
-            // Check the return type of main
             let main_type = main_fn.get_type();
             let return_type = main_type.get_return_type();
             
-            // Handle different return types
-            let exit_code = if let Some(ret_type) = return_type {
+            if let Some(ret_type) = return_type {
                 if ret_type.is_int_type() {
-                    // Simple integer return (normal main)
                     let result = unsafe { execution_engine.run_function(main_fn, &[]) };
                     result.as_int(true) as i32
                 } else if ret_type.is_struct_type() {
-                    // Struct return (Result type) 
-                    // LLVM JIT can't handle struct returns properly
-                    // For now, we just run the function and assume success
-                    // The function will execute but we can't get the Result value
                     eprintln!("Warning: main() returns Result<T,E> which is not fully supported in JIT mode");
                     eprintln!("The function will execute but the Result value cannot be extracted");
                     
-                    // Create a wrapper that calls main and returns 0
-                    // This is a workaround for LLVM JIT limitations
                     unsafe {
-                        // Try to run the function anyway - this might crash but let's try
-                        // Some LLVM versions might handle this
                         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                             execution_engine.run_function(main_fn, &[])
                         })) {
-                            Ok(_) => 0,  // Function ran successfully
+                            Ok(_) => 0,
                             Err(_) => {
                                 eprintln!("Error: Cannot execute main() with Result<T,E> return type in JIT mode");
                                 eprintln!("Consider using 'void' or 'i32' as the return type");
@@ -219,26 +208,28 @@ fn run_file(file_path: &str) -> std::io::Result<()> {
                         }
                     }
                 } else if ret_type.is_float_type() {
-                    // Void return - run the function normally
                     unsafe { execution_engine.run_function(main_fn, &[]) };
                     0
                 } else {
-                    // Unknown return type - try to run it
                     let _result = unsafe { execution_engine.run_function(main_fn, &[]) };
                     0
                 }
             } else {
-                // Void return
                 0
-            };
-            
-            if exit_code != 0 {
-                std::process::exit(exit_code);
             }
         }
         Err(_) => {
             eprintln!("Warning: No main function found");
+            0
         }
+    };
+
+    // Explicitly drop execution engine before context goes out of scope
+    // This prevents double-free issues with LLVM module ownership in release builds
+    drop(execution_engine);
+    
+    if exit_code != 0 {
+        std::process::exit(exit_code);
     }
 
     Ok(())
