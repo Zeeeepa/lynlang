@@ -55,7 +55,7 @@ tempfile = "3.8"
 # Memory-optimized profiles to prevent OOM during compilation
 [profile.release]
 codegen-units = 1        # Single codegen unit = less parallel memory usage
-lto = "thin"             # Thin LTO = less memory than fat LTO
+lto = "fat"              # Full LTO - safe now that MCJIT is explicitly linked
 opt-level = 3            # Full optimization
 incremental = false      # Disable incremental = less disk/memory for cache
 

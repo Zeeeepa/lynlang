@@ -1,4 +1,5 @@
 use inkwell::context::Context;
+use inkwell::execution_engine::ExecutionEngine;
 use inkwell::targets::{CodeModel, FileType, RelocMode, Target, TargetMachine};
 use inkwell::OptimizationLevel;
 use std::env;
@@ -31,6 +32,11 @@ fn main() -> std::io::Result<()> {
             format!("LLVM initialization failed: {}", e),
         )
     })?;
+
+    // CRITICAL: Force MCJIT linkage to prevent LTO dead code elimination.
+    // Without this call, LTO removes MCJIT's static constructors that register
+    // the JIT backend with LLVM's target registry, causing segfaults.
+    ExecutionEngine::link_in_mc_jit();
 
     let args: Vec<String> = env::args().collect();
 
