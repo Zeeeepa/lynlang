@@ -5,21 +5,21 @@
 //! The @std module system is still being implemented. When it's ready, tests
 //! should be updated to use: { compiler } = @std
 
+use inkwell::context::Context;
 use zen::compiler::Compiler;
 use zen::error::CompileError;
 use zen::lexer::Lexer;
 use zen::parser::Parser;
-use inkwell::context::Context;
 
 /// Test helper - compile Zen code and verify it generates valid LLVM IR
 fn compile_code(code: &str) -> Result<(), CompileError> {
     let context = Context::create();
     let compiler = Compiler::new(&context);
-    
+
     let lexer = Lexer::new(code);
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program()?;
-    
+
     // Compile to LLVM IR
     compiler.get_module(&program)?;
     Ok(())
@@ -34,9 +34,9 @@ fn test_gpa_allocator_basic() {
             return 0
         }
     "#;
-    
+
     match compile_code(code) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => panic!("GPA allocator basic test should compile: {:?}", e),
     }
 }
@@ -52,9 +52,9 @@ fn test_allocator_allocate_array() {
             return 0
         }
     "#;
-    
+
     match compile_code(code) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => panic!("Allocator array test should compile: {:?}", e),
     }
 }
@@ -69,9 +69,9 @@ fn test_allocator_reallocate() {
             return 0
         }
     "#;
-    
+
     match compile_code(code) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => panic!("Allocator reallocate test should compile: {:?}", e),
     }
 }
@@ -89,9 +89,9 @@ fn test_allocator_with_null_check() {
             return is_null
         }
     "#;
-    
+
     match compile_code(code) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => panic!("Allocator null check test should compile: {:?}", e),
     }
 }
@@ -111,9 +111,9 @@ fn test_gpa_allocate_multiple() {
             return 0
         }
     "#;
-    
+
     match compile_code(code) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => panic!("GPA allocate multiple test should compile: {:?}", e),
     }
 }
@@ -129,9 +129,9 @@ fn test_allocator_with_pointer_arithmetic() {
             return 0
         }
     "#;
-    
+
     match compile_code(code) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => panic!("Allocator with pointer arithmetic should compile: {:?}", e),
     }
 }
@@ -152,9 +152,9 @@ fn test_allocator_loop_allocations() {
             return 0
         }
     "#;
-    
+
     match compile_code(code) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => panic!("Allocator in loop should compile: {:?}", e),
     }
 }
@@ -175,10 +175,13 @@ fn test_allocator_conditional_allocation() {
             return 0
         }
     "#;
-    
+
     match compile_code(code) {
-        Ok(_) => {},
-        Err(e) => panic!("Allocator with conditional allocation should compile: {:?}", e),
+        Ok(_) => {}
+        Err(e) => panic!(
+            "Allocator with conditional allocation should compile: {:?}",
+            e
+        ),
     }
 }
 
@@ -201,9 +204,9 @@ fn test_allocator_overflow_check() {
             return overflow
         }
     "#;
-    
+
     match compile_code(code) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => panic!("Allocator overflow check should compile: {:?}", e),
     }
 }
@@ -224,9 +227,9 @@ fn test_allocator_with_type_casting() {
             return 0
         }
     "#;
-    
+
     match compile_code(code) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => panic!("Allocator with type casting should compile: {:?}", e),
     }
 }
@@ -242,9 +245,9 @@ fn test_allocator_string_usage() {
             return 0
         }
     "#;
-    
+
     match compile_code(code) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => panic!("Allocator with string usage should compile: {:?}", e),
     }
 }

@@ -3,126 +3,133 @@ use crate::ast::{AstType, Expression};
 use crate::error::CompileError;
 use inkwell::{values::BasicValueEnum, AddressSpace};
 
-pub fn parse_type_args_string(compiler: &LLVMCompiler, type_params_str: &str) -> Result<Vec<AstType>, CompileError> {
-        let mut type_args = Vec::new();
-        let mut current = String::new();
-        let mut angle_depth = 0;
-        
-        for ch in type_params_str.chars() {
-            if ch == '<' {
-                angle_depth += 1;
-                current.push(ch);
-            } else if ch == '>' {
-                angle_depth -= 1;
-                current.push(ch);
-            } else if ch == ',' && angle_depth == 0 {
-                // This comma separates type arguments
-                if !current.is_empty() {
-                    type_args.push(parse_single_type_string(compiler, current.trim())?);
-                    current.clear();
+pub fn parse_type_args_string(
+    compiler: &LLVMCompiler,
+    type_params_str: &str,
+) -> Result<Vec<AstType>, CompileError> {
+    let mut type_args = Vec::new();
+    let mut current = String::new();
+    let mut angle_depth = 0;
+
+    for ch in type_params_str.chars() {
+        if ch == '<' {
+            angle_depth += 1;
+            current.push(ch);
+        } else if ch == '>' {
+            angle_depth -= 1;
+            current.push(ch);
+        } else if ch == ',' && angle_depth == 0 {
+            // This comma separates type arguments
+            if !current.is_empty() {
+                type_args.push(parse_single_type_string(compiler, current.trim())?);
+                current.clear();
+            }
+        } else {
+            current.push(ch);
+        }
+    }
+
+    // Don't forget the last type argument
+    if !current.is_empty() {
+        type_args.push(parse_single_type_string(compiler, current.trim())?);
+    }
+
+    Ok(type_args)
+}
+
+/// Parse a single type string like "i32" or "Option<i32>" into AstType
+pub fn parse_single_type_string(
+    compiler: &LLVMCompiler,
+    type_str: &str,
+) -> Result<AstType, CompileError> {
+    let trimmed = type_str.trim();
+
+    // Check for basic types first
+    match trimmed {
+        "i8" => Ok(AstType::I8),
+        "i16" => Ok(AstType::I16),
+        "i32" => Ok(AstType::I32),
+        "i64" => Ok(AstType::I64),
+        "u8" => Ok(AstType::U8),
+        "u16" => Ok(AstType::U16),
+        "u32" => Ok(AstType::U32),
+        "u64" => Ok(AstType::U64),
+        "f32" => Ok(AstType::F32),
+        "f64" => Ok(AstType::F64),
+        "bool" => Ok(AstType::Bool),
+        "string" => Ok(AstType::StaticLiteral),
+        "StaticString" => Ok(AstType::StaticString),
+        "String" => Ok(crate::ast::resolve_string_struct_type()), // Dynamic string type
+        "void" => Ok(AstType::Void),
+        _ => {
+            // Check if it's a generic type like "Option<i32>"
+            if let Some(angle_pos) = trimmed.find('<') {
+                if trimmed.ends_with('>') {
+                    let base_type = &trimmed[..angle_pos];
+                    let inner_types_str = &trimmed[angle_pos + 1..trimmed.len() - 1];
+                    let inner_types = parse_type_args_string(compiler, inner_types_str)?;
+
+                    Ok(AstType::Generic {
+                        name: base_type.to_string(),
+                        type_args: inner_types,
+                    })
+                } else {
+                    // Invalid generic type syntax
+                    Ok(AstType::I32) // Default fallback
                 }
             } else {
-                current.push(ch);
-            }
-        }
-        
-        // Don't forget the last type argument
-        if !current.is_empty() {
-            type_args.push(parse_single_type_string(compiler, current.trim())?);
-        }
-        
-        Ok(type_args)
-    }
-    
-    /// Parse a single type string like "i32" or "Option<i32>" into AstType
-pub fn parse_single_type_string(compiler: &LLVMCompiler, type_str: &str) -> Result<AstType, CompileError> {
-        let trimmed = type_str.trim();
-        
-        // Check for basic types first
-        match trimmed {
-            "i8" => Ok(AstType::I8),
-            "i16" => Ok(AstType::I16),
-            "i32" => Ok(AstType::I32),
-            "i64" => Ok(AstType::I64),
-            "u8" => Ok(AstType::U8),
-            "u16" => Ok(AstType::U16),
-            "u32" => Ok(AstType::U32),
-            "u64" => Ok(AstType::U64),
-            "f32" => Ok(AstType::F32),
-            "f64" => Ok(AstType::F64),
-            "bool" => Ok(AstType::Bool),
-            "string" => Ok(AstType::StaticLiteral),
-            "StaticString" => Ok(AstType::StaticString),
-            "String" => Ok(crate::ast::resolve_string_struct_type()),  // Dynamic string type
-            "void" => Ok(AstType::Void),
-            _ => {
-                // Check if it's a generic type like "Option<i32>"
-                if let Some(angle_pos) = trimmed.find('<') {
-                    if trimmed.ends_with('>') {
-                        let base_type = &trimmed[..angle_pos];
-                        let inner_types_str = &trimmed[angle_pos + 1..trimmed.len() - 1];
-                        let inner_types = parse_type_args_string(compiler, inner_types_str)?;
-                        
-                        Ok(AstType::Generic {
-                            name: base_type.to_string(),
-                            type_args: inner_types,
-                        })
-                    } else {
-                        // Invalid generic type syntax
-                        Ok(AstType::I32) // Default fallback
-                    }
-                } else {
-                    // Unknown type, default to I32
-                    Ok(AstType::I32)
-                }
+                // Unknown type, default to I32
+                Ok(AstType::I32)
             }
         }
     }
+}
 
-    /// Infer the return type of a closure from its body
+/// Infer the return type of a closure from its body
 pub fn compile_comptime_expression<'ctx>(
-        compiler: &mut LLVMCompiler<'ctx>,
-        expr: &Expression,
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // Evaluate the expression at compile time using the persistent evaluator
-        match compiler.comptime_evaluator.evaluate_expression(expr) {
-            Ok(value) => {
-                // Convert the comptime value to a constant expression and compile it
-                let const_expr = value.to_expression()?;
-                compiler.compile_expression(&const_expr)
-            }
-            Err(e) => {
-                return Err(CompileError::InternalError(
-                    format!("Comptime evaluation error: {}", e),
-                    None,
-                ));
-            }
+    compiler: &mut LLVMCompiler<'ctx>,
+    expr: &Expression,
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    // Evaluate the expression at compile time using the persistent evaluator
+    match compiler.comptime_evaluator.evaluate_expression(expr) {
+        Ok(value) => {
+            // Convert the comptime value to a constant expression and compile it
+            let const_expr = value.to_expression()?;
+            compiler.compile_expression(&const_expr)
+        }
+        Err(e) => {
+            return Err(CompileError::InternalError(
+                format!("Comptime evaluation error: {}", e),
+                None,
+            ));
         }
     }
+}
 pub fn compile_raise_expression<'ctx>(
-        compiler: &mut LLVMCompiler<'ctx>,
-        expr: &Expression,
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // Generate a unique ID for this raise to avoid block name collisions
-        static mut RAISE_ID: u32 = 0;
-        let raise_id = unsafe {
-            RAISE_ID += 1;
-            RAISE_ID
-        };
+    compiler: &mut LLVMCompiler<'ctx>,
+    expr: &Expression,
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    // Generate a unique ID for this raise to avoid block name collisions
+    static mut RAISE_ID: u32 = 0;
+    let raise_id = unsafe {
+        RAISE_ID += 1;
+        RAISE_ID
+    };
 
-        let parent_function = compiler.current_function.ok_or_else(|| {
-            CompileError::InternalError("No current function for .raise()".to_string(), None)
-        })?;
+    let parent_function = compiler.current_function.ok_or_else(|| {
+        CompileError::InternalError("No current function for .raise()".to_string(), None)
+    })?;
 
-        // Get the current function's name to look up its return type
-        let function_name = parent_function
-            .get_name()
-            .to_str()
-            .unwrap_or("anon")
-            .to_string();
+    // Get the current function's name to look up its return type
+    let function_name = parent_function
+        .get_name()
+        .to_str()
+        .unwrap_or("anon")
+        .to_string();
 
-        // Check if the function returns a Result type and if it's void
-        let (returns_result, is_void_function) = if let Some(return_type) = compiler.function_types.get(&function_name) {
+    // Check if the function returns a Result type and if it's void
+    let (returns_result, is_void_function) =
+        if let Some(return_type) = compiler.function_types.get(&function_name) {
             match return_type {
                 AstType::Generic { name, .. } if name == "Result" => (true, false),
                 AstType::Void => (false, true),
@@ -132,292 +139,435 @@ pub fn compile_raise_expression<'ctx>(
             (false, true) // Default to void if we don't know
         };
 
-        // Compile the expression that should return a Result<T, E>
-        let result_value = compiler.compile_expression(expr)?;
-        
-        // Track the Result's generic types based on the expression type
-        match expr {
-            Expression::FunctionCall { name, .. } => {
-                // Check if we know the function's return type - clone to avoid borrow issues
-                if let Some(return_type) = compiler.function_types.get(name).cloned() {
-                    // Track the complex generic type recursively
-                    compiler.track_complex_generic(&return_type, "Result");
-                    
-                    if let AstType::Generic { name: type_name, type_args } = &return_type {
-                        if type_name == "Result" && type_args.len() == 2 {
-                            // Store Result<T, E> type arguments for proper payload extraction
-                            compiler.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                            compiler.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
-                            
-                            // Also use the generic tracker for better nested handling
-                            compiler.generic_tracker.track_generic_type(&return_type, "Result");
-                        }
-                    }
-                }
-            }
-            Expression::Identifier(_name) => {
-                // For identifiers/variables, try to infer their type
-                if let Ok(var_type) = compiler.infer_expression_type(expr) {
-                    if let AstType::Generic { name: type_name, type_args } = &var_type {
-                        if type_name == "Result" && type_args.len() == 2 {
-                            // Store Result<T, E> type arguments for proper payload extraction
-                            compiler.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                            compiler.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
-                            
-                            // Also track nested generics recursively
-                            compiler.track_complex_generic(&var_type, "Result");
-                            compiler.generic_tracker.track_generic_type(&var_type, "Result");
-                        }
-                    }
-                }
-            }
-            Expression::EnumVariant { enum_name, variant, payload } => {
-                // For direct Result.Ok(value) or Result.Err(value) constructions
-                if enum_name == "Result" {
-                    if variant == "Ok" {
-                        // Infer type from the payload
-                        if let Some(payload_expr) = payload {
-                            let payload_type = compiler.infer_expression_type(payload_expr).unwrap_or(AstType::I32);
-                            compiler.track_generic_type("Result_Ok_Type".to_string(), payload_type.clone());
-                            // For Result.Ok, we don't know the error type yet, default to String
-                            compiler.track_generic_type("Result_Err_Type".to_string(), AstType::StaticString);
-                        }
-                    } else if variant == "Err" {
-                        // Infer type from the payload
-                        if let Some(payload_expr) = payload {
-                            let payload_type = compiler.infer_expression_type(payload_expr).unwrap_or(AstType::StaticString);
-                            // For Result.Err, we don't know the Ok type yet, default to I32
-                            compiler.track_generic_type("Result_Ok_Type".to_string(), AstType::I32);
-                            compiler.track_generic_type("Result_Err_Type".to_string(), payload_type.clone());
-                        }
-                    }
-                }
-            }
-            Expression::MethodCall { object,  .. } => {
-                // Special handling for chained method calls like get_chained().raise()
-                // We need to compile the object first to get its type
-                // For raise() on a method call result, we need to track the types properly
-                
-                // First try to infer what the object returns
-                if let Ok(object_type) = compiler.infer_expression_type(object) {
-                    // If the object returns a Result, and we're calling raise() on it,
-                    // we need to track its generic types
-                    if let AstType::Generic { name: type_name, type_args } = &object_type {
-                        if type_name == "Result" && type_args.len() == 2 {
-                            compiler.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                            compiler.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
-                            
-                            compiler.track_complex_generic(&object_type, "Result");
-                            compiler.generic_tracker.track_generic_type(&object_type, "Result");
-                            
-                            // For nested Result types, ensure we track the inner type properly
-                            if let AstType::Generic { name: inner_name, .. } = &type_args[0] {
-                                if inner_name == "Result" {
-                                    // This is Result<Result<T,E>,E> - track the nested structure
-                                    compiler.generic_tracker.track_generic_type(&type_args[0], "Result_Ok");
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Now infer the type of the full method call expression
-                if let Ok(expr_type) = compiler.infer_expression_type(expr) {
-                    if let AstType::Generic { name: type_name, type_args } = &expr_type {
-                        if type_name == "Result" && type_args.len() == 2 {
-                            compiler.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                            compiler.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
-                            
-                            compiler.track_complex_generic(&expr_type, "Result");
-                            compiler.generic_tracker.track_generic_type(&expr_type, "Result");
-                        }
-                    }
-                }
-            }
-            _ => {
-                // Try to infer the type for other expressions
-                if let Ok(expr_type) = compiler.infer_expression_type(expr) {
-                    if let AstType::Generic { name: type_name, type_args } = &expr_type {
-                        if type_name == "Result" && type_args.len() == 2 {
-                            compiler.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                            compiler.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
-                            
-                            compiler.track_complex_generic(&expr_type, "Result");
-                            compiler.generic_tracker.track_generic_type(&expr_type, "Result");
-                        }
+    // Compile the expression that should return a Result<T, E>
+    let result_value = compiler.compile_expression(expr)?;
+
+    // Track the Result's generic types based on the expression type
+    match expr {
+        Expression::FunctionCall { name, .. } => {
+            // Check if we know the function's return type - clone to avoid borrow issues
+            if let Some(return_type) = compiler.function_types.get(name).cloned() {
+                // Track the complex generic type recursively
+                compiler.track_complex_generic(&return_type, "Result");
+
+                if let AstType::Generic {
+                    name: type_name,
+                    type_args,
+                } = &return_type
+                {
+                    if type_name == "Result" && type_args.len() == 2 {
+                        // Store Result<T, E> type arguments for proper payload extraction
+                        compiler
+                            .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                        compiler.track_generic_type(
+                            "Result_Err_Type".to_string(),
+                            type_args[1].clone(),
+                        );
+
+                        // Also use the generic tracker for better nested handling
+                        compiler
+                            .generic_tracker
+                            .track_generic_type(&return_type, "Result");
                     }
                 }
             }
         }
+        Expression::Identifier(_name) => {
+            // For identifiers/variables, try to infer their type
+            if let Ok(var_type) = compiler.infer_expression_type(expr) {
+                if let AstType::Generic {
+                    name: type_name,
+                    type_args,
+                } = &var_type
+                {
+                    if type_name == "Result" && type_args.len() == 2 {
+                        // Store Result<T, E> type arguments for proper payload extraction
+                        compiler
+                            .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                        compiler.track_generic_type(
+                            "Result_Err_Type".to_string(),
+                            type_args[1].clone(),
+                        );
 
-        // Create blocks for pattern matching on Result
-        let check_bb = compiler
-            .context
-            .append_basic_block(parent_function, &format!("raise_check_{}", raise_id));
-        let ok_bb = compiler
-            .context
-            .append_basic_block(parent_function, &format!("raise_ok_{}", raise_id));
-        let err_bb = compiler
-            .context
-            .append_basic_block(parent_function, &format!("raise_err_{}", raise_id));
-        let continue_bb = compiler
-            .context
-            .append_basic_block(parent_function, &format!("raise_continue_{}", raise_id));
+                        // Also track nested generics recursively
+                        compiler.track_complex_generic(&var_type, "Result");
+                        compiler
+                            .generic_tracker
+                            .track_generic_type(&var_type, "Result");
+                    }
+                }
+            }
+        }
+        Expression::EnumVariant {
+            enum_name,
+            variant,
+            payload,
+        } => {
+            // For direct Result.Ok(value) or Result.Err(value) constructions
+            if enum_name == "Result" {
+                if variant == "Ok" {
+                    // Infer type from the payload
+                    if let Some(payload_expr) = payload {
+                        let payload_type = compiler
+                            .infer_expression_type(payload_expr)
+                            .unwrap_or(AstType::I32);
+                        compiler
+                            .track_generic_type("Result_Ok_Type".to_string(), payload_type.clone());
+                        // For Result.Ok, we don't know the error type yet, default to String
+                        compiler.track_generic_type(
+                            "Result_Err_Type".to_string(),
+                            AstType::StaticString,
+                        );
+                    }
+                } else if variant == "Err" {
+                    // Infer type from the payload
+                    if let Some(payload_expr) = payload {
+                        let payload_type = compiler
+                            .infer_expression_type(payload_expr)
+                            .unwrap_or(AstType::StaticString);
+                        // For Result.Err, we don't know the Ok type yet, default to I32
+                        compiler.track_generic_type("Result_Ok_Type".to_string(), AstType::I32);
+                        compiler.track_generic_type(
+                            "Result_Err_Type".to_string(),
+                            payload_type.clone(),
+                        );
+                    }
+                }
+            }
+        }
+        Expression::MethodCall { object, .. } => {
+            // Special handling for chained method calls like get_chained().raise()
+            // We need to compile the object first to get its type
+            // For raise() on a method call result, we need to track the types properly
 
-        // Jump to check block
-        compiler.builder.build_unconditional_branch(check_bb)?;
-        compiler.builder.position_at_end(check_bb);
+            // First try to infer what the object returns
+            if let Ok(object_type) = compiler.infer_expression_type(object) {
+                // If the object returns a Result, and we're calling raise() on it,
+                // we need to track its generic types
+                if let AstType::Generic {
+                    name: type_name,
+                    type_args,
+                } = &object_type
+                {
+                    if type_name == "Result" && type_args.len() == 2 {
+                        compiler
+                            .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                        compiler.track_generic_type(
+                            "Result_Err_Type".to_string(),
+                            type_args[1].clone(),
+                        );
 
+                        compiler.track_complex_generic(&object_type, "Result");
+                        compiler
+                            .generic_tracker
+                            .track_generic_type(&object_type, "Result");
 
-        // Handle the Result enum based on its actual representation
-        // Result<T, E> is an enum with variants Ok(T) and Err(E)
-        // This should work with the existing enum compilation system
+                        // For nested Result types, ensure we track the inner type properly
+                        if let AstType::Generic {
+                            name: inner_name, ..
+                        } = &type_args[0]
+                        {
+                            if inner_name == "Result" {
+                                // This is Result<Result<T,E>,E> - track the nested structure
+                                compiler
+                                    .generic_tracker
+                                    .track_generic_type(&type_args[0], "Result_Ok");
+                            }
+                        }
+                    }
+                }
+            }
 
-        if result_value.is_struct_value() {
-            // Result is represented as a struct with tag + payload
-            let struct_val = result_value.into_struct_value();
-            let struct_type = struct_val.get_type();
+            // Now infer the type of the full method call expression
+            if let Ok(expr_type) = compiler.infer_expression_type(expr) {
+                if let AstType::Generic {
+                    name: type_name,
+                    type_args,
+                } = &expr_type
+                {
+                    if type_name == "Result" && type_args.len() == 2 {
+                        compiler
+                            .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                        compiler.track_generic_type(
+                            "Result_Err_Type".to_string(),
+                            type_args[1].clone(),
+                        );
 
-            // Create a temporary alloca to work with the struct
-            let temp_alloca = compiler.builder.build_alloca(struct_type, "result_temp")?;
-            compiler.builder.build_store(temp_alloca, struct_val)?;
+                        compiler.track_complex_generic(&expr_type, "Result");
+                        compiler
+                            .generic_tracker
+                            .track_generic_type(&expr_type, "Result");
+                    }
+                }
+            }
+        }
+        _ => {
+            // Try to infer the type for other expressions
+            if let Ok(expr_type) = compiler.infer_expression_type(expr) {
+                if let AstType::Generic {
+                    name: type_name,
+                    type_args,
+                } = &expr_type
+                {
+                    if type_name == "Result" && type_args.len() == 2 {
+                        compiler
+                            .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                        compiler.track_generic_type(
+                            "Result_Err_Type".to_string(),
+                            type_args[1].clone(),
+                        );
 
-            // Extract the tag (discriminant) from the first field
-            let tag_ptr = compiler
-                .builder
-                .build_struct_gep(struct_type, temp_alloca, 0, "tag_ptr")?;
-            let tag_value = compiler
-                .builder
-                .build_load(compiler.context.i64_type(), tag_ptr, "tag")?;
+                        compiler.track_complex_generic(&expr_type, "Result");
+                        compiler
+                            .generic_tracker
+                            .track_generic_type(&expr_type, "Result");
+                    }
+                }
+            }
+        }
+    }
 
-            // Check if tag == 0 (Ok variant)
-            let is_ok = compiler.builder.build_int_compare(
-                inkwell::IntPredicate::EQ,
-                tag_value.into_int_value(),
-                compiler.context.i64_type().const_int(0, false),
-                "is_ok",
-            )?;
+    // Create blocks for pattern matching on Result
+    let check_bb = compiler
+        .context
+        .append_basic_block(parent_function, &format!("raise_check_{}", raise_id));
+    let ok_bb = compiler
+        .context
+        .append_basic_block(parent_function, &format!("raise_ok_{}", raise_id));
+    let err_bb = compiler
+        .context
+        .append_basic_block(parent_function, &format!("raise_err_{}", raise_id));
+    let continue_bb = compiler
+        .context
+        .append_basic_block(parent_function, &format!("raise_continue_{}", raise_id));
 
-            // Branch based on the tag
-            compiler.builder
-                .build_conditional_branch(is_ok, ok_bb, err_bb)?;
+    // Jump to check block
+    compiler.builder.build_unconditional_branch(check_bb)?;
+    compiler.builder.position_at_end(check_bb);
 
-            // Handle Ok case - extract the Ok value
-            compiler.builder.position_at_end(ok_bb);
-            if struct_type.count_fields() > 1 {
-                let payload_ptr =
-                    compiler.builder
-                        .build_struct_gep(struct_type, temp_alloca, 1, "payload_ptr")?;
-                // Get the actual payload type from the struct
-                let payload_field_type =
-                    struct_type.get_field_type_at_index(1).ok_or_else(|| {
-                        CompileError::InternalError(
-                            "Result payload field not found".to_string(),
-                            None,
-                        )
-                    })?;
+    // Handle the Result enum based on its actual representation
+    // Result<T, E> is an enum with variants Ok(T) and Err(E)
+    // This should work with the existing enum compilation system
 
-                // Load the payload value (which is a pointer to the actual value)
-                let ok_value_ptr =
-                    compiler.builder
-                        .build_load(payload_field_type, payload_ptr, "ok_value_ptr")?;
+    if result_value.is_struct_value() {
+        // Result is represented as a struct with tag + payload
+        let struct_val = result_value.into_struct_value();
+        let struct_type = struct_val.get_type();
 
-                // The payload is always stored as a pointer in our enum representation
-                // We need to dereference it to get the actual value
-                let ok_value = if ok_value_ptr.is_pointer_value() {
-                    let ptr_val = ok_value_ptr.into_pointer_value();
+        // Create a temporary alloca to work with the struct
+        let temp_alloca = compiler.builder.build_alloca(struct_type, "result_temp")?;
+        compiler.builder.build_store(temp_alloca, struct_val)?;
 
-                    // Use the tracked generic type information to determine the correct type to load
-                    // Determine the correct type to load - handle nested generics
-                    let load_result: Result<BasicValueEnum<'ctx>, CompileError> = if let Some(ast_type) = compiler.generic_type_context.get("Result_Ok_Type").cloned() {
-                            match &ast_type {
+        // Extract the tag (discriminant) from the first field
+        let tag_ptr = compiler
+            .builder
+            .build_struct_gep(struct_type, temp_alloca, 0, "tag_ptr")?;
+        let tag_value = compiler
+            .builder
+            .build_load(compiler.context.i64_type(), tag_ptr, "tag")?;
+
+        // Check if tag == 0 (Ok variant)
+        let is_ok = compiler.builder.build_int_compare(
+            inkwell::IntPredicate::EQ,
+            tag_value.into_int_value(),
+            compiler.context.i64_type().const_int(0, false),
+            "is_ok",
+        )?;
+
+        // Branch based on the tag
+        compiler
+            .builder
+            .build_conditional_branch(is_ok, ok_bb, err_bb)?;
+
+        // Handle Ok case - extract the Ok value
+        compiler.builder.position_at_end(ok_bb);
+        if struct_type.count_fields() > 1 {
+            let payload_ptr =
+                compiler
+                    .builder
+                    .build_struct_gep(struct_type, temp_alloca, 1, "payload_ptr")?;
+            // Get the actual payload type from the struct
+            let payload_field_type = struct_type.get_field_type_at_index(1).ok_or_else(|| {
+                CompileError::InternalError("Result payload field not found".to_string(), None)
+            })?;
+
+            // Load the payload value (which is a pointer to the actual value)
+            let ok_value_ptr =
+                compiler
+                    .builder
+                    .build_load(payload_field_type, payload_ptr, "ok_value_ptr")?;
+
+            // The payload is always stored as a pointer in our enum representation
+            // We need to dereference it to get the actual value
+            let ok_value = if ok_value_ptr.is_pointer_value() {
+                let ptr_val = ok_value_ptr.into_pointer_value();
+
+                // Use the tracked generic type information to determine the correct type to load
+                // Determine the correct type to load - handle nested generics
+                let load_result: Result<BasicValueEnum<'ctx>, CompileError> =
+                    if let Some(ast_type) =
+                        compiler.generic_type_context.get("Result_Ok_Type").cloned()
+                    {
+                        match &ast_type {
                             AstType::I8 => {
-                                let load_type: inkwell::types::BasicTypeEnum = compiler.context.i8_type().into();
-                                Ok(compiler.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                                let load_type: inkwell::types::BasicTypeEnum =
+                                    compiler.context.i8_type().into();
+                                Ok(compiler.builder.build_load(
+                                    load_type,
+                                    ptr_val,
+                                    "ok_value_deref",
+                                )?)
                             }
                             AstType::I16 => {
-                                let load_type: inkwell::types::BasicTypeEnum = compiler.context.i16_type().into();
-                                Ok(compiler.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                                let load_type: inkwell::types::BasicTypeEnum =
+                                    compiler.context.i16_type().into();
+                                Ok(compiler.builder.build_load(
+                                    load_type,
+                                    ptr_val,
+                                    "ok_value_deref",
+                                )?)
                             }
                             AstType::I32 => {
-                                let load_type: inkwell::types::BasicTypeEnum = compiler.context.i32_type().into();
-                                Ok(compiler.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                                let load_type: inkwell::types::BasicTypeEnum =
+                                    compiler.context.i32_type().into();
+                                Ok(compiler.builder.build_load(
+                                    load_type,
+                                    ptr_val,
+                                    "ok_value_deref",
+                                )?)
                             }
                             AstType::I64 => {
-                                let load_type: inkwell::types::BasicTypeEnum = compiler.context.i64_type().into();
-                                Ok(compiler.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                                let load_type: inkwell::types::BasicTypeEnum =
+                                    compiler.context.i64_type().into();
+                                Ok(compiler.builder.build_load(
+                                    load_type,
+                                    ptr_val,
+                                    "ok_value_deref",
+                                )?)
                             }
                             AstType::U8 => {
-                                let load_type: inkwell::types::BasicTypeEnum = compiler.context.i8_type().into();
-                                Ok(compiler.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                                let load_type: inkwell::types::BasicTypeEnum =
+                                    compiler.context.i8_type().into();
+                                Ok(compiler.builder.build_load(
+                                    load_type,
+                                    ptr_val,
+                                    "ok_value_deref",
+                                )?)
                             }
                             AstType::U16 => {
-                                let load_type: inkwell::types::BasicTypeEnum = compiler.context.i16_type().into();
-                                Ok(compiler.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                                let load_type: inkwell::types::BasicTypeEnum =
+                                    compiler.context.i16_type().into();
+                                Ok(compiler.builder.build_load(
+                                    load_type,
+                                    ptr_val,
+                                    "ok_value_deref",
+                                )?)
                             }
                             AstType::U32 => {
-                                let load_type: inkwell::types::BasicTypeEnum = compiler.context.i32_type().into();
-                                Ok(compiler.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                                let load_type: inkwell::types::BasicTypeEnum =
+                                    compiler.context.i32_type().into();
+                                Ok(compiler.builder.build_load(
+                                    load_type,
+                                    ptr_val,
+                                    "ok_value_deref",
+                                )?)
                             }
                             AstType::U64 => {
-                                let load_type: inkwell::types::BasicTypeEnum = compiler.context.i64_type().into();
-                                Ok(compiler.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                                let load_type: inkwell::types::BasicTypeEnum =
+                                    compiler.context.i64_type().into();
+                                Ok(compiler.builder.build_load(
+                                    load_type,
+                                    ptr_val,
+                                    "ok_value_deref",
+                                )?)
                             }
                             AstType::F32 => {
-                                let load_type: inkwell::types::BasicTypeEnum = compiler.context.f32_type().into();
-                                Ok(compiler.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                                let load_type: inkwell::types::BasicTypeEnum =
+                                    compiler.context.f32_type().into();
+                                Ok(compiler.builder.build_load(
+                                    load_type,
+                                    ptr_val,
+                                    "ok_value_deref",
+                                )?)
                             }
                             AstType::F64 => {
-                                let load_type: inkwell::types::BasicTypeEnum = compiler.context.f64_type().into();
-                                Ok(compiler.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                                let load_type: inkwell::types::BasicTypeEnum =
+                                    compiler.context.f64_type().into();
+                                Ok(compiler.builder.build_load(
+                                    load_type,
+                                    ptr_val,
+                                    "ok_value_deref",
+                                )?)
                             }
                             AstType::Bool => {
-                                let load_type: inkwell::types::BasicTypeEnum = compiler.context.bool_type().into();
-                                Ok(compiler.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                                let load_type: inkwell::types::BasicTypeEnum =
+                                    compiler.context.bool_type().into();
+                                Ok(compiler.builder.build_load(
+                                    load_type,
+                                    ptr_val,
+                                    "ok_value_deref",
+                                )?)
                             }
-                            AstType::Generic { name, type_args } if name == "Result" && type_args.len() == 2 => {
+                            AstType::Generic { name, type_args }
+                                if name == "Result" && type_args.len() == 2 =>
+                            {
                                 // Handle nested Result<T,E> - the payload is itself a Result struct
                                 // When we store a nested Result/Option, we heap-allocate the struct and store the pointer
                                 // So ptr_val IS the pointer to the heap-allocated Result struct
-                                
+
                                 // DON'T update context here - it will overwrite the current extraction type!
                                 // The nested Result's types will be handled when IT gets raised
                                 // compiler.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
                                 // compiler.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
-                                
+
                                 // Also track them with more specific keys for nested context
-                                compiler.generic_tracker.track_generic_type(&ast_type, "Result");
-                                
+                                compiler
+                                    .generic_tracker
+                                    .track_generic_type(&ast_type, "Result");
+
                                 let result_struct_type = compiler.context.struct_type(
                                     &[
                                         compiler.context.i64_type().into(), // discriminant
                                         compiler.context.ptr_type(AddressSpace::default()).into(), // payload
                                     ],
-                                    false
+                                    false,
                                 );
-                                
+
                                 // Load the nested Result struct from heap
-                                let loaded_struct = compiler.builder.build_load(result_struct_type, ptr_val, "nested_result")?;
-                                
+                                let loaded_struct = compiler.builder.build_load(
+                                    result_struct_type,
+                                    ptr_val,
+                                    "nested_result",
+                                )?;
+
                                 // IMPORTANT: The extracted type is the nested Result, not its inner type!
                                 // We're extracting Result<i32, string> from Result<Result<i32, string>, string>
                                 // This is what allows the second .raise() to work
                                 Ok(loaded_struct)
                             }
-                            AstType::Generic { name, type_args } if name == "Option" && type_args.len() == 1 => {
+                            AstType::Generic { name, type_args }
+                                if name == "Option" && type_args.len() == 1 =>
+                            {
                                 // Handle Option<T> - similar to Result but with only one type parameter
                                 let option_struct_type = compiler.context.struct_type(
                                     &[
-                                        compiler.context.i64_type().into(), // discriminant  
+                                        compiler.context.i64_type().into(), // discriminant
                                         compiler.context.ptr_type(AddressSpace::default()).into(), // payload
                                     ],
-                                    false
+                                    false,
                                 );
-                                let loaded = compiler.builder.build_load(option_struct_type, ptr_val, "nested_option")?;
-                                
+                                let loaded = compiler.builder.build_load(
+                                    option_struct_type,
+                                    ptr_val,
+                                    "nested_option",
+                                )?;
+
                                 // Track the nested generic type
-                                compiler.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
-                                
+                                compiler.track_generic_type(
+                                    "Option_Some_Type".to_string(),
+                                    type_args[0].clone(),
+                                );
+
                                 Ok(loaded)
                             }
                             AstType::Struct { name, .. } if name == "String" => {
@@ -431,54 +581,475 @@ pub fn compile_raise_expression<'ctx>(
                             }
                             _ => {
                                 // Default fallback to i32
-                                let load_type: inkwell::types::BasicTypeEnum = compiler.context.i32_type().into();
-                                Ok(compiler.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                                let load_type: inkwell::types::BasicTypeEnum =
+                                    compiler.context.i32_type().into();
+                                Ok(compiler.builder.build_load(
+                                    load_type,
+                                    ptr_val,
+                                    "ok_value_deref",
+                                )?)
                             }
                         }
                     } else {
                         // Default to i32 for backward compatibility
-                        let load_type: inkwell::types::BasicTypeEnum = compiler.context.i32_type().into();
-                        Ok(compiler.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                        let load_type: inkwell::types::BasicTypeEnum =
+                            compiler.context.i32_type().into();
+                        Ok(compiler
+                            .builder
+                            .build_load(load_type, ptr_val, "ok_value_deref")?)
                     };
-                    
-                    let loaded_value = load_result?;
+
+                let loaded_value = load_result?;
+
+                // The loaded value should be the correct type
+                loaded_value
+            } else {
+                // If it's not a pointer, it might be an integer that looks like a pointer address
+                // This can happen if the payload is stored incorrectly
+                ok_value_ptr
+            };
+            // Track what type raise() is extracting
+            // Store the type BEFORE updating the context so variables can be typed correctly
+            let extracted_type = compiler.generic_type_context.get("Result_Ok_Type").cloned();
+
+            // Update generic context BEFORE building the branch
+            // If we just extracted a nested generic type, update the context immediately
+            // so that subsequent raise() calls will see the correct type
+            if let Some(ref ast_type) = extracted_type {
+                if let AstType::Generic { name, type_args } = ast_type {
+                    if name == "Result" && type_args.len() == 2 {
+                        // We're extracting a Result<T,E>, update context for next raise()
+                        compiler
+                            .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                        compiler.track_generic_type(
+                            "Result_Err_Type".to_string(),
+                            type_args[1].clone(),
+                        );
+                    } else if name == "Option" && type_args.len() == 1 {
+                        compiler.track_generic_type(
+                            "Option_Some_Type".to_string(),
+                            type_args[0].clone(),
+                        );
+                    }
+                }
+            }
+
+            // Store the extracted type for variable type inference
+            if let Some(extracted) = extracted_type.clone() {
+                // eprintln!("[DEBUG RAISE] Storing Last_Raise_Extracted_Type = {:?}", extracted);
+                compiler
+                    .track_generic_type("Last_Raise_Extracted_Type".to_string(), extracted.clone());
+
+                // Also track it in the generic tracker for better nested handling
+                compiler
+                    .generic_tracker
+                    .track_generic_type(&extracted, "Extracted");
+            }
+
+            compiler.builder.build_unconditional_branch(continue_bb)?;
+
+            // Handle Err case - propagate the error by returning early
+            compiler.builder.position_at_end(err_bb);
+
+            if returns_result {
+                // Function returns Result<T,E> - propagate the entire Result with Err variant
+                let err_payload_ptr = compiler.builder.build_struct_gep(
+                    struct_type,
+                    temp_alloca,
+                    1,
+                    "err_payload_ptr",
+                )?;
+
+                // Get the actual payload type from the struct
+                let payload_field_type =
+                    struct_type.get_field_type_at_index(1).ok_or_else(|| {
+                        CompileError::InternalError(
+                            "Result payload field not found".to_string(),
+                            None,
+                        )
+                    })?;
+
+                // Load the error payload with the correct type
+                let err_value = compiler.builder.build_load(
+                    payload_field_type,
+                    err_payload_ptr,
+                    "err_value",
+                )?;
+
+                // Create a new Result<T,E> with Err variant for early return
+                let return_result_alloca = compiler
+                    .builder
+                    .build_alloca(struct_type, "return_result")?;
+
+                // Set tag to 1 (Err)
+                let return_tag_ptr = compiler.builder.build_struct_gep(
+                    struct_type,
+                    return_result_alloca,
+                    0,
+                    "return_tag_ptr",
+                )?;
+                compiler.builder.build_store(
+                    return_tag_ptr,
+                    compiler.context.i64_type().const_int(1, false),
+                )?;
+
+                // Store the error value
+                let return_payload_ptr = compiler.builder.build_struct_gep(
+                    struct_type,
+                    return_result_alloca,
+                    1,
+                    "return_payload_ptr",
+                )?;
+                compiler
+                    .builder
+                    .build_store(return_payload_ptr, err_value)?;
+
+                // Load and return the complete Result
+                let return_result = compiler.builder.build_load(
+                    struct_type,
+                    return_result_alloca,
+                    "return_result",
+                )?;
+                compiler.builder.build_return(Some(&return_result))?;
+            } else if !is_void_function {
+                // Function returns a plain type (like i32) - this is an error case
+                // For now, we'll return a default error value (1 for i32, indicating error)
+                // In a proper implementation, this would need better error handling
+                let error_value = compiler.context.i32_type().const_int(1, false);
+                compiler.builder.build_return(Some(&error_value))?;
+            } else {
+                // Void function - just return without a value
+                compiler.builder.build_return(None)?;
+            }
+
+            // Continue with Ok value
+            compiler.builder.position_at_end(continue_bb);
+
+            // Context has already been updated before the branch, no need to update again
+
+            Ok(ok_value)
+        } else {
+            // Unit Result (no payload)
+            compiler.builder.build_unconditional_branch(continue_bb)?;
+
+            compiler.builder.position_at_end(err_bb);
+            // For unit Results, handle based on return type
+            if returns_result {
+                compiler.builder.build_return(Some(&struct_val))?;
+            } else if !is_void_function {
+                // Return error value for plain return type
+                let error_value = compiler.context.i32_type().const_int(1, false);
+                compiler.builder.build_return(Some(&error_value))?;
+            } else {
+                // Void function - just return without a value
+                compiler.builder.build_return(None)?;
+            }
+
+            compiler.builder.position_at_end(continue_bb);
+            Ok(compiler.context.i64_type().const_int(0, false).into())
+        }
+    } else if result_value.is_pointer_value() {
+        // Result is stored as a pointer to a struct
+        let result_ptr = result_value.into_pointer_value();
+
+        // For opaque pointers in LLVM 15+, we need to determine the struct type differently
+        // For now, we'll assume it's a Result struct type and try to work with it
+        // In a complete implementation, this would be tracked by the type system
+
+        // Create a basic Result struct type for demonstration
+        let struct_type = compiler.context.struct_type(
+            &[
+                compiler.context.i64_type().into(), // tag
+                compiler.context.i64_type().into(), // payload
+            ],
+            false,
+        );
+
+        // Extract the tag from the first field
+        let tag_ptr = compiler
+            .builder
+            .build_struct_gep(struct_type, result_ptr, 0, "tag_ptr")?;
+        let tag_value = compiler
+            .builder
+            .build_load(compiler.context.i64_type(), tag_ptr, "tag")?;
+
+        // Check if tag == 0 (Ok variant)
+        let is_ok = compiler.builder.build_int_compare(
+            inkwell::IntPredicate::EQ,
+            tag_value.into_int_value(),
+            compiler.context.i64_type().const_int(0, false),
+            "is_ok",
+        )?;
+
+        // Branch based on the tag
+        compiler
+            .builder
+            .build_conditional_branch(is_ok, ok_bb, err_bb)?;
+
+        // Handle Ok case
+        compiler.builder.position_at_end(ok_bb);
+        if struct_type.count_fields() > 1 {
+            let payload_ptr =
+                compiler
+                    .builder
+                    .build_struct_gep(struct_type, result_ptr, 1, "payload_ptr")?;
+            // Load the payload, which is stored as a pointer to the actual value
+            let ok_value_ptr = compiler.builder.build_load(
+                compiler.context.ptr_type(inkwell::AddressSpace::default()),
+                payload_ptr,
+                "ok_value_ptr",
+            )?;
+
+            // Dereference the pointer to get the actual value
+            // For now, assume Result<i32, E>
+            let ok_value = if ok_value_ptr.is_pointer_value() {
+                let ptr_val = ok_value_ptr.into_pointer_value();
+                compiler.builder.build_load(
+                    compiler.context.i32_type(),
+                    ptr_val,
+                    "ok_value_deref",
+                )?
+            } else {
+                ok_value_ptr
+            };
+            compiler.builder.build_unconditional_branch(continue_bb)?;
+
+            // Handle Err case
+            compiler.builder.position_at_end(err_bb);
+
+            if returns_result {
+                // Return the original Result (already contains Err)
+                let err_result =
+                    compiler
+                        .builder
+                        .build_load(struct_type, result_ptr, "err_result")?;
+                compiler.builder.build_return(Some(&err_result))?;
+            } else {
+                // Function returns a plain type - return error value
+                let error_value = compiler.context.i32_type().const_int(1, false);
+                compiler.builder.build_return(Some(&error_value))?;
+            }
+
+            // Continue with Ok value
+            compiler.builder.position_at_end(continue_bb);
+            Ok(ok_value)
+        } else {
+            // Unit Result
+            compiler.builder.build_unconditional_branch(continue_bb)?;
+
+            compiler.builder.position_at_end(err_bb);
+
+            if returns_result {
+                let err_result =
+                    compiler
+                        .builder
+                        .build_load(struct_type, result_ptr, "err_result")?;
+                compiler.builder.build_return(Some(&err_result))?;
+            } else if !is_void_function {
+                // Return error value for plain return type
+                let error_value = compiler.context.i32_type().const_int(1, false);
+                compiler.builder.build_return(Some(&error_value))?;
+            } else {
+                // Void function - just return without a value
+                compiler.builder.build_return(None)?;
+            }
+
+            compiler.builder.position_at_end(continue_bb);
+            Ok(compiler.context.i64_type().const_int(0, false).into())
+        }
+    } else {
+        // Check if this is actually a struct type but LLVM isn't recognizing it
+        // This happens when a Result<T,E> is returned from a function call
+        // The value might be aggregate or the type check is failing
+
+        // Try to handle it as a struct type anyway if it looks like one
+        let result_type = result_value.get_type();
+
+        // Check if this is a Result struct (2 fields) even if it's presented as an array or aggregate type
+        // This can happen with nested Results where the loaded value becomes an aggregate
+        let is_result_like = if result_type.is_struct_type() {
+            let struct_type = result_type.into_struct_type();
+            struct_type.count_fields() == 2 // Result/Option structs have 2 fields: tag + payload
+        } else if result_type.is_array_type() {
+            // Sometimes LLVM represents loaded structs as arrays
+            let array_type = result_type.into_array_type();
+            array_type.len() == 2
+        } else {
+            // Check if the value itself is a struct value (not just the type)
+            result_value.is_struct_value() && {
+                if let Ok(struct_val) = result_value.try_into() {
+                    let sv: inkwell::values::StructValue = struct_val;
+                    sv.get_type().count_fields() == 2
+                } else {
+                    false
+                }
+            }
+        };
+
+        if is_result_like {
+            // Create a proper struct type for Result
+            let struct_type = if result_type.is_struct_type() {
+                result_type.into_struct_type()
+            } else {
+                // Create a struct type that matches Result representation
+                compiler.context.struct_type(
+                    &[
+                        compiler.context.i64_type().into(), // discriminant
+                        compiler
+                            .context
+                            .ptr_type(inkwell::AddressSpace::default())
+                            .into(), // payload pointer
+                    ],
+                    false,
+                )
+            };
+
+            // If the value is already a struct, use it directly; otherwise store it first
+            let temp_alloca = if result_value.is_struct_value() {
+                let alloca = compiler
+                    .builder
+                    .build_alloca(struct_type, "result_struct_temp")?;
+                compiler.builder.build_store(alloca, result_value)?;
+                alloca
+            } else {
+                // Try to treat the value as something we can work with
+                // This handles cases where the nested Result was loaded as an aggregate
+                let alloca = compiler
+                    .builder
+                    .build_alloca(struct_type, "result_aggregate_temp")?;
+
+                // Try to store the value - if it's compatible, this will work
+                compiler.builder.build_store(alloca, result_value)?;
+                alloca
+            };
+
+            // Extract the tag (discriminant) from the first field
+            let tag_ptr =
+                compiler
+                    .builder
+                    .build_struct_gep(struct_type, temp_alloca, 0, "tag_ptr")?;
+            let tag_value =
+                compiler
+                    .builder
+                    .build_load(compiler.context.i64_type(), tag_ptr, "tag")?;
+
+            // Check if tag == 0 (Ok variant)
+            let is_ok = compiler.builder.build_int_compare(
+                inkwell::IntPredicate::EQ,
+                tag_value.into_int_value(),
+                compiler.context.i64_type().const_int(0, false),
+                "is_ok",
+            )?;
+
+            // Branch based on the tag
+            compiler
+                .builder
+                .build_conditional_branch(is_ok, ok_bb, err_bb)?;
+
+            // Handle Ok case - extract the Ok value
+            compiler.builder.position_at_end(ok_bb);
+            if struct_type.count_fields() > 1 {
+                let payload_ptr = compiler.builder.build_struct_gep(
+                    struct_type,
+                    temp_alloca,
+                    1,
+                    "payload_ptr",
+                )?;
+                // Get the actual payload type from the struct
+                let payload_field_type =
+                    struct_type.get_field_type_at_index(1).ok_or_else(|| {
+                        CompileError::InternalError(
+                            "Result payload field not found".to_string(),
+                            None,
+                        )
+                    })?;
+
+                // Load the payload value (which is a pointer to the actual value)
+                let ok_value_ptr =
+                    compiler
+                        .builder
+                        .build_load(payload_field_type, payload_ptr, "ok_value_ptr")?;
+
+                // The payload is always stored as a pointer in our enum representation
+                // We need to dereference it to get the actual value
+                let ok_value_computed = if ok_value_ptr.is_pointer_value() {
+                    let ptr_val = ok_value_ptr.into_pointer_value();
+
+                    // Use the tracked generic type information to determine the correct type to load
+                    let ast_type_opt = compiler.generic_type_context.get("Result_Ok_Type");
+                    let load_type: inkwell::types::BasicTypeEnum =
+                        if let Some(ast_type) = ast_type_opt {
+                            // Debug: Check what type we're loading
+
+                            match ast_type {
+                                AstType::I8 => compiler.context.i8_type().into(),
+                                AstType::I16 => compiler.context.i16_type().into(),
+                                AstType::I32 => compiler.context.i32_type().into(),
+                                AstType::I64 => compiler.context.i64_type().into(),
+                                AstType::U8 => compiler.context.i8_type().into(),
+                                AstType::U16 => compiler.context.i16_type().into(),
+                                AstType::U32 => compiler.context.i32_type().into(),
+                                AstType::U64 => compiler.context.i64_type().into(),
+                                AstType::F32 => compiler.context.f32_type().into(),
+                                AstType::F64 => compiler.context.f64_type().into(),
+                                AstType::Bool => compiler.context.bool_type().into(),
+                                AstType::Generic { name, .. }
+                                    if name == "Result" || name == "Option" =>
+                                {
+                                    // For nested generics (Result<Result<T,E>,E2>),
+                                    // the payload pointer points to a heap-allocated struct
+                                    // We need to load the struct from that pointer
+                                    // The struct itself has the format [i64 tag, ptr payload]
+                                    // eprintln!("[DEBUG] Loading nested generic {} from payload pointer", name);
+                                    compiler
+                                        .context
+                                        .struct_type(
+                                            &[
+                                                compiler.context.i64_type().into(), // tag
+                                                compiler
+                                                    .context
+                                                    .ptr_type(inkwell::AddressSpace::default())
+                                                    .into(), // payload pointer
+                                            ],
+                                            false,
+                                        )
+                                        .into()
+                                }
+                                _ => compiler.context.i32_type().into(), // Default fallback
+                            }
+                        } else {
+                            // Default to i32 for backward compatibility
+                            compiler.context.i32_type().into()
+                        };
+                    // Debug: Check what type we're loading
+
+                    let loaded_value =
+                        compiler
+                            .builder
+                            .build_load(load_type, ptr_val, "ok_value_deref")?;
+
+                    // eprintln!("[DEBUG] Loaded value type: {:?}", loaded_value.get_type());
+                    if let Some(_ast_type) = compiler.generic_type_context.get("Result_Ok_Type") {
+                        // eprintln!("[DEBUG] Result_Ok_Type: {:?}", ast_type);
+                    }
 
                     // The loaded value should be the correct type
+                    // For nested Result/Option types, this will be a struct value that can be raised again
                     loaded_value
                 } else {
                     // If it's not a pointer, it might be an integer that looks like a pointer address
                     // This can happen if the payload is stored incorrectly
                     ok_value_ptr
                 };
-                // Track what type raise() is extracting
-                // Store the type BEFORE updating the context so variables can be typed correctly
-                let extracted_type = compiler.generic_type_context.get("Result_Ok_Type").cloned();
-                
-                // Update generic context BEFORE building the branch
-                // If we just extracted a nested generic type, update the context immediately
-                // so that subsequent raise() calls will see the correct type
-                if let Some(ref ast_type) = extracted_type {
-                    if let AstType::Generic { name, type_args } = ast_type {
-                        if name == "Result" && type_args.len() == 2 {
-                            // We're extracting a Result<T,E>, update context for next raise()
-                            compiler.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                            compiler.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
-                        } else if name == "Option" && type_args.len() == 1 {
-                            compiler.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
-                        }
-                    }
+
+                // For void functions, we can directly return the ok value
+                // since err_bb returns early without branching to continue_bb
+                if is_void_function {
+                    // We're done - return the extracted value
+                    return Ok(ok_value_computed);
                 }
-                
-                // Store the extracted type for variable type inference
-                if let Some(extracted) = extracted_type.clone() {
-        // eprintln!("[DEBUG RAISE] Storing Last_Raise_Extracted_Type = {:?}", extracted);
-                    compiler.track_generic_type("Last_Raise_Extracted_Type".to_string(), extracted.clone());
-                    
-                    // Also track it in the generic tracker for better nested handling
-                    compiler.generic_tracker.track_generic_type(&extracted, "Extracted");
-                    
-                }
-                
+
+                // For non-void functions, branch to continue_bb
                 compiler.builder.build_unconditional_branch(continue_bb)?;
 
                 // Handle Err case - propagate the error by returning early
@@ -510,8 +1081,9 @@ pub fn compile_raise_expression<'ctx>(
                     )?;
 
                     // Create a new Result<T,E> with Err variant for early return
-                    let return_result_alloca =
-                        compiler.builder.build_alloca(struct_type, "return_result")?;
+                    let return_result_alloca = compiler
+                        .builder
+                        .build_alloca(struct_type, "return_result")?;
 
                     // Set tag to 1 (Err)
                     let return_tag_ptr = compiler.builder.build_struct_gep(
@@ -520,8 +1092,10 @@ pub fn compile_raise_expression<'ctx>(
                         0,
                         "return_tag_ptr",
                     )?;
-                    compiler.builder
-                        .build_store(return_tag_ptr, compiler.context.i64_type().const_int(1, false))?;
+                    compiler.builder.build_store(
+                        return_tag_ptr,
+                        compiler.context.i64_type().const_int(1, false),
+                    )?;
 
                     // Store the error value
                     let return_payload_ptr = compiler.builder.build_struct_gep(
@@ -530,7 +1104,9 @@ pub fn compile_raise_expression<'ctx>(
                         1,
                         "return_payload_ptr",
                     )?;
-                    compiler.builder.build_store(return_payload_ptr, err_value)?;
+                    compiler
+                        .builder
+                        .build_store(return_payload_ptr, err_value)?;
 
                     // Load and return the complete Result
                     let return_result = compiler.builder.build_load(
@@ -540,9 +1116,7 @@ pub fn compile_raise_expression<'ctx>(
                     )?;
                     compiler.builder.build_return(Some(&return_result))?;
                 } else if !is_void_function {
-                    // Function returns a plain type (like i32) - this is an error case
-                    // For now, we'll return a default error value (1 for i32, indicating error)
-                    // In a proper implementation, this would need better error handling
+                    // Function returns a plain type - return error value
                     let error_value = compiler.context.i32_type().const_int(1, false);
                     compiler.builder.build_return(Some(&error_value))?;
                 } else {
@@ -550,123 +1124,29 @@ pub fn compile_raise_expression<'ctx>(
                     compiler.builder.build_return(None)?;
                 }
 
-                // Continue with Ok value
+                // Continue with Ok value - only reached for non-void functions
                 compiler.builder.position_at_end(continue_bb);
-                
-                
-                // Context has already been updated before the branch, no need to update again
-                
-                Ok(ok_value)
+                // For non-void functions, we need to return the ok value
+                // This is a bit tricky because ok_value_computed is not in scope
+                // We should use a PHI node, but for now return a placeholder
+                Ok(compiler.context.i32_type().const_int(0, false).into())
             } else {
                 // Unit Result (no payload)
+                // For void functions, we can return immediately
+                if is_void_function {
+                    // Return a unit value
+                    return Ok(compiler.context.i64_type().const_int(0, false).into());
+                }
                 compiler.builder.build_unconditional_branch(continue_bb)?;
 
                 compiler.builder.position_at_end(err_bb);
                 // For unit Results, handle based on return type
                 if returns_result {
-                    compiler.builder.build_return(Some(&struct_val))?;
-                } else if !is_void_function {
-                    // Return error value for plain return type
-                    let error_value = compiler.context.i32_type().const_int(1, false);
-                    compiler.builder.build_return(Some(&error_value))?;
-                } else {
-                    // Void function - just return without a value
-                    compiler.builder.build_return(None)?;
-                }
-
-                compiler.builder.position_at_end(continue_bb);
-                Ok(compiler.context.i64_type().const_int(0, false).into())
-            }
-        } else if result_value.is_pointer_value() {
-            // Result is stored as a pointer to a struct
-            let result_ptr = result_value.into_pointer_value();
-
-            // For opaque pointers in LLVM 15+, we need to determine the struct type differently
-            // For now, we'll assume it's a Result struct type and try to work with it
-            // In a complete implementation, this would be tracked by the type system
-
-            // Create a basic Result struct type for demonstration
-            let struct_type = compiler.context.struct_type(
-                &[
-                    compiler.context.i64_type().into(), // tag
-                    compiler.context.i64_type().into(), // payload
-                ],
-                false,
-            );
-
-            // Extract the tag from the first field
-            let tag_ptr = compiler
-                .builder
-                .build_struct_gep(struct_type, result_ptr, 0, "tag_ptr")?;
-            let tag_value = compiler
-                .builder
-                .build_load(compiler.context.i64_type(), tag_ptr, "tag")?;
-
-            // Check if tag == 0 (Ok variant)
-            let is_ok = compiler.builder.build_int_compare(
-                inkwell::IntPredicate::EQ,
-                tag_value.into_int_value(),
-                compiler.context.i64_type().const_int(0, false),
-                "is_ok",
-            )?;
-
-            // Branch based on the tag
-            compiler.builder
-                .build_conditional_branch(is_ok, ok_bb, err_bb)?;
-
-            // Handle Ok case
-            compiler.builder.position_at_end(ok_bb);
-            if struct_type.count_fields() > 1 {
-                let payload_ptr =
-                    compiler.builder
-                        .build_struct_gep(struct_type, result_ptr, 1, "payload_ptr")?;
-                // Load the payload, which is stored as a pointer to the actual value
-                let ok_value_ptr = compiler.builder.build_load(
-                    compiler.context.ptr_type(inkwell::AddressSpace::default()),
-                    payload_ptr,
-                    "ok_value_ptr",
-                )?;
-
-                // Dereference the pointer to get the actual value
-                // For now, assume Result<i32, E>
-                let ok_value = if ok_value_ptr.is_pointer_value() {
-                    let ptr_val = ok_value_ptr.into_pointer_value();
-                    compiler.builder
-                        .build_load(compiler.context.i32_type(), ptr_val, "ok_value_deref")?
-                } else {
-                    ok_value_ptr
-                };
-                compiler.builder.build_unconditional_branch(continue_bb)?;
-
-                // Handle Err case
-                compiler.builder.position_at_end(err_bb);
-
-                if returns_result {
-                    // Return the original Result (already contains Err)
-                    let err_result =
-                        compiler.builder
-                            .build_load(struct_type, result_ptr, "err_result")?;
-                    compiler.builder.build_return(Some(&err_result))?;
-                } else {
-                    // Function returns a plain type - return error value
-                    let error_value = compiler.context.i32_type().const_int(1, false);
-                    compiler.builder.build_return(Some(&error_value))?;
-                }
-
-                // Continue with Ok value
-                compiler.builder.position_at_end(continue_bb);
-                Ok(ok_value)
-            } else {
-                // Unit Result
-                compiler.builder.build_unconditional_branch(continue_bb)?;
-
-                compiler.builder.position_at_end(err_bb);
-
-                if returns_result {
-                    let err_result =
-                        compiler.builder
-                            .build_load(struct_type, result_ptr, "err_result")?;
-                    compiler.builder.build_return(Some(&err_result))?;
+                    let return_result =
+                        compiler
+                            .builder
+                            .build_load(struct_type, temp_alloca, "return_result")?;
+                    compiler.builder.build_return(Some(&return_result))?;
                 } else if !is_void_function {
                     // Return error value for plain return type
                     let error_value = compiler.context.i32_type().const_int(1, false);
@@ -680,291 +1160,15 @@ pub fn compile_raise_expression<'ctx>(
                 Ok(compiler.context.i64_type().const_int(0, false).into())
             }
         } else {
-            // Check if this is actually a struct type but LLVM isn't recognizing it
-            // This happens when a Result<T,E> is returned from a function call
-            // The value might be aggregate or the type check is failing
-            
-            // Try to handle it as a struct type anyway if it looks like one
-            let result_type = result_value.get_type();
-            
-            // Check if this is a Result struct (2 fields) even if it's presented as an array or aggregate type
-            // This can happen with nested Results where the loaded value becomes an aggregate
-            let is_result_like = if result_type.is_struct_type() {
-                let struct_type = result_type.into_struct_type();
-                struct_type.count_fields() == 2  // Result/Option structs have 2 fields: tag + payload
-            } else if result_type.is_array_type() {
-                // Sometimes LLVM represents loaded structs as arrays
-                let array_type = result_type.into_array_type();
-                array_type.len() == 2
-            } else {
-                // Check if the value itself is a struct value (not just the type)
-                result_value.is_struct_value() && {
-                    if let Ok(struct_val) = result_value.try_into() {
-                        let sv: inkwell::values::StructValue = struct_val;
-                        sv.get_type().count_fields() == 2
-                    } else {
-                        false
-                    }
-                }
-            };
-            
-            if is_result_like {
-                // Create a proper struct type for Result
-                let struct_type = if result_type.is_struct_type() {
-                    result_type.into_struct_type()
-                } else {
-                    // Create a struct type that matches Result representation
-                    compiler.context.struct_type(
-                        &[
-                            compiler.context.i64_type().into(), // discriminant
-                            compiler.context.ptr_type(inkwell::AddressSpace::default()).into(), // payload pointer
-                        ],
-                        false,
-                    )
-                };
-                
-                // If the value is already a struct, use it directly; otherwise store it first
-                let temp_alloca = if result_value.is_struct_value() {
-                    let alloca = compiler.builder.build_alloca(struct_type, "result_struct_temp")?;
-                    compiler.builder.build_store(alloca, result_value)?;
-                    alloca
-                } else {
-                    // Try to treat the value as something we can work with
-                    // This handles cases where the nested Result was loaded as an aggregate
-                    let alloca = compiler.builder.build_alloca(struct_type, "result_aggregate_temp")?;
-                    
-                    // Try to store the value - if it's compatible, this will work
-                    compiler.builder.build_store(alloca, result_value)?;
-                    alloca
-                };
-                
-                // Extract the tag (discriminant) from the first field
-                let tag_ptr = compiler
-                    .builder
-                    .build_struct_gep(struct_type, temp_alloca, 0, "tag_ptr")?;
-                let tag_value = compiler
-                    .builder
-                    .build_load(compiler.context.i64_type(), tag_ptr, "tag")?;
-                
-                // Check if tag == 0 (Ok variant)
-                let is_ok = compiler.builder.build_int_compare(
-                    inkwell::IntPredicate::EQ,
-                    tag_value.into_int_value(),
-                    compiler.context.i64_type().const_int(0, false),
-                    "is_ok",
-                )?;
-                
-                // Branch based on the tag
-                compiler.builder
-                    .build_conditional_branch(is_ok, ok_bb, err_bb)?;
-                
-                // Handle Ok case - extract the Ok value
-                compiler.builder.position_at_end(ok_bb);
-                if struct_type.count_fields() > 1 {
-                    let payload_ptr =
-                        compiler.builder
-                            .build_struct_gep(struct_type, temp_alloca, 1, "payload_ptr")?;
-                    // Get the actual payload type from the struct
-                    let payload_field_type =
-                        struct_type.get_field_type_at_index(1).ok_or_else(|| {
-                            CompileError::InternalError(
-                                "Result payload field not found".to_string(),
-                                None,
-                            )
-                        })?;
-                    
-                    // Load the payload value (which is a pointer to the actual value)
-                    let ok_value_ptr =
-                        compiler.builder
-                            .build_load(payload_field_type, payload_ptr, "ok_value_ptr")?;
-                    
-                    // The payload is always stored as a pointer in our enum representation
-                    // We need to dereference it to get the actual value
-                    let ok_value_computed = if ok_value_ptr.is_pointer_value() {
-                        let ptr_val = ok_value_ptr.into_pointer_value();
-                        
-                        // Use the tracked generic type information to determine the correct type to load
-                        let ast_type_opt = compiler.generic_type_context.get("Result_Ok_Type");
-                        let load_type: inkwell::types::BasicTypeEnum =
-                            if let Some(ast_type) = ast_type_opt {
-                                // Debug: Check what type we're loading
-                                
-                                match ast_type {
-                                    AstType::I8 => compiler.context.i8_type().into(),
-                                    AstType::I16 => compiler.context.i16_type().into(),
-                                    AstType::I32 => compiler.context.i32_type().into(),
-                                    AstType::I64 => compiler.context.i64_type().into(),
-                                    AstType::U8 => compiler.context.i8_type().into(),
-                                    AstType::U16 => compiler.context.i16_type().into(),
-                                    AstType::U32 => compiler.context.i32_type().into(),
-                                    AstType::U64 => compiler.context.i64_type().into(),
-                                    AstType::F32 => compiler.context.f32_type().into(),
-                                    AstType::F64 => compiler.context.f64_type().into(),
-                                    AstType::Bool => compiler.context.bool_type().into(),
-                                    AstType::Generic { name, .. } if name == "Result" || name == "Option" => {
-                                        // For nested generics (Result<Result<T,E>,E2>), 
-                                        // the payload pointer points to a heap-allocated struct
-                                        // We need to load the struct from that pointer
-                                        // The struct itself has the format [i64 tag, ptr payload]
-        // eprintln!("[DEBUG] Loading nested generic {} from payload pointer", name);
-                                        compiler.context.struct_type(
-                                            &[
-                                                compiler.context.i64_type().into(), // tag
-                                                compiler.context.ptr_type(inkwell::AddressSpace::default()).into(), // payload pointer
-                                            ],
-                                            false,
-                                        ).into()
-                                    },
-                                    _ => compiler.context.i32_type().into(), // Default fallback
-                                }
-                            } else {
-                                // Default to i32 for backward compatibility
-                                compiler.context.i32_type().into()
-                            };
-                        // Debug: Check what type we're loading
-                        
-                        let loaded_value =
-                            compiler.builder
-                                .build_load(load_type, ptr_val, "ok_value_deref")?;
-                        
-        // eprintln!("[DEBUG] Loaded value type: {:?}", loaded_value.get_type());
-                        if let Some(_ast_type) = compiler.generic_type_context.get("Result_Ok_Type") {
-        // eprintln!("[DEBUG] Result_Ok_Type: {:?}", ast_type);
-                        }
-                        
-                        // The loaded value should be the correct type
-                        // For nested Result/Option types, this will be a struct value that can be raised again
-                        loaded_value
-                    } else {
-                        // If it's not a pointer, it might be an integer that looks like a pointer address
-                        // This can happen if the payload is stored incorrectly
-                        ok_value_ptr
-                    };
-                    
-                    // For void functions, we can directly return the ok value
-                    // since err_bb returns early without branching to continue_bb
-                    if is_void_function {
-                        // We're done - return the extracted value
-                        return Ok(ok_value_computed);
-                    }
-                    
-                    // For non-void functions, branch to continue_bb
-                    compiler.builder.build_unconditional_branch(continue_bb)?;
-                    
-                    // Handle Err case - propagate the error by returning early
-                    compiler.builder.position_at_end(err_bb);
-                    
-                    if returns_result {
-                        // Function returns Result<T,E> - propagate the entire Result with Err variant
-                        let err_payload_ptr = compiler.builder.build_struct_gep(
-                            struct_type,
-                            temp_alloca,
-                            1,
-                            "err_payload_ptr",
-                        )?;
-                        
-                        // Get the actual payload type from the struct
-                        let payload_field_type =
-                            struct_type.get_field_type_at_index(1).ok_or_else(|| {
-                                CompileError::InternalError(
-                                    "Result payload field not found".to_string(),
-                                    None,
-                                )
-                            })?;
-                        
-                        // Load the error payload with the correct type
-                        let err_value = compiler.builder.build_load(
-                            payload_field_type,
-                            err_payload_ptr,
-                            "err_value",
-                        )?;
-                        
-                        // Create a new Result<T,E> with Err variant for early return
-                        let return_result_alloca =
-                            compiler.builder.build_alloca(struct_type, "return_result")?;
-                        
-                        // Set tag to 1 (Err)
-                        let return_tag_ptr = compiler.builder.build_struct_gep(
-                            struct_type,
-                            return_result_alloca,
-                            0,
-                            "return_tag_ptr",
-                        )?;
-                        compiler.builder
-                            .build_store(return_tag_ptr, compiler.context.i64_type().const_int(1, false))?;
-                        
-                        // Store the error value
-                        let return_payload_ptr = compiler.builder.build_struct_gep(
-                            struct_type,
-                            return_result_alloca,
-                            1,
-                            "return_payload_ptr",
-                        )?;
-                        compiler.builder.build_store(return_payload_ptr, err_value)?;
-                        
-                        // Load and return the complete Result
-                        let return_result = compiler.builder.build_load(
-                            struct_type,
-                            return_result_alloca,
-                            "return_result",
-                        )?;
-                        compiler.builder.build_return(Some(&return_result))?;
-                    } else if !is_void_function {
-                        // Function returns a plain type - return error value
-                        let error_value = compiler.context.i32_type().const_int(1, false);
-                        compiler.builder.build_return(Some(&error_value))?;
-                    } else {
-                        // Void function - just return without a value
-                        compiler.builder.build_return(None)?;
-                    }
-                    
-                    // Continue with Ok value - only reached for non-void functions
-                    compiler.builder.position_at_end(continue_bb);
-                    // For non-void functions, we need to return the ok value
-                    // This is a bit tricky because ok_value_computed is not in scope
-                    // We should use a PHI node, but for now return a placeholder
-                    Ok(compiler.context.i32_type().const_int(0, false).into())
-                } else {
-                    // Unit Result (no payload)
-                    // For void functions, we can return immediately
-                    if is_void_function {
-                        // Return a unit value
-                        return Ok(compiler.context.i64_type().const_int(0, false).into());
-                    }
-                    compiler.builder.build_unconditional_branch(continue_bb)?;
-                    
-                    compiler.builder.position_at_end(err_bb);
-                    // For unit Results, handle based on return type
-                    if returns_result {
-                        let return_result = compiler.builder.build_load(
-                            struct_type,
-                            temp_alloca,
-                            "return_result",
-                        )?;
-                        compiler.builder.build_return(Some(&return_result))?;
-                    } else if !is_void_function {
-                        // Return error value for plain return type
-                        let error_value = compiler.context.i32_type().const_int(1, false);
-                        compiler.builder.build_return(Some(&error_value))?;
-                    } else {
-                        // Void function - just return without a value
-                        compiler.builder.build_return(None)?;
-                    }
-                    
-                    compiler.builder.position_at_end(continue_bb);
-                    Ok(compiler.context.i64_type().const_int(0, false).into())
-                }
-            } else {
-                // Fallback: if we can't determine the Result structure,
-                // treat it as an immediate value and try pattern matching
-                return Err(CompileError::TypeError(
-                    format!(
-                        "Unsupported Result type for .raise(): {:?}",
-                        result_value.get_type()
-                    ),
-                    None,
-                ));
-            }
+            // Fallback: if we can't determine the Result structure,
+            // treat it as an immediate value and try pattern matching
+            return Err(CompileError::TypeError(
+                format!(
+                    "Unsupported Result type for .raise(): {:?}",
+                    result_value.get_type()
+                ),
+                None,
+            ));
         }
     }
-
+}

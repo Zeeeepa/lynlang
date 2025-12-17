@@ -20,21 +20,24 @@ pub fn compile_loop<'ctx>(
 
         // Extract the actual body from the closure wrapper if present
         let actual_body = match body.as_ref() {
-            Expression::Closure { body: closure_body, .. } => closure_body.as_ref(),
+            Expression::Closure {
+                body: closure_body, ..
+            } => closure_body.as_ref(),
             other => other,
         };
 
         // Infer return type from break expressions in the body
         let return_type = compiler.infer_expression_type(actual_body)?;
-        
+
         // Check if loop returns a value
         let has_return_value = !matches!(return_type, crate::ast::AstType::Void);
-        
+
         // Push loop context for break/continue
         compiler.loop_stack.push((loop_body, after_loop_block));
 
         // Jump to loop body
-        compiler.builder
+        compiler
+            .builder
             .build_unconditional_branch(loop_body)
             .map_err(|e| CompileError::from(e))?;
         compiler.builder.position_at_end(loop_body);
@@ -45,7 +48,8 @@ pub fn compile_loop<'ctx>(
         // If body didn't terminate (no break/return), loop back
         let current_block = compiler.builder.get_insert_block().unwrap();
         if current_block.get_terminator().is_none() {
-            compiler.builder
+            compiler
+                .builder
                 .build_unconditional_branch(loop_body)
                 .map_err(|e| CompileError::from(e))?;
         }
@@ -75,12 +79,13 @@ pub fn compile_break<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     if let Expression::Break { label: _, value } = expr {
         // Get break target first to avoid borrow checker issues
-        let break_target = compiler.loop_stack.last()
+        let break_target = compiler
+            .loop_stack
+            .last()
             .map(|(_continue_target, break_target)| *break_target)
-            .ok_or_else(|| CompileError::TypeError(
-                "break expression outside of loop".to_string(),
-                None,
-            ))?;
+            .ok_or_else(|| {
+                CompileError::TypeError("break expression outside of loop".to_string(), None)
+            })?;
 
         // If break has a value, compile it
         let break_value = if let Some(val_expr) = value {
@@ -91,7 +96,8 @@ pub fn compile_break<'ctx>(
         };
 
         // Branch to break target
-        compiler.builder
+        compiler
+            .builder
             .build_unconditional_branch(break_target)
             .map_err(|e| CompileError::from(e))?;
 
@@ -112,15 +118,17 @@ pub fn compile_continue<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     if let Expression::Continue { label: _ } = expr {
         // Get continue target first to avoid borrow checker issues
-        let continue_target = compiler.loop_stack.last()
+        let continue_target = compiler
+            .loop_stack
+            .last()
             .map(|(continue_target, _break_target)| *continue_target)
-            .ok_or_else(|| CompileError::TypeError(
-                "continue expression outside of loop".to_string(),
-                None,
-            ))?;
+            .ok_or_else(|| {
+                CompileError::TypeError("continue expression outside of loop".to_string(), None)
+            })?;
 
         // Branch to continue target
-        compiler.builder
+        compiler
+            .builder
             .build_unconditional_branch(continue_target)
             .map_err(|e| CompileError::from(e))?;
 
@@ -159,7 +167,7 @@ pub fn compile_return<'ctx>(
             if let Some(func) = compiler.current_function {
                 if let Some(expected_ret_type) = func.get_type().get_return_type() {
                     let actual_type = return_value.get_type();
-                    
+
                     // If types don't match, cast the value
                     if actual_type != expected_ret_type {
                         if actual_type.is_int_type() && expected_ret_type.is_int_type() {
@@ -167,19 +175,27 @@ pub fn compile_return<'ctx>(
                             let expected_int_type = expected_ret_type.into_int_type();
                             let actual_width = int_val.get_type().get_bit_width();
                             let expected_width = expected_int_type.get_bit_width();
-                            
+
                             if actual_width != expected_width {
                                 if actual_width < expected_width {
                                     // Sign extend
                                     return_value = compiler
                                         .builder
-                                        .build_int_s_extend(int_val, expected_int_type, "ret_extend")?
+                                        .build_int_s_extend(
+                                            int_val,
+                                            expected_int_type,
+                                            "ret_extend",
+                                        )?
                                         .into();
                                 } else {
                                     // Truncate
                                     return_value = compiler
                                         .builder
-                                        .build_int_truncate(int_val, expected_int_type, "ret_trunc")?
+                                        .build_int_truncate(
+                                            int_val,
+                                            expected_int_type,
+                                            "ret_trunc",
+                                        )?
                                         .into();
                                 }
                             } else {
@@ -189,30 +205,40 @@ pub fn compile_return<'ctx>(
                             let float_val = return_value.into_float_value();
                             let expected_float_type = expected_ret_type.into_float_type();
                             let actual_float_type = float_val.get_type();
-                            
+
                             if actual_float_type != expected_float_type {
-                                let source_width = if actual_float_type == compiler.context.f32_type() {
-                                    32
-                                } else {
-                                    64
-                                };
-                                let target_width = if expected_float_type == compiler.context.f32_type() {
-                                    32
-                                } else {
-                                    64
-                                };
-                                
+                                let source_width =
+                                    if actual_float_type == compiler.context.f32_type() {
+                                        32
+                                    } else {
+                                        64
+                                    };
+                                let target_width =
+                                    if expected_float_type == compiler.context.f32_type() {
+                                        32
+                                    } else {
+                                        64
+                                    };
+
                                 if source_width < target_width {
                                     // Extend f32 to f64
                                     return_value = compiler
                                         .builder
-                                        .build_float_ext(float_val, expected_float_type, "ret_extend")?
+                                        .build_float_ext(
+                                            float_val,
+                                            expected_float_type,
+                                            "ret_extend",
+                                        )?
                                         .into();
                                 } else if source_width > target_width {
                                     // Truncate f64 to f32
                                     return_value = compiler
                                         .builder
-                                        .build_float_trunc(float_val, expected_float_type, "ret_trunc")?
+                                        .build_float_trunc(
+                                            float_val,
+                                            expected_float_type,
+                                            "ret_trunc",
+                                        )?
                                         .into();
                                 } else {
                                     return_value = float_val.into();
@@ -254,7 +280,8 @@ pub fn compile_range_expression<'ctx>(
         start,
         end,
         inclusive,
-    } = expr {
+    } = expr
+    {
         // Compile start and end values
         let start_value = compiler.compile_expression(start)?;
         let end_value = compiler.compile_expression(end)?;
@@ -302,18 +329,14 @@ pub fn compile_range_expression<'ctx>(
             .build_alloca(range_struct_type, "range_alloca")?;
 
         // Get pointers to each field
-        let start_ptr = compiler.builder.build_struct_gep(
-            range_struct_type,
-            range_alloca,
-            0,
-            "start_ptr",
-        )?;
-        let end_ptr = compiler.builder.build_struct_gep(
-            range_struct_type,
-            range_alloca,
-            1,
-            "end_ptr",
-        )?;
+        let start_ptr =
+            compiler
+                .builder
+                .build_struct_gep(range_struct_type, range_alloca, 0, "start_ptr")?;
+        let end_ptr =
+            compiler
+                .builder
+                .build_struct_gep(range_struct_type, range_alloca, 1, "end_ptr")?;
         let inclusive_ptr = compiler.builder.build_struct_gep(
             range_struct_type,
             range_alloca,
@@ -324,14 +347,14 @@ pub fn compile_range_expression<'ctx>(
         // Store values into struct fields
         compiler.builder.build_store(start_ptr, start_int)?;
         compiler.builder.build_store(end_ptr, end_int)?;
-        compiler.builder.build_store(inclusive_ptr, inclusive_bool)?;
+        compiler
+            .builder
+            .build_store(inclusive_ptr, inclusive_bool)?;
 
         // Load the struct value
-        let range_value = compiler.builder.build_load(
-            range_struct_type,
-            range_alloca,
-            "range",
-        )?;
+        let range_value = compiler
+            .builder
+            .build_load(range_struct_type, range_alloca, "range")?;
 
         Ok(range_value)
     } else {
@@ -341,4 +364,3 @@ pub fn compile_range_expression<'ctx>(
         ))
     }
 }
-

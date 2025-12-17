@@ -29,7 +29,9 @@ impl<'a> Parser<'a> {
         self.next_token();
 
         // Check if they're trying to use enum syntax (comma-separated) for a struct
-        if matches!(&self.current_token, Token::Identifier(_)) || self.current_token == Token::Symbol('.') {
+        if matches!(&self.current_token, Token::Identifier(_))
+            || self.current_token == Token::Symbol('.')
+        {
             return Err(CompileError::SyntaxError(
                 "Structs use curly braces for fields, not comma-separated variants. Use `MyStruct: { field1: Type1, field2: Type2 }` instead of `MyStruct: Field1, Field2`".to_string(),
                 Some(self.current_span.clone()),

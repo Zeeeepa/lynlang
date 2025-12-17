@@ -267,16 +267,20 @@ fn create_tcp_functions() -> Vec<Declaration> {
                         ],
                     }),
                     is_mutable: false,
-                    declaration_type: VariableDeclarationType::ExplicitImmutable, span: None,
+                    declaration_type: VariableDeclarationType::ExplicitImmutable,
+                    span: None,
                 },
                 // More implementation...
-                Statement::Return { expr: Expression::StructLiteral {
-                    name: "TcpSocket".to_string(),
-                    fields: vec![(
-                        "fd".to_string(),
-                        Expression::Identifier("sock_fd".to_string()),
-                    )],
-                }, span: None },
+                Statement::Return {
+                    expr: Expression::StructLiteral {
+                        name: "TcpSocket".to_string(),
+                        fields: vec![(
+                            "fd".to_string(),
+                            Expression::Identifier("sock_fd".to_string()),
+                        )],
+                    },
+                    span: None,
+                },
             ],
             is_varargs: false,
             is_public: true,
@@ -298,10 +302,13 @@ fn create_tcp_functions() -> Vec<Declaration> {
             },
             body: vec![
                 // Implementation would call accept
-                Statement::Return { expr: Expression::StructLiteral {
-                    name: "Connection".to_string(),
-                    fields: vec![],
-                }, span: None },
+                Statement::Return {
+                    expr: Expression::StructLiteral {
+                        name: "Connection".to_string(),
+                        fields: vec![],
+                    },
+                    span: None,
+                },
             ],
             is_varargs: false,
             is_public: true,
@@ -320,10 +327,13 @@ fn create_tcp_functions() -> Vec<Declaration> {
             },
             body: vec![
                 // Implementation would create socket and connect
-                Statement::Return { expr: Expression::StructLiteral {
-                    name: "TcpListener".to_string(),
-                    fields: vec![],
-                }, span: None },
+                Statement::Return {
+                    expr: Expression::StructLiteral {
+                        name: "TcpListener".to_string(),
+                        fields: vec![],
+                    },
+                    span: None,
+                },
             ],
             is_varargs: false,
             is_public: true,
@@ -344,20 +354,23 @@ fn create_tcp_functions() -> Vec<Declaration> {
                 ("len".to_string(), AstType::U64),
             ],
             return_type: AstType::I64, // bytes sent
-            body: vec![Statement::Return { expr: Expression::FunctionCall {
-                name: "send".to_string(),
-                args: vec![
-                    Expression::StructField {
-                        struct_: Box::new(Expression::Dereference(Box::new(
-                            Expression::Identifier("socket".to_string()),
-                        ))),
-                        field: "fd".to_string(),
-                    },
-                    Expression::Identifier("data".to_string()),
-                    Expression::Identifier("len".to_string()),
-                    Expression::Integer32(0), // flags
-                ],
-            }, span: None }],
+            body: vec![Statement::Return {
+                expr: Expression::FunctionCall {
+                    name: "send".to_string(),
+                    args: vec![
+                        Expression::StructField {
+                            struct_: Box::new(Expression::Dereference(Box::new(
+                                Expression::Identifier("socket".to_string()),
+                            ))),
+                            field: "fd".to_string(),
+                        },
+                        Expression::Identifier("data".to_string()),
+                        Expression::Identifier("len".to_string()),
+                        Expression::Integer32(0), // flags
+                    ],
+                },
+                span: None,
+            }],
             is_varargs: false,
             is_public: true,
         }),
@@ -377,20 +390,23 @@ fn create_tcp_functions() -> Vec<Declaration> {
                 ("len".to_string(), AstType::U64),
             ],
             return_type: AstType::I64, // bytes received
-            body: vec![Statement::Return { expr: Expression::FunctionCall {
-                name: "recv".to_string(),
-                args: vec![
-                    Expression::StructField {
-                        struct_: Box::new(Expression::Dereference(Box::new(
-                            Expression::Identifier("socket".to_string()),
-                        ))),
-                        field: "fd".to_string(),
-                    },
-                    Expression::Identifier("buffer".to_string()),
-                    Expression::Identifier("len".to_string()),
-                    Expression::Integer32(0), // flags
-                ],
-            }, span: None }],
+            body: vec![Statement::Return {
+                expr: Expression::FunctionCall {
+                    name: "recv".to_string(),
+                    args: vec![
+                        Expression::StructField {
+                            struct_: Box::new(Expression::Dereference(Box::new(
+                                Expression::Identifier("socket".to_string()),
+                            ))),
+                            field: "fd".to_string(),
+                        },
+                        Expression::Identifier("buffer".to_string()),
+                        Expression::Identifier("len".to_string()),
+                        Expression::Integer32(0), // flags
+                    ],
+                },
+                span: None,
+            }],
             is_varargs: false,
             is_public: true,
         }),
@@ -422,15 +438,19 @@ fn create_udp_functions() -> Vec<Declaration> {
                         ],
                     }),
                     is_mutable: false,
-                    declaration_type: VariableDeclarationType::ExplicitImmutable, span: None,
+                    declaration_type: VariableDeclarationType::ExplicitImmutable,
+                    span: None,
                 },
-                Statement::Return { expr: Expression::StructLiteral {
-                    name: "UdpSocket".to_string(),
-                    fields: vec![(
-                        "fd".to_string(),
-                        Expression::Identifier("sock_fd".to_string()),
-                    )],
-                }, span: None },
+                Statement::Return {
+                    expr: Expression::StructLiteral {
+                        name: "UdpSocket".to_string(),
+                        fields: vec![(
+                            "fd".to_string(),
+                            Expression::Identifier("sock_fd".to_string()),
+                        )],
+                    },
+                    span: None,
+                },
             ],
             is_varargs: false,
             is_public: true,
@@ -452,7 +472,10 @@ fn create_udp_functions() -> Vec<Declaration> {
             return_type: AstType::I32,
             body: vec![
                 // Implementation would create sockaddr and bind
-                Statement::Return { expr: Expression::Integer32(0), span: None },
+                Statement::Return {
+                    expr: Expression::Integer32(0),
+                    span: None,
+                },
             ],
             is_varargs: false,
             is_public: true,
@@ -477,7 +500,10 @@ fn create_udp_functions() -> Vec<Declaration> {
             return_type: AstType::I64,
             body: vec![
                 // Implementation would create sockaddr and call sendto
-                Statement::Return { expr: Expression::Integer64(0), span: None },
+                Statement::Return {
+                    expr: Expression::Integer64(0),
+                    span: None,
+                },
             ],
             is_varargs: false,
             is_public: true,
@@ -503,10 +529,13 @@ fn create_udp_functions() -> Vec<Declaration> {
             },
             body: vec![
                 // Implementation would call recvfrom
-                Statement::Return { expr: Expression::StructLiteral {
-                    name: "RecvResult".to_string(),
-                    fields: vec![],
-                }, span: None },
+                Statement::Return {
+                    expr: Expression::StructLiteral {
+                        name: "RecvResult".to_string(),
+                        fields: vec![],
+                    },
+                    span: None,
+                },
             ],
             is_varargs: false,
             is_public: true,
@@ -523,10 +552,13 @@ fn create_helper_functions() -> Vec<Declaration> {
             name: "socket_close".to_string(),
             args: vec![("fd".to_string(), AstType::I32)],
             return_type: AstType::I32,
-            body: vec![Statement::Return { expr: Expression::FunctionCall {
-                name: "close".to_string(),
-                args: vec![Expression::Identifier("fd".to_string())],
-            }, span: None }],
+            body: vec![Statement::Return {
+                expr: Expression::FunctionCall {
+                    name: "close".to_string(),
+                    args: vec![Expression::Identifier("fd".to_string())],
+                },
+                span: None,
+            }],
             is_varargs: false,
             is_public: true,
         }),
@@ -542,26 +574,29 @@ fn create_helper_functions() -> Vec<Declaration> {
                 name: "SockAddr".to_string(),
                 fields: vec![],
             },
-            body: vec![Statement::Return { expr: Expression::StructLiteral {
-                name: "SockAddr".to_string(),
-                fields: vec![
-                    ("family".to_string(), Expression::Integer32(2)), // AF_INET
-                    (
-                        "port".to_string(),
-                        Expression::FunctionCall {
-                            name: "htons".to_string(),
-                            args: vec![Expression::Identifier("port".to_string())],
-                        },
-                    ),
-                    (
-                        "addr".to_string(),
-                        Expression::FunctionCall {
-                            name: "inet_addr".to_string(),
-                            args: vec![Expression::Identifier("host".to_string())],
-                        },
-                    ),
-                ],
-            }, span: None }],
+            body: vec![Statement::Return {
+                expr: Expression::StructLiteral {
+                    name: "SockAddr".to_string(),
+                    fields: vec![
+                        ("family".to_string(), Expression::Integer32(2)), // AF_INET
+                        (
+                            "port".to_string(),
+                            Expression::FunctionCall {
+                                name: "htons".to_string(),
+                                args: vec![Expression::Identifier("port".to_string())],
+                            },
+                        ),
+                        (
+                            "addr".to_string(),
+                            Expression::FunctionCall {
+                                name: "inet_addr".to_string(),
+                                args: vec![Expression::Identifier("host".to_string())],
+                            },
+                        ),
+                    ],
+                },
+                span: None,
+            }],
             is_varargs: false,
             is_public: true,
         }),

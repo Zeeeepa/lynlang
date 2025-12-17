@@ -84,9 +84,9 @@ pub struct LLVMCompiler<'ctx> {
     pub behavior_codegen: Option<behaviors::BehaviorCodegen<'ctx>>,
     pub current_impl_type: Option<String>, // Track implementing type for trait methods
     pub inline_counter: usize,             // Counter for unique inline function names
-    pub load_counter: usize,                // Counter for unique load instruction names
+    pub load_counter: usize,               // Counter for unique load instruction names
     pub generic_type_context: HashMap<String, AstType>, // Track instantiated generic types (legacy, kept for compatibility)
-    pub generic_tracker: generics::GenericTypeTracker, // New improved generic type tracking
+    pub generic_tracker: generics::GenericTypeTracker,  // New improved generic type tracking
     pub module_imports: HashMap<String, u64>, // Track module imports (name -> marker value)
 }
 
@@ -96,25 +96,28 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.generic_type_context.insert(key.clone(), type_.clone());
         self.generic_tracker.insert(key, type_);
     }
-    
+
     /// Helper to track complex generic types recursively
     pub fn track_complex_generic(&mut self, type_: &AstType, prefix: &str) {
         self.generic_tracker.track_generic_type(type_, prefix);
-        
+
         // Also update the old system for backwards compatibility
         match type_ {
             AstType::Generic { name, type_args } => {
                 if name == "Result" && type_args.len() == 2 {
-                    self.generic_type_context.insert(format!("{}_Ok_Type", prefix), type_args[0].clone());
-                    self.generic_type_context.insert(format!("{}_Err_Type", prefix), type_args[1].clone());
+                    self.generic_type_context
+                        .insert(format!("{}_Ok_Type", prefix), type_args[0].clone());
+                    self.generic_type_context
+                        .insert(format!("{}_Err_Type", prefix), type_args[1].clone());
                 } else if name == "Option" && type_args.len() == 1 {
-                    self.generic_type_context.insert(format!("{}_Some_Type", prefix), type_args[0].clone());
+                    self.generic_type_context
+                        .insert(format!("{}_Some_Type", prefix), type_args[0].clone());
                 }
             }
             _ => {}
         }
     }
-    
+
     pub fn new(context: &'ctx Context) -> Self {
         let module = context.create_module("main");
         let builder = context.create_builder();
@@ -190,7 +193,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         value: BasicValueEnum<'ctx>,
         ptr: PointerValue<'ctx>,
         expected_type: BasicTypeEnum<'ctx>,
-        context: &str,  // For error messages, e.g., "variable 'x'" or "struct field 'name'"
+        context: &str, // For error messages, e.g., "variable 'x'" or "struct field 'name'"
     ) -> Result<(), CompileError> {
         let value_type = value.get_type();
 
@@ -211,20 +214,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Struct types should match exactly
                 vt != et
             }
-            (BasicTypeEnum::ArrayType(vt), BasicTypeEnum::ArrayType(et)) => {
-                vt != et
-            }
-            (BasicTypeEnum::VectorType(vt), BasicTypeEnum::VectorType(et)) => {
-                vt != et
-            }
+            (BasicTypeEnum::ArrayType(vt), BasicTypeEnum::ArrayType(et)) => vt != et,
+            (BasicTypeEnum::VectorType(vt), BasicTypeEnum::VectorType(et)) => vt != et,
             // Different type categories = mismatch
             _ => {
                 // Special case: pointer and int can be compatible in some contexts
                 // But generally different categories are a mismatch
                 !matches!(
                     (&value_type, &expected_type),
-                    (BasicTypeEnum::PointerType(_), BasicTypeEnum::IntType(_)) |
-                    (BasicTypeEnum::IntType(_), BasicTypeEnum::PointerType(_))
+                    (BasicTypeEnum::PointerType(_), BasicTypeEnum::IntType(_))
+                        | (BasicTypeEnum::IntType(_), BasicTypeEnum::PointerType(_))
                 )
             }
         };
@@ -372,9 +371,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // We do this in two sub-passes:
         // 1. Register all structs with their names (so they can be looked up)
         // 2. Then resolve field types (which may reference other structs)
-        
+
         // Sub-pass 1: Register all struct names first
-        let struct_defs: Vec<_> = program.declarations
+        let struct_defs: Vec<_> = program
+            .declarations
             .iter()
             .filter_map(|d| {
                 if let ast::Declaration::Struct(struct_def) = d {
@@ -384,7 +384,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
             })
             .collect();
-        
+
         // Sub-pass 2: Now register structs with resolved field types
         for struct_def in &struct_defs {
             self.register_struct_type(struct_def)?;

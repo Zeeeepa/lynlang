@@ -81,9 +81,7 @@ impl CompilerModule {
             "raw_ptr_cast".to_string(),
             StdFunction {
                 name: "raw_ptr_cast".to_string(),
-                params: vec![
-                    ("ptr".to_string(), AstType::RawPtr(Box::new(AstType::U8))),
-                ],
+                params: vec![("ptr".to_string(), AstType::RawPtr(Box::new(AstType::U8)))],
                 return_type: AstType::RawPtr(Box::new(AstType::U8)), // Generic would be better
                 is_builtin: true,
             },
@@ -106,7 +104,10 @@ impl CompilerModule {
             StdFunction {
                 name: "call_external".to_string(),
                 params: vec![
-                    ("func_ptr".to_string(), AstType::RawPtr(Box::new(AstType::U8))),
+                    (
+                        "func_ptr".to_string(),
+                        AstType::RawPtr(Box::new(AstType::U8)),
+                    ),
                     ("args".to_string(), AstType::RawPtr(Box::new(AstType::U8))), // Args array as raw pointer
                 ],
                 return_type: AstType::RawPtr(Box::new(AstType::U8)),
@@ -130,7 +131,10 @@ impl CompilerModule {
             StdFunction {
                 name: "get_symbol".to_string(),
                 params: vec![
-                    ("lib_handle".to_string(), AstType::RawPtr(Box::new(AstType::U8))),
+                    (
+                        "lib_handle".to_string(),
+                        AstType::RawPtr(Box::new(AstType::U8)),
+                    ),
                     ("symbol_name".to_string(), AstType::StaticString),
                 ],
                 return_type: AstType::RawPtr(Box::new(AstType::U8)), // Function pointer
@@ -142,7 +146,10 @@ impl CompilerModule {
             "unload_library".to_string(),
             StdFunction {
                 name: "unload_library".to_string(),
-                params: vec![("lib_handle".to_string(), AstType::RawPtr(Box::new(AstType::U8)))],
+                params: vec![(
+                    "lib_handle".to_string(),
+                    AstType::RawPtr(Box::new(AstType::U8)),
+                )],
                 return_type: AstType::Void,
                 is_builtin: true,
             },
@@ -153,7 +160,10 @@ impl CompilerModule {
             "discriminant".to_string(),
             StdFunction {
                 name: "discriminant".to_string(),
-                params: vec![("enum_value".to_string(), AstType::RawPtr(Box::new(AstType::U8)))],
+                params: vec![(
+                    "enum_value".to_string(),
+                    AstType::RawPtr(Box::new(AstType::U8)),
+                )],
                 return_type: AstType::I32,
                 is_builtin: true,
             },
@@ -164,7 +174,10 @@ impl CompilerModule {
             StdFunction {
                 name: "set_discriminant".to_string(),
                 params: vec![
-                    ("enum_ptr".to_string(), AstType::RawPtr(Box::new(AstType::U8))),
+                    (
+                        "enum_ptr".to_string(),
+                        AstType::RawPtr(Box::new(AstType::U8)),
+                    ),
                     ("discriminant".to_string(), AstType::I32),
                 ],
                 return_type: AstType::Void,
@@ -176,7 +189,10 @@ impl CompilerModule {
             "get_payload".to_string(),
             StdFunction {
                 name: "get_payload".to_string(),
-                params: vec![("enum_value".to_string(), AstType::RawPtr(Box::new(AstType::U8)))],
+                params: vec![(
+                    "enum_value".to_string(),
+                    AstType::RawPtr(Box::new(AstType::U8)),
+                )],
                 return_type: AstType::RawPtr(Box::new(AstType::U8)),
                 is_builtin: true,
             },
@@ -187,8 +203,14 @@ impl CompilerModule {
             StdFunction {
                 name: "set_payload".to_string(),
                 params: vec![
-                    ("enum_ptr".to_string(), AstType::RawPtr(Box::new(AstType::U8))),
-                    ("payload".to_string(), AstType::RawPtr(Box::new(AstType::U8))),
+                    (
+                        "enum_ptr".to_string(),
+                        AstType::RawPtr(Box::new(AstType::U8)),
+                    ),
+                    (
+                        "payload".to_string(),
+                        AstType::RawPtr(Box::new(AstType::U8)),
+                    ),
                 ],
                 return_type: AstType::Void,
                 is_builtin: true,
@@ -201,7 +223,10 @@ impl CompilerModule {
             StdFunction {
                 name: "gep".to_string(),
                 params: vec![
-                    ("base_ptr".to_string(), AstType::RawPtr(Box::new(AstType::U8))),
+                    (
+                        "base_ptr".to_string(),
+                        AstType::RawPtr(Box::new(AstType::U8)),
+                    ),
                     ("offset".to_string(), AstType::I64),
                 ],
                 return_type: AstType::RawPtr(Box::new(AstType::U8)),
@@ -229,10 +254,13 @@ impl CompilerModule {
                 name: "store".to_string(),
                 params: vec![
                     ("ptr".to_string(), AstType::RawPtr(Box::new(AstType::U8))),
-                    ("value".to_string(), AstType::Generic {
-                        name: "T".to_string(),
-                        type_args: vec![],
-                    }),
+                    (
+                        "value".to_string(),
+                        AstType::Generic {
+                            name: "T".to_string(),
+                            type_args: vec![],
+                        },
+                    ),
                 ],
                 return_type: AstType::Void,
                 is_builtin: true,
@@ -277,7 +305,10 @@ impl CompilerModule {
             StdFunction {
                 name: "gep_struct".to_string(),
                 params: vec![
-                    ("struct_ptr".to_string(), AstType::RawPtr(Box::new(AstType::U8))),
+                    (
+                        "struct_ptr".to_string(),
+                        AstType::RawPtr(Box::new(AstType::U8)),
+                    ),
                     ("field_index".to_string(), AstType::I32),
                 ],
                 return_type: AstType::RawPtr(Box::new(AstType::U8)),
@@ -302,4 +333,3 @@ impl StdModuleTrait for CompilerModule {
         self.types.get(name).cloned()
     }
 }
-

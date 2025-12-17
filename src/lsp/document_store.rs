@@ -1,21 +1,21 @@
+use super::analyzer;
+use super::compiler_integration::CompilerIntegration;
+use super::indexing::{find_stdlib_path, index_stdlib_directory, index_workspace_files_recursive};
+use super::stdlib_resolver::StdlibResolver;
+use super::types::{AnalysisJob, Document, SymbolInfo};
+use super::utils::format_type;
+use crate::ast::*;
+use crate::lexer::{Lexer, Token};
+use crate::parser::Parser;
 use lsp_types::*;
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::time::Instant;
-use crate::ast::*;
-use crate::lexer::{Lexer, Token};
-use crate::parser::Parser;
-use super::types::{Document, SymbolInfo, AnalysisJob};
-use super::utils::format_type;
-use super::analyzer;
-use super::compiler_integration::CompilerIntegration;
-use super::stdlib_resolver::StdlibResolver;
-use super::indexing::{index_workspace_files_recursive, index_stdlib_directory, find_stdlib_path};
 
 pub struct DocumentStore {
     pub documents: HashMap<Url, Document>,
     pub stdlib_symbols: HashMap<String, SymbolInfo>,
-    pub workspace_symbols: HashMap<String, SymbolInfo>,  // Indexed workspace symbols
+    pub workspace_symbols: HashMap<String, SymbolInfo>, // Indexed workspace symbols
     pub workspace_root: Option<Url>,
     pub analysis_sender: Option<Sender<AnalysisJob>>,
     pub compiler: CompilerIntegration,
@@ -26,7 +26,7 @@ impl DocumentStore {
     pub fn new() -> Self {
         let workspace_root_path = None::<&std::path::Path>; // Will be set later
         let stdlib_resolver = StdlibResolver::new(workspace_root_path);
-        
+
         let mut store = Self {
             documents: HashMap::new(),
             stdlib_symbols: HashMap::new(),
@@ -39,24 +39,30 @@ impl DocumentStore {
 
         // Register built-in primitive types (always available, no import needed)
         store.register_builtin_types();
-        
+
         // Index stdlib on initialization
         store.index_stdlib();
         store
     }
-    
+
     /// Register built-in primitive types that are always available
     fn register_builtin_types(&mut self) {
-        use crate::ast::AstType;
         use super::types::SymbolInfo;
-        use lsp_types::{SymbolKind, Range, Position};
-        
+        use crate::ast::AstType;
+        use lsp_types::{Position, Range, SymbolKind};
+
         // Create a dummy range for built-in types (they don't have a source location)
         let dummy_range = Range {
-            start: Position { line: 0, character: 0 },
-            end: Position { line: 0, character: 0 },
+            start: Position {
+                line: 0,
+                character: 0,
+            },
+            end: Position {
+                line: 0,
+                character: 0,
+            },
         };
-        
+
         // Register all primitive types
         let builtin_types = vec![
             ("i8", AstType::I8),
@@ -71,44 +77,68 @@ impl DocumentStore {
             ("f32", AstType::F32),
             ("f64", AstType::F64),
             ("bool", AstType::Bool),
-            ("StaticString", AstType::StaticString),  // Built-in primitive type
+            ("StaticString", AstType::StaticString), // Built-in primitive type
             ("void", AstType::Void),
         ];
-        
+
         for (name, type_) in builtin_types {
-            self.stdlib_symbols.insert(name.to_string(), SymbolInfo {
-                name: name.to_string(),
-                kind: SymbolKind::TYPE_PARAMETER, // Use TYPE_PARAMETER for primitive types
-                range: dummy_range.clone(),
-                selection_range: dummy_range.clone(),
-                detail: Some(format!("{} - Built-in primitive type", name)),
-                documentation: Some(format!("Built-in primitive type `{}`. Always available, no import needed.", name)),
-                type_info: Some(type_),
-                definition_uri: None,
-                references: Vec::new(),
-                enum_variants: None,
-            });
+            self.stdlib_symbols.insert(
+                name.to_string(),
+                SymbolInfo {
+                    name: name.to_string(),
+                    kind: SymbolKind::TYPE_PARAMETER, // Use TYPE_PARAMETER for primitive types
+                    range: dummy_range.clone(),
+                    selection_range: dummy_range.clone(),
+                    detail: Some(format!("{} - Built-in primitive type", name)),
+                    documentation: Some(format!(
+                        "Built-in primitive type `{}`. Always available, no import needed.",
+                        name
+                    )),
+                    type_info: Some(type_),
+                    definition_uri: None,
+                    references: Vec::new(),
+                    enum_variants: None,
+                },
+            );
         }
-        
+
         // Also register built-in generic types (Option, Result)
         let builtin_generics = vec![
-            ("Option", AstType::Generic { name: "Option".to_string(), type_args: vec![] }),
-            ("Result", AstType::Generic { name: "Result".to_string(), type_args: vec![] }),
+            (
+                "Option",
+                AstType::Generic {
+                    name: "Option".to_string(),
+                    type_args: vec![],
+                },
+            ),
+            (
+                "Result",
+                AstType::Generic {
+                    name: "Result".to_string(),
+                    type_args: vec![],
+                },
+            ),
         ];
-        
+
         for (name, type_) in builtin_generics {
-            self.stdlib_symbols.insert(name.to_string(), SymbolInfo {
-                name: name.to_string(),
-                kind: SymbolKind::ENUM,
-                range: dummy_range.clone(),
-                selection_range: dummy_range.clone(),
-                detail: Some(format!("{}<T> - Built-in generic type", name)),
-                documentation: Some(format!("Built-in generic type `{}`. Always available, no import needed.", name)),
-                type_info: Some(type_),
-                definition_uri: None,
-                references: Vec::new(),
-                enum_variants: None,
-            });
+            self.stdlib_symbols.insert(
+                name.to_string(),
+                SymbolInfo {
+                    name: name.to_string(),
+                    kind: SymbolKind::ENUM,
+                    range: dummy_range.clone(),
+                    selection_range: dummy_range.clone(),
+                    detail: Some(format!("{}<T> - Built-in generic type", name)),
+                    documentation: Some(format!(
+                        "Built-in generic type `{}`. Always available, no import needed.",
+                        name
+                    )),
+                    type_info: Some(type_),
+                    definition_uri: None,
+                    references: Vec::new(),
+                    enum_variants: None,
+                },
+            );
         }
     }
 
@@ -118,12 +148,12 @@ impl DocumentStore {
 
     pub fn set_workspace_root(&mut self, root_uri: Url) {
         self.workspace_root = Some(root_uri.clone());
-        
+
         // Update stdlib resolver with workspace root
         if let Ok(workspace_path) = root_uri.to_file_path() {
             self.stdlib_resolver = StdlibResolver::new(Some(&workspace_path));
         }
-        
+
         // Note: Workspace indexing is now done asynchronously after initialization
         // to avoid blocking the main thread and holding locks for extended periods
     }
@@ -136,7 +166,10 @@ impl DocumentStore {
             let count = self.index_workspace_directory(&root_path);
 
             let duration = start.elapsed();
-            eprintln!("[LSP] Indexed {} symbols from workspace in {:?}", count, duration);
+            eprintln!(
+                "[LSP] Indexed {} symbols from workspace in {:?}",
+                count, duration
+            );
         }
     }
 
@@ -154,8 +187,12 @@ impl DocumentStore {
 
         // Skip common directories we don't want to index
         if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
-            if dir_name == "target" || dir_name == "node_modules" || dir_name == ".git"
-                || dir_name == "tests" || dir_name.starts_with('.') {
+            if dir_name == "target"
+                || dir_name == "node_modules"
+                || dir_name == ".git"
+                || dir_name == "tests"
+                || dir_name.starts_with('.')
+            {
                 return 0;
             }
         }
@@ -226,7 +263,8 @@ impl DocumentStore {
     pub fn update(&mut self, uri: Url, version: i32, content: String) -> Vec<Diagnostic> {
         const DEBOUNCE_MS: u128 = 300;
 
-        let should_run_analysis = self.documents
+        let should_run_analysis = self
+            .documents
             .get(&uri)
             .and_then(|doc| doc.last_analysis)
             .map(|last| last.elapsed().as_millis() >= DEBOUNCE_MS)
@@ -346,100 +384,130 @@ impl DocumentStore {
                 };
                 let name_end = char_pos + symbol_name.len();
                 let range = Range {
-                    start: Position { line: line as u32, character: char_pos as u32 },
-                    end: Position { line: line as u32, character: name_end as u32 },
+                    start: Position {
+                        line: line as u32,
+                        character: char_pos as u32,
+                    },
+                    end: Position {
+                        line: line as u32,
+                        character: name_end as u32,
+                    },
                 };
 
                 match decl {
                     Declaration::Function(func) => {
-                        let detail = format!("{} = ({}) {}",
+                        let detail = format!(
+                            "{} = ({}) {}",
                             func.name,
-                            func.args.iter()
+                            func.args
+                                .iter()
                                 .map(|(name, ty)| format!("{}: {}", name, format_type(ty)))
                                 .collect::<Vec<_>>()
                                 .join(", "),
                             format_type(&func.return_type)
                         );
 
-                        symbols.insert(func.name.clone(), SymbolInfo {
-                            name: func.name.clone(),
-                            kind: SymbolKind::FUNCTION,
-                            range: range.clone(),
-                            selection_range: range,
-                            detail: Some(detail),
-                            documentation: None,
-                            type_info: Some(func.return_type.clone()),
-                            definition_uri: None,
-                            references: Vec::new(),
-                            enum_variants: None,
-                        });
+                        symbols.insert(
+                            func.name.clone(),
+                            SymbolInfo {
+                                name: func.name.clone(),
+                                kind: SymbolKind::FUNCTION,
+                                range: range.clone(),
+                                selection_range: range,
+                                detail: Some(detail),
+                                documentation: None,
+                                type_info: Some(func.return_type.clone()),
+                                definition_uri: None,
+                                references: Vec::new(),
+                                enum_variants: None,
+                            },
+                        );
                     }
                     Declaration::Struct(struct_def) => {
-                        let detail = format!("{} struct with {} fields", struct_def.name, struct_def.fields.len());
+                        let detail = format!(
+                            "{} struct with {} fields",
+                            struct_def.name,
+                            struct_def.fields.len()
+                        );
 
-                        symbols.insert(struct_def.name.clone(), SymbolInfo {
-                            name: struct_def.name.clone(),
-                            kind: SymbolKind::STRUCT,
-                            range: range.clone(),
-                            selection_range: range,
-                            detail: Some(detail),
-                            documentation: None,
-                            type_info: None,
-                            definition_uri: None,
-                            references: Vec::new(),
-                            enum_variants: None,
-                        });
-                    }
-                    Declaration::Enum(enum_def) => {
-                        let detail = format!("{} enum with {} variants", enum_def.name, enum_def.variants.len());
-
-                        let variant_names: Vec<String> = enum_def.variants.iter()
-                            .map(|v| v.name.clone())
-                            .collect();
-
-                        symbols.insert(enum_def.name.clone(), SymbolInfo {
-                            name: enum_def.name.clone(),
-                            kind: SymbolKind::ENUM,
-                            range: range.clone(),
-                            selection_range: range,
-                            detail: Some(detail),
-                            documentation: None,
-                            type_info: None,
-                            definition_uri: None,
-                            references: Vec::new(),
-                            enum_variants: Some(variant_names),
-                        });
-
-                        // Add enum variants as symbols
-                        for variant in &enum_def.variants {
-                            let variant_name = format!("{}::{}", enum_def.name, variant.name);
-                            symbols.insert(variant_name.clone(), SymbolInfo {
-                                name: variant.name.clone(),
-                                kind: SymbolKind::ENUM_MEMBER,
+                        symbols.insert(
+                            struct_def.name.clone(),
+                            SymbolInfo {
+                                name: struct_def.name.clone(),
+                                kind: SymbolKind::STRUCT,
                                 range: range.clone(),
-                                selection_range: range.clone(),
-                                detail: Some(format!("{}::{}", enum_def.name, variant.name)),
+                                selection_range: range,
+                                detail: Some(detail),
                                 documentation: None,
                                 type_info: None,
                                 definition_uri: None,
                                 references: Vec::new(),
                                 enum_variants: None,
-                            });
+                            },
+                        );
+                    }
+                    Declaration::Enum(enum_def) => {
+                        let detail = format!(
+                            "{} enum with {} variants",
+                            enum_def.name,
+                            enum_def.variants.len()
+                        );
+
+                        let variant_names: Vec<String> =
+                            enum_def.variants.iter().map(|v| v.name.clone()).collect();
+
+                        symbols.insert(
+                            enum_def.name.clone(),
+                            SymbolInfo {
+                                name: enum_def.name.clone(),
+                                kind: SymbolKind::ENUM,
+                                range: range.clone(),
+                                selection_range: range,
+                                detail: Some(detail),
+                                documentation: None,
+                                type_info: None,
+                                definition_uri: None,
+                                references: Vec::new(),
+                                enum_variants: Some(variant_names),
+                            },
+                        );
+
+                        // Add enum variants as symbols
+                        for variant in &enum_def.variants {
+                            let variant_name = format!("{}::{}", enum_def.name, variant.name);
+                            symbols.insert(
+                                variant_name.clone(),
+                                SymbolInfo {
+                                    name: variant.name.clone(),
+                                    kind: SymbolKind::ENUM_MEMBER,
+                                    range: range.clone(),
+                                    selection_range: range.clone(),
+                                    detail: Some(format!("{}::{}", enum_def.name, variant.name)),
+                                    documentation: None,
+                                    type_info: None,
+                                    definition_uri: None,
+                                    references: Vec::new(),
+                                    enum_variants: None,
+                                },
+                            );
                         }
                     }
                     Declaration::Constant { name, type_, .. } => {
-                        symbols.insert(name.clone(), SymbolInfo {
-                            name: name.clone(),
-                            kind: SymbolKind::CONSTANT,
-                            range: range.clone(),
-                            selection_range: range,
-                            detail: type_.as_ref().map(|t| format_type(t)),
-                            documentation: None,
-                            type_info: type_.clone(),
-                            definition_uri: None,
-                            references: Vec::new(),
-                            enum_variants: None,
-                        });
+                        symbols.insert(
+                            name.clone(),
+                            SymbolInfo {
+                                name: name.clone(),
+                                kind: SymbolKind::CONSTANT,
+                                range: range.clone(),
+                                selection_range: range,
+                                detail: type_.as_ref().map(|t| format_type(t)),
+                                documentation: None,
+                                type_info: type_.clone(),
+                                definition_uri: None,
+                                references: Vec::new(),
+                                enum_variants: None,
+                            },
+                        );
                     }
                     _ => {}
                 }
@@ -463,57 +531,81 @@ impl DocumentStore {
                 if trimmed.starts_with("//") {
                     continue;
                 }
-                
+
                 // Look for struct definitions: Name: {
                 if let Some(colon_pos) = trimmed.find(':') {
                     let before_colon = trimmed[..colon_pos].trim();
-                    if !before_colon.is_empty() && before_colon.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    if !before_colon.is_empty()
+                        && before_colon
+                            .chars()
+                            .all(|c| c.is_alphanumeric() || c == '_')
+                    {
                         if trimmed[colon_pos + 1..].trim().starts_with('{') {
                             // Found struct definition
                             let char_pos = line.find(before_colon).unwrap_or(0);
                             let range = Range {
-                                start: Position { line: line_num as u32, character: char_pos as u32 },
-                                end: Position { line: line_num as u32, character: (char_pos + before_colon.len()) as u32 },
+                                start: Position {
+                                    line: line_num as u32,
+                                    character: char_pos as u32,
+                                },
+                                end: Position {
+                                    line: line_num as u32,
+                                    character: (char_pos + before_colon.len()) as u32,
+                                },
                             };
-                            symbols.insert(before_colon.to_string(), SymbolInfo {
-                                name: before_colon.to_string(),
-                                kind: SymbolKind::STRUCT,
-                                range: range.clone(),
-                                selection_range: range,
-                                detail: Some(format!("{} struct", before_colon)),
-                                documentation: None,
-                                type_info: None,
-                                definition_uri: None,
-                                references: Vec::new(),
-                                enum_variants: None,
-                            });
+                            symbols.insert(
+                                before_colon.to_string(),
+                                SymbolInfo {
+                                    name: before_colon.to_string(),
+                                    kind: SymbolKind::STRUCT,
+                                    range: range.clone(),
+                                    selection_range: range,
+                                    detail: Some(format!("{} struct", before_colon)),
+                                    documentation: None,
+                                    type_info: None,
+                                    definition_uri: None,
+                                    references: Vec::new(),
+                                    enum_variants: None,
+                                },
+                            );
                         }
                     }
                 }
-                
+
                 // Look for function definitions: name = (
                 if let Some(eq_pos) = trimmed.find('=') {
                     let before_eq = trimmed[..eq_pos].trim();
-                    if !before_eq.is_empty() && before_eq.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    if !before_eq.is_empty()
+                        && before_eq.chars().all(|c| c.is_alphanumeric() || c == '_')
+                    {
                         if trimmed[eq_pos + 1..].trim().starts_with('(') {
                             // Found function definition
                             let char_pos = line.find(before_eq).unwrap_or(0);
                             let range = Range {
-                                start: Position { line: line_num as u32, character: char_pos as u32 },
-                                end: Position { line: line_num as u32, character: (char_pos + before_eq.len()) as u32 },
+                                start: Position {
+                                    line: line_num as u32,
+                                    character: char_pos as u32,
+                                },
+                                end: Position {
+                                    line: line_num as u32,
+                                    character: (char_pos + before_eq.len()) as u32,
+                                },
                             };
-                            symbols.insert(before_eq.to_string(), SymbolInfo {
-                                name: before_eq.to_string(),
-                                kind: SymbolKind::FUNCTION,
-                                range: range.clone(),
-                                selection_range: range,
-                                detail: Some(format!("{} = (...) ...", before_eq)),
-                                documentation: None,
-                                type_info: None,
-                                definition_uri: None,
-                                references: Vec::new(),
-                                enum_variants: None,
-                            });
+                            symbols.insert(
+                                before_eq.to_string(),
+                                SymbolInfo {
+                                    name: before_eq.to_string(),
+                                    kind: SymbolKind::FUNCTION,
+                                    range: range.clone(),
+                                    selection_range: range,
+                                    detail: Some(format!("{} = (...) ...", before_eq)),
+                                    documentation: None,
+                                    type_info: None,
+                                    definition_uri: None,
+                                    references: Vec::new(),
+                                    enum_variants: None,
+                                },
+                            );
                         }
                     }
                 }
@@ -523,7 +615,12 @@ impl DocumentStore {
         symbols
     }
 
-    fn find_declaration_position(&self, content: &str, decl: &Declaration, _index: usize) -> (usize, usize) {
+    fn find_declaration_position(
+        &self,
+        content: &str,
+        decl: &Declaration,
+        _index: usize,
+    ) -> (usize, usize) {
         // Find the line number and character position where the declaration starts
         let search_str = match decl {
             Declaration::Function(f) => &f.name,
@@ -539,21 +636,24 @@ impl DocumentStore {
             if let Some(pos) = self.find_word_in_line_for_symbol(line, search_str) {
                 // Check if this looks like a definition (has = or : after the name)
                 let after_symbol = &line[pos + search_str.len()..].trim();
-                if after_symbol.starts_with('=') || after_symbol.starts_with(':') || after_symbol.starts_with('(') {
+                if after_symbol.starts_with('=')
+                    || after_symbol.starts_with(':')
+                    || after_symbol.starts_with('(')
+                {
                     return (line_num, pos);
                 }
             }
         }
         (0, 0)
     }
-    
+
     // Helper to find symbol name in line at word boundaries
     fn find_word_in_line_for_symbol(&self, line: &str, symbol: &str) -> Option<usize> {
         let mut search_pos = 0;
         loop {
             if let Some(pos) = line[search_pos..].find(symbol) {
                 let actual_pos = search_pos + pos;
-                
+
                 // Check word boundaries
                 let before_ok = actual_pos == 0 || {
                     let before = line.chars().nth(actual_pos - 1).unwrap_or(' ');
@@ -564,11 +664,11 @@ impl DocumentStore {
                     let after = line.chars().nth(after_pos).unwrap_or(' ');
                     !after.is_alphanumeric() && after != '_'
                 };
-                
+
                 if before_ok && after_ok {
                     return Some(actual_pos);
                 }
-                
+
                 search_pos = actual_pos + 1;
             } else {
                 break;
@@ -586,7 +686,11 @@ impl DocumentStore {
         self.search_directory_for_symbol(root_path, symbol_name)
     }
 
-    fn search_directory_for_symbol(&self, dir: &std::path::Path, symbol_name: &str) -> Option<(Url, SymbolInfo)> {
+    fn search_directory_for_symbol(
+        &self,
+        dir: &std::path::Path,
+        symbol_name: &str,
+    ) -> Option<(Url, SymbolInfo)> {
         use std::fs;
 
         if !dir.is_dir() {
@@ -613,7 +717,10 @@ impl DocumentStore {
             } else if path.is_dir() {
                 let file_name = path.file_name()?.to_str()?;
 
-                if file_name.starts_with('.') || file_name == "target" || file_name == "node_modules" {
+                if file_name.starts_with('.')
+                    || file_name == "target"
+                    || file_name == "node_modules"
+                {
                     continue;
                 }
 
@@ -626,12 +733,21 @@ impl DocumentStore {
         None
     }
 
-    fn find_references_in_statements(&self, statements: &[Statement], symbols: &mut HashMap<String, SymbolInfo>) {
+    fn find_references_in_statements(
+        &self,
+        statements: &[Statement],
+        symbols: &mut HashMap<String, SymbolInfo>,
+    ) {
         for stmt in statements {
             match stmt {
-                Statement::Expression { expr, .. } => self.find_references_in_expression(expr, symbols),
+                Statement::Expression { expr, .. } => {
+                    self.find_references_in_expression(expr, symbols)
+                }
                 Statement::Return { expr, .. } => self.find_references_in_expression(expr, symbols),
-                Statement::VariableDeclaration { initializer: Some(expr), .. } => {
+                Statement::VariableDeclaration {
+                    initializer: Some(expr),
+                    ..
+                } => {
                     self.find_references_in_expression(expr, symbols);
                 }
                 Statement::VariableAssignment { value, .. } => {
@@ -646,7 +762,11 @@ impl DocumentStore {
         }
     }
 
-    fn find_references_in_expression(&self, expr: &Expression, symbols: &mut HashMap<String, SymbolInfo>) {
+    fn find_references_in_expression(
+        &self,
+        expr: &Expression,
+        symbols: &mut HashMap<String, SymbolInfo>,
+    ) {
         match expr {
             Expression::Identifier(name) => {
                 // Track reference to this identifier
@@ -664,7 +784,11 @@ impl DocumentStore {
                     self.find_references_in_expression(arg, symbols);
                 }
             }
-            Expression::MethodCall { object, method: _, args } => {
+            Expression::MethodCall {
+                object,
+                method: _,
+                args,
+            } => {
                 // Track UFC method call - recurse into object and args
                 self.find_references_in_expression(object, symbols);
                 for arg in args {
@@ -702,16 +826,32 @@ impl DocumentStore {
         }
     }
 
-    fn extract_variables_from_statements(&self, statements: &[Statement], content: &str, symbols: &mut HashMap<String, SymbolInfo>) {
+    fn extract_variables_from_statements(
+        &self,
+        statements: &[Statement],
+        content: &str,
+        symbols: &mut HashMap<String, SymbolInfo>,
+    ) {
         for stmt in statements {
             match stmt {
-                Statement::VariableDeclaration { name, type_, initializer, .. } => {
+                Statement::VariableDeclaration {
+                    name,
+                    type_,
+                    initializer,
+                    ..
+                } => {
                     // Find the position of this variable in the content
                     if let Some((line, char_pos)) = self.find_variable_position(content, name) {
                         let name_end = char_pos + name.len();
                         let range = Range {
-                            start: Position { line: line as u32, character: char_pos as u32 },
-                            end: Position { line: line as u32, character: name_end as u32 },
+                            start: Position {
+                                line: line as u32,
+                                character: char_pos as u32,
+                            },
+                            end: Position {
+                                line: line as u32,
+                                character: name_end as u32,
+                            },
                         };
 
                         // Determine type information
@@ -727,7 +867,9 @@ impl DocumentStore {
                                         statements: vec![],
                                     };
                                     let mut compiler_integration = CompilerIntegration::new();
-                                    if let Ok(ast_type) = compiler_integration.infer_expression_type(&program, init) {
+                                    if let Ok(ast_type) =
+                                        compiler_integration.infer_expression_type(&program, init)
+                                    {
                                         inferred_type = Some(ast_type);
                                         break;
                                     }
@@ -737,7 +879,7 @@ impl DocumentStore {
                         } else {
                             None
                         };
-                        
+
                         let detail = if let Some(ref t) = &type_info {
                             Some(format!("{}: {}", name, format_type(t)))
                         } else if let Some(ref init) = initializer {
@@ -751,18 +893,21 @@ impl DocumentStore {
                             Some(name.clone())
                         };
 
-                        symbols.insert(name.clone(), SymbolInfo {
-                            name: name.clone(),
-                            kind: SymbolKind::VARIABLE,
-                            range: range.clone(),
-                            selection_range: range,
-                            detail,
-                            documentation: None,
-                            type_info,
-                            definition_uri: None,
-                            references: Vec::new(),
-                            enum_variants: None,
-                        });
+                        symbols.insert(
+                            name.clone(),
+                            SymbolInfo {
+                                name: name.clone(),
+                                kind: SymbolKind::VARIABLE,
+                                range: range.clone(),
+                                selection_range: range,
+                                detail,
+                                documentation: None,
+                                type_info,
+                                definition_uri: None,
+                                references: Vec::new(),
+                                enum_variants: None,
+                            },
+                        );
                     }
                 }
                 Statement::Loop { body, .. } => {

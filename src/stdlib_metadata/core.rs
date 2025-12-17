@@ -117,7 +117,10 @@ impl CoreModule {
             "panic".to_string(),
             StdFunction {
                 name: "panic".to_string(),
-                params: vec![("message".to_string(), crate::ast::resolve_string_struct_type())],
+                params: vec![(
+                    "message".to_string(),
+                    crate::ast::resolve_string_struct_type(),
+                )],
                 return_type: AstType::Void,
                 is_builtin: true,
             },

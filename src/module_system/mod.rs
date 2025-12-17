@@ -29,11 +29,15 @@ impl ModuleSystem {
         if stdlib_path.exists() {
             search_paths.push(stdlib_path);
         }
-        
+
         // Also check parent directory (for when running from target/debug)
         let parent_stdlib = cwd.parent().and_then(|p| {
             let path = p.join("stdlib");
-            if path.exists() { Some(path) } else { None }
+            if path.exists() {
+                Some(path)
+            } else {
+                None
+            }
         });
         if let Some(path) = parent_stdlib {
             search_paths.push(path);
@@ -79,14 +83,14 @@ impl ModuleSystem {
                 .trim_start_matches("@std.")
                 .trim_start_matches("@std")
                 .trim_start_matches("std.");
-            
+
             let path_parts: Vec<&str> = if path_str.is_empty() {
                 // Empty path means @std itself - skip for now
                 vec![]
             } else {
                 path_str.split('.').collect()
             };
-            
+
             if path_parts.is_empty() {
                 // @std itself - return empty program
                 let empty_program = Program {
@@ -96,7 +100,7 @@ impl ModuleSystem {
                 self.modules.insert(module_path.to_string(), empty_program);
                 return Ok(&self.modules[module_path]);
             }
-            
+
             // Special handling for compiler module - it's built-in, not a file
             if path_parts.len() == 1 && path_parts[0] == "compiler" {
                 // @std.compiler is a built-in compiler module, not a file
@@ -108,7 +112,7 @@ impl ModuleSystem {
                 self.modules.insert(module_path.to_string(), empty_program);
                 return Ok(&self.modules[module_path]);
             }
-            
+
             // Try to resolve to stdlib file
             let stdlib_path = self.cwd.join("stdlib");
             if stdlib_path.exists() {
@@ -118,14 +122,16 @@ impl ModuleSystem {
                     file_path = file_path.join(part);
                 }
                 file_path.set_extension("zen");
-                
+
                 // Also try directory/module_name.zen pattern (e.g., stdlib/io/io.zen)
                 let alt_path = if path_parts.len() == 1 {
-                    stdlib_path.join(path_parts[0]).join(format!("{}.zen", path_parts[0]))
+                    stdlib_path
+                        .join(path_parts[0])
+                        .join(format!("{}.zen", path_parts[0]))
                 } else {
                     file_path.clone()
                 };
-                
+
                 // Determine which file to load
                 let file_to_load = if alt_path.exists() {
                     alt_path
@@ -150,12 +156,15 @@ impl ModuleSystem {
                     self.modules.insert(module_path.to_string(), empty_program);
                     return Ok(&self.modules[module_path]);
                 };
-                
+
                 // Load and parse the file
                 let source = std::fs::read_to_string(&file_to_load).map_err(|e| {
-                    CompileError::FileNotFound(file_to_load.display().to_string(), Some(e.to_string()))
+                    CompileError::FileNotFound(
+                        file_to_load.display().to_string(),
+                        Some(e.to_string()),
+                    )
                 })?;
-                
+
                 let lexer = crate::lexer::Lexer::new(&source);
                 let mut parser = Parser::new(lexer);
                 let program = parser.parse_program().map_err(|e| {
@@ -164,7 +173,7 @@ impl ModuleSystem {
                         None,
                     )
                 })?;
-                
+
                 // Process imports in the loaded module
                 for decl in &program.declarations {
                     if let Declaration::ModuleImport {
@@ -176,11 +185,11 @@ impl ModuleSystem {
                         self.load_module(import_path)?;
                     }
                 }
-                
+
                 self.modules.insert(module_path.to_string(), program);
                 return Ok(&self.modules[module_path]);
             }
-            
+
             // Fallback: Create an empty program for built-in modules
             // The actual functionality is provided by the compiler's stdlib module
             let empty_program = Program {

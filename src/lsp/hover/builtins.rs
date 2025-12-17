@@ -50,4 +50,3 @@ pub fn get_builtin_hover_text(symbol_name: &str) -> &'static str {
         _ => "Zen language element",
     }
 }
-

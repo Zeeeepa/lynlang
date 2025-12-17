@@ -100,7 +100,9 @@ impl CompileError {
             CompileError::FFIError(_, span) => span.as_ref(),
             CompileError::InvalidSyntax { span, .. } => span.as_ref(),
             CompileError::MissingTypeAnnotation(_, span) => span.as_ref(),
-            CompileError::DuplicateDeclaration { duplicate_location, .. } => duplicate_location.as_ref(),
+            CompileError::DuplicateDeclaration {
+                duplicate_location, ..
+            } => duplicate_location.as_ref(),
             _ => None,
         }
     }
@@ -111,7 +113,9 @@ impl CompileError {
             CompileError::SyntaxError(msg, _) => msg.clone(),
             CompileError::UndeclaredVariable(var, _) => format!("Undeclared variable: {}", var),
             CompileError::UndeclaredFunction(func, _) => format!("Undeclared function: {}", func),
-            CompileError::TypeMismatch { expected, found, .. } => {
+            CompileError::TypeMismatch {
+                expected, found, ..
+            } => {
                 format!("Type mismatch: expected {}, found {}", expected, found)
             }
             CompileError::InvalidLoopCondition(msg, _) => msg.clone(),
@@ -122,16 +126,24 @@ impl CompileError {
             CompileError::FileNotFound(file, _) => format!("File not found: {}", file),
             CompileError::ParseError(msg, _) => format!("Parse error: {}", msg),
             CompileError::ComptimeError(msg) => format!("Comptime error: {}", msg),
-            CompileError::UnexpectedToken { expected, found, .. } => {
+            CompileError::UnexpectedToken {
+                expected, found, ..
+            } => {
                 format!("Unexpected token: expected {:?}, found {}", expected, found)
             }
             CompileError::InvalidPattern(msg, _) => format!("Invalid pattern: {}", msg),
             CompileError::ImportError(msg, _) => format!("Import error: {}", msg),
             CompileError::FFIError(msg, _) => format!("FFI error: {}", msg),
-            CompileError::InvalidSyntax { message, suggestion, .. } => {
+            CompileError::InvalidSyntax {
+                message,
+                suggestion,
+                ..
+            } => {
                 format!("{} (suggestion: {})", message, suggestion)
             }
-            CompileError::MissingTypeAnnotation(msg, _) => format!("Missing type annotation: {}", msg),
+            CompileError::MissingTypeAnnotation(msg, _) => {
+                format!("Missing type annotation: {}", msg)
+            }
             CompileError::DuplicateDeclaration { name, .. } => {
                 format!("Duplicate declaration: {}", name)
             }

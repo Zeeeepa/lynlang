@@ -1,7 +1,7 @@
 // Variable type inference for hover
 
-use std::collections::HashMap;
 use lsp_types::Url;
+use std::collections::HashMap;
 
 use super::super::types::*;
 use super::super::utils::format_type;
@@ -13,7 +13,8 @@ pub fn extract_type_from_line(line: &str) -> Option<String> {
     if let Some(colon_pos) = line.find(':') {
         let after_colon = &line[colon_pos + 1..];
         // Extract type (stop at =, {, or end)
-        let type_end = after_colon.find('=')
+        let type_end = after_colon
+            .find('=')
             .or_else(|| after_colon.find('{'))
             .or_else(|| after_colon.find('('))
             .unwrap_or(after_colon.len());
@@ -47,7 +48,10 @@ pub fn infer_variable_type(
                         // Extract type between : and =
                         let type_str = line[colon_pos + 1..eq_pos].trim();
                         if !type_str.is_empty() {
-                            return Some(format!("```zen\n{}: {}\n```\n\n**Type:** `{}`", var_name, type_str, type_str));
+                            return Some(format!(
+                                "```zen\n{}: {}\n```\n\n**Type:** `{}`",
+                                var_name, type_str, type_str
+                            ));
                         }
                     }
                 }
@@ -62,10 +66,11 @@ pub fn infer_variable_type(
                     let func_name = rhs[..paren_pos].trim();
 
                     // Look up function in symbols
-                    if let Some(func_info) = local_symbols.get(func_name)
+                    if let Some(func_info) = local_symbols
+                        .get(func_name)
                         .or_else(|| stdlib_symbols.get(func_name))
-                        .or_else(|| workspace_symbols.get(func_name)) {
-
+                        .or_else(|| workspace_symbols.get(func_name))
+                    {
                         if let Some(type_info) = &func_info.type_info {
                             let type_str = format_type(type_info);
                             return Some(format!(
@@ -96,8 +101,13 @@ pub fn infer_variable_type(
                     if !type_name.is_empty() && type_name.chars().next().unwrap().is_uppercase() {
                         // Try to find the struct definition to show its fields
                         let type_display = if let Some(docs) = documents {
-                            if let Some(struct_def) = structs::find_struct_definition_in_documents(type_name, docs) {
-                                format!("```zen\n{}\n```", structs::format_struct_definition(&struct_def))
+                            if let Some(struct_def) =
+                                structs::find_struct_definition_in_documents(type_name, docs)
+                            {
+                                format!(
+                                    "```zen\n{}\n```",
+                                    structs::format_struct_definition(&struct_def)
+                                )
                             } else {
                                 format!("```zen\n{} = {} {{ ... }}\n```\n\n**Type:** `{}`\n\n**Inferred from:** constructor", var_name, type_name, type_name)
                             }
@@ -113,8 +123,13 @@ pub fn infer_variable_type(
                     if !type_name.is_empty() && type_name.chars().next().unwrap().is_uppercase() {
                         // Try to find the struct definition to show its fields
                         let type_display = if let Some(docs) = documents {
-                            if let Some(struct_def) = structs::find_struct_definition_in_documents(type_name, docs) {
-                                format!("```zen\n{}\n```", structs::format_struct_definition(&struct_def))
+                            if let Some(struct_def) =
+                                structs::find_struct_definition_in_documents(type_name, docs)
+                            {
+                                format!(
+                                    "```zen\n{}\n```",
+                                    structs::format_struct_definition(&struct_def)
+                                )
                             } else {
                                 format!("```zen\n{} = {}()\n```\n\n**Type:** `{}`\n\n**Inferred from:** constructor", var_name, type_name, type_name)
                             }
@@ -157,4 +172,3 @@ pub fn infer_variable_type(
 
     None
 }
-

@@ -15,7 +15,7 @@ impl SpannedStatement {
     pub fn new(stmt: Statement, span: Option<Span>) -> Self {
         Self { stmt, span }
     }
-    
+
     pub fn without_span(stmt: Statement) -> Self {
         Self { stmt, span: None }
     }

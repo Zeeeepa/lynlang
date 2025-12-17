@@ -1,16 +1,13 @@
 //! Indexing logic for workspace and stdlib - extracted from document_store.rs
 
+use super::symbol_extraction::extract_symbols_static;
+use super::types::SymbolInfo;
 use lsp_types::Url;
 use std::collections::HashMap;
 use std::path::Path;
-use super::types::SymbolInfo;
-use super::symbol_extraction::extract_symbols_static;
 
 /// Index workspace files recursively
-pub fn index_workspace_files_recursive(
-    path: &Path,
-    symbols: &mut HashMap<String, SymbolInfo>,
-) {
+pub fn index_workspace_files_recursive(path: &Path, symbols: &mut HashMap<String, SymbolInfo>) {
     use std::fs;
 
     if !path.is_dir() {
@@ -52,10 +49,7 @@ pub fn index_workspace_files_recursive(
 }
 
 /// Index stdlib directory recursively
-pub fn index_stdlib_directory(
-    path: &Path,
-    symbols: &mut HashMap<String, SymbolInfo>,
-) {
+pub fn index_stdlib_directory(path: &Path, symbols: &mut HashMap<String, SymbolInfo>) {
     use std::fs;
 
     if let Ok(entries) = fs::read_dir(path) {
@@ -99,4 +93,3 @@ pub fn find_stdlib_path() -> Option<std::path::PathBuf> {
     }
     None
 }
-

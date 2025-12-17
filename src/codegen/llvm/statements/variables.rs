@@ -1,8 +1,8 @@
 use super::super::LLVMCompiler;
+use super::super::Type;
 use crate::ast::{AstType, Expression, Statement, VariableDeclarationType};
 use crate::error::CompileError;
 use inkwell::{types::BasicTypeEnum, values::BasicValueEnum};
-use super::super::Type;
 
 pub fn compile_expression_statement<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
@@ -43,10 +43,7 @@ pub fn compile_variable_declaration<'ctx>(
             // Allow initialization of forward-declared variables with = operator
             // This works for both immutable (x: i32 then x = 10) and mutable (w:: i32 then w = 40)
             if !var_info.is_initialized
-                && matches!(
-                    declaration_type,
-                    VariableDeclarationType::InferredImmutable
-                )
+                && matches!(declaration_type, VariableDeclarationType::InferredImmutable)
             {
                 // This is initialization of a forward-declared variable
                 let value = compiler.compile_expression(init_expr)?;
@@ -60,10 +57,7 @@ pub fn compile_variable_declaration<'ctx>(
                 return Ok(());
             } else if var_info.is_initialized
                 && var_info.is_mutable
-                && matches!(
-                    declaration_type,
-                    VariableDeclarationType::InferredImmutable
-                )
+                && matches!(declaration_type, VariableDeclarationType::InferredImmutable)
             {
                 // This is a reassignment to an existing mutable variable
                 // (e.g., w = 45 after w:: i32 and w = 40)
@@ -91,19 +85,22 @@ pub fn compile_variable_declaration<'ctx>(
 
     // Keep track of inferred AST type for closures
     let mut inferred_ast_type: Option<AstType> = None;
-    
+
     // Save generic context before compiling to handle raise() correctly
     let _saved_ok_type = compiler.generic_type_context.get("Result_Ok_Type").cloned();
 
     let llvm_type = match type_ {
-        Some(type_) => {
-            compiler.to_llvm_type(type_)?
-        }
+        Some(type_) => compiler.to_llvm_type(type_)?,
         None => {
             // Type inference - try to infer from initializer
             if let Some(init_expr) = initializer {
                 // Check if the initializer is a closure BEFORE compiling it
-                if let Expression::Closure { params, return_type, body } = init_expr {
+                if let Expression::Closure {
+                    params,
+                    return_type,
+                    body,
+                } = init_expr
+                {
                     // This is a closure - infer its function pointer type
                     let param_types: Vec<AstType> = params
                         .iter()
@@ -115,7 +112,9 @@ pub fn compile_variable_declaration<'ctx>(
                         rt.clone()
                     } else {
                         // Try to infer the return type from the closure body
-                        compiler.infer_closure_return_type(body).unwrap_or(AstType::I32)
+                        compiler
+                            .infer_closure_return_type(body)
+                            .unwrap_or(AstType::I32)
                     };
 
                     // Store the proper function pointer type
@@ -123,10 +122,12 @@ pub fn compile_variable_declaration<'ctx>(
                         param_types: param_types.clone(),
                         return_type: Box::new(inferred_return_type.clone()),
                     };
-                    
+
                     // Track the function's return type for later lookup when it's called
                     // This is crucial for type inference when calling closures
-                    compiler.function_types.insert(name.clone(), inferred_return_type.clone());
+                    compiler
+                        .function_types
+                        .insert(name.clone(), inferred_return_type.clone());
 
                     // Save this for later when we insert the variable
                     inferred_ast_type = Some(func_type);
@@ -152,44 +153,81 @@ pub fn compile_variable_declaration<'ctx>(
                     if let Ok(ast_type) = compiler.infer_expression_type(init_expr) {
                         // Save the inferred AST type for later
                         inferred_ast_type = Some(ast_type.clone());
-                        
+
                         // Track generic types if this is a Result, Option, Array, etc.
-                        if let AstType::Generic { name: type_name, type_args } = &ast_type {
+                        if let AstType::Generic {
+                            name: type_name,
+                            type_args,
+                        } = &ast_type
+                        {
                             if type_name == "Result" && type_args.len() == 2 {
-                                compiler.track_generic_type(format!("{}_Result_Ok_Type", name), type_args[0].clone());
-                                compiler.track_generic_type(format!("{}_Result_Err_Type", name), type_args[1].clone());
+                                compiler.track_generic_type(
+                                    format!("{}_Result_Ok_Type", name),
+                                    type_args[0].clone(),
+                                );
+                                compiler.track_generic_type(
+                                    format!("{}_Result_Err_Type", name),
+                                    type_args[1].clone(),
+                                );
                                 // Also track without variable name prefix for pattern matching
-                                compiler.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                                compiler.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                                compiler.track_generic_type(
+                                    "Result_Ok_Type".to_string(),
+                                    type_args[0].clone(),
+                                );
+                                compiler.track_generic_type(
+                                    "Result_Err_Type".to_string(),
+                                    type_args[1].clone(),
+                                );
                                 compiler.generic_tracker.track_generic_type(&ast_type, name);
                             } else if type_name == "Option" && type_args.len() == 1 {
-                                compiler.track_generic_type(format!("{}_Option_Some_Type", name), type_args[0].clone());
+                                compiler.track_generic_type(
+                                    format!("{}_Option_Some_Type", name),
+                                    type_args[0].clone(),
+                                );
                                 // Also track without variable name prefix for pattern matching
-                                compiler.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
+                                compiler.track_generic_type(
+                                    "Option_Some_Type".to_string(),
+                                    type_args[0].clone(),
+                                );
                                 compiler.generic_tracker.track_generic_type(&ast_type, name);
                             } else if type_name == "Array" && type_args.len() == 1 {
-                                compiler.track_generic_type(format!("{}_Array_Element_Type", name), type_args[0].clone());
+                                compiler.track_generic_type(
+                                    format!("{}_Array_Element_Type", name),
+                                    type_args[0].clone(),
+                                );
                                 compiler.generic_tracker.track_generic_type(&ast_type, name);
                             } else if type_name == "HashMap" && type_args.len() == 2 {
-                                compiler.track_generic_type(format!("{}_HashMap_Key_Type", name), type_args[0].clone());
-                                compiler.track_generic_type(format!("{}_HashMap_Value_Type", name), type_args[1].clone());
+                                compiler.track_generic_type(
+                                    format!("{}_HashMap_Key_Type", name),
+                                    type_args[0].clone(),
+                                );
+                                compiler.track_generic_type(
+                                    format!("{}_HashMap_Value_Type", name),
+                                    type_args[1].clone(),
+                                );
                                 compiler.generic_tracker.track_generic_type(&ast_type, name);
                             } else if type_name == "HashSet" && type_args.len() == 1 {
-                                compiler.track_generic_type(format!("{}_HashSet_Element_Type", name), type_args[0].clone());
+                                compiler.track_generic_type(
+                                    format!("{}_HashSet_Element_Type", name),
+                                    type_args[0].clone(),
+                                );
                                 compiler.generic_tracker.track_generic_type(&ast_type, name);
                             } else if type_name == "DynVec" {
                                 // DynVec can have multiple element types
                                 for (i, element_type) in type_args.iter().enumerate() {
-                                    compiler.track_generic_type(format!("{}_DynVec_Element_{}_Type", name, i), element_type.clone());
+                                    compiler.track_generic_type(
+                                        format!("{}_DynVec_Element_{}_Type", name, i),
+                                        element_type.clone(),
+                                    );
                                 }
                                 compiler.generic_tracker.track_generic_type(&ast_type, name);
                             }
                         }
-                        
+
                         // Now compile the expression
                         let init_value = compiler.compile_expression(init_expr)?;
                         compiled_value = Some(init_value);
-                        
+
                         // Convert the AST type to LLVM type
                         compiler.to_llvm_type(&ast_type)?
                     } else {
@@ -221,7 +259,8 @@ pub fn compile_variable_declaration<'ctx>(
                                 // Store the inferred AST type as Ptr(U8) - the generic pointer type
                                 inferred_ast_type = Some(AstType::Ptr(Box::new(AstType::U8)));
                                 Type::Basic(
-                                    compiler.context
+                                    compiler
+                                        .context
                                         .ptr_type(inkwell::AddressSpace::default())
                                         .into(),
                                 )
@@ -258,7 +297,10 @@ pub fn compile_variable_declaration<'ctx>(
             .into(),
         Type::Void => {
             return Err(CompileError::TypeError(
-                format!("Cannot infer type for variable '{}' - expression has void type", name),
+                format!(
+                    "Cannot infer type for variable '{}' - expression has void type",
+                    name
+                ),
                 None,
             ))
         }
@@ -285,7 +327,8 @@ pub fn compile_variable_declaration<'ctx>(
                     if let Some(function) = compiler.module.get_function(&func_name) {
                         // Store the function pointer
                         let func_ptr = function.as_global_value().as_pointer_value();
-                        compiler.builder
+                        compiler
+                            .builder
                             .build_store(alloca, func_ptr)
                             .map_err(|e| CompileError::from(e))?;
                         compiler.variables.insert(
@@ -303,14 +346,14 @@ pub fn compile_variable_declaration<'ctx>(
                     }
                 } else {
                     return Err(CompileError::TypeError(
-                        "Function pointer initializer must be a function name"
-                            .to_string(),
+                        "Function pointer initializer must be a function name".to_string(),
                         None,
                     ));
                 }
             } else if let AstType::Bool = type_ {
                 // For booleans, store directly as i1
-                compiler.builder
+                compiler
+                    .builder
                     .build_store(alloca, value)
                     .map_err(|e| CompileError::from(e))?;
                 compiler.variables.insert(
@@ -335,7 +378,8 @@ pub fn compile_variable_declaration<'ctx>(
                         value
                     }
                 };
-                compiler.builder
+                compiler
+                    .builder
                     .build_store(alloca, ptr_value)
                     .map_err(|e| CompileError::from(e))?;
                 compiler.variables.insert(
@@ -353,12 +397,7 @@ pub fn compile_variable_declaration<'ctx>(
 
         // Store the value using coercing_store to handle type mismatches
         // (e.g., i64 literal into i32 alloca - this was causing memory corruption)
-        compiler.coercing_store(
-            value,
-            alloca,
-            basic_type,
-            &format!("variable '{}'", name),
-        )?;
+        compiler.coercing_store(value, alloca, basic_type, &format!("variable '{}'", name))?;
 
         // Determine the AST type to store
         let ast_type_to_store = if let Some(type_) = type_ {
@@ -402,18 +441,15 @@ pub fn compile_variable_declaration<'ctx>(
     } else {
         // No initializer - initialize to zero/default
         let zero: BasicValueEnum = match llvm_type {
-            Type::Basic(BasicTypeEnum::IntType(int_type)) => {
-                int_type.const_zero().into()
-            }
-            Type::Basic(BasicTypeEnum::FloatType(float_type)) => {
-                float_type.const_zero().into()
-            }
+            Type::Basic(BasicTypeEnum::IntType(int_type)) => int_type.const_zero().into(),
+            Type::Basic(BasicTypeEnum::FloatType(float_type)) => float_type.const_zero().into(),
             Type::Basic(BasicTypeEnum::PointerType(_)) => {
                 compiler.context.i64_type().const_zero().into()
             }
             _ => compiler.context.i64_type().const_zero().into(),
         };
-        compiler.builder
+        compiler
+            .builder
             .build_store(alloca, zero)
             .map_err(|e| CompileError::from(e))?;
 
@@ -451,7 +487,10 @@ pub fn compile_assignment<'ctx>(
     match statement {
         Statement::VariableAssignment { name, value, .. } => {
             // Get the variable info
-            let var_info = compiler.variables.get(name).cloned()
+            let var_info = compiler
+                .variables
+                .get(name)
+                .cloned()
                 .ok_or_else(|| CompileError::UndeclaredVariable(name.clone(), None))?;
 
             // Check if variable is mutable
@@ -466,7 +505,9 @@ pub fn compile_assignment<'ctx>(
             let compiled_value = compiler.compile_expression(value)?;
 
             // Store the value
-            compiler.builder.build_store(var_info.pointer, compiled_value)?;
+            compiler
+                .builder
+                .build_store(var_info.pointer, compiled_value)?;
 
             // Mark as initialized if it wasn't already
             if let Some(var_info) = compiler.variables.get_mut(name) {
@@ -487,7 +528,7 @@ pub fn compile_assignment<'ctx>(
                 // Compile pointer expression to get the pointer value
                 let ptr_value = compiler.compile_expression(pointer)?;
                 let val = compiler.compile_expression(value)?;
-                
+
                 // ptr_value should be a PointerValue
                 if let BasicValueEnum::PointerValue(ptr) = ptr_value {
                     compiler.builder.build_store(ptr, val)?;
@@ -500,12 +541,10 @@ pub fn compile_assignment<'ctx>(
                 }
             }
         }
-        _ => {
-            Err(CompileError::InternalError(
-                "Expected assignment statement".to_string(),
-                None,
-            ))
-        }
+        _ => Err(CompileError::InternalError(
+            "Expected assignment statement".to_string(),
+            None,
+        )),
     }
 }
 

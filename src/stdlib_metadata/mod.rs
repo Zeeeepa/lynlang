@@ -64,12 +64,11 @@ impl StdNamespace {
         // For now, just return StdReference for any valid module name
         // The actual module resolution will happen at a different layer
         match module_name {
-            "core" | "compiler" | "build" | "io" | "math" | "string" | "vec" | "fs" | "net" | "result"
-            | "mem" | "process" | "thread" | "collections" | "hashmap" | "set" | "json"
-            | "regex" | "random" | "datetime" | "crypto" | "encoding" | "http" | "concurrency"
-            | "concurrent_runtime" | "iterator" | "algorithms" | "assert" | "test_framework" => {
-                Some(Expression::StdReference)
-            }
+            "core" | "compiler" | "build" | "io" | "math" | "string" | "vec" | "fs" | "net"
+            | "result" | "mem" | "process" | "thread" | "collections" | "hashmap" | "set"
+            | "json" | "regex" | "random" | "datetime" | "crypto" | "encoding" | "http"
+            | "concurrency" | "concurrent_runtime" | "iterator" | "algorithms" | "assert"
+            | "test_framework" => Some(Expression::StdReference),
             _ => None,
         }
     }

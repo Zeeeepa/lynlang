@@ -11,33 +11,35 @@ impl<'ctx> LLVMCompiler<'ctx> {
         &mut self,
         left_int: inkwell::values::IntValue<'ctx>,
         right_int: inkwell::values::IntValue<'ctx>,
-    ) -> Result<(inkwell::values::IntValue<'ctx>, inkwell::values::IntValue<'ctx>), CompileError> {
+    ) -> Result<
+        (
+            inkwell::values::IntValue<'ctx>,
+            inkwell::values::IntValue<'ctx>,
+        ),
+        CompileError,
+    > {
         if left_int.get_type() != right_int.get_type() {
             let left_width = left_int.get_type().get_bit_width();
             let right_width = right_int.get_type().get_bit_width();
-            
+
             if left_width > right_width {
                 // Cast right to left's type
-                let right_cast = self.builder.build_int_s_extend(
-                    right_int,
-                    left_int.get_type(),
-                    "ext_right",
-                )?;
+                let right_cast =
+                    self.builder
+                        .build_int_s_extend(right_int, left_int.get_type(), "ext_right")?;
                 Ok((left_int, right_cast))
             } else {
                 // Cast left to right's type
-                let left_cast = self.builder.build_int_s_extend(
-                    left_int,
-                    right_int.get_type(),
-                    "ext_left",
-                )?;
+                let left_cast =
+                    self.builder
+                        .build_int_s_extend(left_int, right_int.get_type(), "ext_left")?;
                 Ok((left_cast, right_int))
             }
         } else {
             Ok((left_int, right_int))
         }
     }
-    
+
     pub fn compile_binary_operation(
         &mut self,
         op: &BinaryOperator,
@@ -120,24 +122,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.context.f64_type(),
                 "int_to_float",
             )?;
-            let result = self.builder.build_float_add(
-                left_float,
-                right_val.into_float_value(),
-                "addtmp",
-            )?;
+            let result =
+                self.builder
+                    .build_float_add(left_float, right_val.into_float_value(), "addtmp")?;
             Ok(result.into())
         } else if left_val.is_float_value() && right_val.is_int_value() {
-            // Convert int to float  
+            // Convert int to float
             let right_float = self.builder.build_signed_int_to_float(
                 right_val.into_int_value(),
                 self.context.f64_type(),
                 "int_to_float",
             )?;
-            let result = self.builder.build_float_add(
-                left_val.into_float_value(),
-                right_float,
-                "addtmp",
-            )?;
+            let result =
+                self.builder
+                    .build_float_add(left_val.into_float_value(), right_float, "addtmp")?;
             Ok(result.into())
         } else {
             // Check for specific type mismatches
@@ -217,11 +215,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.context.f64_type(),
                 "int_to_float",
             )?;
-            let result = self.builder.build_float_sub(
-                left_float,
-                right_val.into_float_value(),
-                "subtmp",
-            )?;
+            let result =
+                self.builder
+                    .build_float_sub(left_float, right_val.into_float_value(), "subtmp")?;
             Ok(result.into())
         } else if left_val.is_float_value() && right_val.is_int_value() {
             // Convert int to float
@@ -230,11 +226,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.context.f64_type(),
                 "int_to_float",
             )?;
-            let result = self.builder.build_float_sub(
-                left_val.into_float_value(),
-                right_float,
-                "subtmp",
-            )?;
+            let result =
+                self.builder
+                    .build_float_sub(left_val.into_float_value(), right_float, "subtmp")?;
             Ok(result.into())
         } else {
             Err(CompileError::TypeMismatch {
@@ -296,11 +290,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.context.f64_type(),
                 "int_to_float",
             )?;
-            let result = self.builder.build_float_mul(
-                left_float,
-                right_val.into_float_value(),
-                "multmp",
-            )?;
+            let result =
+                self.builder
+                    .build_float_mul(left_float, right_val.into_float_value(), "multmp")?;
             Ok(result.into())
         } else if left_val.is_float_value() && right_val.is_int_value() {
             // Convert int to float
@@ -309,11 +301,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.context.f64_type(),
                 "int_to_float",
             )?;
-            let result = self.builder.build_float_mul(
-                left_val.into_float_value(),
-                right_float,
-                "multmp",
-            )?;
+            let result =
+                self.builder
+                    .build_float_mul(left_val.into_float_value(), right_float, "multmp")?;
             Ok(result.into())
         } else {
             Err(CompileError::TypeMismatch {
@@ -375,11 +365,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.context.f64_type(),
                 "int_to_float",
             )?;
-            let result = self.builder.build_float_div(
-                left_float,
-                right_val.into_float_value(),
-                "divtmp",
-            )?;
+            let result =
+                self.builder
+                    .build_float_div(left_float, right_val.into_float_value(), "divtmp")?;
             Ok(result.into())
         } else if left_val.is_float_value() && right_val.is_int_value() {
             // Convert int to float
@@ -388,11 +376,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.context.f64_type(),
                 "int_to_float",
             )?;
-            let result = self.builder.build_float_div(
-                left_val.into_float_value(),
-                right_float,
-                "divtmp",
-            )?;
+            let result =
+                self.builder
+                    .build_float_div(left_val.into_float_value(), right_float, "divtmp")?;
             Ok(result.into())
         } else {
             Err(CompileError::TypeMismatch {
@@ -411,12 +397,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if left_val.is_int_value() && right_val.is_int_value() {
             let left_int = left_val.into_int_value();
             let right_int = right_val.into_int_value();
-            
+
             // Cast to same type if needed (prefer wider type)
             let (left_final, right_final) = if left_int.get_type() != right_int.get_type() {
                 let left_width = left_int.get_type().get_bit_width();
                 let right_width = right_int.get_type().get_bit_width();
-                
+
                 if left_width > right_width {
                     // Cast right to left's type
                     let right_cast = self.builder.build_int_s_extend(
@@ -437,7 +423,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             } else {
                 (left_int, right_int)
             };
-            
+
             let result = self.builder.build_int_compare(
                 IntPredicate::EQ,
                 left_final,
@@ -530,12 +516,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if left_val.is_int_value() && right_val.is_int_value() {
             let left_int = left_val.into_int_value();
             let right_int = right_val.into_int_value();
-            
+
             // Cast to same type if needed (prefer wider type)
             let (left_final, right_final) = if left_int.get_type() != right_int.get_type() {
                 let left_width = left_int.get_type().get_bit_width();
                 let right_width = right_int.get_type().get_bit_width();
-                
+
                 if left_width > right_width {
                     // Cast right to left's type
                     let right_cast = self.builder.build_int_s_extend(
@@ -556,7 +542,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             } else {
                 (left_int, right_int)
             };
-            
+
             let result = self.builder.build_int_compare(
                 IntPredicate::NE,
                 left_final,
@@ -621,10 +607,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if left_val.is_int_value() && right_val.is_int_value() {
             let left_int = left_val.into_int_value();
             let right_int = right_val.into_int_value();
-            
+
             // Normalize types
             let (left_final, right_final) = self.normalize_int_types(left_int, right_int)?;
-            
+
             let result = self.builder.build_int_compare(
                 IntPredicate::SLT,
                 left_final,
@@ -665,10 +651,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if left_val.is_int_value() && right_val.is_int_value() {
             let left_int = left_val.into_int_value();
             let right_int = right_val.into_int_value();
-            
+
             // Normalize types
             let (left_final, right_final) = self.normalize_int_types(left_int, right_int)?;
-            
+
             let result = self.builder.build_int_compare(
                 IntPredicate::SGT,
                 left_final,
@@ -701,10 +687,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if left_val.is_int_value() && right_val.is_int_value() {
             let left_int = left_val.into_int_value();
             let right_int = right_val.into_int_value();
-            
+
             // Normalize types
             let (left_final, right_final) = self.normalize_int_types(left_int, right_int)?;
-            
+
             let result = self.builder.build_int_compare(
                 IntPredicate::SLE,
                 left_final,
@@ -737,10 +723,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if left_val.is_int_value() && right_val.is_int_value() {
             let left_int = left_val.into_int_value();
             let right_int = right_val.into_int_value();
-            
+
             // Normalize types
             let (left_final, right_final) = self.normalize_int_types(left_int, right_int)?;
-            
+
             let result = self.builder.build_int_compare(
                 IntPredicate::SGE,
                 left_final,
@@ -877,11 +863,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 (left_int, right_int)
             };
 
-            let result = self.builder.build_and(
-                left_final,
-                right_final,
-                "andtmp",
-            )?;
+            let result = self.builder.build_and(left_final, right_final, "andtmp")?;
             Ok(result.into())
         } else {
             Err(CompileError::TypeMismatch {
@@ -945,11 +927,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 (left_int, right_int)
             };
 
-            let result = self.builder.build_or(
-                left_final,
-                right_final,
-                "ortmp",
-            )?;
+            let result = self.builder.build_or(left_final, right_final, "ortmp")?;
             Ok(result.into())
         } else {
             Err(CompileError::TypeMismatch {

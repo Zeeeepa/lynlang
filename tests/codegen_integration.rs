@@ -1,5 +1,5 @@
 //! Integration tests that actually compile and verify codegen
-//! 
+//!
 //! These tests catch bugs that parser-only tests miss, such as:
 //! - Basic blocks without terminators (LLVM verification errors)
 //! - Incorrect control flow generation
@@ -10,25 +10,25 @@
 //! - Void return type bugs
 //! - Pointer operation bugs
 
+use inkwell::context::Context;
 use zen::compiler::Compiler;
 use zen::error::CompileError;
 use zen::lexer::Lexer;
 use zen::parser::Parser;
-use inkwell::context::Context;
 
 /// Compile Zen code and verify it generates valid LLVM IR
 fn compile_code(code: &str) -> Result<(), CompileError> {
     let context = Context::create();
     let compiler = Compiler::new(&context);
-    
+
     // Parse the source
     let lexer = Lexer::new(code);
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program()?;
-    
+
     // Compile to LLVM IR (this will catch codegen bugs like missing terminators)
     compiler.get_module(&program)?;
-    
+
     Ok(())
 }
 
@@ -47,7 +47,7 @@ fn test_pattern_matching_compiles() {
             return 0
         }
     "#;
-    
+
     // This test would have caught the "basic block without terminator" bug
     // The bug was: arm_blocks were created but never properly terminated,
     // causing LLVM verification errors
@@ -70,7 +70,7 @@ fn test_pattern_matching_with_return() {
             return 0
         }
     "#;
-    
+
     // This test catches the "terminator in middle of block" bug
     // When a return statement is in a pattern match arm, we shouldn't
     // try to add a branch to merge_block after the return
@@ -93,7 +93,7 @@ fn test_conditional_with_return() {
             return 0
         }
     "#;
-    
+
     // Test that conditionals handle return statements correctly
     // Similar to pattern matching - should check for terminators
     let result = compile_code(code);
@@ -119,7 +119,7 @@ fn test_void_function_with_expression() {
             return 0
         }
     "#;
-    
+
     // This test ensures void functions compile correctly
     // The void return bug was in compile_return, but this tests the general case
     // where void functions don't have explicit returns
@@ -143,7 +143,7 @@ fn test_void_function_no_return() {
             return 0
         }
     "#;
-    
+
     // Test that void functions without explicit returns get implicit void return
     let result = compile_code(code);
     assert!(
@@ -177,7 +177,7 @@ fn test_nested_struct_field_access() {
             return x + y
         }
     "#;
-    
+
     // This test catches GEP bugs in nested struct field access
     // Known bug: nested struct field access can swap values
     let result = compile_code(code);
@@ -201,7 +201,7 @@ fn test_multiple_pattern_arms_compiles() {
             return 0
         }
     "#;
-    
+
     let result = compile_code(code);
     assert!(
         result.is_ok(),
@@ -226,7 +226,7 @@ fn test_pattern_matching_phi_node_basic_blocks() {
             return 0
         }
     "#;
-    
+
     // This test ensures the phi node bug fix works
     // The bug was in patterns/compile.rs where payload extraction used wrong basic blocks
     // Even though this doesn't trigger the exact payload extraction path, it tests that

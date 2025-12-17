@@ -1,20 +1,26 @@
 // Scope-related helper functions for references
 
-use lsp_types::*;
-use crate::ast::{Function, Statement};
 use super::super::types::{Document, SymbolScope};
 use super::utils::find_function_range;
+use crate::ast::{Function, Statement};
+use lsp_types::*;
 
 /// Determine the scope of a symbol (local, module-level, or unknown)
-pub fn determine_symbol_scope(doc: &Document, symbol_name: &str, position: Position) -> SymbolScope {
+pub fn determine_symbol_scope(
+    doc: &Document,
+    symbol_name: &str,
+    position: Position,
+) -> SymbolScope {
     if let Some(ast) = &doc.ast {
         for decl in ast {
             if let crate::ast::Declaration::Function(func) = decl {
                 if let Some(func_range) = find_function_range(&doc.content, &func.name) {
-                    if position.line >= func_range.start.line && position.line <= func_range.end.line {
+                    if position.line >= func_range.start.line
+                        && position.line <= func_range.end.line
+                    {
                         if is_local_symbol_in_function(func, symbol_name) {
                             return SymbolScope::Local {
-                                function_name: func.name.clone()
+                                function_name: func.name.clone(),
                             };
                         }
                     }
@@ -57,4 +63,3 @@ fn is_symbol_in_statements(statements: &[Statement], symbol_name: &str) -> bool 
     }
     false
 }
-

@@ -2,9 +2,9 @@
 
 use std::collections::HashMap;
 
+use super::super::document_store::DocumentStore;
 use super::super::types::*;
 use super::super::utils::format_type;
-use super::super::document_store::DocumentStore;
 use super::structs::find_struct_definition_in_documents;
 use crate::ast::{AstType, Expression};
 
@@ -26,29 +26,33 @@ pub fn analyze_expression_hover(
                     last_dot_pos = i;
                 }
             }
-            
+
             let member_start = last_dot_pos + 1;
             let member_end = expr_str.len();
-            
+
             // Check if symbol_name contains a dot (like "person.name")
             let is_hovering_on_field = if symbol_name.contains('.') {
                 // Extract the field part from symbol_name (e.g., "name" from "person.name")
                 if let Some(dot_pos) = symbol_name.find('.') {
                     let field_part = &symbol_name[dot_pos + 1..];
-                    member == field_part && relative_pos >= member_start && relative_pos <= member_end
+                    member == field_part
+                        && relative_pos >= member_start
+                        && relative_pos <= member_end
                 } else {
                     false
                 }
             } else {
                 member == symbol_name && relative_pos >= member_start && relative_pos <= member_end
             };
-            
+
             if is_hovering_on_field {
                 // We're hovering on the member - find the type of the object
                 // Recursively resolve the object type
                 if let Some(object_type) = resolve_expression_type(object, local_symbols, store) {
                     if let AstType::Struct { name, .. } = object_type {
-                        if let Some(struct_def) = find_struct_definition_in_documents(&name, &store.documents) {
+                        if let Some(struct_def) =
+                            find_struct_definition_in_documents(&name, &store.documents)
+                        {
                             for field in &struct_def.fields {
                                 if &field.name == member {
                                     return Some(format!(
@@ -86,16 +90,21 @@ pub fn analyze_expression_hover(
                         false
                     }
                 };
-                
+
                 if is_hovering_on_object {
                     // Recursively analyze the object
-                    return analyze_expression_hover(object, &expr_str[..last_dot_pos], relative_pos, 
+                    return analyze_expression_hover(
+                        object,
+                        &expr_str[..last_dot_pos],
+                        relative_pos,
                         if symbol_name.contains('.') {
                             &symbol_name[..symbol_name.find('.').unwrap()]
                         } else {
                             symbol_name
-                        }, 
-                        local_symbols, store);
+                        },
+                        local_symbols,
+                        store,
+                    );
                 }
             }
         }
@@ -104,11 +113,15 @@ pub fn analyze_expression_hover(
             if let Some(dot_pos) = expr_str.rfind('.') {
                 let method_start = dot_pos + 1;
                 let method_end = expr_str.find('(').unwrap_or(expr_str.len());
-                
-                if relative_pos >= method_start && relative_pos <= method_end && method == symbol_name {
+
+                if relative_pos >= method_start
+                    && relative_pos <= method_end
+                    && method == symbol_name
+                {
                     // Hovering on method name - could show method signature
                     // For now, just show that it's a method
-                    return Some(format!("```zen\n{}.{}()\n```\n\n**Method**", 
+                    return Some(format!(
+                        "```zen\n{}.{}()\n```\n\n**Method**",
                         match object.as_ref() {
                             Expression::Identifier(name) => name.clone(),
                             _ => "object".to_string(),
@@ -117,7 +130,14 @@ pub fn analyze_expression_hover(
                     ));
                 } else if relative_pos < dot_pos {
                     // Hovering on object
-                    return analyze_expression_hover(object, &expr_str[..dot_pos], relative_pos, symbol_name, local_symbols, store);
+                    return analyze_expression_hover(
+                        object,
+                        &expr_str[..dot_pos],
+                        relative_pos,
+                        symbol_name,
+                        local_symbols,
+                        store,
+                    );
                 }
             }
         }
@@ -139,16 +159,20 @@ pub fn resolve_expression_type(
 ) -> Option<AstType> {
     match expr {
         Expression::Identifier(var_name) => {
-            if let Some(var_info) = local_symbols.get(var_name)
+            if let Some(var_info) = local_symbols
+                .get(var_name)
                 .or_else(|| store.workspace_symbols.get(var_name))
-                .or_else(|| store.stdlib_symbols.get(var_name)) {
+                .or_else(|| store.stdlib_symbols.get(var_name))
+            {
                 return var_info.type_info.clone();
             }
         }
         Expression::MemberAccess { object, member } => {
             if let Some(object_type) = resolve_expression_type(object, local_symbols, store) {
                 if let AstType::Struct { name, .. } = object_type {
-                    if let Some(struct_def) = find_struct_definition_in_documents(&name, &store.documents) {
+                    if let Some(struct_def) =
+                        find_struct_definition_in_documents(&name, &store.documents)
+                    {
                         for field in &struct_def.fields {
                             if field.name == *member {
                                 return Some(field.type_.clone());
@@ -162,4 +186,3 @@ pub fn resolve_expression_type(
     }
     None
 }
-

@@ -105,11 +105,11 @@ pub enum Expression {
     },
     // Pointer-specific operations for Zen spec
     #[allow(dead_code)]
-    PointerDereference(Box<Expression>),     // .val operation
+    PointerDereference(Box<Expression>), // .val operation
     #[allow(dead_code)]
-    PointerAddress(Box<Expression>),         // .addr operation
+    PointerAddress(Box<Expression>), // .addr operation
     #[allow(dead_code)]
-    CreateReference(Box<Expression>),        // .ref() method
+    CreateReference(Box<Expression>), // .ref() method
     #[allow(dead_code)]
     CreateMutableReference(Box<Expression>), // .mut_ref() method
     #[allow(dead_code)]
@@ -152,7 +152,7 @@ pub enum Expression {
     // Collection loop: collection.loop((item) { ... })
     CollectionLoop {
         collection: Box<Expression>,
-        param: (String, Option<AstType>),           // The loop parameter name and optional type
+        param: (String, Option<AstType>), // The loop parameter name and optional type
         index_param: Option<(String, Option<AstType>)>, // Optional index parameter and type
         body: Box<Expression>,
     },

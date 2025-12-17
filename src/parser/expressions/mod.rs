@@ -1,12 +1,12 @@
-pub mod primary;
-pub mod operators;
-pub mod calls;
-pub mod structs;
-pub mod patterns;
-pub mod collections;
 pub mod blocks;
+pub mod calls;
+pub mod collections;
 pub mod control_flow;
 pub mod literals;
+pub mod operators;
+pub mod patterns;
+pub mod primary;
+pub mod structs;
 
 use super::core::Parser;
 use crate::ast::Expression;
@@ -17,4 +17,3 @@ impl<'a> Parser<'a> {
         operators::parse_binary_expression(self, 0)
     }
 }
-

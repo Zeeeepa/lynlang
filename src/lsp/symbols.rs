@@ -1,7 +1,7 @@
 // Symbols Module for Zen LSP
 // Handles document symbols and workspace symbol search
 
-use lsp_server::{Request, Response, ResponseError, ErrorCode};
+use lsp_server::{ErrorCode, Request, Response, ResponseError};
 use lsp_types::*;
 use serde_json::Value;
 
@@ -13,7 +13,10 @@ use super::document_store::DocumentStore;
 // ============================================================================
 
 /// Handle textDocument/documentSymbol requests
-pub fn handle_document_symbols(req: Request, store: &std::sync::Arc<std::sync::Mutex<DocumentStore>>) -> Response {
+pub fn handle_document_symbols(
+    req: Request,
+    store: &std::sync::Arc<std::sync::Mutex<DocumentStore>>,
+) -> Response {
     let params: DocumentSymbolParams = match serde_json::from_value(req.params) {
         Ok(p) => p,
         Err(_) => {
@@ -25,10 +28,24 @@ pub fn handle_document_symbols(req: Request, store: &std::sync::Arc<std::sync::M
         }
     };
 
-    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(Vec::<SymbolInformation>::new()).unwrap_or(serde_json::Value::Null)), error: None }; } };
+    let store = match store.lock() {
+        Ok(s) => s,
+        Err(_) => {
+            return Response {
+                id: req.id,
+                result: Some(
+                    serde_json::to_value(Vec::<SymbolInformation>::new())
+                        .unwrap_or(serde_json::Value::Null),
+                ),
+                error: None,
+            };
+        }
+    };
     if let Some(doc) = store.documents.get(&params.text_document.uri) {
-        let symbols: Vec<DocumentSymbol> = doc.symbols.values().map(|sym| {
-            DocumentSymbol {
+        let symbols: Vec<DocumentSymbol> = doc
+            .symbols
+            .values()
+            .map(|sym| DocumentSymbol {
                 name: sym.name.clone(),
                 detail: sym.detail.clone(),
                 kind: sym.kind,
@@ -38,16 +55,16 @@ pub fn handle_document_symbols(req: Request, store: &std::sync::Arc<std::sync::M
                 range: sym.range,
                 selection_range: sym.range,
                 children: None,
-            }
-        }).collect();
-        
+            })
+            .collect();
+
         return Response {
             id: req.id,
             result: Some(serde_json::to_value(symbols).unwrap_or(Value::Null)),
             error: None,
         };
     }
-    
+
     Response {
         id: req.id,
         result: Some(Value::Null),
@@ -56,7 +73,10 @@ pub fn handle_document_symbols(req: Request, store: &std::sync::Arc<std::sync::M
 }
 
 /// Handle workspace/symbol requests
-pub fn handle_workspace_symbol(req: Request, store: &std::sync::Arc<std::sync::Mutex<DocumentStore>>) -> Response {
+pub fn handle_workspace_symbol(
+    req: Request,
+    store: &std::sync::Arc<std::sync::Mutex<DocumentStore>>,
+) -> Response {
     let params: WorkspaceSymbolParams = match serde_json::from_value(req.params) {
         Ok(p) => p,
         Err(_) => {
@@ -72,7 +92,19 @@ pub fn handle_workspace_symbol(req: Request, store: &std::sync::Arc<std::sync::M
         }
     };
 
-    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(Vec::<WorkspaceSymbol>::new()).unwrap_or(serde_json::Value::Null)), error: None }; } };
+    let store = match store.lock() {
+        Ok(s) => s,
+        Err(_) => {
+            return Response {
+                id: req.id,
+                result: Some(
+                    serde_json::to_value(Vec::<WorkspaceSymbol>::new())
+                        .unwrap_or(serde_json::Value::Null),
+                ),
+                error: None,
+            };
+        }
+    };
     // Optimized: lowercase query once instead of for every symbol
     let query_lower = params.query.to_lowercase();
     let mut symbols = Vec::with_capacity(100); // Pre-allocate for common case

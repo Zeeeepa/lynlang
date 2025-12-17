@@ -53,7 +53,7 @@ impl BehaviorResolver {
     #[allow(dead_code)]
     pub fn new() -> Self {
         let mut behaviors = HashMap::new();
-        
+
         // Pre-register the Allocator trait from stdlib/memory/allocator.zen
         // This is needed because imports don't load trait definitions into the typechecker
         behaviors.insert(
@@ -65,7 +65,10 @@ impl BehaviorResolver {
                     BehaviorMethodInfo {
                         name: "allocate".to_string(),
                         param_types: vec![
-                            AstType::Generic { name: "Self".to_string(), type_args: vec![] },
+                            AstType::Generic {
+                                name: "Self".to_string(),
+                                type_args: vec![],
+                            },
                             AstType::Usize,
                         ],
                         return_type: AstType::RawPtr(Box::new(AstType::U8)),
@@ -74,7 +77,10 @@ impl BehaviorResolver {
                     BehaviorMethodInfo {
                         name: "deallocate".to_string(),
                         param_types: vec![
-                            AstType::Generic { name: "Self".to_string(), type_args: vec![] },
+                            AstType::Generic {
+                                name: "Self".to_string(),
+                                type_args: vec![],
+                            },
                             AstType::RawPtr(Box::new(AstType::U8)),
                             AstType::Usize,
                         ],
@@ -84,7 +90,10 @@ impl BehaviorResolver {
                     BehaviorMethodInfo {
                         name: "reallocate".to_string(),
                         param_types: vec![
-                            AstType::Generic { name: "Self".to_string(), type_args: vec![] },
+                            AstType::Generic {
+                                name: "Self".to_string(),
+                                type_args: vec![],
+                            },
                             AstType::RawPtr(Box::new(AstType::U8)),
                             AstType::Usize,
                             AstType::Usize,
@@ -95,7 +104,7 @@ impl BehaviorResolver {
                 ],
             },
         );
-        
+
         Self {
             behaviors,
             implementations: HashMap::new(),

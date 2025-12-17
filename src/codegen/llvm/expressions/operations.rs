@@ -23,7 +23,10 @@ pub fn compile_type_cast<'ctx>(
     expr: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     match expr {
-        Expression::TypeCast { expr: inner_expr, target_type: _ } => {
+        Expression::TypeCast {
+            expr: inner_expr,
+            target_type: _,
+        } => {
             // For now, just compile the inner expression
             // TODO: Implement actual type casting
             compiler.compile_expression(inner_expr)
@@ -34,4 +37,3 @@ pub fn compile_type_cast<'ctx>(
         )),
     }
 }
-

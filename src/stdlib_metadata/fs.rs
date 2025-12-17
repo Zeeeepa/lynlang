@@ -54,14 +54,14 @@ impl FsModule {
                 name: "write_file".to_string(),
                 params: vec![
                     ("path".to_string(), crate::ast::resolve_string_struct_type()),
-                    ("content".to_string(), crate::ast::resolve_string_struct_type()),
+                    (
+                        "content".to_string(),
+                        crate::ast::resolve_string_struct_type(),
+                    ),
                 ],
                 return_type: AstType::Generic {
                     name: "Result".to_string(),
-                    type_args: vec![
-                        AstType::Void,
-                        crate::ast::resolve_string_struct_type(),
-                    ],
+                    type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
                 },
                 is_builtin: true,
             },
@@ -73,14 +73,14 @@ impl FsModule {
                 name: "append_file".to_string(),
                 params: vec![
                     ("path".to_string(), crate::ast::resolve_string_struct_type()),
-                    ("content".to_string(), crate::ast::resolve_string_struct_type()),
+                    (
+                        "content".to_string(),
+                        crate::ast::resolve_string_struct_type(),
+                    ),
                 ],
                 return_type: AstType::Generic {
                     name: "Result".to_string(),
-                    type_args: vec![
-                        AstType::Void,
-                        crate::ast::resolve_string_struct_type(),
-                    ],
+                    type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
                 },
                 is_builtin: true,
             },
@@ -123,10 +123,7 @@ impl FsModule {
                 params: vec![("path".to_string(), crate::ast::resolve_string_struct_type())],
                 return_type: AstType::Generic {
                     name: "Result".to_string(),
-                    type_args: vec![
-                        AstType::Void,
-                        crate::ast::resolve_string_struct_type(),
-                    ],
+                    type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
                 },
                 is_builtin: true,
             },
@@ -139,10 +136,7 @@ impl FsModule {
                 params: vec![("path".to_string(), crate::ast::resolve_string_struct_type())],
                 return_type: AstType::Generic {
                     name: "Result".to_string(),
-                    type_args: vec![
-                        AstType::Void,
-                        crate::ast::resolve_string_struct_type(),
-                    ],
+                    type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
                 },
                 is_builtin: true,
             },
@@ -155,10 +149,7 @@ impl FsModule {
                 params: vec![("path".to_string(), crate::ast::resolve_string_struct_type())],
                 return_type: AstType::Generic {
                     name: "Result".to_string(),
-                    type_args: vec![
-                        AstType::Void,
-                        crate::ast::resolve_string_struct_type(),
-                    ],
+                    type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
                 },
                 is_builtin: true,
             },
@@ -171,10 +162,7 @@ impl FsModule {
                 params: vec![("path".to_string(), crate::ast::resolve_string_struct_type())],
                 return_type: AstType::Generic {
                     name: "Result".to_string(),
-                    type_args: vec![
-                        AstType::Void,
-                        crate::ast::resolve_string_struct_type(),
-                    ],
+                    type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
                 },
                 is_builtin: true,
             },
@@ -187,10 +175,7 @@ impl FsModule {
                 params: vec![("path".to_string(), crate::ast::resolve_string_struct_type())],
                 return_type: AstType::Generic {
                     name: "Result".to_string(),
-                    type_args: vec![
-                        AstType::Void,
-                        crate::ast::resolve_string_struct_type(),
-                    ],
+                    type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
                 },
                 is_builtin: true,
             },
@@ -206,10 +191,7 @@ impl FsModule {
                 ],
                 return_type: AstType::Generic {
                     name: "Result".to_string(),
-                    type_args: vec![
-                        AstType::I64,
-                        crate::ast::resolve_string_struct_type(),
-                    ],
+                    type_args: vec![AstType::I64, crate::ast::resolve_string_struct_type()],
                 },
                 is_builtin: true,
             },
@@ -225,10 +207,7 @@ impl FsModule {
                 ],
                 return_type: AstType::Generic {
                     name: "Result".to_string(),
-                    type_args: vec![
-                        AstType::Void,
-                        crate::ast::resolve_string_struct_type(),
-                    ],
+                    type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
                 },
                 is_builtin: true,
             },

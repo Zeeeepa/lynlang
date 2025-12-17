@@ -228,11 +228,13 @@ impl<'ctx> Compiler<'ctx> {
                     span,
                 })
             }
-            Statement::VariableAssignment { name, value, span } => Ok(Statement::VariableAssignment {
-                name,
-                value: self.process_expression_comptime(value, interpreter)?,
-                span,
-            }),
+            Statement::VariableAssignment { name, value, span } => {
+                Ok(Statement::VariableAssignment {
+                    name,
+                    value: self.process_expression_comptime(value, interpreter)?,
+                    span,
+                })
+            }
             Statement::PointerAssignment { pointer, value } => Ok(Statement::PointerAssignment {
                 pointer: self.process_expression_comptime(pointer, interpreter)?,
                 value: self.process_expression_comptime(value, interpreter)?,
@@ -254,7 +256,10 @@ impl<'ctx> Compiler<'ctx> {
                 // Execute the comptime block inline
                 interpreter.execute_comptime_block(&statements)?;
                 // Comptime blocks don't produce runtime statements
-                Ok(Statement::Expression { expr: Expression::Integer32(0), span: None }) // placeholder
+                Ok(Statement::Expression {
+                    expr: Expression::Integer32(0),
+                    span: None,
+                }) // placeholder
             }
             other => Ok(other),
         }

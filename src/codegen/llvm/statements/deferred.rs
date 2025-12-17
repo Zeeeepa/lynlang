@@ -22,7 +22,7 @@ pub fn compile_defer<'ctx>(
         _ => Err(CompileError::InternalError(
             "Expected Defer or ThisDefer statement".to_string(),
             None,
-        ))
+        )),
     }
 }
 
@@ -35,5 +35,3 @@ pub fn execute_deferred_expressions<'ctx>(
     }
     Ok(())
 }
-
-

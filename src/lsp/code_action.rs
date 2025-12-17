@@ -27,27 +27,51 @@ pub fn handle_code_action(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Re
     };
 
     let mut actions = Vec::new();
-    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(Vec::<CodeActionOrCommand>::new()).unwrap_or(serde_json::Value::Null)), error: None }; } };
+    let store = match store.lock() {
+        Ok(s) => s,
+        Err(_) => {
+            return Response {
+                id: req.id,
+                result: Some(
+                    serde_json::to_value(Vec::<CodeActionOrCommand>::new())
+                        .unwrap_or(serde_json::Value::Null),
+                ),
+                error: None,
+            };
+        }
+    };
 
     if let Some(doc) = store.documents.get(&params.text_document.uri) {
         // Check diagnostics in the requested range
         for diagnostic in &params.context.diagnostics {
             if diagnostic.message.contains("requires an allocator") {
                 // Create a code action to add get_default_allocator()
-                actions.push(create_allocator_fix_action(diagnostic, &params.text_document.uri, &doc.content));
+                actions.push(create_allocator_fix_action(
+                    diagnostic,
+                    &params.text_document.uri,
+                    &doc.content,
+                ));
             }
 
             // Add code action for string conversions
-            if diagnostic.message.contains("type mismatch") &&
-               (diagnostic.message.contains("StaticString") || diagnostic.message.contains("String")) {
-                if let Some(action) = create_string_conversion_action(diagnostic, &params.text_document.uri, &doc.content) {
+            if diagnostic.message.contains("type mismatch")
+                && (diagnostic.message.contains("StaticString")
+                    || diagnostic.message.contains("String"))
+            {
+                if let Some(action) = create_string_conversion_action(
+                    diagnostic,
+                    &params.text_document.uri,
+                    &doc.content,
+                ) {
                     actions.push(action);
                 }
             }
 
             // Add code action for missing error handling
             if diagnostic.message.contains("Result") && diagnostic.message.contains("unwrap") {
-                if let Some(action) = create_error_handling_action(diagnostic, &params.text_document.uri) {
+                if let Some(action) =
+                    create_error_handling_action(diagnostic, &params.text_document.uri)
+                {
                     actions.push(action);
                 }
             }
@@ -56,12 +80,20 @@ pub fn handle_code_action(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Re
         // Add refactoring code actions (not tied to diagnostics)
         // Extract variable - only if there's a selection
         if params.range.start != params.range.end {
-            if let Some(action) = create_extract_variable_action(&params.range, &params.text_document.uri, &doc.content) {
+            if let Some(action) = create_extract_variable_action(
+                &params.range,
+                &params.text_document.uri,
+                &doc.content,
+            ) {
                 actions.push(action);
             }
 
             // Extract function - only if there's a multi-line selection or complex expression
-            if let Some(action) = create_extract_function_action(&params.range, &params.text_document.uri, &doc.content) {
+            if let Some(action) = create_extract_function_action(
+                &params.range,
+                &params.text_document.uri,
+                &doc.content,
+            ) {
                 actions.push(action);
             }
         }
@@ -95,31 +127,40 @@ fn create_allocator_fix_action(diagnostic: &Diagnostic, uri: &Url, content: &str
     // Determine if we need to add allocator parameter or insert new call
     let (new_text, edit_range) = if line_content.contains("()") {
         // Empty parentheses - add allocator as first parameter
-        ("get_default_allocator()".to_string(), Range {
-            start: Position {
-                line: diagnostic.range.start.line,
-                character: diagnostic.range.end.character - 1,  // Before closing paren
+        (
+            "get_default_allocator()".to_string(),
+            Range {
+                start: Position {
+                    line: diagnostic.range.start.line,
+                    character: diagnostic.range.end.character - 1, // Before closing paren
+                },
+                end: Position {
+                    line: diagnostic.range.start.line,
+                    character: diagnostic.range.end.character - 1,
+                },
             },
-            end: Position {
-                line: diagnostic.range.start.line,
-                character: diagnostic.range.end.character - 1,
-            },
-        })
+        )
     } else if line_content.contains("(") {
         // Has parameters - add allocator as additional parameter
-        (", get_default_allocator()".to_string(), Range {
-            start: Position {
-                line: diagnostic.range.end.line,
-                character: diagnostic.range.end.character - 1,  // Before closing paren
+        (
+            ", get_default_allocator()".to_string(),
+            Range {
+                start: Position {
+                    line: diagnostic.range.end.line,
+                    character: diagnostic.range.end.character - 1, // Before closing paren
+                },
+                end: Position {
+                    line: diagnostic.range.end.line,
+                    character: diagnostic.range.end.character - 1,
+                },
             },
-            end: Position {
-                line: diagnostic.range.end.line,
-                character: diagnostic.range.end.character - 1,
-            },
-        })
+        )
     } else {
         // No parentheses - add full call
-        ("(get_default_allocator())".to_string(), diagnostic.range.clone())
+        (
+            "(get_default_allocator())".to_string(),
+            diagnostic.range.clone(),
+        )
     };
 
     let text_edit = TextEdit {
@@ -149,7 +190,11 @@ fn create_allocator_fix_action(diagnostic: &Diagnostic, uri: &Url, content: &str
     }
 }
 
-fn create_string_conversion_action(diagnostic: &Diagnostic, _uri: &Url, _content: &str) -> Option<CodeAction> {
+fn create_string_conversion_action(
+    diagnostic: &Diagnostic,
+    _uri: &Url,
+    _content: &str,
+) -> Option<CodeAction> {
     // Determine conversion direction
     let title = if diagnostic.message.contains("expected StaticString") {
         "Convert to StaticString"
@@ -160,7 +205,7 @@ fn create_string_conversion_action(diagnostic: &Diagnostic, _uri: &Url, _content
     };
 
     let workspace_edit = WorkspaceEdit {
-        changes: None,  // Would need more context to implement actual conversion
+        changes: None, // Would need more context to implement actual conversion
         document_changes: None,
         change_annotations: None,
     };
@@ -181,7 +226,7 @@ fn create_error_handling_action(diagnostic: &Diagnostic, _uri: &Url) -> Option<C
     let title = "Add proper error handling";
 
     let workspace_edit = WorkspaceEdit {
-        changes: None,  // Would need AST analysis to implement
+        changes: None, // Would need AST analysis to implement
         document_changes: None,
         change_annotations: None,
     };
@@ -236,7 +281,10 @@ fn create_extract_variable_action(range: &Range, uri: &Url, content: &str) -> Op
     }
 
     // Skip if selection looks like a variable name already (simple heuristic)
-    if selected_text.chars().all(|c| c.is_alphanumeric() || c == '_') {
+    if selected_text
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '_')
+    {
         return None;
     }
 
@@ -246,7 +294,9 @@ fn create_extract_variable_action(range: &Range, uri: &Url, content: &str) -> Op
     // Find the beginning of the current statement to insert the variable declaration
     let insert_line = range.start.line;
     let indent = if let Some(line) = lines.get(insert_line as usize) {
-        line.chars().take_while(|c| c.is_whitespace()).collect::<String>()
+        line.chars()
+            .take_while(|c| c.is_whitespace())
+            .collect::<String>()
     } else {
         "    ".to_string()
     };
@@ -316,8 +366,11 @@ fn create_extract_function_action(range: &Range, uri: &Url, content: &str) -> Op
             }
         }
         // For single-line, only suggest if it's a complex expression (contains operators or calls)
-        if !selected_text.contains('(') && !selected_text.contains('+') &&
-           !selected_text.contains('-') && !selected_text.contains('*') {
+        if !selected_text.contains('(')
+            && !selected_text.contains('+')
+            && !selected_text.contains('-')
+            && !selected_text.contains('*')
+        {
             return None;
         }
     } else {
@@ -348,7 +401,9 @@ fn create_extract_function_action(range: &Range, uri: &Url, content: &str) -> Op
 
     // Find appropriate indentation
     let base_indent = if let Some(line) = lines.get(range.start.line as usize) {
-        line.chars().take_while(|c| c.is_whitespace()).collect::<String>()
+        line.chars()
+            .take_while(|c| c.is_whitespace())
+            .collect::<String>()
     } else {
         "".to_string()
     };
@@ -368,7 +423,7 @@ fn create_extract_function_action(range: &Range, uri: &Url, content: &str) -> Op
 
     // Detect if code has a return statement to infer return type
     let return_type = if selected_text.contains("return ") {
-        "void"  // Placeholder - could be smarter with AST analysis
+        "void" // Placeholder - could be smarter with AST analysis
     } else {
         "void"
     };
@@ -454,8 +509,10 @@ fn generate_function_name(code: &str) -> String {
     // If it contains a method call, use that as a hint
     if let Some(dot_pos) = code_trimmed.find('.') {
         if let Some(paren_pos) = code_trimmed[dot_pos..].find('(') {
-            let method_part = &code_trimmed[dot_pos+1..dot_pos+paren_pos];
-            if !method_part.is_empty() && method_part.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            let method_part = &code_trimmed[dot_pos + 1..dot_pos + paren_pos];
+            if !method_part.is_empty()
+                && method_part.chars().all(|c| c.is_alphanumeric() || c == '_')
+            {
                 return format!("do_{}", method_part);
             }
         }
@@ -485,8 +542,8 @@ fn generate_variable_name(expression: &str) -> String {
 
     // If it's a method call, use the method name
     if let Some(dot_pos) = expr_trimmed.rfind('.') {
-        if let Some(method_end) = expr_trimmed[dot_pos+1..].find('(') {
-            let method_name = &expr_trimmed[dot_pos+1..dot_pos+1+method_end];
+        if let Some(method_end) = expr_trimmed[dot_pos + 1..].find('(') {
+            let method_name = &expr_trimmed[dot_pos + 1..dot_pos + 1 + method_end];
             return format!("{}_result", method_name);
         }
     }
@@ -513,10 +570,10 @@ fn generate_variable_name(expression: &str) -> String {
 fn create_add_import_action(_range: &Range, content: &str) -> Option<CodeAction> {
     // Check if common types are used but not imported
     let needs_io = content.contains("io.") && !content.contains("{ io }");
-    let needs_allocator = (content.contains("get_default_allocator") ||
-                           content.contains("GPA") ||
-                           content.contains("AsyncPool")) &&
-                          !content.contains("@std");
+    let needs_allocator = (content.contains("get_default_allocator")
+        || content.contains("GPA")
+        || content.contains("AsyncPool"))
+        && !content.contains("@std");
 
     if !needs_io && !needs_allocator {
         return None;
@@ -533,7 +590,7 @@ fn create_add_import_action(_range: &Range, content: &str) -> Option<CodeAction>
 
     // Insert at the top of the file
     let workspace_edit = WorkspaceEdit {
-        changes: None,  // Would need URI context
+        changes: None, // Would need URI context
         document_changes: None,
         change_annotations: None,
     };
@@ -551,4 +608,3 @@ fn create_add_import_action(_range: &Range, content: &str) -> Option<CodeAction>
         data: None,
     })
 }
-

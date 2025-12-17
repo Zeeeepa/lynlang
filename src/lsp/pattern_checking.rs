@@ -1,8 +1,8 @@
 //! Pattern exhaustiveness checking - extracted from document_store.rs
 
-use lsp_types::*;
-use crate::ast::{Expression, PatternArm, Pattern as AstPattern};
 use super::types::{Document, SymbolInfo};
+use crate::ast::{Expression, Pattern as AstPattern, PatternArm};
+use lsp_types::*;
 
 /// Check pattern exhaustiveness in statements
 pub fn check_pattern_exhaustiveness(
@@ -39,10 +39,11 @@ fn check_pattern_exhaustiveness_with_depth(
     if depth > MAX_RECURSION_DEPTH {
         return;
     }
-    
+
     for stmt in statements {
         match stmt {
-            crate::ast::Statement::Expression { expr, .. } | crate::ast::Statement::Return { expr, .. } => {
+            crate::ast::Statement::Expression { expr, .. }
+            | crate::ast::Statement::Return { expr, .. } => {
                 check_exhaustiveness_in_expression(
                     expr,
                     diagnostics,
@@ -53,8 +54,11 @@ fn check_pattern_exhaustiveness_with_depth(
                     depth,
                 );
             }
-            crate::ast::Statement::VariableDeclaration { initializer: Some(expr), .. } |
-            crate::ast::Statement::VariableAssignment { value: expr, .. } => {
+            crate::ast::Statement::VariableDeclaration {
+                initializer: Some(expr),
+                ..
+            }
+            | crate::ast::Statement::VariableAssignment { value: expr, .. } => {
                 check_exhaustiveness_in_expression(
                     expr,
                     diagnostics,
@@ -96,9 +100,14 @@ fn check_exhaustiveness_in_expression(
                                 },
                             },
                             severity: Some(DiagnosticSeverity::WARNING),
-                            code: Some(lsp_types::NumberOrString::String("non-exhaustive-match".to_string())),
+                            code: Some(lsp_types::NumberOrString::String(
+                                "non-exhaustive-match".to_string(),
+                            )),
                             source: Some("zen-lsp".to_string()),
-                            message: format!("Non-exhaustive pattern match. Missing variants: {}", variant_list),
+                            message: format!(
+                                "Non-exhaustive pattern match. Missing variants: {}",
+                                variant_list
+                            ),
                             related_information: None,
                             tags: None,
                             code_description: None,
@@ -213,9 +222,12 @@ pub fn find_missing_variants(
     } else {
         // Try to look up custom enum from symbol tables
         // Extract just the enum name (before any :: or generic params)
-        let enum_name = scrutinee_type.split("::").next()
+        let enum_name = scrutinee_type
+            .split("::")
+            .next()
             .unwrap_or(scrutinee_type)
-            .split('<').next()
+            .split('<')
+            .next()
             .unwrap_or(scrutinee_type)
             .trim();
 
@@ -287,4 +299,3 @@ pub fn find_missing_variants(
         .filter(|v| !covered_variants.contains(v))
         .collect()
 }
-

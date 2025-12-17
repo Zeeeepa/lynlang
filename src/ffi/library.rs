@@ -8,11 +8,13 @@ use std::os::raw::c_void;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use crate::ast::AstType;
-use super::errors::FFIError;
-use super::types::{CallingConvention, FnSignature, FunctionSafety, LoadFlags, TypeMapping, TypeMarshaller};
-use super::stats::CallStatistics;
 use super::builder::{CallbackDefinition, LibBuilder};
+use super::errors::FFIError;
+use super::stats::CallStatistics;
+use super::types::{
+    CallingConvention, FnSignature, FunctionSafety, LoadFlags, TypeMapping, TypeMarshaller,
+};
+use crate::ast::AstType;
 
 /// Represents a loaded dynamic library
 pub struct Library {
@@ -295,18 +297,40 @@ impl Library {
     }
 
     // Accessor methods
-    pub fn name(&self) -> &str { &self.name }
-    pub fn path(&self) -> &std::path::Path { &self.path }
-    pub fn functions(&self) -> &HashMap<String, FnSignature> { &self.functions }
-    pub fn constants(&self) -> &HashMap<String, AstType> { &self.constants }
-    pub fn type_mappings(&self) -> &HashMap<String, TypeMapping> { &self.type_mappings }
-    pub fn calling_convention(&self) -> CallingConvention { self.calling_convention }
-    pub fn safety_checks(&self) -> bool { self.safety_checks }
-    pub fn version_requirement(&self) -> Option<&str> { self.version_requirement.as_deref() }
-    pub fn callbacks(&self) -> &HashMap<String, CallbackDefinition> { &self.callbacks }
-    pub fn load_flags(&self) -> &LoadFlags { &self.load_flags }
-    pub fn lazy_loading(&self) -> bool { self.lazy_loading }
-    
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+    pub fn path(&self) -> &std::path::Path {
+        &self.path
+    }
+    pub fn functions(&self) -> &HashMap<String, FnSignature> {
+        &self.functions
+    }
+    pub fn constants(&self) -> &HashMap<String, AstType> {
+        &self.constants
+    }
+    pub fn type_mappings(&self) -> &HashMap<String, TypeMapping> {
+        &self.type_mappings
+    }
+    pub fn calling_convention(&self) -> CallingConvention {
+        self.calling_convention
+    }
+    pub fn safety_checks(&self) -> bool {
+        self.safety_checks
+    }
+    pub fn version_requirement(&self) -> Option<&str> {
+        self.version_requirement.as_deref()
+    }
+    pub fn callbacks(&self) -> &HashMap<String, CallbackDefinition> {
+        &self.callbacks
+    }
+    pub fn load_flags(&self) -> &LoadFlags {
+        &self.load_flags
+    }
+    pub fn lazy_loading(&self) -> bool {
+        self.lazy_loading
+    }
+
     pub fn search_paths(&self) -> Vec<PathBuf> {
         LibBuilder::default_search_paths()
     }

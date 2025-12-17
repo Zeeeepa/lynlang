@@ -49,7 +49,7 @@ pub fn parse_binary_expression(parser: &mut Parser, precedence: u8) -> Result<Ex
                         inclusive: op_clone == "..=",
                     };
                 } else {
-                    // Parse right-hand side, but stop early if we encounter '?' 
+                    // Parse right-hand side, but stop early if we encounter '?'
                     // so the outer call can handle the ternary operator
                     let right = parse_binary_expression(parser, next_prec)?;
                     left = Expression::BinaryOp {
@@ -132,4 +132,3 @@ fn token_to_binary_operator(op: &str) -> Result<BinaryOperator> {
         )),
     }
 }
-

@@ -1,5 +1,5 @@
-use super::super::{symbols, LLVMCompiler};
 use super::super::VariableInfo;
+use super::super::{symbols, LLVMCompiler};
 use crate::ast::Pattern;
 use crate::error::CompileError;
 use inkwell::values::{BasicValueEnum, IntValue};
@@ -17,7 +17,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
     ) -> Result<(IntValue<'ctx>, Vec<(String, BasicValueEnum<'ctx>)>), CompileError> {
         self.compile_pattern_test_with_type(scrutinee_val, pattern, None)
     }
-    
+
     pub fn compile_pattern_test_with_type(
         &mut self,
         scrutinee_val: &BasicValueEnum<'ctx>,
@@ -105,7 +105,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 match_result
             }
 
-
             Pattern::Type {
                 type_name: _,
                 binding,
@@ -123,7 +122,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Pattern::EnumLiteral { variant, payload } => {
                 // EnumLiteral patterns are like .Some(x) or .None
                 // We need to infer the enum type from the scrutinee
-                
+
                 // Special case: If scrutinee is a raw pointer and pattern is Some/None,
                 // treat it as Option-like (null = None, non-null = Some)
                 if scrutinee_val.is_pointer_value() && (variant == "Some" || variant == "None") {
@@ -137,7 +136,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         null_ptr,
                         "ptr_is_null",
                     )?;
-                    
+
                     if variant == "None" {
                         // None pattern matches null pointer
                         return Ok((is_null, bindings));
@@ -149,14 +148,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             null_ptr,
                             "ptr_is_not_null",
                         )?;
-                        
+
                         // If there's a payload pattern, bind the dereferenced value
                         if let Some(payload_pattern) = payload {
                             // Try to infer the pointee type from scrutinee type
                             if let Some(scrut_type) = scrutinee_type {
-                                if let crate::ast::AstType::Ptr(inner_type) | 
-                                     crate::ast::AstType::MutPtr(inner_type) |
-                                     crate::ast::AstType::RawPtr(inner_type) = scrut_type {
+                                if let crate::ast::AstType::Ptr(inner_type)
+                                | crate::ast::AstType::MutPtr(inner_type)
+                                | crate::ast::AstType::RawPtr(inner_type) = scrut_type
+                                {
                                     // We know the pointee type - dereference and bind
                                     let pointee_llvm_type = self.to_llvm_type(inner_type)?;
                                     let basic_type = match pointee_llvm_type {
@@ -164,7 +164,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         super::super::Type::Struct(st) => st.into(),
                                         _ => {
                                             // Fallback: bind pointer as-is
-                                            if let Pattern::Identifier(name) = payload_pattern.as_ref() {
+                                            if let Pattern::Identifier(name) =
+                                                payload_pattern.as_ref()
+                                            {
                                                 bindings.push((name.clone(), ptr_val.into()));
                                                 return Ok((is_not_null, bindings));
                                             } else {
@@ -172,55 +174,69 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             }
                                         }
                                     };
-                                    
+
                                     // Create basic blocks for null check
                                     let current_fn = self.current_function.unwrap();
-                                    let then_bb = self.context.append_basic_block(current_fn, "ptr_not_null");
-                                    let else_bb = self.context.append_basic_block(current_fn, "ptr_is_null");
-                                    let merge_bb = self.context.append_basic_block(current_fn, "ptr_merge");
-                                    
-                                    self.builder.build_conditional_branch(is_not_null, then_bb, else_bb)?;
-                                    
+                                    let then_bb =
+                                        self.context.append_basic_block(current_fn, "ptr_not_null");
+                                    let else_bb =
+                                        self.context.append_basic_block(current_fn, "ptr_is_null");
+                                    let merge_bb =
+                                        self.context.append_basic_block(current_fn, "ptr_merge");
+
+                                    self.builder.build_conditional_branch(
+                                        is_not_null,
+                                        then_bb,
+                                        else_bb,
+                                    )?;
+
                                     // Not null path - dereference
                                     self.builder.position_at_end(then_bb);
-                                    let dereferenced = self.builder.build_load(basic_type, ptr_val, "deref_ptr")?;
-                                    
-                                    // Recursively match the payload pattern
-                                    let (payload_matches, payload_bindings) = self.compile_pattern_test_with_type(
-                                        &dereferenced,
-                                        &payload_pattern,
-                                        Some(inner_type),
+                                    let dereferenced = self.builder.build_load(
+                                        basic_type,
+                                        ptr_val,
+                                        "deref_ptr",
                                     )?;
-                                    
+
+                                    // Recursively match the payload pattern
+                                    let (payload_matches, payload_bindings) = self
+                                        .compile_pattern_test_with_type(
+                                            &dereferenced,
+                                            &payload_pattern,
+                                            Some(inner_type),
+                                        )?;
+
                                     // Both pointer is not null AND payload matches
                                     let both_match = self.builder.build_and(
                                         is_not_null,
                                         payload_matches,
                                         "ptr_and_payload_match",
                                     )?;
-                                    
+
                                     self.builder.build_unconditional_branch(merge_bb)?;
-                                    
+
                                     // Null path - doesn't match Some
                                     self.builder.position_at_end(else_bb);
                                     let false_val = self.context.bool_type().const_int(0, false);
                                     self.builder.build_unconditional_branch(merge_bb)?;
-                                    
+
                                     // Merge
                                     self.builder.position_at_end(merge_bb);
-                                    let phi = self.builder.build_phi(
-                                        self.context.bool_type(),
-                                        "ptr_match_result",
-                                    )?;
-                                    phi.add_incoming(&[(&both_match, then_bb), (&false_val, else_bb)]);
-                                    
+                                    let phi = self
+                                        .builder
+                                        .build_phi(self.context.bool_type(), "ptr_match_result")?;
+                                    phi.add_incoming(&[
+                                        (&both_match, then_bb),
+                                        (&false_val, else_bb),
+                                    ]);
+
                                     // Merge bindings
                                     bindings.extend(payload_bindings);
-                                    
+
                                     return Ok((phi.as_basic_value().into_int_value(), bindings));
                                 }
                             }
-                            
+
                             // No type information - bind pointer as-is
                             if let Pattern::Identifier(name) = payload_pattern.as_ref() {
                                 bindings.push((name.clone(), ptr_val.into()));
@@ -378,7 +394,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         } else {
                                             // Check the generic type context for Option<T> and Result<T,E> type info
                                             let load_type = if variant == "Some" {
-                                                let t = self.generic_type_context
+                                                let t = self
+                                                    .generic_type_context
                                                     .get("Option_Some_Type")
                                                     .cloned();
                                                 // Track Option_Some_Type from generic context
@@ -393,10 +410,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     .cloned()
                                             } else {
                                                 // For custom enums, look up the payload type from enum_info
-                                                enum_info.as_ref()
-                                                    .and_then(|info| info.variants.iter()
+                                                enum_info.as_ref().and_then(|info| {
+                                                    info.variants
+                                                        .iter()
                                                         .find(|v| v.name == *variant)
-                                                        .and_then(|v| v.payload.clone()))
+                                                        .and_then(|v| v.payload.clone())
+                                                })
                                             };
 
                                             // Try to load with the tracked type information
@@ -451,10 +470,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                             "payload_f64",
                                                         )
                                                         .unwrap_or(loaded_payload),
-                                                    AstType::Struct { name, .. } if name == "String" => loaded_payload, // String struct is already a pointer, don't load
-                                        AstType::StaticString | AstType::StaticLiteral => loaded_payload, // Static strings are already pointers, don't load
-                                                    AstType::Generic { name, type_args } if name == "Result" || name == "Option" => {
-                                                        // For nested generics (Result<Result<T,E>,E2>), 
+                                                    AstType::Struct { name, .. }
+                                                        if name == "String" =>
+                                                    {
+                                                        loaded_payload
+                                                    } // String struct is already a pointer, don't load
+                                                    AstType::StaticString
+                                                    | AstType::StaticLiteral => loaded_payload, // Static strings are already pointers, don't load
+                                                    AstType::Generic { name, type_args }
+                                                        if name == "Result" || name == "Option" =>
+                                                    {
+                                                        // For nested generics (Result<Result<T,E>,E2>),
                                                         // the payload is a struct stored directly
                                                         let struct_type = self.context.struct_type(
                                                             &[
@@ -463,30 +489,53 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                             ],
                                                             false,
                                                         );
-                                                        
+
                                                         // Update the generic type context for the nested type
                                                         // This ensures that when we pattern match on the nested type,
                                                         // we have the correct type information
-                                                        if name == "Result" && type_args.len() == 2 {
+                                                        if name == "Result" && type_args.len() == 2
+                                                        {
                                                             // For Result<T,E>, track the nested types
-                                                            self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                                                            self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
-                                                            
+                                                            self.track_generic_type(
+                                                                "Result_Ok_Type".to_string(),
+                                                                type_args[0].clone(),
+                                                            );
+                                                            self.track_generic_type(
+                                                                "Result_Err_Type".to_string(),
+                                                                type_args[1].clone(),
+                                                            );
+
                                                             // Also track nested types recursively
-                                                            self.track_complex_generic(&type_args[0], "Result_Ok");
-                                                            self.track_complex_generic(&type_args[1], "Result_Err");
-                                                        } else if name == "Option" && type_args.len() == 1 {
+                                                            self.track_complex_generic(
+                                                                &type_args[0],
+                                                                "Result_Ok",
+                                                            );
+                                                            self.track_complex_generic(
+                                                                &type_args[1],
+                                                                "Result_Err",
+                                                            );
+                                                        } else if name == "Option"
+                                                            && type_args.len() == 1
+                                                        {
                                                             // For Option<T>, track the nested type
-                                                            self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
-                                                            self.track_complex_generic(&type_args[0], "Option_Some");
+                                                            self.track_generic_type(
+                                                                "Option_Some_Type".to_string(),
+                                                                type_args[0].clone(),
+                                                            );
+                                                            self.track_complex_generic(
+                                                                &type_args[0],
+                                                                "Option_Some",
+                                                            );
                                                         }
-                                                        
-                                                        self.builder.build_load(
-                                                            struct_type,
-                                                            ptr_val,
-                                                            "nested_generic",
-                                                        ).unwrap_or(loaded_payload)
-                                                    },
+
+                                                        self.builder
+                                                            .build_load(
+                                                                struct_type,
+                                                                ptr_val,
+                                                                "nested_generic",
+                                                            )
+                                                            .unwrap_or(loaded_payload)
+                                                    }
                                                     _ => {
                                                         // Try default loading for other types
                                                         // Try i32 first since it's the default integer type
@@ -575,24 +624,43 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         self.builder.position_at_end(then_bb);
                                         // First check the new generic tracker for nested types
                                         let load_type = if variant == "Some" {
-                                            self.generic_tracker.get("Option_Some_Type")
+                                            self.generic_tracker
+                                                .get("Option_Some_Type")
                                                 .cloned()
-                                                .or_else(|| self.generic_type_context.get("Option_Some_Type").cloned())
+                                                .or_else(|| {
+                                                    self.generic_type_context
+                                                        .get("Option_Some_Type")
+                                                        .cloned()
+                                                })
                                         } else if variant == "Ok" {
-                                            self.generic_tracker.get("Result_Ok_Type")
+                                            self.generic_tracker
+                                                .get("Result_Ok_Type")
                                                 .cloned()
-                                                .or_else(|| self.generic_type_context.get("Result_Ok_Type").cloned())
+                                                .or_else(|| {
+                                                    self.generic_type_context
+                                                        .get("Result_Ok_Type")
+                                                        .cloned()
+                                                })
                                         } else if variant == "Err" {
-                                            self.generic_tracker.get("Result_Err_Type")
+                                            self.generic_tracker
+                                                .get("Result_Err_Type")
                                                 .cloned()
-                                                .or_else(|| self.generic_type_context.get("Result_Err_Type").cloned())
+                                                .or_else(|| {
+                                                    self.generic_type_context
+                                                        .get("Result_Err_Type")
+                                                        .cloned()
+                                                })
                                         } else {
                                             // For custom enums, try to find the payload type from enum info
                                             // We need to search through all enums to find which one has this variant
                                             let mut found_payload_type = None;
                                             for (_enum_name, symbol) in self.symbols.iter() {
                                                 if let symbols::Symbol::EnumType(info) = symbol {
-                                                    if let Some(var) = info.variants.iter().find(|v| v.name == *variant) {
+                                                    if let Some(var) = info
+                                                        .variants
+                                                        .iter()
+                                                        .find(|v| v.name == *variant)
+                                                    {
                                                         found_payload_type = var.payload.clone();
                                                         break;
                                                     }
@@ -603,7 +671,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                                         // Try to load with the tracked type information
                                         let loaded_value = if let Some(ast_type) = load_type {
-                                                            use crate::ast::AstType;
+                                            use crate::ast::AstType;
                                             match ast_type {
                                                 AstType::I8 => self
                                                     .builder
@@ -653,75 +721,129 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         "payload_f64",
                                                     )
                                                     .unwrap_or(extracted),
-                                                AstType::Struct { name, .. } if name == "String" => extracted, // String struct is already a pointer, don't load
-                                        AstType::StaticString | AstType::StaticLiteral => extracted, // Static strings are already pointers, don't load
-                                                AstType::Generic { name, type_args } if name == "Option" || name == "Result" => {
+                                                AstType::Struct { name, .. }
+                                                    if name == "String" =>
+                                                {
+                                                    extracted
+                                                } // String struct is already a pointer, don't load
+                                                AstType::StaticString | AstType::StaticLiteral => {
+                                                    extracted
+                                                } // Static strings are already pointers, don't load
+                                                AstType::Generic { name, type_args }
+                                                    if name == "Option" || name == "Result" =>
+                                                {
                                                     // For nested generics (Result<Option<T>, E> or Option<Result<T,E>>),
                                                     // the payload is itself an enum struct. Load it as a struct.
                                                     // The struct has format: { i64 discriminant, ptr payload }
-                                                    let enum_struct_type = self.context.struct_type(
-                                                        &[
-                                                            self.context.i64_type().into(),  // Changed from i32 to i64 to match actual enum representation
-                                                            self.context.ptr_type(AddressSpace::default()).into(),
-                                                        ],
-                                                        false,
-                                                    );
-                                                    
+                                                    let enum_struct_type =
+                                                        self.context.struct_type(
+                                                            &[
+                                                                self.context.i64_type().into(), // Changed from i32 to i64 to match actual enum representation
+                                                                self.context
+                                                                    .ptr_type(
+                                                                        AddressSpace::default(),
+                                                                    )
+                                                                    .into(),
+                                                            ],
+                                                            false,
+                                                        );
+
                                                     // Update generic type context for the nested type
                                                     if name == "Result" && type_args.len() == 2 {
                                                         // For Result<T,E>, track the nested types
                                                         // Use different keys to avoid conflicts with outer Result
-                                                        self.track_generic_type("Nested_Result_Ok_Type".to_string(), type_args[0].clone());
-                                                        self.track_generic_type("Nested_Result_Err_Type".to_string(), type_args[1].clone());
-                                                        
+                                                        self.track_generic_type(
+                                                            "Nested_Result_Ok_Type".to_string(),
+                                                            type_args[0].clone(),
+                                                        );
+                                                        self.track_generic_type(
+                                                            "Nested_Result_Err_Type".to_string(),
+                                                            type_args[1].clone(),
+                                                        );
+
                                                         // Also track nested types recursively
-                                                        self.track_complex_generic(&type_args[0], "Nested_Result_Ok");
-                                                        self.track_complex_generic(&type_args[1], "Nested_Result_Err");
-                                                    } else if name == "Option" && type_args.len() == 1 {
+                                                        self.track_complex_generic(
+                                                            &type_args[0],
+                                                            "Nested_Result_Ok",
+                                                        );
+                                                        self.track_complex_generic(
+                                                            &type_args[1],
+                                                            "Nested_Result_Err",
+                                                        );
+                                                    } else if name == "Option"
+                                                        && type_args.len() == 1
+                                                    {
                                                         // For Option<T>, track the nested type
-                                                        self.track_generic_type("Nested_Option_Some_Type".to_string(), type_args[0].clone());
-                                                        self.track_complex_generic(&type_args[0], "Nested_Option_Some");
+                                                        self.track_generic_type(
+                                                            "Nested_Option_Some_Type".to_string(),
+                                                            type_args[0].clone(),
+                                                        );
+                                                        self.track_complex_generic(
+                                                            &type_args[0],
+                                                            "Nested_Option_Some",
+                                                        );
                                                     }
-                                                    
+
                                                     match self.builder.build_load(
                                                         enum_struct_type,
                                                         ptr_val,
                                                         "nested_enum",
                                                     ) {
                                                         Ok(loaded) => {
-                                                            // Update keys for next level of pattern matching  
+                                                            // Update keys for next level of pattern matching
                                                             // CRITICAL FIX: When we load a nested Result/Option, we need to update
                                                             // the type context for its inner payloads
-                                                            if name == "Result" && type_args.len() == 2 {
+                                                            if name == "Result"
+                                                                && type_args.len() == 2
+                                                            {
                                                                 // The inner Result's Ok type becomes the new Result_Ok_Type
-                                                                self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                                                                self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
-                                                                
-                                                                
+                                                                self.track_generic_type(
+                                                                    "Result_Ok_Type".to_string(),
+                                                                    type_args[0].clone(),
+                                                                );
+                                                                self.track_generic_type(
+                                                                    "Result_Err_Type".to_string(),
+                                                                    type_args[1].clone(),
+                                                                );
+
                                                                 // If the Ok type is i32, make sure we track that properly
-                                                            } else if name == "Option" && type_args.len() == 1 {
-                                                                self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
+                                                            } else if name == "Option"
+                                                                && type_args.len() == 1
+                                                            {
+                                                                self.track_generic_type(
+                                                                    "Option_Some_Type".to_string(),
+                                                                    type_args[0].clone(),
+                                                                );
                                                             }
                                                             // For nested enums, we want to return the full struct
                                                             // so that subsequent pattern matching can work with it
                                                             loaded
-                                                        },
+                                                        }
                                                         Err(_) => extracted,
                                                     }
                                                 }
-                                                AstType::EnumType { ref name } | AstType::Enum { ref name, .. } => {
+                                                AstType::EnumType { ref name }
+                                                | AstType::Enum { ref name, .. } => {
                                                     // For custom enums inside generics, load as enum struct
-                                                    let enum_struct_type = self.context.struct_type(
-                                                        &[
-                                                            self.context.i64_type().into(),
-                                                            self.context.ptr_type(AddressSpace::default()).into(),
-                                                        ],
-                                                        false,
-                                                    );
-                                                    
+                                                    let enum_struct_type =
+                                                        self.context.struct_type(
+                                                            &[
+                                                                self.context.i64_type().into(),
+                                                                self.context
+                                                                    .ptr_type(
+                                                                        AddressSpace::default(),
+                                                                    )
+                                                                    .into(),
+                                                            ],
+                                                            false,
+                                                        );
+
                                                     // Track the custom enum type for nested extraction
-                                                    self.track_generic_type(format!("Nested_{}_Type", name), ast_type.clone());
-                                                    
+                                                    self.track_generic_type(
+                                                        format!("Nested_{}_Type", name),
+                                                        ast_type.clone(),
+                                                    );
+
                                                     match self.builder.build_load(
                                                         enum_struct_type,
                                                         ptr_val,
@@ -760,7 +882,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             }
                                         };
                                         // Branch to merge only if block isn't already terminated
-                                        let then_current_block = self.builder.get_insert_block().unwrap();
+                                        let then_current_block =
+                                            self.builder.get_insert_block().unwrap();
                                         if then_current_block.get_terminator().is_none() {
                                             self.builder.build_unconditional_branch(merge_bb)?;
                                         }
@@ -779,7 +902,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             float_type.const_float(0.0).into()
                                         } else if then_val.is_struct_value() {
                                             // For structs (like nested enums), create a zero-initialized struct
-                                            let struct_type = then_val.into_struct_value().get_type();
+                                            let struct_type =
+                                                then_val.into_struct_value().get_type();
                                             struct_type.const_zero().into()
                                         } else {
                                             // For pointers, use null pointer
@@ -787,7 +911,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             ptr_type.const_null().into()
                                         };
                                         // Branch to merge only if block isn't already terminated
-                                        let else_current_block = self.builder.get_insert_block().unwrap();
+                                        let else_current_block =
+                                            self.builder.get_insert_block().unwrap();
                                         if else_current_block.get_terminator().is_none() {
                                             self.builder.build_unconditional_branch(merge_bb)?;
                                         }

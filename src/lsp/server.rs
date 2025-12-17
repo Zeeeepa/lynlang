@@ -1,12 +1,12 @@
 // Enhanced LSP Server for Zen Language
 // Provides advanced IDE features with compiler integration
 
-use lsp_server::{Connection, Message, Request, Response, Notification as ServerNotification};
+use lsp_server::{Connection, Message, Notification as ServerNotification, Request, Response};
 use lsp_types::*;
 use serde_json::Value;
 use std::error::Error;
+use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
-use std::sync::mpsc::{self, Sender, Receiver, TryRecvError};
 use std::thread;
 
 use inkwell::context::Context;
@@ -15,24 +15,28 @@ use inkwell::context::Context;
 use crate::compiler::Compiler;
 use crate::error::CompileError;
 
-use super::types::{AnalysisJob, AnalysisResult};
-use super::document_store::DocumentStore;
-use super::hover::handle_hover;
-use super::formatting::handle_formatting;
-use super::semantic_tokens::handle_semantic_tokens;
-use super::call_hierarchy::{handle_prepare_call_hierarchy, handle_incoming_calls, handle_outgoing_calls};
-use super::rename::handle_rename;
-use super::signature_help::handle_signature_help;
-use super::inlay_hints::handle_inlay_hints;
-use super::code_lens::handle_code_lens;
+use super::call_hierarchy::{
+    handle_incoming_calls, handle_outgoing_calls, handle_prepare_call_hierarchy,
+};
 use super::code_action::handle_code_action;
-use super::navigation::{handle_definition, handle_type_definition, handle_references, handle_document_highlight};
+use super::code_lens::handle_code_lens;
 use super::completion::handle_completion as handle_completion_request;
+use super::document_store::DocumentStore;
+use super::formatting::handle_formatting;
+use super::hover::handle_hover;
+use super::inlay_hints::handle_inlay_hints;
+use super::navigation::{
+    handle_definition, handle_document_highlight, handle_references, handle_type_definition,
+};
+use super::rename::handle_rename;
+use super::semantic_tokens::handle_semantic_tokens;
+use super::signature_help::handle_signature_help;
 use super::symbols::{handle_document_symbols, handle_workspace_symbol};
+use super::types::{AnalysisJob, AnalysisResult};
 
 /// Apply a text edit to document content, handling LSP Range positions
 /// Converts LSP line/character positions to byte offsets and applies the edit
-/// 
+///
 /// LSP positions are 0-indexed and represent positions BETWEEN characters:
 /// - Position (line: 0, character: 0) = before first character of line 0
 /// - Position (line: 0, character: 5) = after 5th character, before 6th character
@@ -42,23 +46,23 @@ fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
     let start_char = range.start.character as usize;
     let end_line = range.end.line as usize;
     let end_char = range.end.character as usize;
-    
-    eprintln!("[LSP DEBUG] apply_text_edit called: range=({}:{} -> {}:{}), new_text='{}' (len={}), content_len={}", 
-              start_line, start_char, end_line, end_char, 
+
+    eprintln!("[LSP DEBUG] apply_text_edit called: range=({}:{} -> {}:{}), new_text='{}' (len={}), content_len={}",
+              start_line, start_char, end_line, end_char,
               new_text.chars().take(30).collect::<String>(),
               new_text.len(), content.len());
-    
+
     // Helper function to convert LSP position to byte offset
     fn position_to_byte_offset(content: &str, target_line: usize, target_char: usize) -> usize {
         let mut current_line = 0;
         let mut current_char = 0;
-        
+
         for (byte_idx, ch) in content.char_indices() {
             // Check if we've reached the target position
             if current_line == target_line && current_char == target_char {
                 return byte_idx;
             }
-            
+
             // Move to next position AFTER the check
             if ch == '\n' {
                 current_line += 1;
@@ -67,41 +71,57 @@ fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
                 current_char += 1;
             }
         }
-        
+
         // If target position is at end of file, return content length
         // This handles the case where position is after the last character
         if current_line == target_line && current_char == target_char {
             return content.len();
         }
-        
+
         // Beyond end of file - clamp to content length
         content.len()
     }
-    
+
     let start_byte = position_to_byte_offset(content, start_line, start_char);
     let end_byte = position_to_byte_offset(content, end_line, end_char);
-    
-    eprintln!("[LSP DEBUG] Converted positions: start_byte={}, end_byte={}", start_byte, end_byte);
-    eprintln!("[LSP DEBUG] Will replace: '{}'", 
-              &content[start_byte..end_byte.min(content.len())].chars().take(50).collect::<String>());
-    
+
+    eprintln!(
+        "[LSP DEBUG] Converted positions: start_byte={}, end_byte={}",
+        start_byte, end_byte
+    );
+    eprintln!(
+        "[LSP DEBUG] Will replace: '{}'",
+        &content[start_byte..end_byte.min(content.len())]
+            .chars()
+            .take(50)
+            .collect::<String>()
+    );
+
     // Ensure byte offsets are valid and ordered
     let start_byte = start_byte.min(content.len());
     let end_byte = end_byte.min(content.len());
     let (start_byte, end_byte) = if start_byte <= end_byte {
         (start_byte, end_byte)
     } else {
-        eprintln!("[LSP WARN] Start byte > end byte, swapping: {} > {}", start_byte, end_byte);
+        eprintln!(
+            "[LSP WARN] Start byte > end byte, swapping: {} > {}",
+            start_byte, end_byte
+        );
         (end_byte, start_byte)
     };
-    
+
     // Apply the edit: replace the range with new_text
-    let mut result = String::with_capacity(content.len() - (end_byte - start_byte) + new_text.len());
+    let mut result =
+        String::with_capacity(content.len() - (end_byte - start_byte) + new_text.len());
     result.push_str(&content[..start_byte]);
     result.push_str(new_text);
     result.push_str(&content[end_byte..]);
-    
-    eprintln!("[LSP DEBUG] Result length: {} (was {})", result.len(), content.len());
+
+    eprintln!(
+        "[LSP DEBUG] Result length: {} (was {})",
+        result.len(),
+        content.len()
+    );
     result
 }
 
@@ -111,46 +131,130 @@ fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
 
 // Convert CompileError to LSP Diagnostic (standalone function for reuse)
 fn compile_error_to_diagnostic(error: CompileError) -> Diagnostic {
-
     // Extract span and determine severity
     let (span, severity, code) = match &error {
-        CompileError::ParseError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("parse-error")),
-        CompileError::SyntaxError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("syntax-error")),
-        CompileError::TypeError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("type-error")),
-        CompileError::TypeMismatch { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, Some("type-mismatch")),
-        CompileError::UndeclaredVariable(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("undeclared-variable")),
-        CompileError::UndeclaredFunction(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("undeclared-function")),
-        CompileError::UnexpectedToken { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, Some("unexpected-token")),
-        CompileError::InvalidPattern(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("invalid-pattern")),
-        CompileError::InvalidSyntax { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, Some("invalid-syntax")),
-        CompileError::MissingTypeAnnotation(_, span) => (span.clone(), DiagnosticSeverity::WARNING, Some("missing-type")),
-        CompileError::DuplicateDeclaration { duplicate_location, .. } => (duplicate_location.clone(), DiagnosticSeverity::ERROR, Some("duplicate-declaration")),
-        CompileError::ImportError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("import-error")),
-        CompileError::FFIError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("ffi-error")),
-        CompileError::InvalidLoopCondition(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("invalid-loop")),
-        CompileError::MissingReturnStatement(_, span) => (span.clone(), DiagnosticSeverity::WARNING, Some("missing-return")),
-        CompileError::InternalError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("internal-error")),
-        CompileError::UnsupportedFeature(_, span) => (span.clone(), DiagnosticSeverity::WARNING, Some("unsupported-feature")),
-        CompileError::FileNotFound(_, _) => (None, DiagnosticSeverity::ERROR, Some("file-not-found")),
+        CompileError::ParseError(_, span) => {
+            (span.clone(), DiagnosticSeverity::ERROR, Some("parse-error"))
+        }
+        CompileError::SyntaxError(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("syntax-error"),
+        ),
+        CompileError::TypeError(_, span) => {
+            (span.clone(), DiagnosticSeverity::ERROR, Some("type-error"))
+        }
+        CompileError::TypeMismatch { span, .. } => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("type-mismatch"),
+        ),
+        CompileError::UndeclaredVariable(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("undeclared-variable"),
+        ),
+        CompileError::UndeclaredFunction(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("undeclared-function"),
+        ),
+        CompileError::UnexpectedToken { span, .. } => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("unexpected-token"),
+        ),
+        CompileError::InvalidPattern(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("invalid-pattern"),
+        ),
+        CompileError::InvalidSyntax { span, .. } => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("invalid-syntax"),
+        ),
+        CompileError::MissingTypeAnnotation(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::WARNING,
+            Some("missing-type"),
+        ),
+        CompileError::DuplicateDeclaration {
+            duplicate_location, ..
+        } => (
+            duplicate_location.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("duplicate-declaration"),
+        ),
+        CompileError::ImportError(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("import-error"),
+        ),
+        CompileError::FFIError(_, span) => {
+            (span.clone(), DiagnosticSeverity::ERROR, Some("ffi-error"))
+        }
+        CompileError::InvalidLoopCondition(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("invalid-loop"),
+        ),
+        CompileError::MissingReturnStatement(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::WARNING,
+            Some("missing-return"),
+        ),
+        CompileError::InternalError(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("internal-error"),
+        ),
+        CompileError::UnsupportedFeature(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::WARNING,
+            Some("unsupported-feature"),
+        ),
+        CompileError::FileNotFound(_, _) => {
+            (None, DiagnosticSeverity::ERROR, Some("file-not-found"))
+        }
         CompileError::ComptimeError(_) => (None, DiagnosticSeverity::ERROR, Some("comptime-error")),
         CompileError::BuildError(_) => (None, DiagnosticSeverity::ERROR, Some("build-error")),
         CompileError::FileError(_) => (None, DiagnosticSeverity::ERROR, Some("file-error")),
-        CompileError::CyclicDependency(_) => (None, DiagnosticSeverity::ERROR, Some("cyclic-dependency")),
+        CompileError::CyclicDependency(_) => {
+            (None, DiagnosticSeverity::ERROR, Some("cyclic-dependency"))
+        }
     };
 
     // Convert span to LSP range
     let (start_pos, end_pos) = if let Some(span) = span {
         let start = Position {
-            line: if span.line > 0 { span.line as u32 - 1 } else { 0 },
+            line: if span.line > 0 {
+                span.line as u32 - 1
+            } else {
+                0
+            },
             character: span.column as u32,
         };
         let end = Position {
-            line: if span.line > 0 { span.line as u32 - 1 } else { 0 },
+            line: if span.line > 0 {
+                span.line as u32 - 1
+            } else {
+                0
+            },
             character: (span.column + (span.end - span.start).max(1)) as u32,
         };
         (start, end)
     } else {
-        (Position { line: 0, character: 0 }, Position { line: 0, character: 1 })
+        (
+            Position {
+                line: 0,
+                character: 0,
+            },
+            Position {
+                line: 0,
+                character: 1,
+            },
+        )
     };
 
     Diagnostic {
@@ -185,7 +289,7 @@ pub struct ZenLanguageServer {
 impl ZenLanguageServer {
     pub fn new() -> Result<Self, Box<dyn Error>> {
         let (connection, _io_threads) = Connection::stdio();
-        
+
         let capabilities = ServerCapabilities {
             text_document_sync: Some(TextDocumentSyncCapability::Kind(
                 TextDocumentSyncKind::INCREMENTAL,
@@ -194,7 +298,7 @@ impl ZenLanguageServer {
             completion_provider: Some(CompletionOptions {
                 resolve_provider: Some(true),
                 trigger_characters: Some(vec![
-                    ".".to_string(), 
+                    ".".to_string(),
                     ":".to_string(),
                     "@".to_string(),
                     "?".to_string(),
@@ -231,16 +335,16 @@ impl ZenLanguageServer {
                 SemanticTokensServerCapabilities::SemanticTokensRegistrationOptions(
                     SemanticTokensRegistrationOptions {
                         text_document_registration_options: TextDocumentRegistrationOptions {
-                            document_selector: Some(vec![
-                                DocumentFilter {
-                                    language: Some("zen".to_string()),
-                                    scheme: None,
-                                    pattern: None,
-                                }
-                            ]),
+                            document_selector: Some(vec![DocumentFilter {
+                                language: Some("zen".to_string()),
+                                scheme: None,
+                                pattern: None,
+                            }]),
                         },
                         semantic_tokens_options: SemanticTokensOptions {
-                            work_done_progress_options: WorkDoneProgressOptions { work_done_progress: None },
+                            work_done_progress_options: WorkDoneProgressOptions {
+                                work_done_progress: None,
+                            },
                             legend: SemanticTokensLegend {
                                 token_types: vec![
                                     SemanticTokenType::NAMESPACE,
@@ -283,8 +387,8 @@ impl ZenLanguageServer {
                             range: Some(false),
                         },
                         static_registration_options: StaticRegistrationOptions { id: None },
-                    }
-                )
+                    },
+                ),
             ),
             ..Default::default()
         };
@@ -307,10 +411,14 @@ impl ZenLanguageServer {
             #[allow(deprecated)]
             if let Some(folders) = params.workspace_folders {
                 if let Some(first_folder) = folders.first() {
-                    if let Ok(mut s) = self.store.lock() { s.set_workspace_root(first_folder.uri.clone()); }
+                    if let Ok(mut s) = self.store.lock() {
+                        s.set_workspace_root(first_folder.uri.clone());
+                    }
                 }
             } else if let Some(root_uri) = params.root_uri {
-                if let Ok(mut s) = self.store.lock() { s.set_workspace_root(root_uri); }
+                if let Ok(mut s) = self.store.lock() {
+                    s.set_workspace_root(root_uri);
+                }
             }
         }
 
@@ -319,7 +427,9 @@ impl ZenLanguageServer {
         let (result_tx, result_rx) = mpsc::channel();
 
         // Give the analysis sender to the document store
-        if let Ok(mut s) = self.store.lock() { s.set_analysis_sender(analysis_tx); }
+        if let Ok(mut s) = self.store.lock() {
+            s.set_analysis_sender(analysis_tx);
+        }
 
         // Spawn background analysis worker
         let _analysis_thread = thread::spawn(move || {
@@ -335,7 +445,10 @@ impl ZenLanguageServer {
         Ok(())
     }
 
-    fn background_analysis_worker(job_rx: Receiver<AnalysisJob>, result_tx: Sender<AnalysisResult>) {
+    fn background_analysis_worker(
+        job_rx: Receiver<AnalysisJob>,
+        result_tx: Sender<AnalysisResult>,
+    ) {
         // Background analysis worker started
 
         // Create LLVM context and compiler (reused for all analyses)
@@ -368,7 +481,10 @@ impl ZenLanguageServer {
         // Background analysis worker stopped
     }
 
-    fn main_loop_with_background(&mut self, result_rx: Receiver<AnalysisResult>) -> Result<(), Box<dyn Error>> {
+    fn main_loop_with_background(
+        &mut self,
+        result_rx: Receiver<AnalysisResult>,
+    ) -> Result<(), Box<dyn Error>> {
         loop {
             // Check for background analysis results (non-blocking)
             match result_rx.try_recv() {
@@ -390,20 +506,18 @@ impl ZenLanguageServer {
             let timeout = Duration::from_millis(100);
 
             match self.connection.receiver.recv_timeout(timeout) {
-                Ok(msg) => {
-                    match msg {
-                        Message::Request(req) => {
-                            if self.connection.handle_shutdown(&req)? {
-                                return Ok(());
-                            }
-                            self.handle_request(req)?;
+                Ok(msg) => match msg {
+                    Message::Request(req) => {
+                        if self.connection.handle_shutdown(&req)? {
+                            return Ok(());
                         }
-                        Message::Notification(notif) => {
-                            self.handle_notification(notif)?;
-                        }
-                        Message::Response(_) => {}
+                        self.handle_request(req)?;
                     }
-                }
+                    Message::Notification(notif) => {
+                        self.handle_notification(notif)?;
+                    }
+                    Message::Response(_) => {}
+                },
                 Err(err) => {
                     // Handle connection errors
                     // If it's a timeout, continue; if disconnected, exit
@@ -484,29 +598,30 @@ impl ZenLanguageServer {
                     Err(_) => Vec::new(),
                 };
                 self.publish_diagnostics(params.text_document.uri, diagnostics)?;
-                
+
                 // Notify client to refresh semantic tokens when document opens
                 self.request_semantic_tokens_refresh()?;
             }
             "textDocument/didChange" => {
                 let params: DidChangeTextDocumentParams = serde_json::from_value(notif.params)?;
-                
+
                 // Handle all content changes (LSP spec allows array)
                 // IMPORTANT: Changes must be applied sequentially, each to the updated document state
                 let diagnostics = match self.store.lock() {
                     Ok(mut s) => {
                         // Get the current document content (or start fresh if document doesn't exist)
-                        let mut current_content = s.documents
+                        let mut current_content = s
+                            .documents
                             .get(&params.text_document.uri)
                             .map(|doc| doc.content.clone())
                             .unwrap_or_default();
-                        
+
                         // Apply each change sequentially to the current content
                         for change in &params.content_changes {
                             current_content = if let Some(range) = &change.range {
                                 // Incremental change: apply the edit to the current document content
-                                eprintln!("[LSP DEBUG] Applying incremental change: range=({}:{} -> {}:{}), text='{}'", 
-                                         range.start.line, range.start.character, 
+                                eprintln!("[LSP DEBUG] Applying incremental change: range=({}:{} -> {}:{}), text='{}'",
+                                         range.start.line, range.start.character,
                                          range.end.line, range.end.character,
                                          change.text.chars().take(20).collect::<String>());
                                 apply_text_edit(&current_content, range, &change.text)
@@ -516,24 +631,26 @@ impl ZenLanguageServer {
                                 change.text.clone()
                             };
                         }
-                        
+
                         // Update the document with the final content after all changes
                         s.update(
                             params.text_document.uri.clone(),
                             params.text_document.version,
                             current_content,
                         )
-                    },
+                    }
                     Err(e) => {
                         eprintln!("[LSP] Error locking store for didChange: {:?}", e);
                         Vec::new()
-                    },
+                    }
                 };
-                
-                if let Err(e) = self.publish_diagnostics(params.text_document.uri.clone(), diagnostics) {
+
+                if let Err(e) =
+                    self.publish_diagnostics(params.text_document.uri.clone(), diagnostics)
+                {
                     eprintln!("[LSP] Error publishing diagnostics: {:?}", e);
                 }
-                
+
                 // Notify client to refresh semantic tokens when document changes
                 if let Err(e) = self.request_semantic_tokens_refresh() {
                     eprintln!("[LSP] Error requesting semantic tokens refresh: {:?}", e);
@@ -547,7 +664,11 @@ impl ZenLanguageServer {
         Ok(())
     }
 
-    fn publish_diagnostics(&self, uri: Url, diagnostics: Vec<Diagnostic>) -> Result<(), Box<dyn Error>> {
+    fn publish_diagnostics(
+        &self,
+        uri: Url,
+        diagnostics: Vec<Diagnostic>,
+    ) -> Result<(), Box<dyn Error>> {
         // Publishing diagnostics
         for (_i, _diag) in diagnostics.iter().enumerate() {
             // Diagnostic logged
@@ -564,7 +685,9 @@ impl ZenLanguageServer {
             params: serde_json::to_value(params)?,
         };
 
-        self.connection.sender.send(Message::Notification(notification))?;
+        self.connection
+            .sender
+            .send(Message::Notification(notification))?;
         Ok(())
     }
 
@@ -574,7 +697,9 @@ impl ZenLanguageServer {
             method: "workspace/semanticTokens/refresh".to_string(),
             params: serde_json::Value::Null,
         };
-        self.connection.sender.send(Message::Notification(notification))?;
+        self.connection
+            .sender
+            .send(Message::Notification(notification))?;
         Ok(())
     }
 

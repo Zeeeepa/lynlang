@@ -1,11 +1,11 @@
 // Type Inference Utilities for LSP
 // Extracted from ZenLanguageServer for better code organization
 
-use lsp_types::*;
-use std::collections::HashMap;
+use super::document_store::DocumentStore;
 use super::types::{Document, SymbolInfo};
 use super::utils::format_type;
-use super::document_store::DocumentStore;
+use lsp_types::*;
+use std::collections::HashMap;
 
 pub fn parse_generic_type(type_str: &str) -> (String, Vec<String>) {
     // First, try parsing using the real Parser
@@ -78,7 +78,7 @@ pub fn infer_variable_type(
     var_name: &str,
     local_symbols: &HashMap<String, SymbolInfo>,
     stdlib_symbols: &HashMap<String, SymbolInfo>,
-    workspace_symbols: &HashMap<String, SymbolInfo>
+    workspace_symbols: &HashMap<String, SymbolInfo>,
 ) -> Option<String> {
     // Look for variable assignment: var_name = function_call() or var_name: Type = ...
     let lines: Vec<&str> = content.lines().collect();
@@ -95,7 +95,10 @@ pub fn infer_variable_type(
                         // Extract type between : and =
                         let type_str = line[colon_pos + 1..eq_pos].trim();
                         if !type_str.is_empty() {
-                            return Some(format!("```zen\n{}: {}\n```\n\n**Type:** `{}`", var_name, type_str, type_str));
+                            return Some(format!(
+                                "```zen\n{}: {}\n```\n\n**Type:** `{}`",
+                                var_name, type_str, type_str
+                            ));
                         }
                     }
                 }
@@ -110,10 +113,11 @@ pub fn infer_variable_type(
                     let func_name = rhs[..paren_pos].trim();
 
                     // Look up function in symbols
-                    if let Some(func_info) = local_symbols.get(func_name)
+                    if let Some(func_info) = local_symbols
+                        .get(func_name)
                         .or_else(|| stdlib_symbols.get(func_name))
-                        .or_else(|| workspace_symbols.get(func_name)) {
-
+                        .or_else(|| workspace_symbols.get(func_name))
+                    {
                         if let Some(type_info) = &func_info.type_info {
                             let type_str = format_type(type_info);
                             return Some(format!(
@@ -191,7 +195,10 @@ pub fn infer_receiver_type(receiver: &str, documents: &HashMap<Url, Document>) -
     }
 
     // Check for numeric literals
-    if receiver.chars().all(|c| c.is_numeric() || c == '.' || c == '-') {
+    if receiver
+        .chars()
+        .all(|c| c.is_numeric() || c == '.' || c == '-')
+    {
         if receiver.contains('.') {
             return Some("f64".to_string());
         } else {
@@ -238,7 +245,16 @@ pub fn infer_receiver_type(receiver: &str, documents: &HashMap<Url, Document>) -
                     }
                 }
                 // Fallback to simple contains checks
-                for type_name in ["HashMap", "DynVec", "Vec", "Array", "Option", "Result", "String", "StaticString"] {
+                for type_name in [
+                    "HashMap",
+                    "DynVec",
+                    "Vec",
+                    "Array",
+                    "Option",
+                    "Result",
+                    "String",
+                    "StaticString",
+                ] {
                     if detail.contains(type_name) {
                         return Some(type_name.to_string());
                     }
@@ -249,22 +265,48 @@ pub fn infer_receiver_type(receiver: &str, documents: &HashMap<Url, Document>) -
 
     // Enhanced pattern matching for function calls and constructors (no regex)
     let receiver_trim = receiver.trim();
-    if receiver_trim.starts_with("HashMap(") { return Some("HashMap".to_string()); }
-    if receiver_trim.starts_with("DynVec(") { return Some("DynVec".to_string()); }
-    if receiver_trim.starts_with("Vec(") || receiver_trim.starts_with("Vec<") { return Some("Vec".to_string()); }
-    if receiver_trim.starts_with("Array(") { return Some("Array".to_string()); }
-    if receiver_trim.starts_with("Some(") { return Some("Option".to_string()); }
-    if receiver_trim == "None" { return Some("Option".to_string()); }
-    if receiver_trim.starts_with("Ok(") || receiver_trim.starts_with("Err(") { return Some("Result".to_string()); }
-    if receiver_trim.starts_with("Result.") { return Some("Result".to_string()); }
-    if receiver_trim.starts_with("Option.") { return Some("Option".to_string()); }
-    if receiver_trim.starts_with("get_default_allocator()") { return Some("Allocator".to_string()); }
-    if receiver_trim.starts_with('[') && receiver_trim.contains(';') && receiver_trim.ends_with(']') { return Some("Array".to_string()); }
+    if receiver_trim.starts_with("HashMap(") {
+        return Some("HashMap".to_string());
+    }
+    if receiver_trim.starts_with("DynVec(") {
+        return Some("DynVec".to_string());
+    }
+    if receiver_trim.starts_with("Vec(") || receiver_trim.starts_with("Vec<") {
+        return Some("Vec".to_string());
+    }
+    if receiver_trim.starts_with("Array(") {
+        return Some("Array".to_string());
+    }
+    if receiver_trim.starts_with("Some(") {
+        return Some("Option".to_string());
+    }
+    if receiver_trim == "None" {
+        return Some("Option".to_string());
+    }
+    if receiver_trim.starts_with("Ok(") || receiver_trim.starts_with("Err(") {
+        return Some("Result".to_string());
+    }
+    if receiver_trim.starts_with("Result.") {
+        return Some("Result".to_string());
+    }
+    if receiver_trim.starts_with("Option.") {
+        return Some("Option".to_string());
+    }
+    if receiver_trim.starts_with("get_default_allocator()") {
+        return Some("Allocator".to_string());
+    }
+    if receiver_trim.starts_with('[') && receiver_trim.contains(';') && receiver_trim.ends_with(']')
+    {
+        return Some("Array".to_string());
+    }
 
     None
 }
 
-pub fn infer_chained_method_type(receiver: &str, documents: &HashMap<Url, Document>) -> Option<String> {
+pub fn infer_chained_method_type(
+    receiver: &str,
+    documents: &HashMap<Url, Document>,
+) -> Option<String> {
     // Parse method chains from left to right, tracking type through each call
     let mut current_type: Option<String> = None;
     let parts = split_method_chain(receiver);
@@ -285,7 +327,10 @@ pub fn infer_chained_method_type(receiver: &str, documents: &HashMap<Url, Docume
     current_type
 }
 
-pub fn infer_base_expression_type(expr: &str, documents: &HashMap<Url, Document>) -> Option<String> {
+pub fn infer_base_expression_type(
+    expr: &str,
+    documents: &HashMap<Url, Document>,
+) -> Option<String> {
     // Infer type of base expression (before any method calls)
     let expr = expr.trim();
 
@@ -344,8 +389,8 @@ fn legacy_get_method_return_type(receiver_type: &str, method_name: &str) -> Opti
     // Comprehensive method return type mapping
     match receiver_type {
         "String" | "StaticString" | "str" => match method_name {
-            "to_string" | "to_upper" | "to_lower" | "trim" | "concat" |
-            "replace" | "substr" | "reverse" | "repeat" => Some("String".to_string()),
+            "to_string" | "to_upper" | "to_lower" | "trim" | "concat" | "replace" | "substr"
+            | "reverse" | "repeat" => Some("String".to_string()),
             "to_i32" | "to_i64" | "to_f64" => Some("Option".to_string()),
             "split" => Some("Array".to_string()),
             "len" | "index_of" => Some("i32".to_string()),
@@ -398,9 +443,16 @@ fn legacy_get_method_return_type(receiver_type: &str, method_name: &str) -> Opti
     }
 }
 
-pub fn get_method_return_type(receiver_type: &str, method_name: &str, store: &DocumentStore) -> Option<String> {
+pub fn get_method_return_type(
+    receiver_type: &str,
+    method_name: &str,
+    store: &DocumentStore,
+) -> Option<String> {
     // Prefer compiler integration data
-    if let Some(ast_type) = store.compiler.get_method_return_type(receiver_type, method_name) {
+    if let Some(ast_type) = store
+        .compiler
+        .get_method_return_type(receiver_type, method_name)
+    {
         return Some(format_type(&ast_type));
     }
 
@@ -439,7 +491,11 @@ fn extract_return_type_from_detail(detail: &str) -> Option<String> {
     None
 }
 
-pub fn find_stdlib_location(stdlib_path: &str, method_name: &str, documents: &HashMap<Url, Document>) -> Option<Location> {
+pub fn find_stdlib_location(
+    stdlib_path: &str,
+    method_name: &str,
+    documents: &HashMap<Url, Document>,
+) -> Option<Location> {
     // Try to find the method in the stdlib file
     // First check if we have the stdlib file open
     for (uri, doc) in documents {
@@ -510,7 +566,10 @@ pub fn infer_receiver_type_from_store(receiver: &str, store: &DocumentStore) -> 
     infer_receiver_type(receiver, &store.documents)
 }
 
-pub fn infer_chained_method_type_from_store(receiver: &str, store: &DocumentStore) -> Option<String> {
+pub fn infer_chained_method_type_from_store(
+    receiver: &str,
+    store: &DocumentStore,
+) -> Option<String> {
     let mut current_type: Option<String> = None;
     let parts = split_method_chain(receiver);
 
@@ -548,11 +607,14 @@ pub fn extract_generic_types(ast_type: &AstType) -> (Option<String>, Option<Stri
             let inner_type = format_type(&type_args[0]);
             (Some(inner_type), None)
         }
-        _ => (None, None)
+        _ => (None, None),
     }
 }
 
-pub fn parse_function_from_source(content: &str, func_name: &str) -> (Option<String>, Option<String>) {
+pub fn parse_function_from_source(
+    content: &str,
+    func_name: &str,
+) -> (Option<String>, Option<String>) {
     // Find the function definition line
     // Example: "divide = (a: f64, b: f64) Result<f64, StaticString> {"
 
@@ -584,7 +646,10 @@ pub fn parse_function_from_source(content: &str, func_name: &str) -> (Option<Str
                         let generics = &after_result[start + 1..end_pos];
                         let parts = split_generic_args(generics);
                         if parts.len() >= 2 {
-                            return (Some(parts[0].trim().to_string()), Some(parts[1].trim().to_string()));
+                            return (
+                                Some(parts[0].trim().to_string()),
+                                Some(parts[1].trim().to_string()),
+                            );
                         } else if parts.len() == 1 {
                             // Only one part found - maybe parsing error
                             return (Some(parts[0].trim().to_string()), Some("E".to_string()));
@@ -612,13 +677,13 @@ pub fn parse_return_type_generics(signature: &str) -> (Option<String>, Option<St
 
     // Find the return type (after the closing paren)
     if let Some(paren_pos) = signature.rfind(')') {
-        let after_paren = signature[paren_pos+1..].trim();
+        let after_paren = signature[paren_pos + 1..].trim();
 
         // Check for Result<T, E>
         if after_paren.starts_with("Result<") {
             if let Some(start) = after_paren.find('<') {
                 if let Some(end) = after_paren.rfind('>') {
-                    let generics = &after_paren[start+1..end];
+                    let generics = &after_paren[start + 1..end];
 
                     // Smart split by comma - handle nested generics
                     let parts = split_generic_args(generics);
@@ -635,7 +700,7 @@ pub fn parse_return_type_generics(signature: &str) -> (Option<String>, Option<St
         else if after_paren.starts_with("Option<") {
             if let Some(start) = after_paren.find('<') {
                 if let Some(end) = after_paren.rfind('>') {
-                    let inner_type = after_paren[start+1..end].trim();
+                    let inner_type = after_paren[start + 1..end].trim();
                     return (Some(inner_type.to_string()), None);
                 }
             }
@@ -680,10 +745,10 @@ pub fn split_generic_args(args: &str) -> Vec<String> {
 
 pub fn infer_function_return_types(
     func_name: &str,
-    all_docs: &HashMap<Url, Document>
+    all_docs: &HashMap<Url, Document>,
 ) -> (Option<String>, Option<String>) {
     use crate::ast::Declaration;
-    
+
     // Try AST first (most accurate)
     for (_uri, doc) in all_docs {
         if let Some(ast) = &doc.ast {

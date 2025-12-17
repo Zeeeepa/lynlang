@@ -75,7 +75,9 @@ impl AstType {
     pub fn default_value(&self) -> String {
         match self {
             AstType::I8 | AstType::I16 | AstType::I32 | AstType::I64 => "0".to_string(),
-            AstType::U8 | AstType::U16 | AstType::U32 | AstType::U64 | AstType::Usize => "0".to_string(),
+            AstType::U8 | AstType::U16 | AstType::U32 | AstType::U64 | AstType::Usize => {
+                "0".to_string()
+            }
             AstType::F32 | AstType::F64 => "0.0".to_string(),
             AstType::Bool => "false".to_string(),
             AstType::Struct { name, .. } if name == "String" => "\"\"".to_string(),

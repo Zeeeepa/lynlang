@@ -106,7 +106,10 @@ impl<'a> Parser<'a> {
 
         if variants.is_empty() {
             return Err(CompileError::SyntaxError(
-                format!("Enum `{}` must have at least one variant. Use `{}: Variant1, Variant2` syntax", name, name),
+                format!(
+                    "Enum `{}` must have at least one variant. Use `{}: Variant1, Variant2` syntax",
+                    name, name
+                ),
                 Some(self.current_span.clone()),
             ));
         }

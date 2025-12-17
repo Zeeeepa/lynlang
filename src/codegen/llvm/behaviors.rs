@@ -1,5 +1,5 @@
 use super::LLVMCompiler;
-use crate::ast::{Expression, TraitImplementation, AstType};
+use crate::ast::{AstType, Expression, TraitImplementation};
 use crate::error::CompileError;
 use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::values::{BasicValueEnum, FunctionValue, PointerValue};
@@ -92,36 +92,41 @@ impl<'ctx> LLVMCompiler<'ctx> {
         impl_block: &crate::ast::ImplBlock,
     ) -> Result<(), CompileError> {
         let type_name = &impl_block.type_name;
-        
+
         // Set the current implementing type for proper 'self' resolution
         self.current_impl_type = Some(type_name.clone());
-        
+
         // Process each method in the impl block
         for method in &impl_block.methods {
             // Generate a mangled name for the method: TypeName_methodName
             let mangled_name = format!("{}_{}", type_name, method.name);
-            
+
             // Create LLVM function for the method
             let llvm_return_type = self.to_llvm_type(&method.return_type)?;
-            
+
             let mut param_types = Vec::new();
             for (param_name, param_type) in &method.args {
                 // Replace 'Self' with the actual type name
                 let resolved_type = if param_name == "self" {
                     // For 'self', use the type name directly
                     // Check if it's a pointer type
-                    if let crate::ast::AstType::Ptr(_) | crate::ast::AstType::MutPtr(_) | crate::ast::AstType::RawPtr(_) = param_type {
+                    if let crate::ast::AstType::Ptr(_)
+                    | crate::ast::AstType::MutPtr(_)
+                    | crate::ast::AstType::RawPtr(_) = param_type
+                    {
                         param_type.clone() // Keep pointer types as-is
                     } else {
                         // For non-pointer self, create a pointer type
                         crate::ast::AstType::Ptr(Box::new(crate::ast::AstType::Generic {
                             name: type_name.clone(),
-                            type_args: impl_block.type_params.iter().map(|tp| {
-                                crate::ast::AstType::Generic {
+                            type_args: impl_block
+                                .type_params
+                                .iter()
+                                .map(|tp| crate::ast::AstType::Generic {
                                     name: tp.name.clone(),
                                     type_args: vec![],
-                                }
-                            }).collect(),
+                                })
+                                .collect(),
                         }))
                     }
                 } else {
@@ -139,7 +144,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         param_type.clone()
                     }
                 };
-                
+
                 let llvm_param_type = self.to_llvm_type(&resolved_type)?;
                 match llvm_param_type {
                     super::Type::Basic(basic_type) => {
@@ -150,13 +155,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                         param_types.push(BasicMetadataTypeEnum::from(ptr_type));
                     }
-                    _ => return Err(CompileError::UnsupportedFeature(
-                        format!("Unsupported parameter type in impl block method"),
-                        None,
-                    )),
+                    _ => {
+                        return Err(CompileError::UnsupportedFeature(
+                            format!("Unsupported parameter type in impl block method"),
+                            None,
+                        ))
+                    }
                 }
             }
-            
+
             let fn_type = if let super::Type::Void = llvm_return_type {
                 self.context.void_type().fn_type(&param_types, false)
             } else if let super::Type::Basic(basic_type) = llvm_return_type {
@@ -189,19 +196,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 ));
             };
             let function = self.module.add_function(&mangled_name, fn_type, None);
-            
+
             // Store method for later resolution via behavior_codegen
             if let Some(ref mut behavior_codegen) = self.behavior_codegen {
-                behavior_codegen.method_impls.insert(
-                    (type_name.clone(), method.name.clone()),
-                    function,
-                );
+                behavior_codegen
+                    .method_impls
+                    .insert((type_name.clone(), method.name.clone()), function);
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Compile a trait implementation
     pub fn compile_trait_implementation(
         &mut self,
@@ -477,7 +483,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if let Expression::Identifier(name) = object {
             // Check if this is an Array type - get what we need and drop the borrow
             let array_info = self.variables.get(name).and_then(|var_info| {
-                if let AstType::Generic { name: type_name, .. } = &var_info.ast_type {
+                if let AstType::Generic {
+                    name: type_name, ..
+                } = &var_info.ast_type
+                {
                     if type_name == "Array" {
                         Some((var_info.pointer, var_info.ast_type.clone()))
                     } else {
@@ -487,24 +496,24 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     None
                 }
             });
-            
+
             if let Some((array_ptr, _ast_type)) = array_info {
                 // Compile the object to get the array value
                 // Array struct type: { ptr, length, capacity }
                 let array_struct_type = self.context.struct_type(
                     &[
-                        self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+                        self.context
+                            .ptr_type(inkwell::AddressSpace::default())
+                            .into(),
                         self.context.i64_type().into(),
                         self.context.i64_type().into(),
                     ],
                     false,
                 );
-                let object_val = self.builder.build_load(
-                    array_struct_type,
-                    array_ptr,
-                    "array_val"
-                )?;
-                
+                let object_val =
+                    self.builder
+                        .build_load(array_struct_type, array_ptr, "array_val")?;
+
                 // Handle Array methods
                 match method_name {
                     "push" => {
@@ -516,7 +525,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                         let value = self.compile_expression(&args[0])?;
                         // Pass the pointer instead of the value for in-place modification
-                        return super::functions::arrays::compile_array_push_by_ptr(self, array_ptr, value);
+                        return super::functions::arrays::compile_array_push_by_ptr(
+                            self, array_ptr, value,
+                        );
                     }
                     "get" => {
                         if args.len() != 1 {
@@ -526,7 +537,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             ));
                         }
                         let index = self.compile_expression(&args[0])?;
-                        let result = super::functions::arrays::compile_array_get(self, object_val, index)?;
+                        let result =
+                            super::functions::arrays::compile_array_get(self, object_val, index)?;
                         return Ok(result);
                     }
                     "len" => {
@@ -548,7 +560,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                         let index = self.compile_expression(&args[0])?;
                         let value = self.compile_expression(&args[1])?;
-                        let result = super::functions::arrays::compile_array_set(self, object_val, index, value)?;
+                        let result = super::functions::arrays::compile_array_set(
+                            self, object_val, index, value,
+                        )?;
                         return Ok(result);
                     }
                     "pop" => {
@@ -559,7 +573,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             ));
                         }
                         // Pass the pointer for in-place modification
-                        let result = super::functions::arrays::compile_array_pop_by_ptr(self, array_ptr)?;
+                        let result =
+                            super::functions::arrays::compile_array_pop_by_ptr(self, array_ptr)?;
                         return Ok(result);
                     }
                     _ => {
@@ -568,7 +583,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
             }
         }
-        
+
         // For now, we'll implement static dispatch only
         // Dynamic dispatch would require trait objects
 
@@ -637,20 +652,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // Build the argument list: [object, ...args]
             let mut ufc_args = vec![object.clone()];
             ufc_args.extend_from_slice(args);
-            
+
             // Try to call the function through UFC
-            match super::functions::calls::compile_function_call(
-                self,
-                method_name,
-                &ufc_args,
-            ) {
+            match super::functions::calls::compile_function_call(self, method_name, &ufc_args) {
                 Ok(result) => return Ok(result),
                 Err(_) => {
                     // Function not found or wrong signature, continue to error
                 }
             }
         }
-        
+
         Err(CompileError::UndeclaredFunction(
             format!("{}.{}", type_name, method_name),
             None,
@@ -665,15 +676,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 if let Some(var_info) = self.variables.get(name) {
                     // Handle pointer/reference types by dereferencing
                     let effective_type = match &var_info.ast_type {
-                        crate::ast::AstType::Ptr(inner) | 
-                        crate::ast::AstType::MutPtr(inner) | 
-                        crate::ast::AstType::RawPtr(inner) => {
+                        crate::ast::AstType::Ptr(inner)
+                        | crate::ast::AstType::MutPtr(inner)
+                        | crate::ast::AstType::RawPtr(inner) => {
                             // Dereference pointer to get inner type
                             inner.as_ref()
                         }
                         _ => &var_info.ast_type,
                     };
-                    
+
                     match effective_type {
                         crate::ast::AstType::Struct { name, .. } => Ok(name.clone()),
                         crate::ast::AstType::Generic { name, .. } => {
@@ -690,12 +701,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         Ok(ast_type) => {
                             // Handle pointer types
                             let effective_type = match &ast_type {
-                                crate::ast::AstType::Ptr(inner) | 
-                                crate::ast::AstType::MutPtr(inner) | 
-                                crate::ast::AstType::RawPtr(inner) => inner.as_ref(),
+                                crate::ast::AstType::Ptr(inner)
+                                | crate::ast::AstType::MutPtr(inner)
+                                | crate::ast::AstType::RawPtr(inner) => inner.as_ref(),
                                 _ => &ast_type,
                             };
-                            
+
                             match effective_type {
                                 crate::ast::AstType::Struct { name, .. } => Ok(name.clone()),
                                 crate::ast::AstType::Generic { name, .. } => Ok(name.clone()),
@@ -715,12 +726,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     Ok(ast_type) => {
                         // Handle pointer types
                         let effective_type = match &ast_type {
-                            crate::ast::AstType::Ptr(inner) | 
-                            crate::ast::AstType::MutPtr(inner) | 
-                            crate::ast::AstType::RawPtr(inner) => inner.as_ref(),
+                            crate::ast::AstType::Ptr(inner)
+                            | crate::ast::AstType::MutPtr(inner)
+                            | crate::ast::AstType::RawPtr(inner) => inner.as_ref(),
                             _ => &ast_type,
                         };
-                        
+
                         match effective_type {
                             crate::ast::AstType::Struct { name, .. } => Ok(name.clone()),
                             crate::ast::AstType::Generic { name, .. } => Ok(name.clone()),

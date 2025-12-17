@@ -17,14 +17,16 @@ main = () void {
     match parser.parse_program() {
         Ok(program) => {
             // Verify we got a program with declarations
-            assert!(!program.declarations.is_empty(), 
-                "Should have declarations (main function)");
-            
+            assert!(
+                !program.declarations.is_empty(),
+                "Should have declarations (main function)"
+            );
+
             // Verify first declaration is a function
             match &program.declarations[0] {
                 zen::ast::Declaration::Function { .. } => {
                     // Good - it's a function declaration
-                },
+                }
                 other => {
                     panic!("Expected function declaration, got: {:?}", other);
                 }
@@ -63,4 +65,3 @@ test = () void {
         }
     }
 }
-

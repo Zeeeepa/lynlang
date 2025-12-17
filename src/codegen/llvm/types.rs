@@ -39,7 +39,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 Ok(Type::Basic(
                     self.context.ptr_type(AddressSpace::default()).into(),
                 ))
-            },
+            }
             AstType::Void => Ok(Type::Void),
             AstType::Ptr(inner) => {
                 let inner_type = self.to_llvm_type(inner)?;
@@ -355,7 +355,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Array<T> is represented as a struct: { ptr, length, capacity }
                     let array_struct_type = self.context.struct_type(
                         &[
-                            self.context.ptr_type(inkwell::AddressSpace::default()).into(), // data pointer
+                            self.context
+                                .ptr_type(inkwell::AddressSpace::default())
+                                .into(), // data pointer
                             self.context.i64_type().into(), // length
                             self.context.i64_type().into(), // capacity
                         ],
@@ -363,7 +365,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     );
                     return Ok(Type::Struct(array_struct_type));
                 }
-                
+
                 // Special handling for Result<T,E> and Option<T> types
                 // These are always represented as { i64 discriminant, ptr payload }
                 if name == "Result" || name == "Option" {
@@ -378,12 +380,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     );
                     return Ok(Type::Struct(enum_struct_type));
                 }
-                
+
                 // Special handling for HashMap<K,V> type
                 if name == "HashMap" {
                     let hashmap_struct_type = self.context.struct_type(
                         &[
-                            self.context.ptr_type(inkwell::AddressSpace::default()).into(), // buckets
+                            self.context
+                                .ptr_type(inkwell::AddressSpace::default())
+                                .into(), // buckets
                             self.context.i64_type().into(), // size
                             self.context.i64_type().into(), // capacity
                         ],
@@ -391,12 +395,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     );
                     return Ok(Type::Struct(hashmap_struct_type));
                 }
-                
-                // Special handling for HashSet<T> type  
+
+                // Special handling for HashSet<T> type
                 if name == "HashSet" {
                     let hashset_struct_type = self.context.struct_type(
                         &[
-                            self.context.ptr_type(inkwell::AddressSpace::default()).into(), // buckets
+                            self.context
+                                .ptr_type(inkwell::AddressSpace::default())
+                                .into(), // buckets
                             self.context.i64_type().into(), // size
                             self.context.i64_type().into(), // capacity
                         ],
@@ -416,7 +422,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         let enum_struct_type = self.context.struct_type(
                             &[
                                 self.context.i64_type().into(), // discriminant
-                                self.context.ptr_type(inkwell::AddressSpace::default()).into(), // payload pointer
+                                self.context
+                                    .ptr_type(inkwell::AddressSpace::default())
+                                    .into(), // payload pointer
                             ],
                             false,
                         );
@@ -490,7 +498,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let mut result = Vec::new();
         let mut current = String::new();
         let mut depth = 0;
-        
+
         for ch in type_str.chars() {
             match ch {
                 '<' => {
@@ -512,23 +520,23 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
             }
         }
-        
+
         // Don't forget the last type
         if !current.is_empty() {
             let parsed = self.parse_type_string(current.trim());
             result.push(parsed);
         }
-        
+
         result
     }
-    
+
     /// Parse a single type string into an AstType
     pub fn parse_type_string(&self, type_str: &str) -> AstType {
         // Check for generic types
         if let Some(angle_pos) = type_str.find('<') {
             let base_type = &type_str[..angle_pos];
-            let type_params_str = &type_str[angle_pos+1..type_str.len()-1];
-            
+            let type_params_str = &type_str[angle_pos + 1..type_str.len() - 1];
+
             match base_type {
                 "DynVec" => {
                     let element_types = self.parse_comma_separated_types(type_params_str);
@@ -655,11 +663,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 .ptr_type(AddressSpace::default())
                                 .as_basic_type_enum()
                         }
-                        _ => {
-                            self.context
-                                .ptr_type(AddressSpace::default())
-                                .as_basic_type_enum()
-                        }
+                        _ => self
+                            .context
+                            .ptr_type(AddressSpace::default())
+                            .as_basic_type_enum(),
                     }
                 }
                 AstType::Generic { name, .. } => {
@@ -681,11 +688,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         ));
                     }
                 }
-                AstType::FunctionPointer { .. } => {
-                    self.context
-                        .ptr_type(AddressSpace::default())
-                        .as_basic_type_enum()
-                }
+                AstType::FunctionPointer { .. } => self
+                    .context
+                    .ptr_type(AddressSpace::default())
+                    .as_basic_type_enum(),
                 _ => {
                     return Err(CompileError::TypeError(
                         format!("Unsupported type in struct: {:?}", field.type_),
@@ -730,12 +736,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         AstType::I16 | AstType::U16 => 16,
                         AstType::I32 | AstType::U32 | AstType::F32 => 32,
                         AstType::I64 | AstType::U64 | AstType::F64 | AstType::Usize => 64,
-                        AstType::StaticLiteral
-                        | AstType::StaticString => 64,
+                        AstType::StaticLiteral | AstType::StaticString => 64,
                         AstType::Struct { name, .. } if name == "String" => 64,
-                        AstType::Ptr(_)
-                        | AstType::MutPtr(_)
-                        | AstType::RawPtr(_) => 64,
+                        AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_) => 64,
                         AstType::Struct { .. } | AstType::Generic { .. } => 64,
                         AstType::Void => 0,
                         _ => 64,
@@ -748,20 +751,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let enum_struct_type = if has_payloads {
             let ptr_type = self.context.ptr_type(AddressSpace::default());
 
-            self.context.struct_type(
-                &[
-                    self.context.i64_type().into(),
-                    ptr_type.into(),
-                ],
-                false,
-            )
+            self.context
+                .struct_type(&[self.context.i64_type().into(), ptr_type.into()], false)
         } else {
-            self.context.struct_type(
-                &[
-                    self.context.i64_type().into(),
-                ],
-                false,
-            )
+            self.context
+                .struct_type(&[self.context.i64_type().into()], false)
         };
 
         let enum_info = symbols::EnumInfo {

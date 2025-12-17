@@ -186,7 +186,7 @@ fn run_file(file_path: &str) -> std::io::Result<()> {
         Ok(main_fn) => {
             let main_type = main_fn.get_type();
             let return_type = main_type.get_return_type();
-            
+
             if let Some(ret_type) = return_type {
                 if ret_type.is_int_type() {
                     let result = unsafe { execution_engine.run_function(main_fn, &[]) };
@@ -194,7 +194,7 @@ fn run_file(file_path: &str) -> std::io::Result<()> {
                 } else if ret_type.is_struct_type() {
                     eprintln!("Warning: main() returns Result<T,E> which is not fully supported in JIT mode");
                     eprintln!("The function will execute but the Result value cannot be extracted");
-                    
+
                     unsafe {
                         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                             execution_engine.run_function(main_fn, &[])
@@ -227,7 +227,7 @@ fn run_file(file_path: &str) -> std::io::Result<()> {
     // Explicitly drop execution engine before context goes out of scope
     // This prevents double-free issues with LLVM module ownership in release builds
     drop(execution_engine);
-    
+
     if exit_code != 0 {
         std::process::exit(exit_code);
     }

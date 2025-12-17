@@ -1,15 +1,18 @@
 //! Symbol extraction from AST - extracted from document_store.rs
 
-use lsp_types::*;
-use std::collections::HashMap;
+use super::types::SymbolInfo;
+use super::utils::format_type;
 use crate::ast::{Declaration, Statement};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
-use super::types::SymbolInfo;
-use super::utils::format_type;
+use lsp_types::*;
+use std::collections::HashMap;
 
 /// Extract symbols from content (static version, no document context)
-pub fn extract_symbols_static(content: &str, file_path: Option<&str>) -> HashMap<String, SymbolInfo> {
+pub fn extract_symbols_static(
+    content: &str,
+    file_path: Option<&str>,
+) -> HashMap<String, SymbolInfo> {
     let mut symbols = HashMap::new();
 
     // Parse the content
@@ -30,97 +33,129 @@ pub fn extract_symbols_static(content: &str, file_path: Option<&str>) -> HashMap
     // Extract symbol definitions only (no reference tracking for performance)
     for decl in ast {
         let range = Range {
-            start: Position { line: 0, character: 0 },
-            end: Position { line: 0, character: 100 },
+            start: Position {
+                line: 0,
+                character: 0,
+            },
+            end: Position {
+                line: 0,
+                character: 100,
+            },
         };
 
         match decl {
             Declaration::Function(func) => {
-                let detail = format!("{} = ({}) {}",
+                let detail = format!(
+                    "{} = ({}) {}",
                     func.name,
-                    func.args.iter()
+                    func.args
+                        .iter()
                         .map(|(name, ty)| format!("{}: {}", name, format_type(ty)))
                         .collect::<Vec<_>>()
                         .join(", "),
                     format_type(&func.return_type)
                 );
 
-                symbols.insert(func.name.clone(), SymbolInfo {
-                    name: func.name.clone(),
-                    kind: SymbolKind::FUNCTION,
-                    range: range.clone(),
-                    selection_range: range,
-                    detail: Some(detail),
-                    documentation: None,
-                    type_info: Some(func.return_type.clone()),
-                    definition_uri: None,
-                    references: Vec::new(),
-                    enum_variants: None,
-                });
+                symbols.insert(
+                    func.name.clone(),
+                    SymbolInfo {
+                        name: func.name.clone(),
+                        kind: SymbolKind::FUNCTION,
+                        range: range.clone(),
+                        selection_range: range,
+                        detail: Some(detail),
+                        documentation: None,
+                        type_info: Some(func.return_type.clone()),
+                        definition_uri: None,
+                        references: Vec::new(),
+                        enum_variants: None,
+                    },
+                );
             }
             Declaration::Struct(struct_def) => {
-                let detail = format!("{} struct with {} fields", struct_def.name, struct_def.fields.len());
+                let detail = format!(
+                    "{} struct with {} fields",
+                    struct_def.name,
+                    struct_def.fields.len()
+                );
 
-                symbols.insert(struct_def.name.clone(), SymbolInfo {
-                    name: struct_def.name.clone(),
-                    kind: SymbolKind::STRUCT,
-                    range: range.clone(),
-                    selection_range: range,
-                    detail: Some(detail),
-                    documentation: None,
-                    type_info: None,
-                    definition_uri: None,
-                    references: Vec::new(),
-                    enum_variants: None,
-                });
-            }
-            Declaration::Enum(enum_def) => {
-                let detail = format!("{} enum with {} variants", enum_def.name, enum_def.variants.len());
-                let variant_names: Vec<String> = enum_def.variants.iter().map(|v| v.name.clone()).collect();
-
-                symbols.insert(enum_def.name.clone(), SymbolInfo {
-                    name: enum_def.name.clone(),
-                    kind: SymbolKind::ENUM,
-                    range: range.clone(),
-                    selection_range: range,
-                    detail: Some(detail),
-                    documentation: None,
-                    type_info: None,
-                    definition_uri: None,
-                    references: Vec::new(),
-                    enum_variants: Some(variant_names.clone()),
-                });
-
-                // Add enum variants as symbols
-                for variant_name in variant_names {
-                    let full_name = format!("{}::{}", enum_def.name, variant_name);
-                    symbols.insert(full_name.clone(), SymbolInfo {
-                        name: variant_name.clone(),
-                        kind: SymbolKind::ENUM_MEMBER,
+                symbols.insert(
+                    struct_def.name.clone(),
+                    SymbolInfo {
+                        name: struct_def.name.clone(),
+                        kind: SymbolKind::STRUCT,
                         range: range.clone(),
-                        selection_range: range.clone(),
-                        detail: Some(full_name),
+                        selection_range: range,
+                        detail: Some(detail),
                         documentation: None,
                         type_info: None,
                         definition_uri: None,
                         references: Vec::new(),
                         enum_variants: None,
-                    });
+                    },
+                );
+            }
+            Declaration::Enum(enum_def) => {
+                let detail = format!(
+                    "{} enum with {} variants",
+                    enum_def.name,
+                    enum_def.variants.len()
+                );
+                let variant_names: Vec<String> =
+                    enum_def.variants.iter().map(|v| v.name.clone()).collect();
+
+                symbols.insert(
+                    enum_def.name.clone(),
+                    SymbolInfo {
+                        name: enum_def.name.clone(),
+                        kind: SymbolKind::ENUM,
+                        range: range.clone(),
+                        selection_range: range,
+                        detail: Some(detail),
+                        documentation: None,
+                        type_info: None,
+                        definition_uri: None,
+                        references: Vec::new(),
+                        enum_variants: Some(variant_names.clone()),
+                    },
+                );
+
+                // Add enum variants as symbols
+                for variant_name in variant_names {
+                    let full_name = format!("{}::{}", enum_def.name, variant_name);
+                    symbols.insert(
+                        full_name.clone(),
+                        SymbolInfo {
+                            name: variant_name.clone(),
+                            kind: SymbolKind::ENUM_MEMBER,
+                            range: range.clone(),
+                            selection_range: range.clone(),
+                            detail: Some(full_name),
+                            documentation: None,
+                            type_info: None,
+                            definition_uri: None,
+                            references: Vec::new(),
+                            enum_variants: None,
+                        },
+                    );
                 }
             }
             Declaration::Constant { name, type_, .. } => {
-                symbols.insert(name.clone(), SymbolInfo {
-                    name: name.clone(),
-                    kind: SymbolKind::CONSTANT,
-                    range: range.clone(),
-                    selection_range: range,
-                    detail: type_.as_ref().map(|t| format_type(t)),
-                    documentation: None,
-                    type_info: type_.clone(),
-                    definition_uri: None,
-                    references: Vec::new(),
-                    enum_variants: None,
-                });
+                symbols.insert(
+                    name.clone(),
+                    SymbolInfo {
+                        name: name.clone(),
+                        kind: SymbolKind::CONSTANT,
+                        range: range.clone(),
+                        selection_range: range,
+                        detail: type_.as_ref().map(|t| format_type(t)),
+                        documentation: None,
+                        type_info: type_.clone(),
+                        definition_uri: None,
+                        references: Vec::new(),
+                        enum_variants: None,
+                    },
+                );
             }
             _ => {}
         }
@@ -153,100 +188,130 @@ pub fn extract_symbols_with_path(
             };
             let name_end = char_pos + symbol_name.len();
             let range = Range {
-                start: Position { line: line as u32, character: char_pos as u32 },
-                end: Position { line: line as u32, character: name_end as u32 },
+                start: Position {
+                    line: line as u32,
+                    character: char_pos as u32,
+                },
+                end: Position {
+                    line: line as u32,
+                    character: name_end as u32,
+                },
             };
 
             match decl {
                 Declaration::Function(func) => {
-                    let detail = format!("{} = ({}) {}",
+                    let detail = format!(
+                        "{} = ({}) {}",
                         func.name,
-                        func.args.iter()
+                        func.args
+                            .iter()
                             .map(|(name, ty)| format!("{}: {}", name, format_type(ty)))
                             .collect::<Vec<_>>()
                             .join(", "),
                         format_type(&func.return_type)
                     );
 
-                    symbols.insert(func.name.clone(), SymbolInfo {
-                        name: func.name.clone(),
-                        kind: SymbolKind::FUNCTION,
-                        range: range.clone(),
-                        selection_range: range,
-                        detail: Some(detail),
-                        documentation: None,
-                        type_info: Some(func.return_type.clone()),
-                        definition_uri: None,
-                        references: Vec::new(),
-                        enum_variants: None,
-                    });
+                    symbols.insert(
+                        func.name.clone(),
+                        SymbolInfo {
+                            name: func.name.clone(),
+                            kind: SymbolKind::FUNCTION,
+                            range: range.clone(),
+                            selection_range: range,
+                            detail: Some(detail),
+                            documentation: None,
+                            type_info: Some(func.return_type.clone()),
+                            definition_uri: None,
+                            references: Vec::new(),
+                            enum_variants: None,
+                        },
+                    );
                 }
                 Declaration::Struct(struct_def) => {
-                    let detail = format!("{} struct with {} fields", struct_def.name, struct_def.fields.len());
+                    let detail = format!(
+                        "{} struct with {} fields",
+                        struct_def.name,
+                        struct_def.fields.len()
+                    );
 
-                    symbols.insert(struct_def.name.clone(), SymbolInfo {
-                        name: struct_def.name.clone(),
-                        kind: SymbolKind::STRUCT,
-                        range: range.clone(),
-                        selection_range: range,
-                        detail: Some(detail),
-                        documentation: None,
-                        type_info: None,
-                        definition_uri: None,
-                        references: Vec::new(),
-                        enum_variants: None,
-                    });
-                }
-                Declaration::Enum(enum_def) => {
-                    let detail = format!("{} enum with {} variants", enum_def.name, enum_def.variants.len());
-
-                    let variant_names: Vec<String> = enum_def.variants.iter()
-                        .map(|v| v.name.clone())
-                        .collect();
-
-                    symbols.insert(enum_def.name.clone(), SymbolInfo {
-                        name: enum_def.name.clone(),
-                        kind: SymbolKind::ENUM,
-                        range: range.clone(),
-                        selection_range: range,
-                        detail: Some(detail),
-                        documentation: None,
-                        type_info: None,
-                        definition_uri: None,
-                        references: Vec::new(),
-                        enum_variants: Some(variant_names),
-                    });
-
-                    // Add enum variants as symbols
-                    for variant in &enum_def.variants {
-                        let variant_name = format!("{}::{}", enum_def.name, variant.name);
-                        symbols.insert(variant_name.clone(), SymbolInfo {
-                            name: variant.name.clone(),
-                            kind: SymbolKind::ENUM_MEMBER,
+                    symbols.insert(
+                        struct_def.name.clone(),
+                        SymbolInfo {
+                            name: struct_def.name.clone(),
+                            kind: SymbolKind::STRUCT,
                             range: range.clone(),
-                            selection_range: range.clone(),
-                            detail: Some(format!("{}::{}", enum_def.name, variant.name)),
+                            selection_range: range,
+                            detail: Some(detail),
                             documentation: None,
                             type_info: None,
                             definition_uri: None,
                             references: Vec::new(),
                             enum_variants: None,
-                        });
+                        },
+                    );
+                }
+                Declaration::Enum(enum_def) => {
+                    let detail = format!(
+                        "{} enum with {} variants",
+                        enum_def.name,
+                        enum_def.variants.len()
+                    );
+
+                    let variant_names: Vec<String> =
+                        enum_def.variants.iter().map(|v| v.name.clone()).collect();
+
+                    symbols.insert(
+                        enum_def.name.clone(),
+                        SymbolInfo {
+                            name: enum_def.name.clone(),
+                            kind: SymbolKind::ENUM,
+                            range: range.clone(),
+                            selection_range: range,
+                            detail: Some(detail),
+                            documentation: None,
+                            type_info: None,
+                            definition_uri: None,
+                            references: Vec::new(),
+                            enum_variants: Some(variant_names),
+                        },
+                    );
+
+                    // Add enum variants as symbols
+                    for variant in &enum_def.variants {
+                        let variant_name = format!("{}::{}", enum_def.name, variant.name);
+                        symbols.insert(
+                            variant_name.clone(),
+                            SymbolInfo {
+                                name: variant.name.clone(),
+                                kind: SymbolKind::ENUM_MEMBER,
+                                range: range.clone(),
+                                selection_range: range.clone(),
+                                detail: Some(format!("{}::{}", enum_def.name, variant.name)),
+                                documentation: None,
+                                type_info: None,
+                                definition_uri: None,
+                                references: Vec::new(),
+                                enum_variants: None,
+                            },
+                        );
                     }
                 }
                 Declaration::Constant { name, type_, .. } => {
-                    symbols.insert(name.clone(), SymbolInfo {
-                        name: name.clone(),
-                        kind: SymbolKind::CONSTANT,
-                        range: range.clone(),
-                        selection_range: range,
-                        detail: type_.as_ref().map(|t| format_type(t)),
-                        documentation: None,
-                        type_info: type_.clone(),
-                        definition_uri: None,
-                        references: Vec::new(),
-                        enum_variants: None,
-                    });
+                    symbols.insert(
+                        name.clone(),
+                        SymbolInfo {
+                            name: name.clone(),
+                            kind: SymbolKind::CONSTANT,
+                            range: range.clone(),
+                            selection_range: range,
+                            detail: type_.as_ref().map(|t| format_type(t)),
+                            documentation: None,
+                            type_info: type_.clone(),
+                            definition_uri: None,
+                            references: Vec::new(),
+                            enum_variants: None,
+                        },
+                    );
                 }
                 _ => {}
             }
@@ -264,4 +329,3 @@ pub fn extract_symbols_with_path(
 
     symbols
 }
-

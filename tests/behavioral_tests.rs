@@ -8,17 +8,19 @@
 //!
 //! Philosophy: Test what the user cares about - does the program produce correct output?
 
-use std::process::{Command, Stdio};
-use std::path::Path;
 use std::fs;
+use std::path::Path;
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use inkwell::context::Context;
+use inkwell::targets::{
+    CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine,
+};
+use inkwell::OptimizationLevel;
 use zen::compiler::Compiler;
 use zen::lexer::Lexer;
 use zen::parser::Parser;
-use inkwell::context::Context;
-use inkwell::targets::{CodeModel, FileType, RelocMode, Target, TargetMachine, InitializationConfig};
-use inkwell::OptimizationLevel;
 
 /// Global counter for unique test IDs (thread-safe)
 static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -61,8 +63,8 @@ fn compile_and_run(source: &str) -> Result<RunResult, String> {
 
     // Get target machine
     let target_triple = TargetMachine::get_default_triple();
-    let target = Target::from_triple(&target_triple)
-        .map_err(|e| format!("Failed to get target: {}", e))?;
+    let target =
+        Target::from_triple(&target_triple).map_err(|e| format!("Failed to get target: {}", e))?;
 
     let target_machine = target
         .create_target_machine(

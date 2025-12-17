@@ -1,10 +1,10 @@
 use super::super::LLVMCompiler;
+use super::super::Type;
 use crate::ast::{self, AstType};
 use crate::error::CompileError;
 use inkwell::module::Linkage;
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
 use inkwell::values::FunctionValue;
-use super::super::Type;
 
 pub fn declare_external_function<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
@@ -46,9 +46,7 @@ pub fn declare_external_function<'ctx>(
             BasicTypeEnum::PointerType(t) => t.fn_type(&param_metadata, ext_func.is_varargs),
             BasicTypeEnum::StructType(t) => t.fn_type(&param_metadata, ext_func.is_varargs),
             BasicTypeEnum::VectorType(t) => t.fn_type(&param_metadata, ext_func.is_varargs),
-            BasicTypeEnum::ScalableVectorType(t) => {
-                t.fn_type(&param_metadata, ext_func.is_varargs)
-            }
+            BasicTypeEnum::ScalableVectorType(t) => t.fn_type(&param_metadata, ext_func.is_varargs),
         },
         Type::Function(f) => f,
         Type::Void => compiler
@@ -66,7 +64,8 @@ pub fn declare_external_function<'ctx>(
 
     // Only declare if not already declared
     if compiler.module.get_function(&ext_func.name).is_none() {
-        compiler.module
+        compiler
+            .module
             .add_function(&ext_func.name, function_type, None);
     }
     Ok(())
@@ -79,16 +78,18 @@ pub fn declare_function<'ctx>(
     // Special case for main function - C runtime expects int return
     let actual_return_type = if function.name == "main" {
         match &function.return_type {
-            AstType::Void => AstType::I32,  // Convert void to i32
+            AstType::Void => AstType::I32, // Convert void to i32
             AstType::Generic { name, .. } if name == "Result" => {
                 // Main returning Result<T,E> is not supported in JIT mode
-                eprintln!("Warning: main() returning Result<T,E> is not fully supported in JIT mode");
+                eprintln!(
+                    "Warning: main() returning Result<T,E> is not fully supported in JIT mode"
+                );
                 eprintln!("The function will compile but may crash when executed.");
                 eprintln!("Consider using 'void' or 'i32' as the return type for main()");
                 // For now, keep the Result type and hope for the best
                 function.return_type.clone()
             }
-            _ => function.return_type.clone()
+            _ => function.return_type.clone(),
         }
     } else {
         function.return_type.clone()
@@ -102,7 +103,8 @@ pub fn declare_function<'ctx>(
         .args
         .iter()
         .map(|(_name, t)| {
-            compiler.to_llvm_type(t)
+            compiler
+                .to_llvm_type(t)
                 .and_then(|zen_type| compiler.expect_basic_type(zen_type))
         })
         .collect();
@@ -161,9 +163,12 @@ pub fn declare_function<'ctx>(
     function_value.set_linkage(Linkage::External);
 
     // Store the function for later use
-    compiler.functions.insert(function.name.clone(), function_value);
+    compiler
+        .functions
+        .insert(function.name.clone(), function_value);
     // Store the return type for type inference (use actual_return_type which handles main() special case)
-    compiler.function_types
+    compiler
+        .function_types
         .insert(function.name.clone(), actual_return_type);
 
     Ok(function_value)
@@ -174,12 +179,17 @@ pub fn compile_function_body<'ctx>(
     function: &ast::Function,
 ) -> Result<(), CompileError> {
     // Get the already-declared function
-    let function_value = compiler.module.get_function(&function.name).ok_or_else(|| {
-        CompileError::InternalError(format!("Function {} not declared", function.name), None)
-    })?;
-    
+    let function_value = compiler
+        .module
+        .get_function(&function.name)
+        .ok_or_else(|| {
+            CompileError::InternalError(format!("Function {} not declared", function.name), None)
+        })?;
+
     // Get the actual return type (handles main() void -> i32 conversion)
-    let actual_return_type = compiler.function_types.get(&function.name)
+    let actual_return_type = compiler
+        .function_types
+        .get(&function.name)
         .cloned()
         .unwrap_or_else(|| function.return_type.clone());
 
@@ -224,7 +234,8 @@ pub fn compile_function_body<'ctx>(
             .build_alloca(compiler.context.i64_type(), &name)
             .map_err(|e| CompileError::from(e))?;
 
-        compiler.builder
+        compiler
+            .builder
             .build_store(alloca, compiler.context.i64_type().const_int(marker, false))
             .map_err(|e| CompileError::from(e))?;
 

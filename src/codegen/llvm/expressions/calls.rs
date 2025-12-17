@@ -1,11 +1,11 @@
-use super::super::LLVMCompiler;
-use super::super::VariableInfo;
-use crate::ast::{Expression, AstType};
-use crate::error::CompileError;
-use inkwell::values::BasicValueEnum;
-use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
 use super::super::functions::calls as function_calls;
+use super::super::LLVMCompiler;
 use super::super::Type;
+use super::super::VariableInfo;
+use crate::ast::{AstType, Expression};
+use crate::error::CompileError;
+use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
+use inkwell::values::BasicValueEnum;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 static CLOSURE_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -30,9 +30,11 @@ pub fn compile_method_call<'ctx>(
     expr: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     match expr {
-        Expression::MethodCall { object, method, args } => {
-            compiler.compile_method_call(object, method, args)
-        }
+        Expression::MethodCall {
+            object,
+            method,
+            args,
+        } => compiler.compile_method_call(object, method, args),
         _ => Err(CompileError::InternalError(
             format!("Expected MethodCall, got {:?}", expr),
             None,
@@ -45,13 +47,17 @@ pub fn compile_closure<'ctx>(
     expr: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     match expr {
-        Expression::Closure { params, body, return_type } => {
+        Expression::Closure {
+            params,
+            body,
+            return_type,
+        } => {
             let closure_id = CLOSURE_COUNTER.fetch_add(1, Ordering::SeqCst);
             let closure_name = format!("__closure_{}", closure_id);
 
-            let ret_type = return_type.clone().unwrap_or_else(|| {
-                compiler.infer_expression_type(body).unwrap_or(AstType::I32)
-            });
+            let ret_type = return_type
+                .clone()
+                .unwrap_or_else(|| compiler.infer_expression_type(body).unwrap_or(AstType::I32));
 
             let llvm_ret_type = compiler.to_llvm_type(&ret_type)?;
 
@@ -62,7 +68,11 @@ pub fn compile_closure<'ctx>(
 
             let param_basic_types: Result<Vec<BasicTypeEnum>, CompileError> = param_types
                 .iter()
-                .map(|t| compiler.to_llvm_type(t).and_then(|zen_type| compiler.expect_basic_type(zen_type)))
+                .map(|t| {
+                    compiler
+                        .to_llvm_type(t)
+                        .and_then(|zen_type| compiler.expect_basic_type(zen_type))
+                })
                 .collect();
 
             let param_metadata: Vec<BasicMetadataTypeEnum> = param_basic_types?
@@ -95,7 +105,9 @@ pub fn compile_closure<'ctx>(
                 }
             };
 
-            let closure_fn = compiler.module.add_function(&closure_name, function_type, None);
+            let closure_fn = compiler
+                .module
+                .add_function(&closure_name, function_type, None);
 
             let saved_function = compiler.current_function;
             let saved_block = compiler.builder.get_insert_block();
@@ -115,17 +127,26 @@ pub fn compile_closure<'ctx>(
                     CompileError::InternalError(format!("Missing parameter {}", i), None)
                 })?;
                 compiler.builder.build_store(alloca, param_value)?;
-                compiler.variables.insert(param_name.clone(), VariableInfo {
-                    pointer: alloca,
-                    ast_type: param_type,
-                    is_mutable: true,
-                    is_initialized: true,
-                });
+                compiler.variables.insert(
+                    param_name.clone(),
+                    VariableInfo {
+                        pointer: alloca,
+                        ast_type: param_type,
+                        is_mutable: true,
+                        is_initialized: true,
+                    },
+                );
             }
 
             let result = compiler.compile_expression(body)?;
 
-            if compiler.builder.get_insert_block().unwrap().get_terminator().is_none() {
+            if compiler
+                .builder
+                .get_insert_block()
+                .unwrap()
+                .get_terminator()
+                .is_none()
+            {
                 if matches!(ret_type, AstType::Void) {
                     compiler.builder.build_return(None)?;
                 } else {
@@ -151,4 +172,3 @@ pub fn compile_closure<'ctx>(
         )),
     }
 }
-

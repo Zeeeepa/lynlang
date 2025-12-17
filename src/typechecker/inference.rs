@@ -86,8 +86,12 @@ pub fn infer_binary_op_type(
         BinaryOperator::StringConcat => {
             // String concatenation
             // All string types can be concatenated
-            let is_left_string = matches!(&left_type, AstType::StaticLiteral | AstType::StaticString) || matches!(&left_type, AstType::Struct { name, .. } if name == "String");
-            let is_right_string = matches!(&right_type, AstType::StaticLiteral | AstType::StaticString) || matches!(&right_type, AstType::Struct { name, .. } if name == "String");
+            let is_left_string =
+                matches!(&left_type, AstType::StaticLiteral | AstType::StaticString)
+                    || matches!(&left_type, AstType::Struct { name, .. } if name == "String");
+            let is_right_string =
+                matches!(&right_type, AstType::StaticLiteral | AstType::StaticString)
+                    || matches!(&right_type, AstType::Struct { name, .. } if name == "String");
             if is_left_string && is_right_string {
                 // Result is always String (dynamic) when concatenating
                 Ok(crate::ast::resolve_string_struct_type())
@@ -241,7 +245,7 @@ fn promote_numeric_types(left: &AstType, right: &AstType) -> Result<AstType> {
                 return Ok(AstType::Usize);
             }
         }
-        
+
         // Promote to the larger size
         let left_size = left.bit_size().unwrap_or(32);
         let right_size = right.bit_size().unwrap_or(32);
@@ -293,14 +297,22 @@ fn types_comparable(left: &AstType, right: &AstType) -> bool {
         return true;
     }
 
-    let is_left_ptr = matches!(left, AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_));
-    let is_right_ptr = matches!(right, AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_));
+    let is_left_ptr = matches!(
+        left,
+        AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_)
+    );
+    let is_right_ptr = matches!(
+        right,
+        AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_)
+    );
     if is_left_ptr && is_right_ptr {
         return true;
     }
 
-    let is_left_string = matches!(left, AstType::StaticString | AstType::StaticLiteral) || matches!(left, AstType::Struct { ref name, .. } if name == "String");
-    let is_right_string = matches!(right, AstType::StaticString | AstType::StaticLiteral) || matches!(right, AstType::Struct { ref name, .. } if name == "String");
+    let is_left_string = matches!(left, AstType::StaticString | AstType::StaticLiteral)
+        || matches!(left, AstType::Struct { ref name, .. } if name == "String");
+    let is_right_string = matches!(right, AstType::StaticString | AstType::StaticLiteral)
+        || matches!(right, AstType::Struct { ref name, .. } if name == "String");
     if is_left_string && is_right_string {
         return true;
     }
@@ -312,32 +324,29 @@ fn types_comparable(left: &AstType, right: &AstType) -> bool {
     false
 }
 
-pub fn infer_identifier_type(
-    checker: &mut TypeChecker,
-    name: &str,
-) -> Result<AstType> {
+pub fn infer_identifier_type(checker: &mut TypeChecker, name: &str) -> Result<AstType> {
     if let Ok(var_type) = checker.get_variable_type(name) {
         return Ok(var_type);
     }
-    
+
     if let Some(sig) = checker.get_function_signatures().get(name) {
         return Ok(AstType::FunctionPointer {
             param_types: sig.params.iter().map(|(_, t)| t.clone()).collect(),
             return_type: Box::new(sig.return_type.clone()),
         });
     }
-    
+
     if name == "Array" {
         return Ok(AstType::Generic {
             name: "Array".to_string(),
             type_args: vec![],
         });
     }
-    
+
     if name.contains('<') {
         if let Some(angle_pos) = name.find('<') {
             let base_type = &name[..angle_pos];
-            
+
             match base_type {
                 "HashMap" | "HashSet" | "DynVec" | "Vec" => {
                     let (_, type_args) = TypeChecker::parse_generic_type_string(name);
@@ -350,7 +359,7 @@ pub fn infer_identifier_type(
             }
         }
     }
-    
+
     Err(CompileError::UndeclaredVariable(name.to_string(), None))
 }
 
@@ -360,7 +369,7 @@ pub fn infer_function_call_type(
     args: &[Expression],
 ) -> Result<AstType> {
     use super::intrinsics;
-    
+
     if name.contains('.') {
         let parts: Vec<&str> = name.splitn(2, '.').collect();
         if parts.len() == 2 {
@@ -371,11 +380,14 @@ pub fn infer_function_call_type(
                 if module == "compiler" && func == "inline_c" && args.len() == 1 {
                     let arg_type = checker.infer_expression_type(&args[0])?;
                     match arg_type {
-                        AstType::StaticString | AstType::StaticLiteral => {},
-                        _ => return Err(CompileError::TypeError(
-                            "compiler.inline_c() requires a string literal argument".to_string(),
-                            None,
-                        )),
+                        AstType::StaticString | AstType::StaticLiteral => {}
+                        _ => {
+                            return Err(CompileError::TypeError(
+                                "compiler.inline_c() requires a string literal argument"
+                                    .to_string(),
+                                None,
+                            ))
+                        }
                     }
                 }
                 return result;
@@ -439,7 +451,10 @@ fn infer_cast_type(args: &[Expression]) -> Result<AstType> {
                 "f32" => Ok(AstType::F32),
                 "f64" => Ok(AstType::F64),
                 _ => Err(CompileError::TypeError(
-                    format!("cast() target type '{}' is not a valid primitive type", type_name),
+                    format!(
+                        "cast() target type '{}' is not a valid primitive type",
+                        type_name
+                    ),
                     None,
                 )),
             };
@@ -459,28 +474,32 @@ pub fn infer_struct_field_type(
     span: Option<crate::error::Span>,
 ) -> Result<AstType> {
     match struct_type {
-        AstType::Ptr(inner) => {
-            match inner.as_ref() {
-                AstType::Struct { name, .. } => infer_member_type(
-                    &AstType::Struct { name: name.clone(), fields: vec![] },
-                    field,
-                    structs,
-                    enums,
-                    span,
-                ),
-                AstType::Generic { name, .. } => infer_member_type(
-                    &AstType::Generic { name: name.clone(), type_args: vec![] },
-                    field,
-                    structs,
-                    enums,
-                    span,
-                ),
-                _ => Err(CompileError::TypeError(
-                    format!("Cannot access field '{}' on non-struct pointer type", field),
-                    span,
-                )),
-            }
-        }
+        AstType::Ptr(inner) => match inner.as_ref() {
+            AstType::Struct { name, .. } => infer_member_type(
+                &AstType::Struct {
+                    name: name.clone(),
+                    fields: vec![],
+                },
+                field,
+                structs,
+                enums,
+                span,
+            ),
+            AstType::Generic { name, .. } => infer_member_type(
+                &AstType::Generic {
+                    name: name.clone(),
+                    type_args: vec![],
+                },
+                field,
+                structs,
+                enums,
+                span,
+            ),
+            _ => Err(CompileError::TypeError(
+                format!("Cannot access field '{}' on non-struct pointer type", field),
+                span,
+            )),
+        },
         AstType::Struct { .. } | AstType::Generic { .. } => {
             infer_member_type(struct_type, field, structs, enums, span)
         }
@@ -508,15 +527,13 @@ pub fn infer_enum_literal_type(
                 type_args: vec![inner_type],
             })
         }
-        "None" => {
-            Ok(AstType::Generic {
-                name: "Option".to_string(),
-                type_args: vec![AstType::Generic {
-                    name: "T".to_string(),
-                    type_args: vec![],
-                }],
-            })
-        }
+        "None" => Ok(AstType::Generic {
+            name: "Option".to_string(),
+            type_args: vec![AstType::Generic {
+                name: "T".to_string(),
+                type_args: vec![],
+            }],
+        }),
         "Ok" => {
             let ok_type = if let Some(p) = payload {
                 checker.infer_expression_type(p)?
@@ -537,26 +554,29 @@ pub fn infer_enum_literal_type(
             Ok(AstType::Generic {
                 name: "Result".to_string(),
                 type_args: vec![
-                    AstType::Generic { name: "T".to_string(), type_args: vec![] },
-                    err_type
+                    AstType::Generic {
+                        name: "T".to_string(),
+                        type_args: vec![],
+                    },
+                    err_type,
                 ],
             })
         }
-        _ => Ok(AstType::Void)
+        _ => Ok(AstType::Void),
     }
 }
 
-pub fn infer_raise_type(
-    checker: &mut TypeChecker,
-    expr: &Expression,
-) -> Result<AstType> {
+pub fn infer_raise_type(checker: &mut TypeChecker, expr: &Expression) -> Result<AstType> {
     let result_type = checker.infer_expression_type(expr)?;
     match result_type {
         AstType::Generic { name, type_args } if name == "Result" && !type_args.is_empty() => {
             Ok(type_args[0].clone())
         }
         _ => Err(CompileError::TypeError(
-            format!(".raise() can only be used on Result<T, E> types, found: {:?}", result_type),
+            format!(
+                ".raise() can only be used on Result<T, E> types, found: {:?}",
+                result_type
+            ),
             None,
         )),
     }
@@ -573,27 +593,44 @@ pub fn infer_inline_c_type(
             None,
         ));
     }
-    
+
     for (var_name, expr) in interpolations {
         if !var_name.chars().all(|c| c.is_alphanumeric() || c == '_') {
             return Err(CompileError::TypeError(
-                format!("Invalid C variable name in inline_c interpolation: '{}'", var_name),
+                format!(
+                    "Invalid C variable name in inline_c interpolation: '{}'",
+                    var_name
+                ),
                 None,
             ));
         }
-        
+
         let expr_type = checker.infer_expression_type(expr)?;
         match expr_type {
-            AstType::I8 | AstType::I16 | AstType::I32 | AstType::I64 |
-            AstType::U8 | AstType::U16 | AstType::U32 | AstType::U64 | AstType::Usize |
-            AstType::F32 | AstType::F64 | AstType::Bool |
-            AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_) => {}
+            AstType::I8
+            | AstType::I16
+            | AstType::I32
+            | AstType::I64
+            | AstType::U8
+            | AstType::U16
+            | AstType::U32
+            | AstType::U64
+            | AstType::Usize
+            | AstType::F32
+            | AstType::F64
+            | AstType::Bool
+            | AstType::Ptr(_)
+            | AstType::MutPtr(_)
+            | AstType::RawPtr(_) => {}
             _ => {
-                eprintln!("Warning: Using complex type {:?} in inline_c() - ensure C compatibility", expr_type);
+                eprintln!(
+                    "Warning: Using complex type {:?} in inline_c() - ensure C compatibility",
+                    expr_type
+                );
             }
         }
     }
-    
+
     Ok(AstType::Void)
 }
 
@@ -603,7 +640,7 @@ pub fn infer_method_call_type(
     method: &str,
 ) -> Result<AstType> {
     use super::method_types;
-    
+
     // Special handling for collection .new() static methods
     if let Expression::Identifier(name) = object {
         if method == "new" {
@@ -621,7 +658,7 @@ pub fn infer_method_call_type(
             }
         }
     }
-    
+
     let object_type = checker.infer_expression_type(object)?;
 
     let dereferenced_type = match &object_type {
@@ -644,9 +681,14 @@ pub fn infer_method_call_type(
     }
 
     // String methods
-    let is_string_struct = matches!(effective_type, AstType::Struct { name, .. } if name == "String");
-    if is_string_struct || *effective_type == AstType::StaticString || *effective_type == AstType::StaticLiteral {
-        if let Some(return_type) = method_types::infer_string_method_type(method, is_string_struct) {
+    let is_string_struct =
+        matches!(effective_type, AstType::Struct { name, .. } if name == "String");
+    if is_string_struct
+        || *effective_type == AstType::StaticString
+        || *effective_type == AstType::StaticLiteral
+    {
+        if let Some(return_type) = method_types::infer_string_method_type(method, is_string_struct)
+        {
             return Ok(return_type);
         }
     }
@@ -654,7 +696,7 @@ pub fn infer_method_call_type(
     if method == "loop" {
         return Ok(AstType::Void);
     }
-    
+
     // Generic type methods (HashMap, HashSet, Result)
     if let AstType::Generic { name, type_args } = &object_type {
         if name == "HashMap" {
@@ -671,7 +713,7 @@ pub fn infer_method_call_type(
             }
         }
     }
-    
+
     // Vec methods
     if let AstType::Vec { element_type, .. } = &object_type {
         if let Some(return_type) = method_types::infer_vec_method_type(method, element_type) {
@@ -681,7 +723,8 @@ pub fn infer_method_call_type(
 
     // Pointer methods
     if dereferenced_type.is_none() {
-        if let AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) = &object_type {
+        if let AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) = &object_type
+        {
             if let Some(return_type) = method_types::infer_pointer_method_type(method, inner) {
                 return Ok(return_type);
             }
@@ -763,14 +806,14 @@ pub fn infer_closure_type(
         Expression::Block(stmts) => {
             for stmt in stmts {
                 match stmt {
-                    crate::ast::Statement::VariableDeclaration { .. } |
-                    crate::ast::Statement::VariableAssignment { .. } => {
+                    crate::ast::Statement::VariableDeclaration { .. }
+                    | crate::ast::Statement::VariableAssignment { .. } => {
                         let _ = checker.check_statement(stmt);
                     }
                     _ => {}
                 }
             }
-            
+
             let mut ret_type = Box::new(AstType::Void);
             for stmt in stmts {
                 if let crate::ast::Statement::Return { expr: ret_expr, .. } = stmt {
@@ -780,15 +823,18 @@ pub fn infer_closure_type(
                     }
                 }
             }
-            
+
             if matches!(*ret_type, AstType::Void) {
-                if let Some(crate::ast::Statement::Expression { expr: last_expr, .. }) = stmts.last() {
+                if let Some(crate::ast::Statement::Expression {
+                    expr: last_expr, ..
+                }) = stmts.last()
+                {
                     if let Ok(rt) = checker.infer_expression_type(last_expr) {
                         ret_type = Box::new(rt);
                     }
                 }
             }
-            
+
             ret_type
         }
         _ => {

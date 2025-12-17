@@ -15,7 +15,9 @@ pub use errors::FFIError;
 pub use library::Library;
 pub use platform::{Platform, PlatformConfig};
 pub use stats::CallStatistics;
-pub use types::{CallingConvention, FnSignature, FunctionSafety, LoadFlags, TypeMapping, TypeMarshaller};
+pub use types::{
+    CallingConvention, FnSignature, FunctionSafety, LoadFlags, TypeMapping, TypeMarshaller,
+};
 
 // Re-export type helpers as a module
 pub use type_helpers as types_helpers;
@@ -51,8 +53,11 @@ mod tests {
             )
             .function(
                 "sqlite3_close",
-                FnSignature::new(vec![type_helpers::raw_ptr(type_helpers::void())], type_helpers::i32())
-                    .with_safety(FunctionSafety::Unsafe),
+                FnSignature::new(
+                    vec![type_helpers::raw_ptr(type_helpers::void())],
+                    type_helpers::i32(),
+                )
+                .with_safety(FunctionSafety::Unsafe),
             )
             .constant("SQLITE_OK", type_helpers::i32())
             .calling_convention(CallingConvention::C)
@@ -116,9 +121,18 @@ mod tests {
             .functions_with_prefix(
                 "math",
                 vec![
-                    ("sin", FnSignature::new(vec![type_helpers::f64()], type_helpers::f64())),
-                    ("cos", FnSignature::new(vec![type_helpers::f64()], type_helpers::f64())),
-                    ("tan", FnSignature::new(vec![type_helpers::f64()], type_helpers::f64())),
+                    (
+                        "sin",
+                        FnSignature::new(vec![type_helpers::f64()], type_helpers::f64()),
+                    ),
+                    (
+                        "cos",
+                        FnSignature::new(vec![type_helpers::f64()], type_helpers::f64()),
+                    ),
+                    (
+                        "tan",
+                        FnSignature::new(vec![type_helpers::f64()], type_helpers::f64()),
+                    ),
                 ],
             )
             .build();

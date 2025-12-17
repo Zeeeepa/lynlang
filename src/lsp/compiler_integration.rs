@@ -4,13 +4,12 @@
 //! indexing function signatures, and answering type/method lookups. Method completion
 //! performance is optimized via a receiver-type index to avoid linear scans.
 
-use std::collections::HashMap;
 use crate::ast::{AstType, Declaration, Program};
-use crate::parser::Parser;
-use crate::lexer::Lexer;
-use crate::typechecker::TypeChecker;
 use crate::error::Result;
-
+use crate::lexer::Lexer;
+use crate::parser::Parser;
+use crate::typechecker::TypeChecker;
+use std::collections::HashMap;
 
 // ============================================================================
 // COMPILER INTEGRATION STRUCT
@@ -25,7 +24,7 @@ pub struct CompilerIntegration {
     /// Function signatures from stdlib
     stdlib_functions: HashMap<String, FunctionSignature>,
     /// Index of receiver type -> list of method keys ("Receiver::name") for fast lookup
-    method_index: HashMap<String, Vec<String>>, 
+    method_index: HashMap<String, Vec<String>>,
 }
 
 #[derive(Clone, Debug)]
@@ -52,7 +51,7 @@ impl CompilerIntegration {
         let lexer = Lexer::new(content);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program()?;
-        
+
         // Index functions from this stdlib file
         for decl in &program.declarations {
             if let Declaration::Function(func) = decl {
@@ -72,7 +71,7 @@ impl CompilerIntegration {
                     return_type: func.return_type.clone(),
                     receiver_type: receiver_type.clone(),
                 };
-                
+
                 // Store with full name and also with receiver type prefix for method lookup
                 self.stdlib_functions.insert(func.name.clone(), sig.clone());
                 if let Some(recv) = &receiver_type {
@@ -97,7 +96,7 @@ impl CompilerIntegration {
                 }
             }
         }
-        
+
         self.stdlib_programs.insert(path.to_string(), program);
         Ok(())
     }
@@ -132,9 +131,10 @@ impl CompilerIntegration {
         if out.is_empty() {
             for (key, sig) in &self.stdlib_functions {
                 if let Some(recv) = &sig.receiver_type {
-                    if recv == receiver_type ||
-                       recv.starts_with(&format!("{}<", receiver_type)) ||
-                       key.starts_with(&format!("{}::", receiver_type)) {
+                    if recv == receiver_type
+                        || recv.starts_with(&format!("{}<", receiver_type))
+                        || key.starts_with(&format!("{}::", receiver_type))
+                    {
                         out.push(sig);
                     }
                 }
@@ -145,23 +145,26 @@ impl CompilerIntegration {
     }
 
     /// Get the return type of a method call
-    pub fn get_method_return_type(&self, receiver_type: &str, method_name: &str) -> Option<AstType> {
+    pub fn get_method_return_type(
+        &self,
+        receiver_type: &str,
+        method_name: &str,
+    ) -> Option<AstType> {
         // Try direct lookup first
         let method_key = format!("{}::{}", receiver_type, method_name);
         if let Some(sig) = self.stdlib_functions.get(&method_key) {
             return Some(sig.return_type.clone());
         }
-        
+
         // Try looking up by function name and check if receiver matches
         if let Some(sig) = self.stdlib_functions.get(method_name) {
             if let Some(recv) = &sig.receiver_type {
-                if recv == receiver_type || 
-                   recv.starts_with(&format!("{}<", receiver_type)) {
+                if recv == receiver_type || recv.starts_with(&format!("{}<", receiver_type)) {
                     return Some(sig.return_type.clone());
                 }
             }
         }
-        
+
         None
     }
 
@@ -174,25 +177,33 @@ impl CompilerIntegration {
     }
 
     /// Infer the type of an expression using TypeChecker with full program context
-    pub fn infer_expression_type(&mut self, program: &Program, expr: &crate::ast::Expression) -> Result<AstType> {
+    pub fn infer_expression_type(
+        &mut self,
+        program: &Program,
+        expr: &crate::ast::Expression,
+    ) -> Result<AstType> {
         // Set up TypeChecker with program context
         // Create a fresh type checker and populate it with program declarations
         let mut type_checker = TypeChecker::new();
-        
+
         // Run type checker to populate symbol tables (ignoring errors for now)
         // This sets up the context needed for inference - it indexes functions, structs, enums, etc.
         let _ = type_checker.check_program(program);
-        
+
         // Now use TypeChecker's real inference
         type_checker.infer_expression_type(expr)
     }
 
     /// Infer type from expression string - parses then uses TypeChecker
-    pub fn infer_expression_type_from_string(&mut self, program: &Program, expr_str: &str) -> Result<AstType> {
+    pub fn infer_expression_type_from_string(
+        &mut self,
+        program: &Program,
+        expr_str: &str,
+    ) -> Result<AstType> {
         // Try to parse the expression
         let lexer = Lexer::new(expr_str);
         let mut parser = Parser::new(lexer);
-        
+
         match parser.parse_expression() {
             Ok(expr) => {
                 // Use real type inference
@@ -201,41 +212,44 @@ impl CompilerIntegration {
             Err(_) => {
                 // If parsing fails, fall back to simple heuristics for common cases
                 let s = expr_str.trim();
-                
+
                 // Simple literals
                 if s == "true" || s == "false" {
                     return Ok(AstType::Bool);
                 }
-                if (s.starts_with('"') && s.ends_with('"')) || (s.starts_with('\'') && s.ends_with('\'')) {
+                if (s.starts_with('"') && s.ends_with('"'))
+                    || (s.starts_with('\'') && s.ends_with('\''))
+                {
                     return Ok(AstType::StaticString);
                 }
-                if s.parse::<i64>().is_ok() { 
-                    return Ok(AstType::I32); 
+                if s.parse::<i64>().is_ok() {
+                    return Ok(AstType::I32);
                 }
-                if s.contains('.') && s.parse::<f64>().is_ok() { 
-                    return Ok(AstType::F64); 
+                if s.contains('.') && s.parse::<f64>().is_ok() {
+                    return Ok(AstType::F64);
                 }
-                
+
                 // Method call lookup
                 if let Some(dot_pos) = s.find('.') {
-                    if let Some(paren_pos) = s[dot_pos+1..].find('(') {
-                        let method_name = &s[dot_pos+1..dot_pos+1+paren_pos].trim();
+                    if let Some(paren_pos) = s[dot_pos + 1..].find('(') {
+                        let method_name = &s[dot_pos + 1..dot_pos + 1 + paren_pos].trim();
                         let receiver = &s[..dot_pos].trim();
 
                         // Try to infer receiver type from program context
-                        let recv_ty_name = if receiver.starts_with('"') { 
-                            Some("String".to_string()) 
-                        } else if receiver.parse::<i64>().is_ok() { 
-                            Some("i32".to_string()) 
-                        } else if receiver.parse::<f64>().is_ok() { 
-                            Some("f64".to_string()) 
+                        let recv_ty_name = if receiver.starts_with('"') {
+                            Some("String".to_string())
+                        } else if receiver.parse::<i64>().is_ok() {
+                            Some("i32".to_string())
+                        } else if receiver.parse::<f64>().is_ok() {
+                            Some("f64".to_string())
                         } else {
                             // Try to find variable type in program
                             self.find_variable_type_in_program(program, receiver)
                         };
 
                         if let Some(recv_name) = recv_ty_name {
-                            if let Some(ret) = self.get_method_return_type(&recv_name, method_name) {
+                            if let Some(ret) = self.get_method_return_type(&recv_name, method_name)
+                            {
                                 return Ok(ret);
                             }
                         }
@@ -245,11 +259,11 @@ impl CompilerIntegration {
                 // Function call lookup
                 if let Some(paren_pos) = s.find('(') {
                     let func_name = s[..paren_pos].trim();
-                    
+
                     if let Some(sig) = self.stdlib_functions.get(func_name) {
                         return Ok(sig.return_type.clone());
                     }
-                    
+
                     for decl in &program.declarations {
                         if let Declaration::Function(func) = decl {
                             if func.name == func_name {
@@ -258,16 +272,16 @@ impl CompilerIntegration {
                         }
                     }
                 }
-                
+
                 Ok(AstType::Void)
             }
         }
     }
-    
+
     /// Find variable type in program AST
     fn find_variable_type_in_program(&self, program: &Program, var_name: &str) -> Option<String> {
         use crate::ast::Statement;
-        
+
         for decl in &program.declarations {
             if let Declaration::Function(func) = decl {
                 for stmt in &func.body {
@@ -294,7 +308,8 @@ impl CompilerIntegration {
 
     /// Check if a type has a method
     pub fn has_method(&self, receiver_type: &str, method_name: &str) -> bool {
-        self.get_method_return_type(receiver_type, method_name).is_some()
+        self.get_method_return_type(receiver_type, method_name)
+            .is_some()
     }
 }
 
@@ -320,4 +335,3 @@ fn format_type(ty: &AstType) -> String {
         _ => format!("{:?}", ty),
     }
 }
-

@@ -15,7 +15,7 @@ pub fn get_pattern_match_hover(
     all_docs: &HashMap<lsp_types::Url, super::super::types::Document>,
 ) -> Option<String> {
     use super::super::type_inference::infer_function_return_types;
-    
+
     let lines: Vec<&str> = content.lines().collect();
     if position.line as usize >= lines.len() {
         return None;
@@ -62,23 +62,29 @@ pub fn get_pattern_match_hover(
                     // Try to infer type from the assignment
                     // Example: result = divide(10.0, 2.0)
                     if let Some(eq_pos) = line.find('=') {
-                        let rhs = line[eq_pos+1..].trim();
+                        let rhs = line[eq_pos + 1..].trim();
 
                         // Check if it's a function call
                         if let Some(paren_pos) = rhs.find('(') {
                             let func_name = rhs[..paren_pos].trim();
 
                             // Try to find the function definition and extract its return type
-                            let (concrete_ok_type, concrete_err_type) = infer_function_return_types(func_name, all_docs);
+                            let (concrete_ok_type, concrete_err_type) =
+                                infer_function_return_types(func_name, all_docs);
 
                             // Now determine what pattern variable we're hovering over
                             // Example: | Ok(val) or | Err(msg)
                             let pattern_arm = current_line.trim();
 
-                            if pattern_arm.contains(&format!("Ok({}", symbol_name)) || pattern_arm.contains(&format!("Ok({})", symbol_name)) {
+                            if pattern_arm.contains(&format!("Ok({}", symbol_name))
+                                || pattern_arm.contains(&format!("Ok({})", symbol_name))
+                            {
                                 // This is the Ok variant - extract the success type
-                                let type_display = concrete_ok_type.clone().unwrap_or_else(|| "T".to_string());
-                                let full_result_type = if let (Some(ok), Some(err)) = (&concrete_ok_type, &concrete_err_type) {
+                                let type_display =
+                                    concrete_ok_type.clone().unwrap_or_else(|| "T".to_string());
+                                let full_result_type = if let (Some(ok), Some(err)) =
+                                    (&concrete_ok_type, &concrete_err_type)
+                                {
                                     format!("Result<{}, {}>", ok, err)
                                 } else {
                                     "Result<T, E>".to_string()
@@ -91,10 +97,15 @@ pub fn get_pattern_match_hover(
                                     full_result_type,
                                     func_name
                                 ));
-                            } else if pattern_arm.contains(&format!("Err({}", symbol_name)) || pattern_arm.contains(&format!("Err({})", symbol_name)) {
+                            } else if pattern_arm.contains(&format!("Err({}", symbol_name))
+                                || pattern_arm.contains(&format!("Err({})", symbol_name))
+                            {
                                 // This is the Err variant - extract the error type
-                                let type_display = concrete_err_type.clone().unwrap_or_else(|| "E".to_string());
-                                let full_result_type = if let (Some(ok), Some(err)) = (&concrete_ok_type, &concrete_err_type) {
+                                let type_display =
+                                    concrete_err_type.clone().unwrap_or_else(|| "E".to_string());
+                                let full_result_type = if let (Some(ok), Some(err)) =
+                                    (&concrete_ok_type, &concrete_err_type)
+                                {
                                     format!("Result<{}, {}>", ok, err)
                                 } else {
                                     "Result<T, E>".to_string()
@@ -107,9 +118,12 @@ pub fn get_pattern_match_hover(
                                     full_result_type,
                                     func_name
                                 ));
-                            } else if pattern_arm.contains(&format!("Some({}", symbol_name)) || pattern_arm.contains(&format!("Some({})", symbol_name)) {
+                            } else if pattern_arm.contains(&format!("Some({}", symbol_name))
+                                || pattern_arm.contains(&format!("Some({})", symbol_name))
+                            {
                                 // This is Option.Some
-                                let inner_type = concrete_ok_type.clone().unwrap_or_else(|| "T".to_string());
+                                let inner_type =
+                                    concrete_ok_type.clone().unwrap_or_else(|| "T".to_string());
                                 return Some(format!(
                                     "```zen\n{}: {}\n```\n\n**Pattern match variable**\n\nExtracted from `Option<{}>` (assigned from `{}()`)\n\nThis is the value from the `Some` variant.",
                                     symbol_name,
@@ -133,7 +147,11 @@ pub fn get_pattern_match_hover(
 }
 
 /// Get hover information for enum variants
-pub fn get_enum_variant_hover(content: &str, position: Position, symbol_name: &str) -> Option<String> {
+pub fn get_enum_variant_hover(
+    content: &str,
+    position: Position,
+    symbol_name: &str,
+) -> Option<String> {
     let lines: Vec<&str> = content.lines().collect();
     if position.line as usize >= lines.len() {
         return None;
@@ -143,7 +161,9 @@ pub fn get_enum_variant_hover(content: &str, position: Position, symbol_name: &s
 
     // Check if this line is an enum variant (has ':' or ',' after the symbol)
     // Enums use comma-separated variants: MyEnum: Variant1, Variant2: Type, Variant3
-    if !current_line.contains(&format!("{}:", symbol_name)) && !current_line.contains(&format!("{},", symbol_name)) {
+    if !current_line.contains(&format!("{}:", symbol_name))
+        && !current_line.contains(&format!("{},", symbol_name))
+    {
         return None;
     }
 
@@ -157,7 +177,10 @@ pub fn get_enum_variant_hover(content: &str, position: Position, symbol_name: &s
         // Check if this line is an enum definition (identifier followed by ':' at end)
         if line.ends_with(':') && !line.contains("::") {
             let name = line.trim_end_matches(':').trim();
-            if name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '<' || c == '>' || c == ',') {
+            if name
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '_' || c == '<' || c == '>' || c == ',')
+            {
                 enum_name = Some(name.to_string());
                 break;
             }
@@ -174,7 +197,7 @@ pub fn get_enum_variant_hover(content: &str, position: Position, symbol_name: &s
             // Struct-like payload
             let start = current_line.find('{')?;
             let end = current_line.rfind('}')?;
-            let fields = &current_line[start+1..end];
+            let fields = &current_line[start + 1..end];
             format!(" with fields: `{}`", fields.trim())
         } else if current_line.contains(": ") {
             // Type payload
@@ -201,4 +224,3 @@ pub fn get_enum_variant_hover(content: &str, position: Position, symbol_name: &s
         None
     }
 }
-

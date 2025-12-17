@@ -1,15 +1,17 @@
 //! Document analysis - type checking, allocator validation, pattern checking
 //! Extracted from document_store.rs
 
-use lsp_types::*;
+use super::compiler_integration::CompilerIntegration;
+use super::pattern_checking::{check_pattern_exhaustiveness, find_missing_variants};
+use super::types::SymbolInfo;
+use super::utils::{
+    compile_error_to_diagnostic, compile_error_to_diagnostic_with_content, format_type,
+};
 use crate::ast::{Declaration, Expression, Program, Statement};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::typechecker::TypeChecker;
-use super::compiler_integration::CompilerIntegration;
-use super::pattern_checking::{check_pattern_exhaustiveness, find_missing_variants};
-use super::types::SymbolInfo;
-use super::utils::{compile_error_to_diagnostic, compile_error_to_diagnostic_with_content, format_type};
+use lsp_types::*;
 use std::collections::HashMap;
 
 /// Analyze document content and return diagnostics
@@ -67,14 +69,21 @@ fn run_compiler_analysis(program: &Program, content: &str) -> Vec<Diagnostic> {
 }
 
 /// Check for allocator usage in statements
-pub fn check_allocator_usage(statements: &[Statement], diagnostics: &mut Vec<Diagnostic>, content: &str) {
+pub fn check_allocator_usage(
+    statements: &[Statement],
+    diagnostics: &mut Vec<Diagnostic>,
+    content: &str,
+) {
     for stmt in statements {
         match stmt {
             Statement::Expression { expr, .. } | Statement::Return { expr, .. } => {
                 check_allocator_in_expression(expr, diagnostics, content);
             }
-            Statement::VariableDeclaration { initializer: Some(expr), .. } |
-            Statement::VariableAssignment { value: expr, .. } => {
+            Statement::VariableDeclaration {
+                initializer: Some(expr),
+                ..
+            }
+            | Statement::VariableAssignment { value: expr, .. } => {
                 check_allocator_in_expression(expr, diagnostics, content);
             }
             _ => {}
@@ -82,7 +91,11 @@ pub fn check_allocator_usage(statements: &[Statement], diagnostics: &mut Vec<Dia
     }
 }
 
-fn check_allocator_in_expression(expr: &Expression, diagnostics: &mut Vec<Diagnostic>, content: &str) {
+fn check_allocator_in_expression(
+    expr: &Expression,
+    diagnostics: &mut Vec<Diagnostic>,
+    content: &str,
+) {
     match expr {
         Expression::FunctionCall { name, args, .. } => {
             // Enhanced collection constructors checking with generic support
@@ -92,55 +105,57 @@ fn check_allocator_in_expression(expr: &Expression, diagnostics: &mut Vec<Diagno
                 name.as_str()
             };
 
-            let requires_allocator = matches!(base_name,
+            let requires_allocator = matches!(
+                base_name,
                 "HashMap" | "DynVec" | "Array" | "HashSet" | "BTreeMap" | "LinkedList"
             );
 
-            if requires_allocator {
-                if args.is_empty() || !has_allocator_arg(args) {
-                    if let Some(position) = find_text_position(name, content) {
-                        diagnostics.push(Diagnostic {
-                            range: Range {
-                                start: position,
-                                end: Position {
-                                    line: position.line,
-                                    character: position.character + name.len() as u32,
+            if requires_allocator && (args.is_empty() || !has_allocator_arg(args)) {
+                if let Some(position) = find_text_position(name, content) {
+                    diagnostics.push(Diagnostic {
+                        range: Range {
+                            start: position,
+                            end: Position {
+                                line: position.line,
+                                character: position.character + name.len() as u32,
+                            },
+                        },
+                        severity: Some(DiagnosticSeverity::ERROR),
+                        code: Some(NumberOrString::String("allocator-required".to_string())),
+                        code_description: None,
+                        source: Some("zen-lsp".to_string()),
+                        message: format!(
+                            "{} requires an allocator for memory management. Add get_default_allocator() as the last parameter.",
+                            base_name
+                        ),
+                        related_information: Some(vec![DiagnosticRelatedInformation {
+                            location: Location {
+                                uri: Url::parse("file:///").unwrap(),
+                                range: Range {
+                                    start: position,
+                                    end: position,
                                 },
                             },
-                            severity: Some(DiagnosticSeverity::ERROR),
-                            code: Some(NumberOrString::String("allocator-required".to_string())),
-                            code_description: None,
-                            source: Some("zen-lsp".to_string()),
                             message: format!(
-                                "{} requires an allocator for memory management. Add get_default_allocator() as the last parameter.",
-                                base_name
+                                "Quick fix: {}({}, get_default_allocator())",
+                                name,
+                                if args.is_empty() { "" } else { "..., " }
                             ),
-                            related_information: Some(vec![
-                                DiagnosticRelatedInformation {
-                                    location: Location {
-                                        uri: Url::parse("file:///").unwrap(),
-                                        range: Range {
-                                            start: position,
-                                            end: position,
-                                        },
-                                    },
-                                    message: format!(
-                                        "Quick fix: {}({}, get_default_allocator())",
-                                        name, if args.is_empty() { "" } else { "..., " }
-                                    ),
-                                }
-                            ]),
-                            tags: None,
-                            data: None,
-                        });
-                    }
+                        }]),
+                        tags: None,
+                        data: None,
+                    });
                 }
             }
             for arg in args {
                 check_allocator_in_expression(arg, diagnostics, content);
             }
         }
-        Expression::MethodCall { object, method: _, args } => {
+        Expression::MethodCall {
+            object,
+            method: _,
+            args,
+        } => {
             check_allocator_in_expression(object, diagnostics, content);
             for arg in args {
                 check_allocator_in_expression(arg, diagnostics, content);
@@ -208,13 +223,15 @@ fn check_pattern_exhaustiveness_wrapper(
         content,
         |expr| infer_expression_type_string(expr, documents),
         |content, scrutinee| find_pattern_match_position(content, scrutinee),
-        |scrutinee_type, arms| find_missing_variants(
-            scrutinee_type,
-            arms,
-            documents,
-            workspace_symbols,
-            stdlib_symbols,
-        ),
+        |scrutinee_type, arms| {
+            find_missing_variants(
+                scrutinee_type,
+                arms,
+                documents,
+                workspace_symbols,
+                stdlib_symbols,
+            )
+        },
     );
 }
 
@@ -224,16 +241,16 @@ pub fn infer_expression_type_string(
     documents: &HashMap<Url, super::types::Document>,
 ) -> Option<String> {
     const MAX_DOCS_TYPE_SEARCH: usize = 10;
-    
+
     for doc in documents.values().take(MAX_DOCS_TYPE_SEARCH) {
         if let Some(ast) = &doc.ast {
             let program = Program {
                 declarations: ast.clone(),
                 statements: vec![],
             };
-            
+
             let mut compiler_integration = CompilerIntegration::new();
-            
+
             match compiler_integration.infer_expression_type(&program, expr) {
                 Ok(ast_type) => {
                     return Some(format_type(&ast_type));
@@ -242,7 +259,7 @@ pub fn infer_expression_type_string(
             }
         }
     }
-    
+
     // Fallback to AST-based lookup for variables
     match expr {
         Expression::Identifier(name) => {
@@ -264,7 +281,7 @@ pub fn infer_expression_type_string(
                 None
             }
         }
-        _ => None
+        _ => None,
     }
 }
 
@@ -282,7 +299,12 @@ fn find_variable_type_in_ast(var_name: &str, ast: &[Declaration]) -> Option<Stri
 fn find_variable_type_in_statements(var_name: &str, stmts: &[Statement]) -> Option<String> {
     for stmt in stmts {
         match stmt {
-            Statement::VariableDeclaration { name, initializer, type_, .. } => {
+            Statement::VariableDeclaration {
+                name,
+                initializer,
+                type_,
+                ..
+            } => {
                 if name == var_name {
                     if let Some(type_ann) = type_ {
                         return Some(format_type(type_ann));
@@ -306,7 +328,7 @@ fn find_variable_type_in_statements(var_name: &str, stmts: &[Statement]) -> Opti
 fn find_variable_in_expression(var_name: &str, expr: &Expression) -> Option<String> {
     match expr {
         Expression::Block(stmts) => find_variable_type_in_statements(var_name, stmts),
-        _ => None
+        _ => None,
     }
 }
 
@@ -328,7 +350,7 @@ pub fn infer_type_from_expression_simple(expr: &Expression) -> Option<String> {
         Expression::Float64(_) => Some("f64".to_string()),
         Expression::Boolean(_) => Some("bool".to_string()),
         Expression::String(_) => Some("StaticString".to_string()),
-        _ => None
+        _ => None,
     }
 }
 
@@ -339,28 +361,28 @@ pub fn infer_type_from_expression(
     compiler: &CompilerIntegration,
 ) -> Option<String> {
     const MAX_DOCS_TYPE_SEARCH: usize = 5;
-    
+
     for doc in documents.values().take(MAX_DOCS_TYPE_SEARCH) {
         if let Some(ast) = &doc.ast {
             let program = Program {
                 declarations: ast.clone(),
                 statements: vec![],
             };
-            
+
             let mut compiler_integration = CompilerIntegration::new();
             if let Ok(ast_type) = compiler_integration.infer_expression_type(&program, expr) {
                 return Some(format_type(&ast_type));
             }
         }
     }
-    
+
     // Fallback
     match expr {
         Expression::FunctionCall { name, .. } => {
             if let Some(sig) = compiler.get_function_signature(name) {
                 return Some(format_type(&sig.return_type));
             }
-            
+
             if name.contains("::") {
                 let parts: Vec<&str> = name.split("::").collect();
                 if parts.len() == 2 {
@@ -375,7 +397,7 @@ pub fn infer_type_from_expression(
         Expression::Float64(_) => Some("f64".to_string()),
         Expression::Boolean(_) => Some("bool".to_string()),
         Expression::String(_) => Some("StaticString".to_string()),
-        _ => None
+        _ => None,
     }
 }
 

@@ -1,11 +1,11 @@
 // LSP Types and Data Structures
 
-use lsp_types::*;
-use std::time::Instant;
-use std::collections::HashMap;
-use crate::ast::{Declaration, AstType};
-use crate::lexer::Token;
 use crate::ast::Program;
+use crate::ast::{AstType, Declaration};
+use crate::lexer::Token;
+use lsp_types::*;
+use std::collections::HashMap;
+use std::time::Instant;
 
 #[derive(Debug, Clone)]
 pub struct Document {
@@ -28,7 +28,7 @@ impl Document {
         // The cache would need to be invalidated on content change anyway
         self.content.lines().collect()
     }
-    
+
     /// Get a specific line by index
     pub fn get_line(&self, index: usize) -> Option<&str> {
         self.content.lines().nth(index)
@@ -46,7 +46,7 @@ pub struct SymbolInfo {
     pub type_info: Option<AstType>,
     pub definition_uri: Option<Url>,
     pub references: Vec<Range>,
-    pub enum_variants: Option<Vec<String>>,  // For enums: list of variant names
+    pub enum_variants: Option<Vec<String>>, // For enums: list of variant names
 }
 
 #[derive(Debug, Clone)]

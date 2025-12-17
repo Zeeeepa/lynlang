@@ -39,14 +39,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // We can't create an enum variant without knowing which variant
             return Ok(self.context.i64_type().const_int(0, false).into());
         }
-        
+
         // Check if this is a struct type name (e.g., Array) that has static methods
         if let Some(symbols::Symbol::StructType(_)) = self.symbols.lookup(name) {
             // Return a dummy value - this will be handled properly in member access
             // Static methods like Array.new() will be handled later
             return Ok(self.context.i64_type().const_int(0, false).into());
         }
-        
+
         // Also check the struct_types map for built-in types like Array
         if self.struct_types.contains_key(name) {
             // Return a dummy value - this will be handled properly in member access
@@ -75,7 +75,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Load as i32
                     // Use a descriptive name for debugging
                     let load_name = format!("{}_load", name);
-                    match self.builder.build_load(self.context.i32_type(), ptr, &load_name) {
+                    match self
+                        .builder
+                        .build_load(self.context.i32_type(), ptr, &load_name)
+                    {
                         Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
@@ -84,7 +87,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Load as i64
                     // Use a descriptive name for debugging
                     let load_name = format!("{}_load", name);
-                    match self.builder.build_load(self.context.i64_type(), ptr, &load_name) {
+                    match self
+                        .builder
+                        .build_load(self.context.i64_type(), ptr, &load_name)
+                    {
                         Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
@@ -179,20 +185,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
-                AstType::Generic { name: enum_name, .. } if enum_name == "Option" || enum_name == "Result" => {
+                AstType::Generic {
+                    name: enum_name, ..
+                } if enum_name == "Option" || enum_name == "Result" => {
                     // For Option and Result generics, load as enum struct
                     let enum_struct_type = self.context.struct_type(
                         &[
-                            self.context.i64_type().into(),  // discriminant
-                            self.context.ptr_type(inkwell::AddressSpace::default()).into(), // payload pointer
+                            self.context.i64_type().into(), // discriminant
+                            self.context
+                                .ptr_type(inkwell::AddressSpace::default())
+                                .into(), // payload pointer
                         ],
                         false,
                     );
                     // Use empty string to let LLVM auto-generate unique names
-                    let loaded: BasicValueEnum = match self.builder.build_load(enum_struct_type, ptr, "") {
-                        Ok(val) => val,
-                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
-                    };
+                    let loaded: BasicValueEnum =
+                        match self.builder.build_load(enum_struct_type, ptr, "") {
+                            Ok(val) => val,
+                            Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                        };
                     loaded
                 }
                 _ => {
@@ -370,9 +381,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         // Allocate the buffer
         let buffer_size_val = self.context.i64_type().const_int(buffer_size, false);
-        let buffer_call = self.builder.build_call(malloc_fn, &[buffer_size_val.into()], "str_buffer")?;
-        let buffer_ptr = buffer_call.try_as_basic_value().left()
-            .ok_or_else(|| CompileError::InternalError("malloc should return a pointer".to_string(), None))?
+        let buffer_call =
+            self.builder
+                .build_call(malloc_fn, &[buffer_size_val.into()], "str_buffer")?;
+        let buffer_ptr = buffer_call
+            .try_as_basic_value()
+            .left()
+            .ok_or_else(|| {
+                CompileError::InternalError("malloc should return a pointer".to_string(), None)
+            })?
             .into_pointer_value();
 
         // Build the format string

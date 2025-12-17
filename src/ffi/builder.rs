@@ -5,11 +5,11 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::ast::AstType;
 use super::errors::FFIError;
-use super::types::{CallingConvention, FnSignature, FunctionSafety, LoadFlags, TypeMapping};
-use super::platform::{Platform, PlatformConfig};
 use super::library::Library;
+use super::platform::{Platform, PlatformConfig};
+use super::types::{CallingConvention, FnSignature, FunctionSafety, LoadFlags, TypeMapping};
+use crate::ast::AstType;
 
 /// Validation rule for FFI configuration
 pub struct ValidationRule {
@@ -318,7 +318,7 @@ impl LibBuilder {
     /// Helper to parse C function declaration
     fn parse_c_function_decl(decl: &str) -> Option<FnSignature> {
         use super::type_helpers;
-        
+
         let returns = if decl.starts_with("void ") {
             type_helpers::void()
         } else if decl.starts_with("int ") {

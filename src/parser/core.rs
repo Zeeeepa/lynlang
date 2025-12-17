@@ -85,19 +85,19 @@ impl<'a> Parser<'a> {
         let saved_char = self.lexer.current_char;
         let saved_line = self.lexer.line;
         let saved_column = self.lexer.column;
-        
+
         // Advance past current and peek tokens
         let _ = self.lexer.next_token_with_span();
         let _ = self.lexer.next_token_with_span();
         let next_next = self.lexer.next_token_with_span();
-        
+
         // Restore state
         self.lexer.position = saved_pos;
         self.lexer.read_position = saved_read_pos;
         self.lexer.current_char = saved_char;
         self.lexer.line = saved_line;
         self.lexer.column = saved_column;
-        
+
         Some(next_next.token)
     }
 

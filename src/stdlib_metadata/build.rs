@@ -18,7 +18,10 @@ impl BuildModule {
             "import".to_string(),
             StdFunction {
                 name: "import".to_string(),
-                params: vec![("module_name".to_string(), crate::ast::resolve_string_struct_type())],
+                params: vec![(
+                    "module_name".to_string(),
+                    crate::ast::resolve_string_struct_type(),
+                )],
                 return_type: AstType::Generic {
                     name: "Module".to_string(),
                     type_args: vec![],
@@ -111,7 +114,10 @@ impl BuildModule {
             "has_feature".to_string(),
             StdFunction {
                 name: "has_feature".to_string(),
-                params: vec![("feature".to_string(), crate::ast::resolve_string_struct_type())],
+                params: vec![(
+                    "feature".to_string(),
+                    crate::ast::resolve_string_struct_type(),
+                )],
                 return_type: AstType::Bool,
                 is_builtin: true,
             },

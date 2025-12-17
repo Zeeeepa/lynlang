@@ -2,8 +2,8 @@
 // Handles workspace file discovery and utilities
 
 use std::fs;
-use std::path::{Path, PathBuf};
 use std::io;
+use std::path::{Path, PathBuf};
 
 // ============================================================================
 // PUBLIC UTILITY FUNCTIONS
@@ -17,15 +17,21 @@ pub fn find_zen_files_in_workspace(root_path: &Path) -> Result<Vec<PathBuf>, io:
 }
 
 /// Recursively collect all .zen files in a directory
-pub fn collect_zen_files_recursive(path: &Path, zen_files: &mut Vec<PathBuf>) -> Result<(), io::Error> {
+pub fn collect_zen_files_recursive(
+    path: &Path,
+    zen_files: &mut Vec<PathBuf>,
+) -> Result<(), io::Error> {
     if !path.is_dir() {
         return Ok(());
     }
 
     // Skip common directories we don't want to search
     if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
-        if dir_name == "target" || dir_name == "node_modules" || dir_name == ".git"
-            || dir_name.starts_with('.') {
+        if dir_name == "target"
+            || dir_name == "node_modules"
+            || dir_name == ".git"
+            || dir_name.starts_with('.')
+        {
             return Ok(());
         }
     }
@@ -45,4 +51,3 @@ pub fn collect_zen_files_recursive(path: &Path, zen_files: &mut Vec<PathBuf>) ->
 
     Ok(())
 }
-

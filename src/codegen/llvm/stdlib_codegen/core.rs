@@ -32,11 +32,16 @@ pub fn compile_core_assert<'ctx>(
         .current_function
         .ok_or_else(|| CompileError::InternalError("No current function".to_string(), None))?;
 
-    let then_block = compiler.context.append_basic_block(current_fn, "assert_pass");
-    let else_block = compiler.context.append_basic_block(current_fn, "assert_fail");
+    let then_block = compiler
+        .context
+        .append_basic_block(current_fn, "assert_pass");
+    let else_block = compiler
+        .context
+        .append_basic_block(current_fn, "assert_fail");
 
     // Check condition
-    compiler.builder
+    compiler
+        .builder
         .build_conditional_branch(condition, then_block, else_block)?;
 
     // Assert fail block - call abort() or exit(1)
@@ -45,14 +50,19 @@ pub fn compile_core_assert<'ctx>(
     // Get or declare exit function
     let exit_fn = compiler.module.get_function("exit").unwrap_or_else(|| {
         let i32_type = compiler.context.i32_type();
-        let fn_type = compiler.context.void_type().fn_type(&[i32_type.into()], false);
-        compiler.module
+        let fn_type = compiler
+            .context
+            .void_type()
+            .fn_type(&[i32_type.into()], false);
+        compiler
+            .module
             .add_function("exit", fn_type, Some(inkwell::module::Linkage::External))
     });
 
     // Call exit(1)
     let exit_code = compiler.context.i32_type().const_int(1, false);
-    compiler.builder
+    compiler
+        .builder
         .build_call(exit_fn, &[exit_code.into()], "exit_call")?;
     compiler.builder.build_unreachable()?;
 
@@ -84,7 +94,8 @@ pub fn compile_core_panic<'ctx>(
                 .context
                 .i32_type()
                 .fn_type(&[i8_ptr_type.into()], false);
-            compiler.module
+            compiler
+                .module
                 .add_function("puts", fn_type, Some(inkwell::module::Linkage::External))
         });
 
@@ -103,14 +114,19 @@ pub fn compile_core_panic<'ctx>(
     // Get or declare exit function
     let exit_fn = compiler.module.get_function("exit").unwrap_or_else(|| {
         let i32_type = compiler.context.i32_type();
-        let fn_type = compiler.context.void_type().fn_type(&[i32_type.into()], false);
-        compiler.module
+        let fn_type = compiler
+            .context
+            .void_type()
+            .fn_type(&[i32_type.into()], false);
+        compiler
+            .module
             .add_function("exit", fn_type, Some(inkwell::module::Linkage::External))
     });
 
     // Call exit(1)
     let exit_code = compiler.context.i32_type().const_int(1, false);
-    compiler.builder
+    compiler
+        .builder
         .build_call(exit_fn, &[exit_code.into()], "exit_call")?;
     compiler.builder.build_unreachable()?;
 
@@ -118,7 +134,9 @@ pub fn compile_core_panic<'ctx>(
     let current_fn = compiler
         .current_function
         .ok_or_else(|| CompileError::InternalError("No current function".to_string(), None))?;
-    let unreachable_block = compiler.context.append_basic_block(current_fn, "after_panic");
+    let unreachable_block = compiler
+        .context
+        .append_basic_block(current_fn, "after_panic");
     compiler.builder.position_at_end(unreachable_block);
 
     // Return a dummy value (this code is unreachable)

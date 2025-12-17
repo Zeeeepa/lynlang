@@ -1,7 +1,7 @@
-pub mod variables;
 pub mod control;
-pub mod expressions;
 pub mod deferred;
+pub mod expressions;
+pub mod variables;
 
 use super::LLVMCompiler;
 use crate::ast::Statement;
@@ -10,9 +10,13 @@ use crate::error::CompileError;
 impl<'ctx> LLVMCompiler<'ctx> {
     pub fn compile_statement(&mut self, statement: &Statement) -> Result<(), CompileError> {
         match statement {
-            Statement::Expression { expr, .. } => expressions::compile_expression_statement(self, expr),
+            Statement::Expression { expr, .. } => {
+                expressions::compile_expression_statement(self, expr)
+            }
             Statement::Return { expr, .. } => control::compile_return(self, expr),
-            Statement::VariableDeclaration { .. } => variables::compile_variable_declaration(self, statement),
+            Statement::VariableDeclaration { .. } => {
+                variables::compile_variable_declaration(self, statement)
+            }
             Statement::VariableAssignment { .. } => variables::compile_assignment(self, statement),
             Statement::PointerAssignment { .. } => variables::compile_assignment(self, statement),
             Statement::Loop { .. } => control::compile_loop(self, statement),
@@ -30,9 +34,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
     }
-    
+
     pub fn execute_deferred_expressions(&mut self) -> Result<(), CompileError> {
         deferred::execute_deferred_expressions(self)
     }
 }
-

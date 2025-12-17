@@ -34,7 +34,7 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
 
         // StaticString -> String struct is ok (will need allocator at runtime)
         (AstType::Struct { name, .. }, AstType::StaticString) if name == "String" => return true,
-        (AstType::Struct { name, .. }, AstType::StaticLiteral) if name == "String" => return true,  // Internal literal -> dynamic is ok
+        (AstType::Struct { name, .. }, AstType::StaticLiteral) if name == "String" => return true, // Internal literal -> dynamic is ok
 
         // String struct -> StaticString is NOT ok (would lose allocator)
         (AstType::StaticString, AstType::Struct { name, .. }) if name == "String" => return false,

@@ -7,35 +7,37 @@ impl<'ctx> LLVMCompiler<'ctx> {
     pub fn register_builtin_enums(&mut self) {
         let array_struct_type = self.context.struct_type(
             &[
-                self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+                self.context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .into(),
                 self.context.i64_type().into(),
                 self.context.i64_type().into(),
             ],
             false,
         );
-        
+
         let array_info = StructTypeInfo {
             llvm_type: array_struct_type,
             fields: {
                 let mut fields = HashMap::new();
-                fields.insert("data".to_string(), (0, AstType::Ptr(Box::new(AstType::Void))));
+                fields.insert(
+                    "data".to_string(),
+                    (0, AstType::Ptr(Box::new(AstType::Void))),
+                );
                 fields.insert("length".to_string(), (1, AstType::I64));
                 fields.insert("capacity".to_string(), (2, AstType::I64));
                 fields
             },
         };
         self.struct_types.insert("Array".to_string(), array_info);
-        
-        self.symbols.insert("Array", symbols::Symbol::StructType(array_struct_type));
-        
+
+        self.symbols
+            .insert("Array", symbols::Symbol::StructType(array_struct_type));
+
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-        let enum_struct_type = self.context.struct_type(
-            &[
-                self.context.i64_type().into(),
-                ptr_type.into(),
-            ],
-            false,
-        );
+        let enum_struct_type = self
+            .context
+            .struct_type(&[self.context.i64_type().into(), ptr_type.into()], false);
 
         let mut variant_indices = HashMap::new();
         variant_indices.insert("Some".to_string(), 0);
@@ -61,13 +63,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.symbols
             .insert("Option", symbols::Symbol::EnumType(option_info));
 
-        let result_struct_type = self.context.struct_type(
-            &[
-                self.context.i64_type().into(),
-                ptr_type.into(),
-            ],
-            false,
-        );
+        let result_struct_type = self
+            .context
+            .struct_type(&[self.context.i64_type().into(), ptr_type.into()], false);
 
         let mut result_variant_indices = HashMap::new();
         result_variant_indices.insert("Ok".to_string(), 0);
@@ -120,27 +118,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 void_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
             self.module.add_function("memcpy", memcpy_type, None);
         }
-        
+
         if self.module.get_function("get_default_allocator").is_none() {
             let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
             let get_alloc_type = ptr_type.fn_type(&[], false);
-            let func = self.module.add_function("get_default_allocator", get_alloc_type, None);
-            
+            let func = self
+                .module
+                .add_function("get_default_allocator", get_alloc_type, None);
+
             let entry = self.context.append_basic_block(func, "entry");
             let current_block = self.builder.get_insert_block();
             self.builder.position_at_end(entry);
-            
+
             let i64_type = self.context.i64_type();
             let marker_int = i64_type.const_int(1, false);
-            let marker_ptr = self.builder.build_int_to_ptr(marker_int, ptr_type, "allocator_marker")
+            let marker_ptr = self
+                .builder
+                .build_int_to_ptr(marker_int, ptr_type, "allocator_marker")
                 .unwrap_or_else(|_| ptr_type.const_null());
             let _ = self.builder.build_return(Some(&marker_ptr));
-            
+
             if let Some(block) = current_block {
                 self.builder.position_at_end(block);
             }
-            
-            self.functions.insert("get_default_allocator".to_string(), func);
+
+            self.functions
+                .insert("get_default_allocator".to_string(), func);
             self.function_types.insert(
                 "get_default_allocator".to_string(),
                 AstType::Ptr(Box::new(AstType::Void)),

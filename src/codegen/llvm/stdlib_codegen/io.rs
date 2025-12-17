@@ -72,8 +72,12 @@ pub fn compile_io_println<'ctx>(
             // Check for i1 values (booleans) or known boolean expressions
             if bit_width == 1 || is_bool_expr {
                 // Boolean value
-                let true_str = compiler.builder.build_global_string_ptr("true", "true_str")?;
-                let false_str = compiler.builder.build_global_string_ptr("false", "false_str")?;
+                let true_str = compiler
+                    .builder
+                    .build_global_string_ptr("true", "true_str")?;
+                let false_str = compiler
+                    .builder
+                    .build_global_string_ptr("false", "false_str")?;
 
                 // If it's not already i1, truncate it
                 let bool_val = if bit_width != 1 {
@@ -102,7 +106,8 @@ pub fn compile_io_println<'ctx>(
                     compiler.module.add_function("puts", fn_type, None)
                 });
 
-                compiler.builder
+                compiler
+                    .builder
                     .build_call(puts_fn, &[str_ptr.into()], "puts_bool")?;
 
                 return Ok(compiler.context.i32_type().const_zero().into());
@@ -120,7 +125,9 @@ pub fn compile_io_println<'ctx>(
                     64 => compiler
                         .builder
                         .build_global_string_ptr("%lld\n", "int64_format")?,
-                    _ => compiler.builder.build_global_string_ptr("%d\n", "int_format")?,
+                    _ => compiler
+                        .builder
+                        .build_global_string_ptr("%d\n", "int_format")?,
                 };
 
                 compiler.builder.build_call(
@@ -174,7 +181,8 @@ pub fn compile_io_println<'ctx>(
         compiler.module.add_function("puts", fn_type, None)
     });
 
-    compiler.builder
+    compiler
+        .builder
         .build_call(puts_fn, &[string_ptr.into()], "puts_call")?;
 
     // Return void as unit value
@@ -202,7 +210,9 @@ pub fn compile_io_print_int<'ctx>(
     });
 
     // Create format string for integer
-    let format_str = compiler.builder.build_global_string_ptr("%d\n", "int_format")?;
+    let format_str = compiler
+        .builder
+        .build_global_string_ptr("%d\n", "int_format")?;
 
     // Compile the integer argument
     let arg_value = compiler.compile_expression(&args[0])?;
@@ -315,14 +325,14 @@ pub fn compile_io_eprint<'ctx>(
     let stderr_ptr = compiler.builder.build_load(
         stderr_ptr_type,
         stderr_global.as_pointer_value(),
-        "stderr_ptr"
+        "stderr_ptr",
     )?;
 
     // Call fprintf(stderr, format, ...)
     let _call = compiler.builder.build_call(
         fprintf_fn,
         &[stderr_ptr.into(), arg_value.into()],
-        "fprintf_stderr_call"
+        "fprintf_stderr_call",
     )?;
 
     // Return void as unit value
@@ -379,7 +389,7 @@ pub fn compile_io_eprintln<'ctx>(
     let stderr_ptr = compiler.builder.build_load(
         stderr_ptr_type,
         stderr_global.as_pointer_value(),
-        "stderr_ptr"
+        "stderr_ptr",
     )?;
 
     // Convert to string based on type
@@ -388,8 +398,12 @@ pub fn compile_io_eprintln<'ctx>(
             let bit_width = int_val.get_type().get_bit_width();
             if bit_width == 1 || is_bool_expr {
                 // Boolean value
-                let true_str = compiler.builder.build_global_string_ptr("true\n", "true_str")?;
-                let false_str = compiler.builder.build_global_string_ptr("false\n", "false_str")?;
+                let true_str = compiler
+                    .builder
+                    .build_global_string_ptr("true\n", "true_str")?;
+                let false_str = compiler
+                    .builder
+                    .build_global_string_ptr("false\n", "false_str")?;
 
                 let bool_val = if bit_width != 1 {
                     compiler.builder.build_int_truncate(
@@ -418,13 +432,21 @@ pub fn compile_io_eprintln<'ctx>(
             } else {
                 // Regular integer
                 let format_str = match int_val.get_type().get_bit_width() {
-                    64 => compiler.builder.build_global_string_ptr("%lld\n", "int64_format")?,
-                    _ => compiler.builder.build_global_string_ptr("%d\n", "int_format")?,
+                    64 => compiler
+                        .builder
+                        .build_global_string_ptr("%lld\n", "int64_format")?,
+                    _ => compiler
+                        .builder
+                        .build_global_string_ptr("%d\n", "int_format")?,
                 };
 
                 compiler.builder.build_call(
                     fprintf_fn,
-                    &[stderr_ptr.into(), format_str.as_pointer_value().into(), int_val.into()],
+                    &[
+                        stderr_ptr.into(),
+                        format_str.as_pointer_value().into(),
+                        int_val.into(),
+                    ],
                     "fprintf_int",
                 )?;
 
@@ -432,10 +454,16 @@ pub fn compile_io_eprintln<'ctx>(
             }
         }
         BasicValueEnum::FloatValue(float_val) => {
-            let format_str = compiler.builder.build_global_string_ptr("%f\n", "float_format")?;
+            let format_str = compiler
+                .builder
+                .build_global_string_ptr("%f\n", "float_format")?;
             compiler.builder.build_call(
                 fprintf_fn,
-                &[stderr_ptr.into(), format_str.as_pointer_value().into(), float_val.into()],
+                &[
+                    stderr_ptr.into(),
+                    format_str.as_pointer_value().into(),
+                    float_val.into(),
+                ],
                 "fprintf_float",
             )?;
 
@@ -443,10 +471,16 @@ pub fn compile_io_eprintln<'ctx>(
         }
         BasicValueEnum::PointerValue(ptr_val) => {
             // For strings, append newline and use fprintf
-            let format_str = compiler.builder.build_global_string_ptr("%s\n", "str_format")?;
+            let format_str = compiler
+                .builder
+                .build_global_string_ptr("%s\n", "str_format")?;
             compiler.builder.build_call(
                 fprintf_fn,
-                &[stderr_ptr.into(), format_str.as_pointer_value().into(), ptr_val.into()],
+                &[
+                    stderr_ptr.into(),
+                    format_str.as_pointer_value().into(),
+                    ptr_val.into(),
+                ],
                 "fprintf_str",
             )?;
         }
@@ -480,7 +514,10 @@ pub fn compile_io_read_line<'ctx>(
         let i8_ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
         let i32_type = compiler.context.i32_type();
         let void_ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-        let fn_type = i8_ptr_type.fn_type(&[i8_ptr_type.into(), i32_type.into(), void_ptr_type.into()], false);
+        let fn_type = i8_ptr_type.fn_type(
+            &[i8_ptr_type.into(), i32_type.into(), void_ptr_type.into()],
+            false,
+        );
         compiler.module.add_function("fgets", fn_type, None)
     });
 
@@ -495,7 +532,7 @@ pub fn compile_io_read_line<'ctx>(
     let stdin_ptr = compiler.builder.build_load(
         stdin_ptr_type,
         stdin_global.as_pointer_value(),
-        "stdin_ptr"
+        "stdin_ptr",
     )?;
 
     // Allocate buffer for reading (1024 bytes should be enough)
@@ -507,30 +544,46 @@ pub fn compile_io_read_line<'ctx>(
         compiler.module.add_function("malloc", fn_type, None)
     });
 
-    let buffer = compiler.builder.build_call(
-        malloc_fn,
-        &[compiler.context.i64_type().const_int(buffer_size as u64, false).into()],
-        "read_buffer"
-    )?.try_as_basic_value().left().ok_or_else(|| CompileError::InternalError(
-        "malloc should return a pointer".to_string(),
-        None,
-    ))?;
+    let buffer = compiler
+        .builder
+        .build_call(
+            malloc_fn,
+            &[compiler
+                .context
+                .i64_type()
+                .const_int(buffer_size as u64, false)
+                .into()],
+            "read_buffer",
+        )?
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| {
+            CompileError::InternalError("malloc should return a pointer".to_string(), None)
+        })?;
 
     let buffer_ptr = buffer.into_pointer_value();
 
     // Call fgets(buffer, buffer_size, stdin)
-    let result = compiler.builder.build_call(
-        fgets_fn,
-        &[
-            buffer_ptr.into(),
-            compiler.context.i32_type().const_int(buffer_size as u64, false).into(),
-            stdin_ptr.into()
-        ],
-        "fgets_call"
-    )?.try_as_basic_value().left().ok_or_else(|| CompileError::InternalError(
-        "fgets should return a pointer".to_string(),
-        None,
-    ))?;
+    let result = compiler
+        .builder
+        .build_call(
+            fgets_fn,
+            &[
+                buffer_ptr.into(),
+                compiler
+                    .context
+                    .i32_type()
+                    .const_int(buffer_size as u64, false)
+                    .into(),
+                stdin_ptr.into(),
+            ],
+            "fgets_call",
+        )?
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| {
+            CompileError::InternalError("fgets should return a pointer".to_string(), None)
+        })?;
 
     // For now, return the buffer pointer
     // TODO: Wrap in Result<String, String> as per the signature
@@ -545,7 +598,10 @@ pub fn compile_io_read_input<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     if args.len() != 1 {
         return Err(CompileError::TypeError(
-            format!("io.read_input expects 1 argument (prompt), got {}", args.len()),
+            format!(
+                "io.read_input expects 1 argument (prompt), got {}",
+                args.len()
+            ),
             None,
         ));
     }
@@ -559,13 +615,10 @@ pub fn compile_io_read_input<'ctx>(
     });
 
     let prompt_value = compiler.compile_expression(&args[0])?;
-    compiler.builder.build_call(
-        printf_fn,
-        &[prompt_value.into()],
-        "print_prompt"
-    )?;
+    compiler
+        .builder
+        .build_call(printf_fn, &[prompt_value.into()], "print_prompt")?;
 
     // Then read the line (reuse read_line logic)
     compile_io_read_line(compiler, &[])
 }
-

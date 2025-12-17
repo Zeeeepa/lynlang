@@ -223,10 +223,10 @@ pub fn parse_special_identifier_with_ufc(parser: &mut Parser, name: &str) -> Res
 pub fn parse_generic_type_args_to_string(parser: &mut Parser) -> Result<String> {
     parser.next_token();
     let mut type_args = Vec::new();
-    
+
     loop {
         type_args.push(parser.parse_type()?);
-        
+
         if parser.current_token == Token::Symbol(',') {
             parser.next_token();
         } else if parser.current_token == Token::Operator(">".to_string()) {
@@ -239,8 +239,9 @@ pub fn parse_generic_type_args_to_string(parser: &mut Parser) -> Result<String> 
             ));
         }
     }
-    
-    let type_args_str = type_args.iter()
+
+    let type_args_str = type_args
+        .iter()
         .map(|t| format!("{}", t))
         .collect::<Vec<_>>()
         .join(", ");

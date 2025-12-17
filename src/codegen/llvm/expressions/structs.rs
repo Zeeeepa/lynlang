@@ -24,9 +24,7 @@ pub fn compile_struct_field<'ctx>(
     expr: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     match expr {
-        Expression::StructField { struct_, field } => {
-            compiler.compile_struct_field(struct_, field)
-        }
+        Expression::StructField { struct_, field } => compiler.compile_struct_field(struct_, field),
         _ => Err(CompileError::InternalError(
             format!("Expected StructField, got {:?}", expr),
             None,
@@ -48,4 +46,3 @@ pub fn compile_member_access<'ctx>(
         )),
     }
 }
-

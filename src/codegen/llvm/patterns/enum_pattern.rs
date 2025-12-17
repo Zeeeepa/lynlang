@@ -113,13 +113,8 @@ pub fn compile_enum_variant_pattern<'ctx>(
     // Handle payload pattern if present
     if let Some(payload_pattern) = payload {
         // Extract the payload value - preserve the actual type!
-        let payload_val = extract_enum_payload(
-            compiler,
-            scrutinee_val,
-            &enum_info,
-            enum_name,
-            variant,
-        )?;
+        let payload_val =
+            extract_enum_payload(compiler, scrutinee_val, &enum_info, enum_name, variant)?;
 
         // Recursively match the payload pattern
         let (payload_match, mut payload_bindings) =
@@ -161,29 +156,25 @@ fn extract_enum_payload<'ctx>(
             )?;
 
             // Get the actual payload type from the enum struct
-            let payload_type = enum_struct_type
-                .get_field_type_at_index(1)
-                .ok_or_else(|| {
-                    CompileError::InternalError(
-                        "Enum payload field not found".to_string(),
-                        None,
-                    )
-                })?;
+            let payload_type = enum_struct_type.get_field_type_at_index(1).ok_or_else(|| {
+                CompileError::InternalError("Enum payload field not found".to_string(), None)
+            })?;
 
             // Load the payload pointer
-            let loaded_payload = compiler
-                .builder
-                .build_load(payload_type, payload_gep, "payload")?;
+            let loaded_payload =
+                compiler
+                    .builder
+                    .build_load(payload_type, payload_gep, "payload")?;
 
             // Handle pointer types and nested generics
             // This is a simplified version - full implementation would handle
             // all the complex type tracking seen in the original code
             if payload_type.is_pointer_type() && loaded_payload.is_pointer_value() {
                 let ptr_val = loaded_payload.into_pointer_value();
-                
+
                 // Try to determine payload type from generic context
                 let load_type = get_payload_type_from_context(compiler, enum_name, variant);
-                
+
                 if let Some(ast_type) = load_type {
                     load_payload_by_type(compiler, ptr_val, &ast_type, loaded_payload)
                 } else {
@@ -202,11 +193,11 @@ fn extract_enum_payload<'ctx>(
             let extracted = compiler
                 .builder
                 .build_extract_value(struct_val, 1, "payload")?;
-            
+
             if extracted.is_pointer_value() {
                 let ptr_val = extracted.into_pointer_value();
                 let load_type = get_payload_type_from_context(compiler, enum_name, variant);
-                
+
                 if let Some(ast_type) = load_type {
                     load_payload_by_type(compiler, ptr_val, &ast_type, extracted)
                 } else {
@@ -234,7 +225,12 @@ fn get_payload_type_from_context<'ctx>(
             .generic_type_context
             .get("Nested_Option_Some_Type")
             .cloned()
-            .or_else(|| compiler.generic_type_context.get("Option_Some_Type").cloned())
+            .or_else(|| {
+                compiler
+                    .generic_type_context
+                    .get("Option_Some_Type")
+                    .cloned()
+            })
             .or_else(|| compiler.generic_tracker.get("Option_Some_Type").cloned())
     } else if enum_name == "Result" {
         if variant == "Ok" {
@@ -255,7 +251,12 @@ fn get_payload_type_from_context<'ctx>(
                 .generic_type_context
                 .get("Nested_Result_Err_Type")
                 .cloned()
-                .or_else(|| compiler.generic_type_context.get("Result_Err_Type").cloned())
+                .or_else(|| {
+                    compiler
+                        .generic_type_context
+                        .get("Result_Err_Type")
+                        .cloned()
+                })
                 .or_else(|| compiler.generic_tracker.get("Result_Err_Type").cloned())
         } else {
             None
@@ -273,7 +274,7 @@ fn load_payload_by_type<'ctx>(
     fallback: BasicValueEnum<'ctx>,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     use crate::ast::AstType;
-    
+
     match ast_type {
         AstType::I8 => Ok(compiler
             .builder

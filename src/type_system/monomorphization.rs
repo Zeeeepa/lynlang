@@ -40,7 +40,7 @@ impl Monomorphizer {
         for (func_name, sig) in self.type_checker.get_function_signatures() {
             updated_functions.insert(func_name.clone(), sig.return_type.clone());
         }
-        
+
         for decl in &program.declarations {
             match decl {
                 Declaration::Function(func) => {
@@ -53,7 +53,7 @@ impl Monomorphizer {
                             }
                         }
                     }
-                    
+
                     if !func.type_params.is_empty() {
                         self.env.register_generic_function(updated_func.clone());
                     } else {
@@ -317,9 +317,9 @@ impl Monomorphizer {
                 }
                 Ok(())
             }
-            AstType::Ptr(inner)
-            | AstType::Array(inner)
-            | AstType::Ref(inner) => self.collect_instantiations_from_type(inner),
+            AstType::Ptr(inner) | AstType::Array(inner) | AstType::Ref(inner) => {
+                self.collect_instantiations_from_type(inner)
+            }
             // Option and Result are now Generic types - handled in Generic match above
             AstType::Function { args, return_type } => {
                 for arg in args {
@@ -378,9 +378,9 @@ impl Monomorphizer {
     fn type_uses_parameter(&self, ast_type: &AstType, param_name: &str) -> bool {
         match ast_type {
             AstType::Generic { name, .. } if name == param_name => true,
-            AstType::Ptr(inner)
-            | AstType::Array(inner)
-            | AstType::Ref(inner) => self.type_uses_parameter(inner, param_name),
+            AstType::Ptr(inner) | AstType::Array(inner) | AstType::Ref(inner) => {
+                self.type_uses_parameter(inner, param_name)
+            }
             // Option and Result are now Generic types - handled in Generic match above
             AstType::Vec { element_type, .. } => self.type_uses_parameter(element_type, param_name),
             AstType::DynVec { element_types, .. } => element_types
@@ -449,10 +449,12 @@ impl Monomorphizer {
         stmt: crate::ast::Statement,
     ) -> Result<crate::ast::Statement, String> {
         match stmt {
-            crate::ast::Statement::Expression { expr, span } => Ok(crate::ast::Statement::Expression {
-                expr: self.transform_expression(expr)?,
-                span,
-            }),
+            crate::ast::Statement::Expression { expr, span } => {
+                Ok(crate::ast::Statement::Expression {
+                    expr: self.transform_expression(expr)?,
+                    span,
+                })
+            }
             crate::ast::Statement::Return { expr, span } => Ok(crate::ast::Statement::Return {
                 expr: self.transform_expression(expr)?,
                 span,

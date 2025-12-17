@@ -10,7 +10,7 @@ impl<'a> Parser<'a> {
     /// Parse an @export declaration
     pub fn parse_export(&mut self) -> Result<Declaration> {
         self.next_token();
-        
+
         // Check for @export * (export all public symbols)
         if self.current_token == Token::Operator("*".to_string()) {
             self.next_token();
@@ -18,7 +18,7 @@ impl<'a> Parser<'a> {
                 symbols: vec!["*".to_string()], // Special marker for "export all"
             });
         }
-        
+
         if self.current_token != Token::Symbol('{') {
             return Err(CompileError::SyntaxError(
                 "Expected '{' or '*' after @export".to_string(),
@@ -26,15 +26,15 @@ impl<'a> Parser<'a> {
             ));
         }
         self.next_token();
-        
+
         let mut exported_symbols = vec![];
-        
+
         // Parse exported symbol names
         while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
             if let Token::Identifier(name) = &self.current_token {
                 exported_symbols.push(name.clone());
                 self.next_token();
-                
+
                 if self.current_token == Token::Symbol(',') {
                     self.next_token();
                 } else if self.current_token != Token::Symbol('}') {
@@ -50,7 +50,7 @@ impl<'a> Parser<'a> {
                 ));
             }
         }
-        
+
         if self.current_token != Token::Symbol('}') {
             return Err(CompileError::SyntaxError(
                 "Expected '}' to close @export".to_string(),
@@ -58,7 +58,7 @@ impl<'a> Parser<'a> {
             ));
         }
         self.next_token();
-        
+
         Ok(Declaration::Export {
             symbols: exported_symbols,
         })
@@ -199,25 +199,22 @@ impl<'a> Parser<'a> {
         if self.current_token == Token::AtStd {
             return true;
         }
-        
+
         if let Token::Identifier(id) = &self.current_token {
             if id.starts_with("@std") {
                 return true;
             }
             if id == "build" {
-               
                 let saved_state = self.lexer.save_state();
                 let saved_current = self.current_token.clone();
                 let saved_peek = self.peek_token.clone();
 
                 self.next_token();
-                let is_import = self.current_token == Token::Symbol('.')
-                    && {
-                        self.next_token();
-                        matches!(&self.current_token, Token::Identifier(name) if name == "import")
-                    };
+                let is_import = self.current_token == Token::Symbol('.') && {
+                    self.next_token();
+                    matches!(&self.current_token, Token::Identifier(name) if name == "import")
+                };
 
-               
                 self.lexer.restore_state(saved_state);
                 self.current_token = saved_current;
                 self.peek_token = saved_peek;
@@ -233,7 +230,6 @@ impl<'a> Parser<'a> {
     pub fn parse_module_import_after_colon_assign(&mut self, alias: String) -> Result<Declaration> {
         if let Token::Identifier(id) = &self.current_token {
             if id == "build" {
-               
                 self.next_token();
                 if self.current_token != Token::Symbol('.') {
                     return Err(CompileError::SyntaxError(
@@ -282,11 +278,9 @@ impl<'a> Parser<'a> {
                     module_path: format!("std.{}", module_name),
                 })
             } else {
-               
                 let module_path = id.clone();
                 self.next_token();
 
-               
                 let full_path = if self.current_token == Token::Symbol('.') {
                     let mut path = module_path;
                     while self.current_token == Token::Symbol('.') {
@@ -362,7 +356,6 @@ impl<'a> Parser<'a> {
 
         let value = self.parse_expression()?;
 
-       
         if self.current_token == Token::Symbol(';') {
             self.next_token();
         }
@@ -387,7 +380,6 @@ impl<'a> Parser<'a> {
         };
         self.next_token();
 
-       
         if self.current_token == Token::Operator("<".to_string()) {
             type_name.push('<');
             self.next_token();
@@ -428,7 +420,11 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse method definition: Type.method = (params) ReturnType { ... }
-    pub fn parse_method_definition(&mut self, type_name: String, method_name: String) -> Result<Declaration> {
+    pub fn parse_method_definition(
+        &mut self,
+        type_name: String,
+        method_name: String,
+    ) -> Result<Declaration> {
         let full_function_name = format!("{}.{}", type_name, method_name);
         let mut func = self.parse_function()?;
         func.name = full_function_name;
@@ -472,9 +468,10 @@ impl<'a> Parser<'a> {
         if self.current_token == Token::Symbol('(') {
             return DeclarationKind::Function;
         }
-       
-        if matches!(&self.current_token, Token::Identifier(_)) 
-            || matches!(&self.current_token, Token::Symbol('.')) {
+
+        if matches!(&self.current_token, Token::Identifier(_))
+            || matches!(&self.current_token, Token::Symbol('.'))
+        {
             return DeclarationKind::Enum;
         }
         DeclarationKind::Unknown
@@ -488,7 +485,6 @@ impl<'a> Parser<'a> {
 
         self.next_token();
 
-       
         let looks_like_trait = if let Token::Identifier(_) = &self.current_token {
             self.next_token();
             self.current_token == Token::Symbol(':') && {
@@ -499,7 +495,6 @@ impl<'a> Parser<'a> {
             false
         };
 
-       
         self.lexer.restore_state(saved_state);
         self.current_token = saved_current;
         self.peek_token = saved_peek;
@@ -517,4 +512,3 @@ pub enum DeclarationKind {
     Enum,
     Unknown,
 }
-

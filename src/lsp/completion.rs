@@ -7,17 +7,20 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 // Import from other LSP modules
-use super::types::{SymbolInfo, ZenCompletionContext};
 use super::document_store::DocumentStore;
-use super::utils::{symbol_kind_to_completion_kind, format_type};
 use super::stdlib_resolver::StdlibResolver;
+use super::types::{SymbolInfo, ZenCompletionContext};
+use super::utils::{format_type, symbol_kind_to_completion_kind};
 
 // ============================================================================
 // PUBLIC COMPLETION HANDLER
 // ============================================================================
 
 /// Main completion request handler
-pub fn handle_completion(req: Request, store: &std::sync::Arc<std::sync::Mutex<DocumentStore>>) -> Response {
+pub fn handle_completion(
+    req: Request,
+    store: &std::sync::Arc<std::sync::Mutex<DocumentStore>>,
+) -> Response {
     let store_guard = match store.lock() {
         Ok(guard) => guard,
         Err(_) => {
@@ -43,7 +46,10 @@ pub fn handle_completion(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
     };
 
     // Check if we're completing after a dot (UFC method call)
-    if let Some(doc) = store.documents.get(&params.text_document_position.text_document.uri) {
+    if let Some(doc) = store
+        .documents
+        .get(&params.text_document_position.text_document.uri)
+    {
         let position = params.text_document_position.position;
 
         if let Some(context) = get_completion_context(&doc.content, position, store) {
@@ -51,10 +57,16 @@ pub fn handle_completion(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
                 ZenCompletionContext::UfcMethod { receiver_type } => {
                     // Provide struct field completions first (most relevant)
                     let mut completions = get_struct_field_completions(&receiver_type, store);
-                    
+
                     // Only add UFC methods if we didn't find struct fields (to avoid stdlib clutter)
                     // Or if receiver_type is not a struct name (starts with uppercase)
-                    if completions.is_empty() || !receiver_type.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                    if completions.is_empty()
+                        || !receiver_type
+                            .chars()
+                            .next()
+                            .map(|c| c.is_uppercase())
+                            .unwrap_or(false)
+                    {
                         completions.extend(get_ufc_method_completions(&receiver_type, store));
                     }
 
@@ -97,7 +109,9 @@ pub fn handle_completion(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
             label: "loop".to_string(),
             kind: Some(CompletionItemKind::KEYWORD),
             detail: Some("loop() { ... }".to_string()),
-            documentation: Some(Documentation::String("Infinite loop with break statement".to_string())),
+            documentation: Some(Documentation::String(
+                "Infinite loop with break statement".to_string(),
+            )),
             ..Default::default()
         },
         CompletionItem {
@@ -118,7 +132,9 @@ pub fn handle_completion(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
             label: "continue".to_string(),
             kind: Some(CompletionItemKind::KEYWORD),
             detail: Some("continue".to_string()),
-            documentation: Some(Documentation::String("Continue to next iteration".to_string())),
+            documentation: Some(Documentation::String(
+                "Continue to next iteration".to_string(),
+            )),
             ..Default::default()
         },
         // Common types
@@ -133,28 +149,36 @@ pub fn handle_completion(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
             label: "Result".to_string(),
             kind: Some(CompletionItemKind::ENUM),
             detail: Some("Result<T, E>".to_string()),
-            documentation: Some(Documentation::String("Result type for error handling".to_string())),
+            documentation: Some(Documentation::String(
+                "Result type for error handling".to_string(),
+            )),
             ..Default::default()
         },
         CompletionItem {
             label: "Some".to_string(),
             kind: Some(CompletionItemKind::ENUM_MEMBER),
             detail: Some("Some(value)".to_string()),
-            documentation: Some(Documentation::String("Option variant with value".to_string())),
+            documentation: Some(Documentation::String(
+                "Option variant with value".to_string(),
+            )),
             ..Default::default()
         },
         CompletionItem {
             label: "None".to_string(),
             kind: Some(CompletionItemKind::ENUM_MEMBER),
             detail: Some("None".to_string()),
-            documentation: Some(Documentation::String("Option variant without value".to_string())),
+            documentation: Some(Documentation::String(
+                "Option variant without value".to_string(),
+            )),
             ..Default::default()
         },
         CompletionItem {
             label: "Ok".to_string(),
             kind: Some(CompletionItemKind::ENUM_MEMBER),
             detail: Some("Ok(value)".to_string()),
-            documentation: Some(Documentation::String("Success variant of Result".to_string())),
+            documentation: Some(Documentation::String(
+                "Success variant of Result".to_string(),
+            )),
             ..Default::default()
         },
         CompletionItem {
@@ -169,21 +193,27 @@ pub fn handle_completion(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
             label: "Vec".to_string(),
             kind: Some(CompletionItemKind::STRUCT),
             detail: Some("Vec<T, size>".to_string()),
-            documentation: Some(Documentation::String("Fixed-size vector (stack allocated)".to_string())),
+            documentation: Some(Documentation::String(
+                "Fixed-size vector (stack allocated)".to_string(),
+            )),
             ..Default::default()
         },
         CompletionItem {
             label: "DynVec".to_string(),
             kind: Some(CompletionItemKind::STRUCT),
             detail: Some("DynVec<T>".to_string()),
-            documentation: Some(Documentation::String("Dynamic vector (requires allocator)".to_string())),
+            documentation: Some(Documentation::String(
+                "Dynamic vector (requires allocator)".to_string(),
+            )),
             ..Default::default()
         },
         CompletionItem {
             label: "HashMap".to_string(),
             kind: Some(CompletionItemKind::STRUCT),
             detail: Some("HashMap<K, V>".to_string()),
-            documentation: Some(Documentation::String("Hash map (requires allocator)".to_string())),
+            documentation: Some(Documentation::String(
+                "Hash map (requires allocator)".to_string(),
+            )),
             ..Default::default()
         },
         // Module imports
@@ -191,31 +221,56 @@ pub fn handle_completion(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
             label: "@std".to_string(),
             kind: Some(CompletionItemKind::MODULE),
             detail: Some("Standard library".to_string()),
-            documentation: Some(Documentation::String("Import standard library modules".to_string())),
+            documentation: Some(Documentation::String(
+                "Import standard library modules".to_string(),
+            )),
             ..Default::default()
         },
         CompletionItem {
             label: "@this".to_string(),
             kind: Some(CompletionItemKind::KEYWORD),
             detail: Some("Current module reference".to_string()),
-            documentation: Some(Documentation::String("Reference to current module".to_string())),
+            documentation: Some(Documentation::String(
+                "Reference to current module".to_string(),
+            )),
             ..Default::default()
         },
     ];
 
     // Add primitive types (including StaticString - always available)
-    for ty in ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "usize", "f32", "f64", "bool", "StaticString", "void"] {
+    for ty in [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "usize",
+        "f32",
+        "f64",
+        "bool",
+        "StaticString",
+        "void",
+    ] {
         completions.push(CompletionItem {
             label: ty.to_string(),
             kind: Some(CompletionItemKind::KEYWORD),
             detail: Some(format!("{} - Built-in primitive type", ty)),
-            documentation: Some(Documentation::String(format!("Built-in primitive type `{}`. Always available, no import needed.", ty))),
+            documentation: Some(Documentation::String(format!(
+                "Built-in primitive type `{}`. Always available, no import needed.",
+                ty
+            ))),
             ..Default::default()
         });
     }
 
     // Add document symbols (functions, structs, enums defined in current file)
-    if let Some(doc) = store.documents.get(&params.text_document_position.text_document.uri) {
+    if let Some(doc) = store
+        .documents
+        .get(&params.text_document_position.text_document.uri)
+    {
         for (name, symbol) in &doc.symbols {
             completions.push(CompletionItem {
                 label: name.clone(),
@@ -274,7 +329,11 @@ pub fn handle_completion(req: Request, store: &std::sync::Arc<std::sync::Mutex<D
 // CONTEXT DETECTION
 // ============================================================================
 
-fn get_completion_context(content: &str, position: Position, store: &DocumentStore) -> Option<ZenCompletionContext> {
+fn get_completion_context(
+    content: &str,
+    position: Position,
+    store: &DocumentStore,
+) -> Option<ZenCompletionContext> {
     let lines: Vec<&str> = content.lines().collect();
     if position.line as usize >= lines.len() {
         return Some(ZenCompletionContext::General);
@@ -331,12 +390,10 @@ fn get_completion_context(content: &str, position: Position, store: &DocumentSto
         let receiver = receiver.trim();
 
         // Try to infer the receiver type
-        let receiver_type = infer_receiver_type(receiver, store)
-            .unwrap_or_else(|| "unknown".to_string());
+        let receiver_type =
+            infer_receiver_type(receiver, store).unwrap_or_else(|| "unknown".to_string());
 
-        return Some(ZenCompletionContext::UfcMethod {
-            receiver_type,
-        });
+        return Some(ZenCompletionContext::UfcMethod { receiver_type });
     }
 
     Some(ZenCompletionContext::General)
@@ -397,7 +454,7 @@ pub fn infer_variable_type(
     var_name: &str,
     local_symbols: &HashMap<String, SymbolInfo>,
     stdlib_symbols: &HashMap<String, SymbolInfo>,
-    workspace_symbols: &HashMap<String, SymbolInfo>
+    workspace_symbols: &HashMap<String, SymbolInfo>,
 ) -> Option<String> {
     // Look for variable assignment: var_name = function_call() or var_name: Type = ...
     let lines: Vec<&str> = content.lines().collect();
@@ -414,7 +471,10 @@ pub fn infer_variable_type(
                         // Extract type between : and =
                         let type_str = line[colon_pos + 1..eq_pos].trim();
                         if !type_str.is_empty() {
-                            return Some(format!("```zen\n{}: {}\n```\n\n**Type:** `{}`", var_name, type_str, type_str));
+                            return Some(format!(
+                                "```zen\n{}: {}\n```\n\n**Type:** `{}`",
+                                var_name, type_str, type_str
+                            ));
                         }
                     }
                 }
@@ -429,10 +489,11 @@ pub fn infer_variable_type(
                     let func_name = rhs[..paren_pos].trim();
 
                     // Look up function in symbols
-                    if let Some(func_info) = local_symbols.get(func_name)
+                    if let Some(func_info) = local_symbols
+                        .get(func_name)
                         .or_else(|| stdlib_symbols.get(func_name))
-                        .or_else(|| workspace_symbols.get(func_name)) {
-
+                        .or_else(|| workspace_symbols.get(func_name))
+                    {
                         if let Some(type_info) = &func_info.type_info {
                             let type_str = format_type(type_info);
                             return Some(format!(
@@ -510,7 +571,10 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
     }
 
     // Check for numeric literals
-    if receiver.chars().all(|c| c.is_numeric() || c == '.' || c == '-') {
+    if receiver
+        .chars()
+        .all(|c| c.is_numeric() || c == '.' || c == '-')
+    {
         if receiver.contains('.') {
             return Some("f64".to_string());
         } else {
@@ -520,14 +584,14 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
 
     // Check if receiver is a known variable in symbols (limit search)
     const MAX_DOCS_FOR_TYPE_INFERENCE: usize = 20;
-    
+
     // First check workspace symbols (faster lookup)
     if let Some(symbol) = store.workspace_symbols.get(receiver) {
         if let Some(type_info) = &symbol.type_info {
             return Some(format_type(type_info));
         }
     }
-    
+
     // Then check document symbols
     for doc in store.documents.values().take(MAX_DOCS_FOR_TYPE_INFERENCE) {
         if let Some(symbol) = doc.symbols.get(receiver) {
@@ -540,14 +604,20 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
                 if let Some(colon_pos) = detail.find(':') {
                     let type_part = detail[colon_pos + 1..].trim();
                     // Extract type name (stop at space, comma, or end)
-                    let type_end = type_part.find(' ')
+                    let type_end = type_part
+                        .find(' ')
                         .or_else(|| type_part.find(','))
                         .or_else(|| type_part.find('='))
                         .unwrap_or(type_part.len());
                     let type_name = type_part[..type_end].trim();
                     if !type_name.is_empty() {
                         // Check if it's a struct name (starts with uppercase)
-                        if type_name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                        if type_name
+                            .chars()
+                            .next()
+                            .map(|c| c.is_uppercase())
+                            .unwrap_or(false)
+                        {
                             return Some(type_name.to_string());
                         }
                     }
@@ -563,13 +633,24 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
                     }
                 }
                 // Check for collection types with generics - use simple string matching instead of regex
-                for type_name in ["HashMap<", "DynVec<", "Vec<", "Array<", "Option<", "Result<"] {
+                for type_name in [
+                    "HashMap<", "DynVec<", "Vec<", "Array<", "Option<", "Result<",
+                ] {
                     if detail.contains(type_name) {
                         return Some(type_name.trim_end_matches('<').to_string());
                     }
                 }
                 // Fallback to simple contains checks
-                for type_name in ["HashMap", "DynVec", "Vec", "Array", "Option", "Result", "String", "StaticString"] {
+                for type_name in [
+                    "HashMap",
+                    "DynVec",
+                    "Vec",
+                    "Array",
+                    "Option",
+                    "Result",
+                    "String",
+                    "StaticString",
+                ] {
                     if detail.contains(type_name) {
                         return Some(type_name.to_string());
                     }
@@ -610,7 +691,8 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
     if receiver_trim.starts_with("get_default_allocator()") {
         return Some("Allocator".to_string());
     }
-    if receiver_trim.starts_with('[') && receiver_trim.contains(';') && receiver_trim.ends_with(']') {
+    if receiver_trim.starts_with('[') && receiver_trim.contains(';') && receiver_trim.ends_with(']')
+    {
         return Some("Array".to_string());
     }
 
@@ -733,8 +815,8 @@ fn get_method_return_type(receiver_type: &str, method_name: &str) -> Option<Stri
     // Comprehensive method return type mapping
     match receiver_type {
         "String" | "StaticString" | "str" => match method_name {
-            "to_string" | "to_upper" | "to_lower" | "trim" | "concat" |
-            "replace" | "substr" | "reverse" | "repeat" => Some("String".to_string()),
+            "to_string" | "to_upper" | "to_lower" | "trim" | "concat" | "replace" | "substr"
+            | "reverse" | "repeat" => Some("String".to_string()),
             "to_i32" | "to_i64" | "to_f64" => Some("Option".to_string()),
             "split" => Some("Array".to_string()),
             "len" | "index_of" => Some("i32".to_string()),
@@ -787,7 +869,11 @@ fn get_method_return_type(receiver_type: &str, method_name: &str) -> Option<Stri
     }
 }
 
-pub fn find_stdlib_location(stdlib_path: &str, method_name: &str, store: &DocumentStore) -> Option<Location> {
+pub fn find_stdlib_location(
+    stdlib_path: &str,
+    method_name: &str,
+    store: &DocumentStore,
+) -> Option<Location> {
     // Try to find the method in the stdlib file
     // First check if we have the stdlib file open
     for (uri, doc) in &store.documents {
@@ -813,94 +899,108 @@ pub fn find_stdlib_location(stdlib_path: &str, method_name: &str, store: &Docume
 
 fn get_module_path_completions(base: &str, store: &DocumentStore) -> Vec<CompletionItem> {
     let mut completions = Vec::new();
-    
+
     if base == "@std" {
         // Get actual modules from stdlib resolver (dynamic based on file structure)
         let available_modules = store.stdlib_resolver.list_modules();
-        
+
         for module_name in available_modules {
             completions.push(CompletionItem {
                 label: format!("{}.{}", base, module_name),
                 kind: Some(CompletionItemKind::MODULE),
                 detail: Some(format!("Import from {} module", module_name)),
-                documentation: Some(Documentation::String(format!("Standard library module: {}", module_name))),
+                documentation: Some(Documentation::String(format!(
+                    "Standard library module: {}",
+                    module_name
+                ))),
                 ..Default::default()
             });
         }
-        
+
         // Fallback to hardcoded list if resolver found nothing (for backwards compatibility)
         if completions.is_empty() {
             // Provide comprehensive stdlib module completions
             // Organized by category for better UX
             let modules = vec![
-            // Core modules
-            ("io", "IO module - console I/O operations (println, read, etc.)"),
-            ("types", "Types module - StaticString and other type definitions"),
-            ("core", "Core module - Option, Result, and fundamental types"),
-            
-            // Data structures
-            ("collections", "Collections module - HashMap, List, Queue, Set, Stack"),
-            
-            // System & utilities
-            ("fs", "File system module - file operations"),
-            ("net", "Network module - networking functionality"),
-            ("sys", "System module - system-level operations"),
-            ("process", "Process module - process management"),
-            ("env", "Environment module - environment variables"),
-            ("path", "Path module - path manipulation"),
-            
-            // Math & algorithms
-            ("math", "Math module - mathematical functions"),
-            ("algorithm", "Algorithm module - common algorithms"),
-            ("random", "Random module - random number generation"),
-            
-            // Text & encoding
-            ("string", "String module - string operations"),
-            ("text", "Text module - text processing utilities"),
-            ("regex", "Regex module - regular expressions"),
-            ("encoding", "Encoding module - encoding/decoding"),
-            
-            // Data formats
-            ("json", "JSON module - JSON parsing and generation"),
-            ("url", "URL module - URL parsing and manipulation"),
-            
-            // Time & date
-            ("time", "Time module - time operations"),
-            ("datetime", "DateTime module - date and time handling"),
-            
-            // Concurrency & memory
-            ("memory_unified", "Memory module - unified memory management"),
-            ("memory_virtual", "Memory module - virtual memory"),
-            ("allocator_async", "Async allocator module"),
-            ("concurrent_unified", "Concurrency module - unified concurrency primitives"),
-            
-            // Testing & development
-            ("testing", "Testing module - test framework"),
-            ("assert", "Assert module - assertion utilities"),
-            ("log", "Log module - logging functionality"),
-            
-            // Build & meta
-            ("build", "Build module - build system"),
-            ("build_enhanced", "Enhanced build module"),
-            ("package", "Package module - package management"),
-            ("meta", "Meta module - metaprogramming"),
-            
-            // Other
-            ("error", "Error module - error handling"),
-            ("iterator", "Iterator module - iterator utilities"),
-            ("behaviors", "Behaviors module - behavioral patterns"),
-            ("crypto", "Crypto module - cryptographic functions"),
-            ("http", "HTTP module - HTTP client/server"),
-            ("ffi", "FFI module - foreign function interface"),
-            ("utils", "Utils module - utility functions"),
+                // Core modules
+                (
+                    "io",
+                    "IO module - console I/O operations (println, read, etc.)",
+                ),
+                (
+                    "types",
+                    "Types module - StaticString and other type definitions",
+                ),
+                (
+                    "core",
+                    "Core module - Option, Result, and fundamental types",
+                ),
+                // Data structures
+                (
+                    "collections",
+                    "Collections module - HashMap, List, Queue, Set, Stack",
+                ),
+                // System & utilities
+                ("fs", "File system module - file operations"),
+                ("net", "Network module - networking functionality"),
+                ("sys", "System module - system-level operations"),
+                ("process", "Process module - process management"),
+                ("env", "Environment module - environment variables"),
+                ("path", "Path module - path manipulation"),
+                // Math & algorithms
+                ("math", "Math module - mathematical functions"),
+                ("algorithm", "Algorithm module - common algorithms"),
+                ("random", "Random module - random number generation"),
+                // Text & encoding
+                ("string", "String module - string operations"),
+                ("text", "Text module - text processing utilities"),
+                ("regex", "Regex module - regular expressions"),
+                ("encoding", "Encoding module - encoding/decoding"),
+                // Data formats
+                ("json", "JSON module - JSON parsing and generation"),
+                ("url", "URL module - URL parsing and manipulation"),
+                // Time & date
+                ("time", "Time module - time operations"),
+                ("datetime", "DateTime module - date and time handling"),
+                // Concurrency & memory
+                (
+                    "memory_unified",
+                    "Memory module - unified memory management",
+                ),
+                ("memory_virtual", "Memory module - virtual memory"),
+                ("allocator_async", "Async allocator module"),
+                (
+                    "concurrent_unified",
+                    "Concurrency module - unified concurrency primitives",
+                ),
+                // Testing & development
+                ("testing", "Testing module - test framework"),
+                ("assert", "Assert module - assertion utilities"),
+                ("log", "Log module - logging functionality"),
+                // Build & meta
+                ("build", "Build module - build system"),
+                ("build_enhanced", "Enhanced build module"),
+                ("package", "Package module - package management"),
+                ("meta", "Meta module - metaprogramming"),
+                // Other
+                ("error", "Error module - error handling"),
+                ("iterator", "Iterator module - iterator utilities"),
+                ("behaviors", "Behaviors module - behavioral patterns"),
+                ("crypto", "Crypto module - cryptographic functions"),
+                ("http", "HTTP module - HTTP client/server"),
+                ("ffi", "FFI module - foreign function interface"),
+                ("utils", "Utils module - utility functions"),
             ];
-            
+
             for (name, desc) in modules {
                 completions.push(CompletionItem {
                     label: format!("{}.{}", base, name),
                     kind: Some(CompletionItemKind::MODULE),
                     detail: Some(desc.to_string()),
-                    documentation: Some(Documentation::String(format!("Import from {} module", name))),
+                    documentation: Some(Documentation::String(format!(
+                        "Import from {} module",
+                        name
+                    ))),
                     ..Default::default()
                 });
             }
@@ -909,18 +1009,21 @@ fn get_module_path_completions(base: &str, store: &DocumentStore) -> Vec<Complet
         // Handle nested paths like @std.collections -> show hashmap, list, etc.
         let submodule = base.strip_prefix("@std.").unwrap_or("");
         let _submodule_path = format!("@std.{}", submodule);
-        
-        // Try to resolve the submodule to see what's inside  
+
+        // Try to resolve the submodule to see what's inside
         // Note: resolve_module_path returns the file path, but we need the directory
         // For now, construct the directory path manually
-        let submodule_dir = store.stdlib_resolver.stdlib_root.join(submodule.replace('.', "/"));
+        let submodule_dir = store
+            .stdlib_resolver
+            .stdlib_root
+            .join(submodule.replace('.', "/"));
         if submodule_dir.exists() && submodule_dir.is_dir() {
             let dir_path = &submodule_dir;
             if dir_path.is_dir() {
                 // Scan directory for available modules/files
                 let mut submodules = Vec::new();
                 StdlibResolver::scan_directory(&dir_path, &mut submodules, submodule);
-                
+
                 for submod in submodules {
                     completions.push(CompletionItem {
                         label: format!("{}.{}", base, submod),
@@ -933,7 +1036,7 @@ fn get_module_path_completions(base: &str, store: &DocumentStore) -> Vec<Complet
             }
         }
     }
-    
+
     completions
 }
 
@@ -943,10 +1046,14 @@ fn get_module_path_completions(base: &str, store: &DocumentStore) -> Vec<Complet
 
 fn get_struct_field_completions(receiver_type: &str, store: &DocumentStore) -> Vec<CompletionItem> {
     let mut items = Vec::new();
-    
+
     // Extract struct name from type string (handle cases like "Person", "Person<...>", etc.)
-    let struct_name = receiver_type.split('<').next().unwrap_or(receiver_type).trim();
-    
+    let struct_name = receiver_type
+        .split('<')
+        .next()
+        .unwrap_or(receiver_type)
+        .trim();
+
     // Find struct definition in documents
     use super::hover::find_struct_definition_in_documents;
     if let Some(struct_def) = find_struct_definition_in_documents(struct_name, &store.documents) {
@@ -956,12 +1063,15 @@ fn get_struct_field_completions(receiver_type: &str, store: &DocumentStore) -> V
                 label: field.name.clone(),
                 kind: Some(CompletionItemKind::FIELD),
                 detail: Some(format!("{}: {}", field.name, format_type(&field.type_))),
-                documentation: Some(Documentation::String(format!("Field of `{}` struct", struct_name))),
+                documentation: Some(Documentation::String(format!(
+                    "Field of `{}` struct",
+                    struct_name
+                ))),
                 ..Default::default()
             });
         }
     }
-    
+
     items
 }
 
@@ -977,7 +1087,8 @@ fn get_ufc_method_completions(receiver_type: &str, store: &DocumentStore) -> Vec
         let mut item = CompletionItem::default();
         item.label = sig.name.clone();
         item.kind = Some(CompletionItemKind::METHOD);
-        item.detail = Some(format!("({}) -> {}",
+        item.detail = Some(format!(
+            "({}) -> {}",
             sig.params
                 .iter()
                 .map(|(n, t)| format!("{}: {}", n, super::utils::format_type(t)))

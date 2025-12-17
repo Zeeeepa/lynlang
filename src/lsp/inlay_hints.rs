@@ -28,7 +28,19 @@ pub fn handle_inlay_hints(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Re
         }
     };
 
-    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(Vec::<InlayHint>::new()).unwrap_or(serde_json::Value::Null)), error: None }; } };
+    let store = match store.lock() {
+        Ok(s) => s,
+        Err(_) => {
+            return Response {
+                id: req.id,
+                result: Some(
+                    serde_json::to_value(Vec::<InlayHint>::new())
+                        .unwrap_or(serde_json::Value::Null),
+                ),
+                error: None,
+            };
+        }
+    };
     let doc = match store.documents.get(&params.text_document.uri) {
         Some(d) => d,
         None => {
@@ -67,11 +79,16 @@ fn collect_hints_from_statements(
     content: &str,
     doc: &Document,
     store: &DocumentStore,
-    hints: &mut Vec<InlayHint>
+    hints: &mut Vec<InlayHint>,
 ) {
     for stmt in statements {
         match stmt {
-            Statement::VariableDeclaration { name, type_, initializer, .. } => {
+            Statement::VariableDeclaration {
+                name,
+                type_,
+                initializer,
+                ..
+            } => {
                 // Only add hints for variables without explicit type annotations
                 if type_.is_none() {
                     if let Some(init) = initializer {
@@ -134,10 +151,11 @@ fn find_variable_position(content: &str, var_name: &str) -> Option<Position> {
                 let after_name = &line[name_pos + var_name.len()..].trim_start();
 
                 // Check for Zen assignment patterns
-                if after_name.starts_with("=") ||
-                   after_name.starts_with(":=") ||
-                   after_name.starts_with("::=") ||
-                   after_name.starts_with(":") {
+                if after_name.starts_with("=")
+                    || after_name.starts_with(":=")
+                    || after_name.starts_with("::=")
+                    || after_name.starts_with(":")
+                {
                     // Position after the variable name (where type hint should go)
                     let char_pos = name_pos + var_name.len();
                     return Some(Position {
@@ -152,7 +170,11 @@ fn find_variable_position(content: &str, var_name: &str) -> Option<Position> {
     None
 }
 
-fn infer_expression_type(expr: &Expression, doc: &Document, store: &DocumentStore) -> Option<String> {
+fn infer_expression_type(
+    expr: &Expression,
+    doc: &Document,
+    store: &DocumentStore,
+) -> Option<String> {
     match expr {
         Expression::Integer32(_) => Some("i32".to_string()),
         Expression::Integer64(_) => Some("i64".to_string()),
@@ -238,7 +260,7 @@ fn collect_param_hints_from_expression(
     content: &str,
     doc: &Document,
     store: &DocumentStore,
-    hints: &mut Vec<InlayHint>
+    hints: &mut Vec<InlayHint>,
 ) {
     match expr {
         Expression::FunctionCall { name, args } => {
@@ -291,7 +313,11 @@ fn collect_param_hints_from_expression(
     }
 }
 
-fn get_function_param_names(func_name: &str, doc: &Document, store: &DocumentStore) -> Option<Vec<String>> {
+fn get_function_param_names(
+    func_name: &str,
+    doc: &Document,
+    store: &DocumentStore,
+) -> Option<Vec<String>> {
     // First, try to find function in the document's AST
     if let Some(ast) = &doc.ast {
         for decl in ast {
@@ -346,7 +372,11 @@ fn extract_param_names_from_signature(signature: &str) -> Option<Vec<String>> {
     Some(param_names)
 }
 
-fn find_function_arg_position(content: &str, func_name: &str, arg_index: usize) -> Option<Position> {
+fn find_function_arg_position(
+    content: &str,
+    func_name: &str,
+    arg_index: usize,
+) -> Option<Position> {
     // Optimized: iterate lines directly without collecting
     for (line_num, line) in content.lines().enumerate() {
         // Look for function call pattern: "func_name("
@@ -355,7 +385,9 @@ fn find_function_arg_position(content: &str, func_name: &str, arg_index: usize) 
             let after_func = &line[func_pos + func_name.len()..].trim_start();
             if after_func.starts_with('(') {
                 // Find the opening paren position
-                let paren_pos = func_pos + func_name.len() + (line[func_pos + func_name.len()..].find('(').unwrap_or(0));
+                let paren_pos = func_pos
+                    + func_name.len()
+                    + (line[func_pos + func_name.len()..].find('(').unwrap_or(0));
 
                 // Find the nth argument by counting commas - optimized: use byte indexing
                 let mut current_arg = 0;
@@ -410,4 +442,3 @@ fn find_function_arg_position(content: &str, func_name: &str, arg_index: usize) 
 
     None
 }
-

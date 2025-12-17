@@ -17,10 +17,13 @@ pub fn resolve_string_struct_type() -> AstType {
             ("data".to_string(), AstType::Ptr(Box::new(AstType::U8))),
             ("len".to_string(), AstType::U64),
             ("capacity".to_string(), AstType::U64),
-            ("allocator".to_string(), AstType::Generic {
-                name: "Allocator".to_string(),
-                type_args: vec![],
-            }),
+            (
+                "allocator".to_string(),
+                AstType::Generic {
+                    name: "Allocator".to_string(),
+                    type_args: vec![],
+                },
+            ),
         ],
     }
 }
@@ -168,7 +171,10 @@ impl fmt::Display for AstType {
                 }
                 write!(f, ") {}", return_type)
             }
-            AstType::FunctionPointer { param_types, return_type } => {
+            AstType::FunctionPointer {
+                param_types,
+                return_type,
+            } => {
                 write!(f, "fn(")?;
                 for (i, param) in param_types.iter().enumerate() {
                     if i > 0 {
@@ -182,7 +188,11 @@ impl fmt::Display for AstType {
             AstType::Enum { name, .. } => write!(f, "{}", name),
             AstType::Ref(inner) => write!(f, "Ref<{}>", inner),
             // Option and Result are now Generic types - handled above
-            AstType::Range { start_type, inclusive, .. } => {
+            AstType::Range {
+                start_type,
+                inclusive,
+                ..
+            } => {
                 if *inclusive {
                     write!(f, "Range<{}..={}>", start_type, start_type)
                 } else {

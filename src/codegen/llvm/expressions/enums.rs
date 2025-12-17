@@ -22,7 +22,10 @@ pub fn compile_enum_literal<'ctx>(
         // Try to infer the enum name from context or use Option as default
         compile_enum_variant(compiler, "Option", variant, payload)
     } else {
-        Err(CompileError::InternalError("Expected EnumLiteral".to_string(), None))
+        Err(CompileError::InternalError(
+            "Expected EnumLiteral".to_string(),
+            None,
+        ))
     }
 }
 
@@ -40,4 +43,3 @@ pub fn compile_none<'ctx>(
     // None (or null) is Option::None
     compile_enum_variant(compiler, "Option", "None", &None)
 }
-

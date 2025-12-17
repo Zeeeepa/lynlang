@@ -1,9 +1,9 @@
 // UFC (Uniform Function Call) method resolution helpers
 
-use lsp_types::*;
-use super::super::types::UfcMethodInfo;
 use super::super::document_store::DocumentStore;
+use super::super::types::UfcMethodInfo;
 use super::super::utils::format_type;
+use lsp_types::*;
 
 /// Find UFC method call at the given position (e.g., receiver.method())
 pub fn find_ufc_method_at_position(content: &str, position: Position) -> Option<UfcMethodInfo> {
@@ -31,7 +31,9 @@ pub fn find_ufc_method_at_position(content: &str, position: Position) -> Option<
         if let Some(dot) = dot_pos {
             // Extract the method name after the dot
             let mut method_end = dot + 1;
-            while method_end < chars.len() && (chars[method_end].is_alphanumeric() || chars[method_end] == '_') {
+            while method_end < chars.len()
+                && (chars[method_end].is_alphanumeric() || chars[method_end] == '_')
+            {
                 method_end += 1;
             }
             let method_name: String = chars[(dot + 1)..method_end].iter().collect();
@@ -119,7 +121,10 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
     }
 
     // Check for numeric literals
-    if receiver.chars().all(|c| c.is_numeric() || c == '.' || c == '-') {
+    if receiver
+        .chars()
+        .all(|c| c.is_numeric() || c == '.' || c == '-')
+    {
         if receiver.contains('.') {
             return Some("f64".to_string());
         } else {
@@ -144,12 +149,23 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
                         }
                     }
                 }
-                for type_name in ["HashMap<", "DynVec<", "Vec<", "Array<", "Option<", "Result<"] {
+                for type_name in [
+                    "HashMap<", "DynVec<", "Vec<", "Array<", "Option<", "Result<",
+                ] {
                     if detail.contains(type_name) {
                         return Some(type_name.trim_end_matches('<').to_string());
                     }
                 }
-                for type_name in ["HashMap", "DynVec", "Vec", "Array", "Option", "Result", "String", "StaticString"] {
+                for type_name in [
+                    "HashMap",
+                    "DynVec",
+                    "Vec",
+                    "Array",
+                    "Option",
+                    "Result",
+                    "String",
+                    "StaticString",
+                ] {
                     if detail.contains(type_name) {
                         return Some(type_name.to_string());
                     }
@@ -190,7 +206,8 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
     if receiver_trim.starts_with("get_default_allocator()") {
         return Some("Allocator".to_string());
     }
-    if receiver_trim.starts_with('[') && receiver_trim.contains(';') && receiver_trim.ends_with(']') {
+    if receiver_trim.starts_with('[') && receiver_trim.contains(';') && receiver_trim.ends_with(']')
+    {
         return Some("Array".to_string());
     }
 
@@ -198,7 +215,11 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
 }
 
 /// Find a method in a stdlib file
-fn find_stdlib_location(stdlib_path: &str, method_name: &str, store: &DocumentStore) -> Option<Location> {
+fn find_stdlib_location(
+    stdlib_path: &str,
+    method_name: &str,
+    store: &DocumentStore,
+) -> Option<Location> {
     for (uri, doc) in &store.documents {
         if uri.path().contains(stdlib_path) {
             if let Some(symbol) = doc.symbols.get(method_name) {
@@ -250,8 +271,17 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
     match base_type.as_str() {
         "Result" => {
             let result_methods = [
-                "raise", "is_ok", "is_err", "map", "map_err", "unwrap",
-                "unwrap_or", "expect", "unwrap_err", "and_then", "or_else"
+                "raise",
+                "is_ok",
+                "is_err",
+                "map",
+                "map_err",
+                "unwrap",
+                "unwrap_or",
+                "expect",
+                "unwrap_err",
+                "and_then",
+                "or_else",
             ];
             if result_methods.contains(&method_info.method_name.as_str()) {
                 return find_stdlib_location("core/result.zen", &method_info.method_name, store);
@@ -259,8 +289,17 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
         }
         "Option" => {
             let option_methods = [
-                "is_some", "is_none", "unwrap", "unwrap_or", "map",
-                "or", "and", "expect", "and_then", "or_else", "filter"
+                "is_some",
+                "is_none",
+                "unwrap",
+                "unwrap_or",
+                "map",
+                "or",
+                "and",
+                "expect",
+                "and_then",
+                "or_else",
+                "filter",
             ];
             if option_methods.contains(&method_info.method_name.as_str()) {
                 return find_stdlib_location("core/option.zen", &method_info.method_name, store);
@@ -268,10 +307,28 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
         }
         "String" | "StaticString" | "str" => {
             let string_methods = [
-                "len", "to_i32", "to_i64", "to_f64", "to_upper", "to_lower",
-                "trim", "split", "substr", "char_at", "contains", "starts_with",
-                "ends_with", "index_of", "replace", "concat", "repeat", "reverse",
-                "strip_prefix", "strip_suffix", "to_bytes", "from_bytes"
+                "len",
+                "to_i32",
+                "to_i64",
+                "to_f64",
+                "to_upper",
+                "to_lower",
+                "trim",
+                "split",
+                "substr",
+                "char_at",
+                "contains",
+                "starts_with",
+                "ends_with",
+                "index_of",
+                "replace",
+                "concat",
+                "repeat",
+                "reverse",
+                "strip_prefix",
+                "strip_suffix",
+                "to_bytes",
+                "from_bytes",
             ];
             if string_methods.contains(&method_info.method_name.as_str()) {
                 return find_stdlib_location("string.zen", &method_info.method_name, store);
@@ -279,18 +336,33 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
         }
         "HashMap" => {
             let hashmap_methods = [
-                "insert", "get", "remove", "contains_key", "keys", "values",
-                "len", "clear", "is_empty", "iter", "drain", "extend", "merge"
+                "insert",
+                "get",
+                "remove",
+                "contains_key",
+                "keys",
+                "values",
+                "len",
+                "clear",
+                "is_empty",
+                "iter",
+                "drain",
+                "extend",
+                "merge",
             ];
             if hashmap_methods.contains(&method_info.method_name.as_str()) {
-                return find_stdlib_location("collections/hashmap.zen", &method_info.method_name, store);
+                return find_stdlib_location(
+                    "collections/hashmap.zen",
+                    &method_info.method_name,
+                    store,
+                );
             }
         }
         "DynVec" => {
             let dynvec_methods = [
-                "push", "pop", "get", "set", "len", "clear", "capacity",
-                "insert", "remove", "is_empty", "resize", "extend", "drain",
-                "first", "last", "sort", "reverse", "contains"
+                "push", "pop", "get", "set", "len", "clear", "capacity", "insert", "remove",
+                "is_empty", "resize", "extend", "drain", "first", "last", "sort", "reverse",
+                "contains",
             ];
             if dynvec_methods.contains(&method_info.method_name.as_str()) {
                 return find_stdlib_location("vec.zen", &method_info.method_name, store);
@@ -298,7 +370,7 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
         }
         "Vec" => {
             let vec_methods = [
-                "push", "get", "set", "len", "clear", "capacity", "is_full", "is_empty"
+                "push", "get", "set", "len", "clear", "capacity", "is_full", "is_empty",
             ];
             if vec_methods.contains(&method_info.method_name.as_str()) {
                 return find_stdlib_location("vec.zen", &method_info.method_name, store);
@@ -306,11 +378,15 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
         }
         "Array" => {
             let array_methods = [
-                "len", "get", "set", "push", "pop", "first", "last",
-                "slice", "contains", "find", "sort", "reverse"
+                "len", "get", "set", "push", "pop", "first", "last", "slice", "contains", "find",
+                "sort", "reverse",
             ];
             if array_methods.contains(&method_info.method_name.as_str()) {
-                return find_stdlib_location("collections/array.zen", &method_info.method_name, store);
+                return find_stdlib_location(
+                    "collections/array.zen",
+                    &method_info.method_name,
+                    store,
+                );
             }
         }
         "Allocator" => {
@@ -330,7 +406,10 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
     // Enhanced UFC function search - any function can be called as a method
     for (uri, doc) in &store.documents {
         if let Some(symbol) = doc.symbols.get(&method_info.method_name) {
-            if matches!(symbol.kind, lsp_types::SymbolKind::FUNCTION | lsp_types::SymbolKind::METHOD) {
+            if matches!(
+                symbol.kind,
+                lsp_types::SymbolKind::FUNCTION | lsp_types::SymbolKind::METHOD
+            ) {
                 if let Some(detail) = &symbol.detail {
                     if let Some(params_start) = detail.find('(') {
                         if let Some(params_end) = detail.find(')') {
@@ -359,7 +438,9 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
 
         // Search for functions that might be UFC-callable
         for (name, symbol) in &doc.symbols {
-            if name == &method_info.method_name && matches!(symbol.kind, lsp_types::SymbolKind::FUNCTION) {
+            if name == &method_info.method_name
+                && matches!(symbol.kind, lsp_types::SymbolKind::FUNCTION)
+            {
                 return Some(Location {
                     uri: uri.clone(),
                     range: symbol.range.clone(),
@@ -367,8 +448,13 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
             }
 
             if let Some(receiver_type) = &receiver_type {
-                let prefixed_name = format!("{}_{}", receiver_type.to_lowercase(), method_info.method_name);
-                if name == &prefixed_name && matches!(symbol.kind, lsp_types::SymbolKind::FUNCTION) {
+                let prefixed_name = format!(
+                    "{}_{}",
+                    receiver_type.to_lowercase(),
+                    method_info.method_name
+                );
+                if name == &prefixed_name && matches!(symbol.kind, lsp_types::SymbolKind::FUNCTION)
+                {
                     return Some(Location {
                         uri: uri.clone(),
                         range: symbol.range.clone(),
@@ -380,4 +466,3 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
 
     None
 }
-

@@ -1,7 +1,7 @@
-use zen::parser::Parser;
-use zen::lexer::Lexer;
 use zen::ast::*;
 use zen::error::CompileError;
+use zen::lexer::Lexer;
+use zen::parser::Parser;
 
 fn parse_code(code: &str) -> Result<Program, CompileError> {
     let lexer = Lexer::new(code);
@@ -13,11 +13,17 @@ fn parse_code(code: &str) -> Result<Program, CompileError> {
 fn test_basic_expressions() {
     let code = "x = 42";
     let result = parse_code(code);
-    assert!(result.is_ok(), "Failed to parse basic assignment: {:?}", result.err());
-    
+    assert!(
+        result.is_ok(),
+        "Failed to parse basic assignment: {:?}",
+        result.err()
+    );
+
     let program = result.unwrap();
-    assert!(!program.declarations.is_empty() || !program.statements.is_empty(),
-        "Program should contain declarations or statements");
+    assert!(
+        !program.declarations.is_empty() || !program.statements.is_empty(),
+        "Program should contain declarations or statements"
+    );
 }
 
 #[test]
@@ -28,10 +34,17 @@ fn test_function_declarations() {
         }
     "#;
     let result = parse_code(code);
-    assert!(result.is_ok(), "Failed to parse function: {:?}", result.err());
-    
+    assert!(
+        result.is_ok(),
+        "Failed to parse function: {:?}",
+        result.err()
+    );
+
     let program = result.unwrap();
-    assert!(!program.declarations.is_empty(), "Should have function declaration");
+    assert!(
+        !program.declarations.is_empty(),
+        "Should have function declaration"
+    );
 }
 
 #[test]
@@ -44,9 +57,12 @@ fn test_struct_declarations() {
     "#;
     let result = parse_code(code);
     assert!(result.is_ok(), "Failed to parse struct: {:?}", result.err());
-    
+
     let program = result.unwrap();
-    assert!(!program.declarations.is_empty(), "Should have struct declaration");
+    assert!(
+        !program.declarations.is_empty(),
+        "Should have struct declaration"
+    );
 }
 
 #[test]
@@ -61,7 +77,11 @@ fn test_option_patterns() {
         }
     "#;
     let result = parse_code(code);
-    assert!(result.is_ok(), "Failed to parse option pattern: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to parse option pattern: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -76,7 +96,11 @@ fn test_result_patterns() {
         }
     "#;
     let result = parse_code(code);
-    assert!(result.is_ok(), "Failed to parse result pattern: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to parse result pattern: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -88,7 +112,11 @@ fn test_range_expressions() {
         }
     "#;
     let result = parse_code(code);
-    assert!(result.is_ok(), "Failed to parse range expression: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to parse range expression: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -108,7 +136,11 @@ fn test_method_calls() {
         }
     "#;
     let result = parse_code(code);
-    assert!(result.is_ok(), "Failed to parse method call: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to parse method call: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -120,7 +152,11 @@ fn test_string_interpolation() {
         }
     "#;
     let result = parse_code(code);
-    assert!(result.is_ok(), "Failed to parse string interpolation: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to parse string interpolation: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -132,5 +168,9 @@ fn test_complex_expressions() {
         }
     "#;
     let result = parse_code(code);
-    assert!(result.is_ok(), "Failed to parse complex expression: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to parse complex expression: {:?}",
+        result.err()
+    );
 }

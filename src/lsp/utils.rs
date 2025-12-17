@@ -1,8 +1,8 @@
 // LSP Utility Functions
 
-use lsp_types::*;
 use crate::ast::AstType;
 use crate::error::CompileError;
+use lsp_types::*;
 
 // Convert CompileError to LSP Diagnostic (without source context)
 pub fn compile_error_to_diagnostic(error: CompileError) -> Diagnostic {
@@ -10,41 +10,120 @@ pub fn compile_error_to_diagnostic(error: CompileError) -> Diagnostic {
 }
 
 // Convert CompileError to LSP Diagnostic with source content for position inference
-pub fn compile_error_to_diagnostic_with_content(error: CompileError, content: Option<&str>) -> Diagnostic {
+pub fn compile_error_to_diagnostic_with_content(
+    error: CompileError,
+    content: Option<&str>,
+) -> Diagnostic {
     // Extract span and determine severity
     let (span, severity, code) = match &error {
-        CompileError::ParseError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("parse-error")),
-        CompileError::SyntaxError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("syntax-error")),
-        CompileError::TypeError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("type-error")),
-        CompileError::TypeMismatch { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, Some("type-mismatch")),
-        CompileError::UndeclaredVariable(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("undeclared-variable")),
-        CompileError::UndeclaredFunction(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("undeclared-function")),
-        CompileError::UnexpectedToken { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, Some("unexpected-token")),
-        CompileError::InvalidPattern(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("invalid-pattern")),
-        CompileError::InvalidSyntax { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, Some("invalid-syntax")),
-        CompileError::MissingTypeAnnotation(_, span) => (span.clone(), DiagnosticSeverity::WARNING, Some("missing-type")),
-        CompileError::DuplicateDeclaration { duplicate_location, .. } => (duplicate_location.clone(), DiagnosticSeverity::ERROR, Some("duplicate-declaration")),
-        CompileError::ImportError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("import-error")),
-        CompileError::FFIError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("ffi-error")),
-        CompileError::InvalidLoopCondition(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("invalid-loop")),
-        CompileError::MissingReturnStatement(_, span) => (span.clone(), DiagnosticSeverity::WARNING, Some("missing-return")),
-        CompileError::InternalError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, Some("internal-error")),
-        CompileError::UnsupportedFeature(_, span) => (span.clone(), DiagnosticSeverity::WARNING, Some("unsupported-feature")),
-        CompileError::FileNotFound(_, _) => (None, DiagnosticSeverity::ERROR, Some("file-not-found")),
+        CompileError::ParseError(_, span) => {
+            (span.clone(), DiagnosticSeverity::ERROR, Some("parse-error"))
+        }
+        CompileError::SyntaxError(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("syntax-error"),
+        ),
+        CompileError::TypeError(_, span) => {
+            (span.clone(), DiagnosticSeverity::ERROR, Some("type-error"))
+        }
+        CompileError::TypeMismatch { span, .. } => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("type-mismatch"),
+        ),
+        CompileError::UndeclaredVariable(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("undeclared-variable"),
+        ),
+        CompileError::UndeclaredFunction(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("undeclared-function"),
+        ),
+        CompileError::UnexpectedToken { span, .. } => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("unexpected-token"),
+        ),
+        CompileError::InvalidPattern(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("invalid-pattern"),
+        ),
+        CompileError::InvalidSyntax { span, .. } => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("invalid-syntax"),
+        ),
+        CompileError::MissingTypeAnnotation(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::WARNING,
+            Some("missing-type"),
+        ),
+        CompileError::DuplicateDeclaration {
+            duplicate_location, ..
+        } => (
+            duplicate_location.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("duplicate-declaration"),
+        ),
+        CompileError::ImportError(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("import-error"),
+        ),
+        CompileError::FFIError(_, span) => {
+            (span.clone(), DiagnosticSeverity::ERROR, Some("ffi-error"))
+        }
+        CompileError::InvalidLoopCondition(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("invalid-loop"),
+        ),
+        CompileError::MissingReturnStatement(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::WARNING,
+            Some("missing-return"),
+        ),
+        CompileError::InternalError(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::ERROR,
+            Some("internal-error"),
+        ),
+        CompileError::UnsupportedFeature(_, span) => (
+            span.clone(),
+            DiagnosticSeverity::WARNING,
+            Some("unsupported-feature"),
+        ),
+        CompileError::FileNotFound(_, _) => {
+            (None, DiagnosticSeverity::ERROR, Some("file-not-found"))
+        }
         CompileError::ComptimeError(_) => (None, DiagnosticSeverity::ERROR, Some("comptime-error")),
         CompileError::BuildError(_) => (None, DiagnosticSeverity::ERROR, Some("build-error")),
         CompileError::FileError(_) => (None, DiagnosticSeverity::ERROR, Some("file-error")),
-        CompileError::CyclicDependency(_) => (None, DiagnosticSeverity::ERROR, Some("cyclic-dependency")),
+        CompileError::CyclicDependency(_) => {
+            (None, DiagnosticSeverity::ERROR, Some("cyclic-dependency"))
+        }
     };
 
     // Convert span to LSP range, or try to infer from error message and content
     let (start_pos, end_pos) = if let Some(span) = span {
         let start = Position {
-            line: if span.line > 0 { span.line as u32 - 1 } else { 0 },
+            line: if span.line > 0 {
+                span.line as u32 - 1
+            } else {
+                0
+            },
             character: span.column as u32,
         };
         let end = Position {
-            line: if span.line > 0 { span.line as u32 - 1 } else { 0 },
+            line: if span.line > 0 {
+                span.line as u32 - 1
+            } else {
+                0
+            },
             character: (span.column + (span.end - span.start).max(1)) as u32,
         };
         (start, end)
@@ -52,7 +131,16 @@ pub fn compile_error_to_diagnostic_with_content(error: CompileError, content: Op
         // Try to infer position from error message context
         infer_error_position(&error, content)
     } else {
-        (Position { line: 0, character: 0 }, Position { line: 0, character: 1 })
+        (
+            Position {
+                line: 0,
+                character: 0,
+            },
+            Position {
+                line: 0,
+                character: 1,
+            },
+        )
     };
 
     Diagnostic {
@@ -74,24 +162,39 @@ pub fn compile_error_to_diagnostic_with_content(error: CompileError, content: Op
 /// Try to infer error position from error message and source content
 fn infer_error_position(error: &CompileError, content: &str) -> (Position, Position) {
     let search_terms = extract_search_terms(error);
-    
+
     for term in search_terms {
         if let Some((line, col, len)) = find_in_content(&term, content) {
             return (
-                Position { line: line as u32, character: col as u32 },
-                Position { line: line as u32, character: (col + len) as u32 },
+                Position {
+                    line: line as u32,
+                    character: col as u32,
+                },
+                Position {
+                    line: line as u32,
+                    character: (col + len) as u32,
+                },
             );
         }
     }
-    
+
     // Default to first line if nothing found
-    (Position { line: 0, character: 0 }, Position { line: 0, character: 1 })
+    (
+        Position {
+            line: 0,
+            character: 0,
+        },
+        Position {
+            line: 0,
+            character: 1,
+        },
+    )
 }
 
 /// Extract searchable terms from error message
 fn extract_search_terms(error: &CompileError) -> Vec<String> {
     let mut terms = Vec::new();
-    
+
     match error {
         CompileError::TypeError(msg, _) => {
             // Try to extract function/variable names from error message
@@ -135,7 +238,7 @@ fn extract_search_terms(error: &CompileError) -> Vec<String> {
         }
         _ => {}
     }
-    
+
     terms
 }
 
@@ -147,7 +250,7 @@ fn find_in_content(term: &str, content: &str) -> Option<(usize, usize, usize)> {
         if trimmed.starts_with("//") {
             continue;
         }
-        
+
         if let Some(col) = line.find(term) {
             return Some((line_num, col, term.len()));
         }
@@ -220,7 +323,7 @@ pub fn format_type(ast_type: &AstType) -> String {
         AstType::F32 => "f32".to_string(),
         AstType::F64 => "f64".to_string(),
         AstType::Bool => "bool".to_string(),
-        AstType::StaticLiteral => "str".to_string(),  // Internal string literal type
+        AstType::StaticLiteral => "str".to_string(), // Internal string literal type
         AstType::StaticString => "StaticString".to_string(),
         AstType::Struct { name, .. } if name == "String" => "String".to_string(),
         AstType::Void => "void".to_string(),
@@ -228,30 +331,47 @@ pub fn format_type(ast_type: &AstType) -> String {
         AstType::MutPtr(inner) => format!("MutPtr<{}>", format_type(inner)),
         AstType::RawPtr(inner) => format!("RawPtr<{}>", format_type(inner)),
         AstType::Ref(inner) => format!("&{}", format_type(inner)),
-        AstType::Range { start_type, end_type, inclusive } => {
+        AstType::Range {
+            start_type,
+            end_type,
+            inclusive,
+        } => {
             if *inclusive {
                 format!("{}..={}", format_type(start_type), format_type(end_type))
             } else {
                 format!("{}..{}", format_type(start_type), format_type(end_type))
             }
         }
-        AstType::FunctionPointer { param_types, return_type } => {
-            format!("fn({}) {}",
-                param_types.iter().map(|p| format_type(p)).collect::<Vec<_>>().join(", "),
-                format_type(return_type))
+        AstType::FunctionPointer {
+            param_types,
+            return_type,
+        } => {
+            format!(
+                "fn({}) {}",
+                param_types
+                    .iter()
+                    .map(|p| format_type(p))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                format_type(return_type)
+            )
         }
         AstType::EnumType { name } => name.clone(),
         AstType::StdModule => "module".to_string(),
         AstType::Array(elem) => format!("Array<{}>", format_type(elem)),
-        AstType::Vec { element_type, size } => format!("Vec<{}, {}>", format_type(element_type), size),
+        AstType::Vec { element_type, size } => {
+            format!("Vec<{}, {}>", format_type(element_type), size)
+        }
         AstType::DynVec { element_types, .. } => {
             if element_types.len() == 1 {
                 format!("DynVec<{}>", format_type(&element_types[0]))
             } else {
                 "DynVec<...>".to_string()
             }
-        },
-        AstType::FixedArray { element_type, size } => format!("[{}; {}]", format_type(element_type), size),
+        }
+        AstType::FixedArray { element_type, size } => {
+            format!("[{}; {}]", format_type(element_type), size)
+        }
         // Option and Result are now Generic types - handled in Generic match below
         AstType::Struct { name, .. } => name.clone(),
         AstType::Enum { name, .. } => name.clone(),
@@ -259,14 +379,26 @@ pub fn format_type(ast_type: &AstType) -> String {
             if type_args.is_empty() {
                 name.clone()
             } else {
-                format!("{}<{}>", name,
-                    type_args.iter().map(|p| format_type(p)).collect::<Vec<_>>().join(", "))
+                format!(
+                    "{}<{}>",
+                    name,
+                    type_args
+                        .iter()
+                        .map(|p| format_type(p))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
             }
         }
         AstType::Function { args, return_type } => {
-            format!("({}) {}",
-                args.iter().map(|p| format_type(p)).collect::<Vec<_>>().join(", "),
-                format_type(return_type))
+            format!(
+                "({}) {}",
+                args.iter()
+                    .map(|p| format_type(p))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                format_type(return_type)
+            )
         }
     }
 }

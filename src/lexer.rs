@@ -8,18 +8,18 @@ pub enum Token {
     StringLiteral(String),
     Symbol(char),
     Operator(String),
-    Question,           // ?
-    Pipe,               // |
-    Underscore,         // _ (for wildcard patterns)
-    AtStd,              // @std
-    AtThis,             // @this
-    AtMeta,             // @meta (for compile-time metaprogramming)
-    AtExport,           // @export
-    Pub,                // pub (for public visibility)
+    Question,   // ?
+    Pipe,       // |
+    Underscore, // _ (for wildcard patterns)
+    AtStd,      // @std
+    AtThis,     // @this
+    AtMeta,     // @meta (for compile-time metaprogramming)
+    AtExport,   // @export
+    Pub,        // pub (for public visibility)
     #[allow(dead_code)]
     InterpolationStart, // Start of ${...}
     #[allow(dead_code)]
-    InterpolationEnd,   // End of ${...}
+    InterpolationEnd, // End of ${...}
     Eof,
 }
 
@@ -624,7 +624,7 @@ impl<'a> Lexer<'a> {
         self.read_char(); // consume first "
         self.read_char(); // consume second "
         self.read_char(); // consume third "
-        
+
         let mut result = String::new();
 
         while let Some(c) = self.current_char {
@@ -670,14 +670,14 @@ impl<'a> Lexer<'a> {
                 }
             }
         }
-        
+
         // Consume the three closing quotes
         if self.current_char == Some('"') {
             self.read_char(); // consume first "
             self.read_char(); // consume second "
             self.read_char(); // consume third "
         }
-        
+
         result
     }
 }

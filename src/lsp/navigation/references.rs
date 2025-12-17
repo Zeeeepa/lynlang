@@ -1,15 +1,21 @@
 // References handler
 
+use super::super::document_store::DocumentStore;
+use super::super::types::SymbolScope;
+use super::scope::determine_symbol_scope;
+use super::utils::{
+    find_function_range, find_symbol_at_position, is_in_string_or_comment, is_word_boundary_char,
+};
 use lsp_server::{Request, Response};
 use lsp_types::*;
 use serde_json::Value;
-use super::super::document_store::DocumentStore;
-use super::super::types::SymbolScope;
-use super::utils::{find_symbol_at_position, is_word_boundary_char, is_in_string_or_comment, find_function_range};
-use super::scope::determine_symbol_scope;
 
 /// Find all references to a symbol within a function
-fn find_local_references(content: &str, symbol_name: &str, function_name: &str) -> Option<Vec<Range>> {
+fn find_local_references(
+    content: &str,
+    symbol_name: &str,
+    function_name: &str,
+) -> Option<Vec<Range>> {
     let func_range = find_function_range(content, function_name)?;
     let mut references = Vec::new();
     let lines: Vec<&str> = content.lines().collect();
@@ -24,9 +30,10 @@ fn find_local_references(content: &str, symbol_name: &str, function_name: &str) 
 
         while let Some(col) = line[start_col..].find(symbol_name) {
             let actual_col = start_col + col;
-            let before_ok = actual_col == 0 || is_word_boundary_char(line, actual_col.saturating_sub(1));
-            let after_ok = actual_col + symbol_name.len() >= line.len() || 
-                is_word_boundary_char(line, actual_col + symbol_name.len());
+            let before_ok =
+                actual_col == 0 || is_word_boundary_char(line, actual_col.saturating_sub(1));
+            let after_ok = actual_col + symbol_name.len() >= line.len()
+                || is_word_boundary_char(line, actual_col + symbol_name.len());
 
             if before_ok && after_ok && !is_in_string_or_comment(line, actual_col) {
                 references.push(Range {
@@ -55,9 +62,10 @@ fn find_references_in_document(content: &str, symbol_name: &str) -> Vec<Range> {
         let mut start_col = 0;
         while let Some(col) = line[start_col..].find(symbol_name) {
             let actual_col = start_col + col;
-            let before_ok = actual_col == 0 || is_word_boundary_char(line, actual_col.saturating_sub(1));
-            let after_ok = actual_col + symbol_name.len() >= line.len() || 
-                is_word_boundary_char(line, actual_col + symbol_name.len());
+            let before_ok =
+                actual_col == 0 || is_word_boundary_char(line, actual_col.saturating_sub(1));
+            let after_ok = actual_col + symbol_name.len() >= line.len()
+                || is_word_boundary_char(line, actual_col + symbol_name.len());
 
             if before_ok && after_ok && !is_in_string_or_comment(line, actual_col) {
                 references.push(Range {
@@ -96,12 +104,19 @@ pub fn handle_references(
     let store_lock = match store.lock() {
         Ok(s) => s,
         Err(_) => {
-            return Response { id: req.id, result: Some(serde_json::to_value(Vec::<Location>::new()).unwrap_or(Value::Null)), error: None };
+            return Response {
+                id: req.id,
+                result: Some(serde_json::to_value(Vec::<Location>::new()).unwrap_or(Value::Null)),
+                error: None,
+            };
         }
     };
     let mut locations = Vec::new();
 
-    if let Some(doc) = store_lock.documents.get(&params.text_document_position.text_document.uri) {
+    if let Some(doc) = store_lock
+        .documents
+        .get(&params.text_document_position.text_document.uri)
+    {
         let position = params.text_document_position.position;
 
         // Find the symbol at the cursor position
@@ -116,11 +131,9 @@ pub fn handle_references(
                 SymbolScope::Local { ref function_name } => {
                     // Local variable - only find references within the function
                     let current_uri = params.text_document_position.text_document.uri.clone();
-                    if let Some(refs) = find_local_references(
-                        &doc.content,
-                        &symbol_name,
-                        function_name,
-                    ) {
+                    if let Some(refs) =
+                        find_local_references(&doc.content, &symbol_name, function_name)
+                    {
                         for range in refs {
                             locations.push(Location {
                                 uri: current_uri.clone(),
@@ -132,11 +145,10 @@ pub fn handle_references(
                 SymbolScope::ModuleLevel | SymbolScope::Unknown => {
                     // Module-level symbol - search across documents (limited for performance)
                     const MAX_DOCS_REFERENCES_SEARCH: usize = 50;
-                    for (uri, search_doc) in store_lock.documents.iter().take(MAX_DOCS_REFERENCES_SEARCH) {
-                        let refs = find_references_in_document(
-                            &search_doc.content,
-                            &symbol_name,
-                        );
+                    for (uri, search_doc) in
+                        store_lock.documents.iter().take(MAX_DOCS_REFERENCES_SEARCH)
+                    {
+                        let refs = find_references_in_document(&search_doc.content, &symbol_name);
                         for range in refs {
                             locations.push(Location {
                                 uri: uri.clone(),
@@ -167,4 +179,3 @@ pub fn handle_references(
         error: None,
     }
 }
-

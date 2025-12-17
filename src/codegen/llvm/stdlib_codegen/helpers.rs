@@ -13,7 +13,8 @@ pub fn create_result_ok<'ctx>(
     let result_type = compiler.context.struct_type(
         &[
             compiler.context.i64_type().into(),
-            compiler.context
+            compiler
+                .context
                 .ptr_type(inkwell::AddressSpace::default())
                 .into(),
         ],
@@ -46,7 +47,8 @@ pub fn create_result_ok_void<'ctx>(
     let result_type = compiler.context.struct_type(
         &[
             compiler.context.i64_type().into(),
-            compiler.context
+            compiler
+                .context
                 .ptr_type(inkwell::AddressSpace::default())
                 .into(),
         ],
@@ -84,7 +86,8 @@ pub fn create_result_err<'ctx>(
     let result_type = compiler.context.struct_type(
         &[
             compiler.context.i64_type().into(),
-            compiler.context
+            compiler
+                .context
                 .ptr_type(inkwell::AddressSpace::default())
                 .into(),
         ],

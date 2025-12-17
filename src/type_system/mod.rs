@@ -81,9 +81,7 @@ pub fn is_generic_type(ast_type: &AstType) -> bool {
             // Check if any type arguments are generic
             type_args.iter().any(is_generic_type)
         }
-        AstType::Ptr(inner)
-        | AstType::Array(inner)
-        | AstType::Ref(inner) => is_generic_type(inner),
+        AstType::Ptr(inner) | AstType::Array(inner) | AstType::Ref(inner) => is_generic_type(inner),
         // Option and Result are now Generic types - handled above
         AstType::Function { args, return_type } => {
             args.iter().any(is_generic_type) || is_generic_type(return_type)
@@ -110,9 +108,7 @@ fn extract_type_params_recursive(ast_type: &AstType, params: &mut Vec<String>) {
                 extract_type_params_recursive(arg, params);
             }
         }
-        AstType::Ptr(inner)
-        | AstType::Array(inner)
-        | AstType::Ref(inner) => {
+        AstType::Ptr(inner) | AstType::Array(inner) | AstType::Ref(inner) => {
             extract_type_params_recursive(inner, params);
         }
         // Option and Result are now Generic types - handled in Generic match above

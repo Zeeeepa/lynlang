@@ -22,7 +22,11 @@ impl std::fmt::Display for FFIError {
                 write!(f, "Symbol '{}' not found in library", name)
             }
             FFIError::InvalidSignature { function, reason } => {
-                write!(f, "Invalid signature for function '{}': {}", function, reason)
+                write!(
+                    f,
+                    "Invalid signature for function '{}': {}",
+                    function, reason
+                )
             }
             FFIError::InvalidSymbolName(name) => {
                 write!(f, "Invalid symbol name: {}", name)
@@ -41,17 +45,3 @@ impl std::fmt::Display for FFIError {
 }
 
 impl std::error::Error for FFIError {}
-
-
-
-
-
-
-
-
-
-
-
-
-
-

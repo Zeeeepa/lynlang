@@ -2,16 +2,20 @@
 
 use std::collections::HashMap;
 
+use super::super::document_store::DocumentStore;
 use super::super::types::*;
 use super::super::utils::format_type;
-use super::super::document_store::DocumentStore;
 use crate::ast::{AstType, Declaration};
 
 /// Format struct definition with fields for display
 pub fn format_struct_definition(struct_def: &crate::ast::StructDefinition) -> String {
     let mut result = format!("{} {{\n", struct_def.name);
     for field in &struct_def.fields {
-        result.push_str(&format!("    {}: {},\n", field.name, format_type(&field.type_)));
+        result.push_str(&format!(
+            "    {}: {},\n",
+            field.name,
+            format_type(&field.type_)
+        ));
     }
     result.push_str("}");
     result
@@ -33,7 +37,7 @@ pub fn find_struct_definition(
             }
         }
     }
-    
+
     // Check other documents in the store
     for (_uri, other_doc) in &store.documents {
         if let Some(ast) = &other_doc.ast {
@@ -46,7 +50,7 @@ pub fn find_struct_definition(
             }
         }
     }
-    
+
     None
 }
 
@@ -77,7 +81,12 @@ pub fn extract_struct_name_from_type(type_str: &str) -> Option<String> {
         if let Some(end) = after_type.find('`') {
             let struct_name = after_type[..end].to_string();
             // Check if it looks like a struct name (starts with uppercase)
-            if struct_name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+            if struct_name
+                .chars()
+                .next()
+                .map(|c| c.is_uppercase())
+                .unwrap_or(false)
+            {
                 return Some(struct_name);
             }
         }
@@ -91,16 +100,19 @@ pub fn handle_variable_hover(
     local_symbols: &HashMap<String, SymbolInfo>,
     store: &DocumentStore,
 ) -> Option<String> {
-    if let Some(var_info) = local_symbols.get(var_name)
+    if let Some(var_info) = local_symbols
+        .get(var_name)
         .or_else(|| store.workspace_symbols.get(var_name))
-        .or_else(|| store.stdlib_symbols.get(var_name)) {
-        
+        .or_else(|| store.stdlib_symbols.get(var_name))
+    {
         if let Some(AstType::Struct { name, .. }) = &var_info.type_info {
             if let Some(struct_def) = find_struct_definition_in_documents(name, &store.documents) {
-                return Some(format!("```zen\n{}\n```", format_struct_definition(&struct_def)));
+                return Some(format!(
+                    "```zen\n{}\n```",
+                    format_struct_definition(&struct_def)
+                ));
             }
         }
     }
     None
 }
-

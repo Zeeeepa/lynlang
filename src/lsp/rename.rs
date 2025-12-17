@@ -11,8 +11,8 @@ use std::sync::{Arc, Mutex};
 use crate::ast::{Declaration, Statement};
 
 use super::document_store::DocumentStore;
-use super::types::{Document, SymbolScope};
 use super::navigation::find_symbol_at_position;
+use super::types::{Document, SymbolScope};
 
 // ============================================================================
 // PUBLIC HANDLER FUNCTION
@@ -30,7 +30,19 @@ pub fn handle_rename(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Respons
         }
     };
 
-    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(WorkspaceEdit::default()).unwrap_or(serde_json::Value::Null)), error: None }; } };
+    let store = match store.lock() {
+        Ok(s) => s,
+        Err(_) => {
+            return Response {
+                id: req.id,
+                result: Some(
+                    serde_json::to_value(WorkspaceEdit::default())
+                        .unwrap_or(serde_json::Value::Null),
+                ),
+                error: None,
+            };
+        }
+    };
     let new_name = params.new_name;
     let uri = &params.text_document_position.text_document.uri;
 
@@ -38,8 +50,10 @@ pub fn handle_rename(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Respons
         let position = params.text_document_position.position;
 
         if let Some(symbol_name) = find_symbol_at_position(&doc.content, position) {
-            eprintln!("[LSP] Rename: symbol='{}' -> '{}' at {}:{}",
-                symbol_name, new_name, position.line, position.character);
+            eprintln!(
+                "[LSP] Rename: symbol='{}' -> '{}' at {}:{}",
+                symbol_name, new_name, position.line, position.character
+            );
 
             // Determine the scope of the symbol
             let symbol_scope = determine_symbol_scope(doc, &symbol_name, position);
@@ -51,14 +65,14 @@ pub fn handle_rename(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Respons
             match symbol_scope {
                 SymbolScope::Local { function_name } => {
                     // Local variable or parameter - only rename in current file, within function
-                    eprintln!("[LSP] Renaming local symbol in function '{}'", function_name);
+                    eprintln!(
+                        "[LSP] Renaming local symbol in function '{}'",
+                        function_name
+                    );
 
-                    if let Some(edits) = rename_local_symbol(
-                        &doc.content,
-                        &symbol_name,
-                        &new_name,
-                        &function_name
-                    ) {
+                    if let Some(edits) =
+                        rename_local_symbol(&doc.content, &symbol_name, &new_name, &function_name)
+                    {
                         if !edits.is_empty() {
                             changes.insert(uri.clone(), edits);
                         }
@@ -71,12 +85,20 @@ pub fn handle_rename(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Respons
                     // Find all workspace files that might reference this symbol
                     let workspace_files = collect_workspace_files(&store);
 
-                    eprintln!("[LSP] Scanning {} workspace files for references", workspace_files.len());
+                    eprintln!(
+                        "[LSP] Scanning {} workspace files for references",
+                        workspace_files.len()
+                    );
 
                     for (file_uri, file_content) in workspace_files {
-                        if let Some(edits) = rename_in_file(&file_content, &symbol_name, &new_name) {
+                        if let Some(edits) = rename_in_file(&file_content, &symbol_name, &new_name)
+                        {
                             if !edits.is_empty() {
-                                eprintln!("[LSP] Found {} occurrences in {}", edits.len(), file_uri.path());
+                                eprintln!(
+                                    "[LSP] Found {} occurrences in {}",
+                                    edits.len(),
+                                    file_uri.path()
+                                );
                                 changes.insert(file_uri, edits);
                             }
                         }
@@ -94,9 +116,11 @@ pub fn handle_rename(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Respons
                 }
             }
 
-            eprintln!("[LSP] Rename will affect {} files with {} total edits",
+            eprintln!(
+                "[LSP] Rename will affect {} files with {} total edits",
                 changes.len(),
-                changes.values().map(|v| v.len()).sum::<usize>());
+                changes.values().map(|v| v.len()).sum::<usize>()
+            );
 
             let workspace_edit = WorkspaceEdit {
                 changes: Some(changes),
@@ -123,15 +147,21 @@ pub fn handle_rename(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Respons
 // HELPER FUNCTIONS
 // ============================================================================
 
-pub(crate) fn determine_symbol_scope(doc: &Document, symbol_name: &str, position: Position) -> SymbolScope {
+pub(crate) fn determine_symbol_scope(
+    doc: &Document,
+    symbol_name: &str,
+    position: Position,
+) -> SymbolScope {
     if let Some(ast) = &doc.ast {
         for decl in ast {
             if let Declaration::Function(func) = decl {
                 if let Some(func_range) = find_function_range(&doc.content, &func.name) {
-                    if position.line >= func_range.start.line && position.line <= func_range.end.line {
+                    if position.line >= func_range.start.line
+                        && position.line <= func_range.end.line
+                    {
                         if is_local_symbol_in_function(func, symbol_name) {
                             return SymbolScope::Local {
-                                function_name: func.name.clone()
+                                function_name: func.name.clone(),
                             };
                         }
                     }
@@ -198,8 +228,14 @@ pub(crate) fn find_function_range(content: &str, func_name: &str) -> Option<Rang
                     brace_depth -= 1;
                     if found_opening && brace_depth == 0 {
                         return Some(Range {
-                            start: Position { line: start as u32, character: 0 },
-                            end: Position { line: line_num as u32, character: line.len() as u32 }
+                            start: Position {
+                                line: start as u32,
+                                character: 0,
+                            },
+                            end: Position {
+                                line: line_num as u32,
+                                character: line.len() as u32,
+                            },
                         });
                     }
                 }
@@ -214,7 +250,7 @@ fn rename_local_symbol(
     content: &str,
     symbol_name: &str,
     new_name: &str,
-    function_name: &str
+    function_name: &str,
 ) -> Option<Vec<TextEdit>> {
     let func_range = find_function_range(content, function_name)?;
     let mut edits = Vec::new();
@@ -231,10 +267,18 @@ fn rename_local_symbol(
         while let Some(col) = line[start_col..].find(symbol_name) {
             let actual_col = start_col + col;
 
-            let before_ok = actual_col == 0 ||
-                !line.chars().nth(actual_col - 1).unwrap_or(' ').is_alphanumeric();
-            let after_ok = actual_col + symbol_name.len() >= line.len() ||
-                !line.chars().nth(actual_col + symbol_name.len()).unwrap_or(' ').is_alphanumeric();
+            let before_ok = actual_col == 0
+                || !line
+                    .chars()
+                    .nth(actual_col - 1)
+                    .unwrap_or(' ')
+                    .is_alphanumeric();
+            let after_ok = actual_col + symbol_name.len() >= line.len()
+                || !line
+                    .chars()
+                    .nth(actual_col + symbol_name.len())
+                    .unwrap_or(' ')
+                    .is_alphanumeric();
 
             if before_ok && after_ok {
                 edits.push(TextEdit {
@@ -262,7 +306,11 @@ fn rename_local_symbol(
 fn collect_workspace_files(store: &DocumentStore) -> Vec<(Url, String)> {
     use std::path::PathBuf;
 
-    fn collect_zen_files_recursive(dir: &std::path::Path, files: &mut Vec<PathBuf>, max_depth: usize) {
+    fn collect_zen_files_recursive(
+        dir: &std::path::Path,
+        files: &mut Vec<PathBuf>,
+        max_depth: usize,
+    ) {
         if max_depth == 0 {
             return;
         }
@@ -328,10 +376,18 @@ fn rename_in_file(content: &str, symbol_name: &str, new_name: &str) -> Option<Ve
         while let Some(col) = line[start_col..].find(symbol_name) {
             let actual_col = start_col + col;
 
-            let before_ok = actual_col == 0 ||
-                !line.chars().nth(actual_col - 1).unwrap_or(' ').is_alphanumeric();
-            let after_ok = actual_col + symbol_name.len() >= line.len() ||
-                !line.chars().nth(actual_col + symbol_name.len()).unwrap_or(' ').is_alphanumeric();
+            let before_ok = actual_col == 0
+                || !line
+                    .chars()
+                    .nth(actual_col - 1)
+                    .unwrap_or(' ')
+                    .is_alphanumeric();
+            let after_ok = actual_col + symbol_name.len() >= line.len()
+                || !line
+                    .chars()
+                    .nth(actual_col + symbol_name.len())
+                    .unwrap_or(' ')
+                    .is_alphanumeric();
 
             if before_ok && after_ok {
                 edits.push(TextEdit {
@@ -355,4 +411,3 @@ fn rename_in_file(content: &str, symbol_name: &str, new_name: &str) -> Option<Ve
 
     Some(edits)
 }
-

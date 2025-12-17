@@ -88,13 +88,13 @@ impl TypeChecker {
     pub fn get_function_signatures(&self) -> &HashMap<String, FunctionSignature> {
         &self.functions
     }
-    
+
     /// Parse type arguments from a generic type string like "HashMap<i32, i32>"
     fn parse_generic_type_string(type_str: &str) -> (String, Vec<AstType>) {
         if let Some(angle_pos) = type_str.find('<') {
             let base_type = type_str[..angle_pos].to_string();
             let args_str = &type_str[angle_pos + 1..type_str.len() - 1]; // Remove < and >
-            
+
             // Simple parsing - split by comma and trim
             let type_args: Vec<AstType> = args_str
                 .split(',')
@@ -106,13 +106,14 @@ impl TypeChecker {
                         "f32" => AstType::F32,
                         "f64" => AstType::F64,
                         "bool" => AstType::Bool,
-                        "string" => AstType::StaticString,  // lowercase string maps to StaticString
-                        "StaticString" => AstType::StaticString,  // explicit static string type
-                        "String" => crate::ast::resolve_string_struct_type(),  // String is a struct from stdlib/string.zen
+                        "string" => AstType::StaticString, // lowercase string maps to StaticString
+                        "StaticString" => AstType::StaticString, // explicit static string type
+                        "String" => crate::ast::resolve_string_struct_type(), // String is a struct from stdlib/string.zen
                         _ => {
                             // Check if it's another generic type
                             if trimmed.contains('<') {
-                                let (inner_base, inner_args) = Self::parse_generic_type_string(trimmed);
+                                let (inner_base, inner_args) =
+                                    Self::parse_generic_type_string(trimmed);
                                 AstType::Generic {
                                     name: inner_base,
                                     type_args: inner_args,
@@ -128,13 +129,13 @@ impl TypeChecker {
                     }
                 })
                 .collect();
-            
+
             (base_type, type_args)
         } else {
             (type_str.to_string(), vec![])
         }
     }
-    
+
     pub fn new() -> Self {
         let enums = HashMap::new();
 
@@ -196,7 +197,7 @@ impl TypeChecker {
         for declaration in &program.declarations {
             self.collect_declaration_types(declaration)?;
         }
-        
+
         // Second pass: resolve Generic types to Struct types in struct fields
         // This handles forward references - all structs are now registered
         // We do multiple passes until no more changes occur (to handle nested dependencies)
@@ -205,7 +206,7 @@ impl TypeChecker {
         while changed && iterations < 10 {
             changed = false;
             iterations += 1;
-            
+
             let struct_names: Vec<String> = self.structs.keys().cloned().collect();
             for struct_name in struct_names {
                 let resolved_fields: Vec<(String, AstType)> = {
@@ -241,7 +242,7 @@ impl TypeChecker {
                             if let Some(sig) = self.functions.get_mut(&func.name) {
                                 sig.return_type = inferred_type;
                             }
-                        },
+                        }
                         Err(_) => {
                             // Keep it as Void if inference fails
                         }
@@ -308,10 +309,8 @@ impl TypeChecker {
             Expression::Float64(_) => Ok(AstType::F64),
             Expression::Boolean(_) => Ok(AstType::Bool),
             Expression::Unit => Ok(AstType::Void),
-            Expression::String(_) => Ok(AstType::StaticString),  // String literals are static strings
-            Expression::Identifier(name) => {
-                inference::infer_identifier_type(self, name)
-            }
+            Expression::String(_) => Ok(AstType::StaticString), // String literals are static strings
+            Expression::Identifier(name) => inference::infer_identifier_type(self, name),
             Expression::BinaryOp { left, op, right } => {
                 inference::infer_binary_op_type(self, left, op, right)
             }
@@ -330,7 +329,13 @@ impl TypeChecker {
                     }
                 }
                 let object_type = self.infer_expression_type(object)?;
-                inference::infer_member_type(&object_type, member, &self.structs, &self.enums, self.get_current_span())
+                inference::infer_member_type(
+                    &object_type,
+                    member,
+                    &self.structs,
+                    &self.enums,
+                    self.get_current_span(),
+                )
             }
             Expression::Comptime(inner) => self.infer_expression_type(inner),
             Expression::Range { .. } => Ok(AstType::Range {
@@ -373,9 +378,11 @@ impl TypeChecker {
                 // String interpolation returns dynamic String (requires allocator)
                 Ok(crate::ast::resolve_string_struct_type())
             }
-            Expression::Closure { params, return_type, body } => {
-                inference::infer_closure_type(self, params, return_type, body)
-            }
+            Expression::Closure {
+                params,
+                return_type,
+                body,
+            } => inference::infer_closure_type(self, params, return_type, body),
             Expression::ArrayIndex { array, .. } => {
                 // Array indexing returns the element type
                 let array_type = self.infer_expression_type(array)?;
@@ -408,7 +415,13 @@ impl TypeChecker {
             }
             Expression::StructField { struct_, field } => {
                 let struct_type = self.infer_expression_type(struct_)?;
-                inference::infer_struct_field_type(&struct_type, field, &self.structs, &self.enums, self.get_current_span())
+                inference::infer_struct_field_type(
+                    &struct_type,
+                    field,
+                    &self.structs,
+                    &self.enums,
+                    self.get_current_span(),
+                )
             }
             Expression::Integer8(_) => Ok(AstType::I8),
             Expression::Integer16(_) => Ok(AstType::I16),
@@ -457,7 +470,7 @@ impl TypeChecker {
                             // Check if the block has any non-return statements before the return
                             let mut block_type = AstType::Void;
                             let has_early_return = false;
-                            
+
                             for (j, stmt) in stmts.iter().enumerate() {
                                 match stmt {
                                     Statement::Return { .. } => {
@@ -484,7 +497,10 @@ impl TypeChecker {
                         };
 
                         // The first non-void arm determines the type, or use first arm if all void
-                        if i == 0 || (matches!(result_type, AstType::Void) && !matches!(arm_type, AstType::Void)) {
+                        if i == 0
+                            || (matches!(result_type, AstType::Void)
+                                && !matches!(arm_type, AstType::Void))
+                        {
                             result_type = arm_type;
                         }
 
@@ -558,25 +574,21 @@ impl TypeChecker {
             }
             Expression::Return(expr) => self.infer_expression_type(expr),
             Expression::EnumVariant {
-                enum_name, variant, payload: _
-            } => {
-                inference::infer_enum_variant_type(enum_name, variant, &self.enums)
-            }
+                enum_name,
+                variant,
+                payload: _,
+            } => inference::infer_enum_variant_type(enum_name, variant, &self.enums),
             Expression::StringLength(_) => Ok(AstType::I64),
             Expression::MethodCall {
                 object,
                 method,
                 args: _,
-            } => {
-                inference::infer_method_call_type(self, object, method)
-            }
+            } => inference::infer_method_call_type(self, object, method),
             Expression::Loop { body: _ } => {
                 // Loop expressions return void for now
                 Ok(AstType::Void)
             }
-            Expression::Raise(expr) => {
-                inference::infer_raise_type(self, expr)
-            }
+            Expression::Raise(expr) => inference::infer_raise_type(self, expr),
             Expression::Break { .. } | Expression::Continue { .. } => {
                 // Break and continue don't return a value, they transfer control
                 // For type checking purposes, they can be considered to return void
@@ -718,9 +730,10 @@ impl TypeChecker {
                 // @this.defer() returns unit/void
                 Ok(AstType::Void)
             }
-            Expression::InlineC { code, interpolations } => {
-                inference::infer_inline_c_type(self, code, interpolations)
-            }
+            Expression::InlineC {
+                code,
+                interpolations,
+            } => inference::infer_inline_c_type(self, code, interpolations),
         }
     }
 
@@ -743,8 +756,14 @@ impl TypeChecker {
     fn declare_variable(&mut self, name: &str, type_: AstType, is_mutable: bool) -> Result<()> {
         scope::declare_variable(self, name, type_, is_mutable, None)
     }
-    
-    fn declare_variable_with_span(&mut self, name: &str, type_: AstType, is_mutable: bool, span: Option<Span>) -> Result<()> {
+
+    fn declare_variable_with_span(
+        &mut self,
+        name: &str,
+        type_: AstType,
+        is_mutable: bool,
+        span: Option<Span>,
+    ) -> Result<()> {
         scope::declare_variable(self, name, type_, is_mutable, span)
     }
 
@@ -757,7 +776,7 @@ impl TypeChecker {
     ) -> Result<()> {
         scope::declare_variable_with_init(self, name, type_, is_mutable, is_initialized, None)
     }
-    
+
     fn declare_variable_with_init_and_span(
         &mut self,
         name: &str,
@@ -777,12 +796,12 @@ impl TypeChecker {
     fn infer_function_return_type(&mut self, func: &Function) -> Result<AstType> {
         // Create a temporary scope for the function
         self.enter_scope();
-        
+
         // Add function parameters to scope
         for (param_name, param_type) in &func.args {
             self.declare_variable(param_name, param_type.clone(), false)?;
         }
-        
+
         // Analyze the body to find the return type
         let return_type = if let Some(last_stmt) = func.body.last() {
             match last_stmt {
@@ -803,11 +822,11 @@ impl TypeChecker {
             // Empty body returns void
             AstType::Void
         };
-        
+
         self.exit_scope();
         Ok(return_type)
     }
-    
+
     fn get_variable_type(&self, name: &str) -> Result<AstType> {
         scope::get_variable_type(self, name, &self.enums)
     }
@@ -834,7 +853,11 @@ impl TypeChecker {
             Pattern::Identifier(name) => {
                 // Simple identifier pattern binds the name to the type of the matched value
                 // Check if the scrutinee is a primitive generic type that should be unwrapped
-                let binding_type = if let AstType::Generic { name: type_name, type_args } = scrutinee_type {
+                let binding_type = if let AstType::Generic {
+                    name: type_name,
+                    type_args,
+                } = scrutinee_type
+                {
                     if type_args.is_empty() {
                         // Check if it's a primitive type name that got wrapped as Generic
                         match type_name.as_str() {
@@ -845,7 +868,7 @@ impl TypeChecker {
                             "bool" | "Bool" => AstType::Bool,
                             "string" => AstType::StaticString,
                             "String" => crate::ast::resolve_string_struct_type(),
-                            _ => scrutinee_type.clone()
+                            _ => scrutinee_type.clone(),
                         }
                     } else {
                         scrutinee_type.clone()
@@ -891,7 +914,9 @@ impl TypeChecker {
             }
             Pattern::EnumVariant {
                 enum_name: _,
-                variant, payload, ..
+                variant,
+                payload,
+                ..
             } => {
                 // For qualified enum patterns with payloads, determine the payload type based on the variant
                 if let Some(payload_pattern) = payload {

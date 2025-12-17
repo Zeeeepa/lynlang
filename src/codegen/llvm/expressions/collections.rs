@@ -8,7 +8,10 @@ pub fn compile_array_literal<'ctx>(
     _expr: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     // TODO: Extract from expressions_old.rs
-    Err(CompileError::InternalError("Not yet implemented".to_string(), None))
+    Err(CompileError::InternalError(
+        "Not yet implemented".to_string(),
+        None,
+    ))
 }
 
 pub fn compile_array_index<'ctx>(
@@ -16,7 +19,10 @@ pub fn compile_array_index<'ctx>(
     _expr: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     // TODO: Extract from expressions_old.rs
-    Err(CompileError::InternalError("Not yet implemented".to_string(), None))
+    Err(CompileError::InternalError(
+        "Not yet implemented".to_string(),
+        None,
+    ))
 }
 
 pub fn compile_array_index_address<'ctx>(
@@ -61,7 +67,10 @@ pub fn compile_vec_constructor<'ctx>(
     _expr: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     // TODO: Extract from expressions_old.rs
-    Err(CompileError::InternalError("Not yet implemented".to_string(), None))
+    Err(CompileError::InternalError(
+        "Not yet implemented".to_string(),
+        None,
+    ))
 }
 
 pub fn compile_dynvec_constructor<'ctx>(
@@ -69,7 +78,10 @@ pub fn compile_dynvec_constructor<'ctx>(
     _expr: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     // TODO: Extract from expressions_old.rs
-    Err(CompileError::InternalError("Not yet implemented".to_string(), None))
+    Err(CompileError::InternalError(
+        "Not yet implemented".to_string(),
+        None,
+    ))
 }
 
 pub fn compile_array_constructor<'ctx>(
@@ -77,6 +89,8 @@ pub fn compile_array_constructor<'ctx>(
     _expr: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     // TODO: Extract from expressions_old.rs
-    Err(CompileError::InternalError("Not yet implemented".to_string(), None))
+    Err(CompileError::InternalError(
+        "Not yet implemented".to_string(),
+        None,
+    ))
 }
-

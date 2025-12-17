@@ -28,7 +28,18 @@ pub fn handle_code_lens(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Resp
         }
     };
 
-    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(Vec::<CodeLens>::new()).unwrap_or(serde_json::Value::Null)), error: None }; } };
+    let store = match store.lock() {
+        Ok(s) => s,
+        Err(_) => {
+            return Response {
+                id: req.id,
+                result: Some(
+                    serde_json::to_value(Vec::<CodeLens>::new()).unwrap_or(serde_json::Value::Null),
+                ),
+                error: None,
+            };
+        }
+    };
     let doc = match store.documents.get(&params.text_document.uri) {
         Some(d) => d,
         None => {
@@ -49,7 +60,10 @@ pub fn handle_code_lens(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Resp
                 let func_name = &func.name;
 
                 // Check if this is a test function (starts with test_ or ends with _test)
-                if func_name.starts_with("test_") || func_name.ends_with("_test") || func_name.contains("_test_") {
+                if func_name.starts_with("test_")
+                    || func_name.ends_with("_test")
+                    || func_name.contains("_test_")
+                {
                     // Find the line number of this function
                     let line_num = find_function_line(&doc.content, func_name);
 
@@ -110,4 +124,3 @@ fn find_function_line(content: &str, func_name: &str) -> Option<usize> {
     }
     None
 }
-

@@ -3,7 +3,7 @@
 
 #![allow(dead_code)]
 
-use lsp_server::{Request, Response, ResponseError, ErrorCode};
+use lsp_server::{ErrorCode, Request, Response, ResponseError};
 use lsp_types::*;
 use serde_json::Value;
 
@@ -14,7 +14,10 @@ use super::document_store::DocumentStore;
 // ============================================================================
 
 /// Handle textDocument/semanticTokens/full requests
-pub fn handle_semantic_tokens(req: Request, store: &std::sync::Arc<std::sync::Mutex<DocumentStore>>) -> Response {
+pub fn handle_semantic_tokens(
+    req: Request,
+    store: &std::sync::Arc<std::sync::Mutex<DocumentStore>>,
+) -> Response {
     let params: SemanticTokensParams = match serde_json::from_value(req.params) {
         Ok(p) => p,
         Err(_) => {
@@ -30,7 +33,19 @@ pub fn handle_semantic_tokens(req: Request, store: &std::sync::Arc<std::sync::Mu
         }
     };
 
-    let store = match store.lock() { Ok(s) => s, Err(_) => { return Response { id: req.id, result: Some(serde_json::to_value(SemanticTokens::default()).unwrap_or(serde_json::Value::Null)), error: None }; } };
+    let store = match store.lock() {
+        Ok(s) => s,
+        Err(_) => {
+            return Response {
+                id: req.id,
+                result: Some(
+                    serde_json::to_value(SemanticTokens::default())
+                        .unwrap_or(serde_json::Value::Null),
+                ),
+                error: None,
+            };
+        }
+    };
     let doc = match store.documents.get(&params.text_document.uri) {
         Some(doc) => doc,
         None => {
@@ -112,8 +127,8 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
 
     // Track generic type context for distinguishing < > as brackets vs operators
     // When we see a type name like Ptr, Vec, HashMap followed by <, we're in generic context
-    let mut generic_depth: i32 = 0;  // Nesting depth for generics
-    let mut last_was_type_name;  // Was the previous identifier a type name?
+    let mut generic_depth: i32 = 0; // Nesting depth for generics
+    let mut last_was_type_name; // Was the previous identifier a type name?
 
     while let Some((line_idx, line)) = line_iter.next() {
         let mut char_idx = 0;
@@ -162,7 +177,7 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                 let string_start_char_idx = char_idx;
                 let mut escaped = false;
                 let mut is_triple = false;
-                
+
                 // Check for triple-quoted string
                 if let Some(&next_ch) = chars.peek() {
                     if next_ch == '"' {
@@ -177,18 +192,18 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                         }
                     }
                 }
-                
+
                 // Track string parts and format expressions
                 let mut string_part_start = string_start_char_idx;
                 let mut in_format_expr = false;
                 let mut format_expr_start = 0;
-                
+
                 if is_triple {
                     // Triple-quoted string: read until we find """
                     while let Some(&next_ch) = chars.peek() {
                         chars.next();
                         char_idx += next_ch.len_utf8();
-                        
+
                         if escaped {
                             escaped = false;
                         } else if next_ch == '\\' {
@@ -233,7 +248,7 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                                         } else {
                                             string_part_start as u32
                                         };
-                                        
+
                                         tokens.push(SemanticToken {
                                             delta_line,
                                             delta_start,
@@ -241,26 +256,27 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                                             token_type: TYPE_STRING,
                                             token_modifiers_bitset: 0,
                                         });
-                                        
+
                                         prev_line = line_idx as u32;
                                         prev_start = string_part_start as u32;
                                     }
-                                    
+
                                     // Skip ${ and parse the format expression
                                     chars.next(); // Skip '{'
                                     char_idx += after_dollar.len_utf8();
                                     format_expr_start = peek_pos;
                                     in_format_expr = true;
-                                    
+
                                     // Find the closing }
                                     let mut expr_content = String::new();
                                     while let Some(&expr_ch) = chars.peek() {
                                         if expr_ch == '}' {
                                             chars.next();
                                             char_idx += expr_ch.len_utf8();
-                                            
+
                                             // Parse and tokenize the expression
-                                            let expr_str = &line[format_expr_start + 2..char_idx - 1]; // Skip ${ and }
+                                            let expr_str =
+                                                &line[format_expr_start + 2..char_idx - 1]; // Skip ${ and }
                                             tokenize_format_expression(
                                                 expr_str,
                                                 format_expr_start + 2,
@@ -269,7 +285,7 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                                                 &mut prev_line,
                                                 &mut prev_start,
                                             );
-                                            
+
                                             in_format_expr = false;
                                             string_part_start = char_idx;
                                             break;
@@ -291,7 +307,7 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                                 } else {
                                     string_part_start as u32
                                 };
-                                
+
                                 tokens.push(SemanticToken {
                                     delta_line,
                                     delta_start,
@@ -299,7 +315,7 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                                     token_type: TYPE_STRING,
                                     token_modifiers_bitset: 0,
                                 });
-                                
+
                                 prev_line = line_idx as u32;
                                 prev_start = string_part_start as u32;
                             }
@@ -362,7 +378,7 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
 
                 prev_line = line_idx as u32;
                 prev_start = start as u32;
-                last_was_type_name = false;  // Number can't be followed by generic <
+                last_was_type_name = false; // Number can't be followed by generic <
                 continue;
             }
 
@@ -391,7 +407,8 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                 let is_ufc_call = chars.peek() == Some(&'.');
 
                 // Check if this is allocator-related
-                let is_allocator_related = word.contains("allocator") || word == "alloc" || word == "dealloc";
+                let is_allocator_related =
+                    word.contains("allocator") || word == "alloc" || word == "dealloc";
 
                 let (token_type, modifiers) = match word.as_str() {
                     // Keywords
@@ -405,16 +422,17 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                     }
                     "enum" => (TYPE_KEYWORD, 0),
                     "let" | "mut" | "const" => (TYPE_KEYWORD, 0),
-                    "if" | "else" | "match" | "while" | "for" | "loop" | "break" | "continue" => (TYPE_KEYWORD, 0),
+                    "if" | "else" | "match" | "while" | "for" | "loop" | "break" | "continue" => {
+                        (TYPE_KEYWORD, 0)
+                    }
                     "return" => (TYPE_KEYWORD, 0),
                     "raise" => (TYPE_KEYWORD, MOD_ASYNC), // Special highlighting for error propagation
                     "import" | "export" | "pub" => (TYPE_KEYWORD, 0),
                     "true" | "false" | "null" => (TYPE_KEYWORD, 0),
 
                     // Built-in types
-                    "i8" | "i16" | "i32" | "i64" | "i128" |
-                    "u8" | "u16" | "u32" | "u64" | "u128" |
-                    "f32" | "f64" | "bool" | "void" => (TYPE_TYPE, MOD_DEFAULT_LIBRARY),
+                    "i8" | "i16" | "i32" | "i64" | "i128" | "u8" | "u16" | "u32" | "u64"
+                    | "u128" | "f32" | "f64" | "bool" | "void" => (TYPE_TYPE, MOD_DEFAULT_LIBRARY),
 
                     // Zen-specific types
                     "String" | "StaticString" => {
@@ -467,7 +485,12 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
 
                     // Uppercase identifiers are likely user-defined types (structs, enums)
                     // This handles things like: MyStruct<T>, CustomType<K, V>
-                    _ if word.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) => {
+                    _ if word
+                        .chars()
+                        .next()
+                        .map(|c| c.is_uppercase())
+                        .unwrap_or(false) =>
+                    {
                         last_was_type_name = true;
                         (TYPE_TYPE, 0)
                     }
@@ -538,7 +561,7 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                         }
 
                         // Add the method name token with special highlighting
-                        let delta_line = 0;  // Same line as dot
+                        let delta_line = 0; // Same line as dot
                         let delta_start = method_start as u32 - prev_start;
 
                         // Determine if this is a special method
@@ -664,19 +687,19 @@ fn tokenize_format_expression(
     const TYPE_VARIABLE: u32 = 8;
     const TYPE_PROPERTY: u32 = 9;
     const TYPE_OPERATOR: u32 = 21;
-    
+
     let mut char_idx = 0;
     let mut chars = expr_str.chars().peekable();
-    
+
     while let Some(ch) = chars.next() {
         let start = char_idx;
         char_idx += ch.len_utf8();
-        
+
         // Skip whitespace
         if ch.is_whitespace() {
             continue;
         }
-        
+
         // Identifiers (variables, properties)
         if ch.is_alphabetic() || ch == '_' {
             let mut word = String::from(ch);
@@ -689,30 +712,34 @@ fn tokenize_format_expression(
                     break;
                 }
             }
-            
+
             let delta_line = line_idx as u32 - *prev_line;
             let delta_start = if delta_line == 0 {
                 (expr_start_offset + start) as u32 - *prev_start
             } else {
                 (expr_start_offset + start) as u32
             };
-            
+
             // Check if this is followed by a dot (property access)
             let is_property = chars.peek() == Some(&'.');
-            
+
             tokens.push(SemanticToken {
                 delta_line,
                 delta_start,
                 length: word.len() as u32,
-                token_type: if is_property { TYPE_PROPERTY } else { TYPE_VARIABLE },
+                token_type: if is_property {
+                    TYPE_PROPERTY
+                } else {
+                    TYPE_VARIABLE
+                },
                 token_modifiers_bitset: 0,
             });
-            
+
             *prev_line = line_idx as u32;
             *prev_start = (expr_start_offset + start) as u32;
             continue;
         }
-        
+
         // Dot operator (property access)
         if ch == '.' {
             let delta_line = line_idx as u32 - *prev_line;
@@ -721,7 +748,7 @@ fn tokenize_format_expression(
             } else {
                 (expr_start_offset + start) as u32
             };
-            
+
             tokens.push(SemanticToken {
                 delta_line,
                 delta_start,
@@ -729,16 +756,16 @@ fn tokenize_format_expression(
                 token_type: TYPE_OPERATOR,
                 token_modifiers_bitset: 0,
             });
-            
+
             *prev_line = line_idx as u32;
             *prev_start = (expr_start_offset + start) as u32;
-            
+
             // Parse property name after dot
             if let Some(&next_ch) = chars.peek() {
                 if next_ch.is_alphabetic() || next_ch == '_' {
                     let prop_start = char_idx;
                     let mut prop_name = String::new();
-                    
+
                     while let Some(&prop_ch) = chars.peek() {
                         if prop_ch.is_alphanumeric() || prop_ch == '_' {
                             chars.next();
@@ -748,10 +775,10 @@ fn tokenize_format_expression(
                             break;
                         }
                     }
-                    
+
                     let delta_line = 0; // Same line
                     let delta_start = (expr_start_offset + prop_start) as u32 - *prev_start;
-                    
+
                     tokens.push(SemanticToken {
                         delta_line,
                         delta_start,
@@ -759,13 +786,13 @@ fn tokenize_format_expression(
                         token_type: TYPE_PROPERTY,
                         token_modifiers_bitset: 0,
                     });
-                    
+
                     *prev_start = (expr_start_offset + prop_start) as u32;
                 }
             }
             continue;
         }
-        
+
         // Other operators
         if "+-*/%&|^!<>=".contains(ch) {
             let delta_line = line_idx as u32 - *prev_line;
@@ -774,7 +801,7 @@ fn tokenize_format_expression(
             } else {
                 (expr_start_offset + start) as u32
             };
-            
+
             tokens.push(SemanticToken {
                 delta_line,
                 delta_start,
@@ -782,10 +809,9 @@ fn tokenize_format_expression(
                 token_type: TYPE_OPERATOR,
                 token_modifiers_bitset: 0,
             });
-            
+
             *prev_line = line_idx as u32;
             *prev_start = (expr_start_offset + start) as u32;
         }
     }
 }
-

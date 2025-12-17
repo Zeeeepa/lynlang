@@ -27,9 +27,7 @@ pub fn parse_loop_expression(parser: &mut Parser) -> Result<Expression> {
 
         // Handle empty parameter list
         if parser.current_token != Token::Symbol(')') {
-            while parser.current_token != Token::Symbol(')')
-                && parser.current_token != Token::Eof
-            {
+            while parser.current_token != Token::Symbol(')') && parser.current_token != Token::Eof {
                 if let Token::Identifier(param_name) = &parser.current_token {
                     let pname = param_name.clone();
                     parser.next_token();
@@ -107,17 +105,14 @@ pub fn parse_loop_expression(parser: &mut Parser) -> Result<Expression> {
 /// Parse break expression
 pub fn parse_break_expression(parser: &mut Parser) -> Result<Expression> {
     parser.next_token(); // consume 'break'
-    // Check for optional label
+                         // Check for optional label
     let mut label = None;
     let mut value = None;
 
     // Check if next token could be a label (identifier not followed by an operator)
     if let Token::Identifier(label_name) = &parser.current_token {
         // Look ahead to see if this is a label or a value expression
-        if matches!(
-            &parser.peek_token,
-            Token::Symbol(_) | Token::Eof
-        ) {
+        if matches!(&parser.peek_token, Token::Symbol(_) | Token::Eof) {
             label = Some(label_name.clone());
             parser.next_token();
         }

@@ -118,7 +118,7 @@ impl<'a> Parser<'a> {
                     ));
                 }
                 self.next_token(); // consume ','
-                
+
                 // After consuming comma, check for variadic syntax before looping
                 if self.current_token == Token::Operator("...".to_string()) {
                     is_varargs = true;
@@ -191,7 +191,7 @@ impl<'a> Parser<'a> {
 
         // Functions starting with __ are private, everything else is public
         let is_public = !name.starts_with("__");
-        
+
         Ok(Function {
             name,
             type_params,

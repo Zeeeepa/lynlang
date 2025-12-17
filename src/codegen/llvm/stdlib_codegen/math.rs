@@ -33,13 +33,15 @@ pub fn compile_math_function<'ctx>(
                 // Promote to i64 if types differ
                 let i64_type = compiler.context.i64_type();
                 let left_promoted = if left_int.get_type().get_bit_width() < 64 {
-                    compiler.builder
+                    compiler
+                        .builder
                         .build_int_s_extend(left_int, i64_type, "extend_left")?
                 } else {
                     left_int
                 };
                 let right_promoted = if right_int.get_type().get_bit_width() < 64 {
-                    compiler.builder
+                    compiler
+                        .builder
                         .build_int_s_extend(right_int, i64_type, "extend_right")?
                 } else {
                     right_int
@@ -108,11 +110,14 @@ pub fn compile_math_function<'ctx>(
         } else {
             "llvm.maxnum.f64"
         };
-        let intrinsic = compiler.module.get_function(intrinsic_name).unwrap_or_else(|| {
-            let f64_type = compiler.context.f64_type();
-            let fn_type = f64_type.fn_type(&[f64_type.into(), f64_type.into()], false);
-            compiler.module.add_function(intrinsic_name, fn_type, None)
-        });
+        let intrinsic = compiler
+            .module
+            .get_function(intrinsic_name)
+            .unwrap_or_else(|| {
+                let f64_type = compiler.context.f64_type();
+                let fn_type = f64_type.fn_type(&[f64_type.into(), f64_type.into()], false);
+                compiler.module.add_function(intrinsic_name, fn_type, None)
+            });
 
         let result = compiler.builder.build_call(
             intrinsic,
@@ -156,7 +161,9 @@ pub fn compile_math_function<'ctx>(
                         .fn_type(&[compiler.context.f64_type().into()], false);
                     compiler.module.add_function("fabs", fn_type, None)
                 });
-                let call = compiler.builder.build_call(fabs_fn, &[f.into()], "fabs_call")?;
+                let call = compiler
+                    .builder
+                    .build_call(fabs_fn, &[f.into()], "fabs_call")?;
                 Ok(call.try_as_basic_value().left().unwrap())
             }
             _ => Err(CompileError::TypeError(
@@ -211,7 +218,8 @@ pub fn compile_math_function<'ctx>(
             // Single-argument functions
             (
                 1,
-                compiler.context
+                compiler
+                    .context
                     .f64_type()
                     .fn_type(&[compiler.context.f64_type().into()], false),
             )
@@ -264,7 +272,8 @@ pub fn compile_math_function<'ctx>(
 
     // Call the math function
     let call_result =
-        compiler.builder
+        compiler
+            .builder
             .build_call(math_fn, &compiled_args, &format!("{}_call", c_func_name))?;
 
     // Return the result

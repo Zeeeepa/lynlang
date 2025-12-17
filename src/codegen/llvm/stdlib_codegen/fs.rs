@@ -38,8 +38,7 @@ pub fn compile_fs_read_file<'ctx>(
         let i32_type = compiler.context.i32_type();
         let i64_type = compiler.context.i64_type();
         let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-        let fn_type =
-            i32_type.fn_type(&[ptr_type.into(), i64_type.into(), i32_type.into()], false);
+        let fn_type = i32_type.fn_type(&[ptr_type.into(), i64_type.into(), i32_type.into()], false);
         compiler.module.add_function("fseek", fn_type, None)
     });
 
@@ -91,11 +90,16 @@ pub fn compile_fs_read_file<'ctx>(
         .builder
         .build_is_null(file_ptr.into_pointer_value(), "is_null")?;
     let current_fn = compiler.current_function.unwrap();
-    let success_block = compiler.context.append_basic_block(current_fn, "file_opened");
-    let error_block = compiler.context.append_basic_block(current_fn, "file_error");
+    let success_block = compiler
+        .context
+        .append_basic_block(current_fn, "file_opened");
+    let error_block = compiler
+        .context
+        .append_basic_block(current_fn, "file_error");
     let merge_block = compiler.context.append_basic_block(current_fn, "merge");
 
-    compiler.builder
+    compiler
+        .builder
         .build_conditional_branch(is_null, error_block, success_block)?;
 
     // Success block: read file
@@ -155,7 +159,8 @@ pub fn compile_fs_read_file<'ctx>(
     )?;
 
     // Close file
-    compiler.builder
+    compiler
+        .builder
         .build_call(fclose_fn, &[file_ptr.into()], "fclose_call")?;
 
     // Create Result.Ok with the buffer
@@ -240,7 +245,9 @@ pub fn compile_fs_write_file<'ctx>(
     let content_ptr = content_value.into_pointer_value();
 
     // Create mode string "w"
-    let mode_str = compiler.builder.build_global_string_ptr("w", "write_mode")?;
+    let mode_str = compiler
+        .builder
+        .build_global_string_ptr("w", "write_mode")?;
 
     // Call fopen
     let file_ptr = compiler
@@ -259,11 +266,16 @@ pub fn compile_fs_write_file<'ctx>(
         .builder
         .build_is_null(file_ptr.into_pointer_value(), "is_null")?;
     let current_fn = compiler.current_function.unwrap();
-    let success_block = compiler.context.append_basic_block(current_fn, "file_opened");
-    let error_block = compiler.context.append_basic_block(current_fn, "file_error");
+    let success_block = compiler
+        .context
+        .append_basic_block(current_fn, "file_opened");
+    let error_block = compiler
+        .context
+        .append_basic_block(current_fn, "file_error");
     let merge_block = compiler.context.append_basic_block(current_fn, "merge");
 
-    compiler.builder
+    compiler
+        .builder
         .build_conditional_branch(is_null, error_block, success_block)?;
 
     // Success block: write file
@@ -290,7 +302,8 @@ pub fn compile_fs_write_file<'ctx>(
     )?;
 
     // Close file
-    compiler.builder
+    compiler
+        .builder
         .build_call(fclose_fn, &[file_ptr.into()], "fclose_call")?;
 
     // Create Result.Ok(void)
@@ -409,10 +422,13 @@ pub fn compile_fs_remove_file<'ctx>(
     let success_block = compiler
         .context
         .append_basic_block(current_fn, "remove_success");
-    let error_block = compiler.context.append_basic_block(current_fn, "remove_error");
+    let error_block = compiler
+        .context
+        .append_basic_block(current_fn, "remove_error");
     let merge_block = compiler.context.append_basic_block(current_fn, "merge");
 
-    compiler.builder
+    compiler
+        .builder
         .build_conditional_branch(is_success, success_block, error_block)?;
 
     // Success block
@@ -485,11 +501,16 @@ pub fn compile_fs_create_dir<'ctx>(
     )?;
 
     let current_fn = compiler.current_function.unwrap();
-    let success_block = compiler.context.append_basic_block(current_fn, "mkdir_success");
-    let error_block = compiler.context.append_basic_block(current_fn, "mkdir_error");
+    let success_block = compiler
+        .context
+        .append_basic_block(current_fn, "mkdir_success");
+    let error_block = compiler
+        .context
+        .append_basic_block(current_fn, "mkdir_error");
     let merge_block = compiler.context.append_basic_block(current_fn, "merge");
 
-    compiler.builder
+    compiler
+        .builder
         .build_conditional_branch(is_success, success_block, error_block)?;
 
     // Success block

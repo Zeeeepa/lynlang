@@ -3,7 +3,12 @@ use crate::ast::Expression;
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
 
-pub fn parse_struct_literal(parser: &mut Parser, name: String, _open_char: char, close_char: char) -> Result<Expression> {
+pub fn parse_struct_literal(
+    parser: &mut Parser,
+    name: String,
+    _open_char: char,
+    close_char: char,
+) -> Result<Expression> {
     parser.next_token(); // consume opening char ('{' or '(')
     let mut fields = vec![];
 
@@ -42,7 +47,10 @@ pub fn parse_struct_literal(parser: &mut Parser, name: String, _open_char: char,
             // Only error if there's something unexpected
             if parser.current_token == Token::Eof {
                 return Err(CompileError::SyntaxError(
-                    format!("Unexpected end of file in struct literal, expected '{}'", close_char),
+                    format!(
+                        "Unexpected end of file in struct literal, expected '{}'",
+                        close_char
+                    ),
                     Some(parser.current_span.clone()),
                 ));
             }
@@ -57,4 +65,3 @@ pub fn parse_struct_literal(parser: &mut Parser, name: String, _open_char: char,
     parser.next_token(); // consume closing char ('}' or ')')
     Ok(Expression::StructLiteral { name, fields })
 }
-

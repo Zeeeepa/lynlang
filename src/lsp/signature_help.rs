@@ -26,11 +26,25 @@ pub fn handle_signature_help(req: Request, store: &Arc<Mutex<DocumentStore>>) ->
         }
     };
 
-    let store = match store.lock() { Ok(s) => s, Err(_) => {
-        let empty = SignatureHelp { signatures: vec![], active_signature: None, active_parameter: None };
-        return Response { id: req.id, result: Some(serde_json::to_value(empty).unwrap_or(serde_json::Value::Null)), error: None };
-    } };
-    let doc = match store.documents.get(&params.text_document_position_params.text_document.uri) {
+    let store = match store.lock() {
+        Ok(s) => s,
+        Err(_) => {
+            let empty = SignatureHelp {
+                signatures: vec![],
+                active_signature: None,
+                active_parameter: None,
+            };
+            return Response {
+                id: req.id,
+                result: Some(serde_json::to_value(empty).unwrap_or(serde_json::Value::Null)),
+                error: None,
+            };
+        }
+    };
+    let doc = match store
+        .documents
+        .get(&params.text_document_position_params.text_document.uri)
+    {
         Some(d) => d,
         None => {
             return Response {
@@ -45,13 +59,18 @@ pub fn handle_signature_help(req: Request, store: &Arc<Mutex<DocumentStore>>) ->
     let position = params.text_document_position_params.position;
     let function_call = find_function_call_at_position(&doc.content, position);
 
-    eprintln!("[LSP] Signature help at {}:{} - function_call: {:?}",
-        position.line, position.character, function_call);
+    eprintln!(
+        "[LSP] Signature help at {}:{} - function_call: {:?}",
+        position.line, position.character, function_call
+    );
 
     let signature_help = match function_call {
         Some((function_name, active_param)) => {
-            eprintln!("[LSP] Looking for function '{}' in {} doc symbols",
-                function_name, doc.symbols.len());
+            eprintln!(
+                "[LSP] Looking for function '{}' in {} doc symbols",
+                function_name,
+                doc.symbols.len()
+            );
 
             // Look up function in symbols (document, stdlib, workspace)
             let mut signature_info = None;
@@ -118,7 +137,11 @@ fn find_function_call_at_position(content: &str, position: Position) -> Option<(
     let mut line_offset = 0;
 
     // Look back up to 5 lines for multi-line function calls
-    let start_line = if position.line >= 5 { position.line - 5 } else { 0 };
+    let start_line = if position.line >= 5 {
+        position.line - 5
+    } else {
+        0
+    };
     for i in start_line..=position.line {
         if i as usize >= lines.len() {
             break;
@@ -158,7 +181,9 @@ fn find_function_call_at_position(content: &str, position: Position) -> Option<(
     // Extract function name before the opening paren
     let before_paren = &context[..current_pos - 1];
     let function_name = before_paren
-        .split(|c: char| c.is_whitespace() || c == '=' || c == ',' || c == ';' || c == '{' || c == '(')
+        .split(|c: char| {
+            c.is_whitespace() || c == '=' || c == ',' || c == ';' || c == '{' || c == '('
+        })
         .last()?
         .trim()
         .split('.')
@@ -184,18 +209,20 @@ fn find_function_call_at_position(content: &str, position: Position) -> Option<(
 
 fn create_signature_info(symbol: &SymbolInfo) -> SignatureInformation {
     // Extract function signature from symbol detail
-    let label = symbol.detail.clone().unwrap_or_else(|| {
-        format!("{}(...)", symbol.name)
-    });
+    let label = symbol
+        .detail
+        .clone()
+        .unwrap_or_else(|| format!("{}(...)", symbol.name));
 
     // Parse parameters from the function signature
     let parameters = parse_function_parameters(&label);
 
     SignatureInformation {
         label,
-        documentation: symbol.documentation.as_ref().map(|doc| {
-            Documentation::String(doc.clone())
-        }),
+        documentation: symbol
+            .documentation
+            .as_ref()
+            .map(|doc| Documentation::String(doc.clone())),
         parameters: if parameters.is_empty() {
             None
         } else {
@@ -229,4 +256,3 @@ fn parse_function_parameters(signature: &str) -> Vec<ParameterInformation> {
 
     parameters
 }
-

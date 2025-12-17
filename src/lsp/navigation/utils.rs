@@ -82,7 +82,8 @@ pub fn is_word_boundary_char(line: &str, byte_pos: usize) -> bool {
         }
         char_count += 1;
     }
-    line.chars().nth(char_count)
+    line.chars()
+        .nth(char_count)
         .map(|c| !c.is_alphanumeric() && c != '_')
         .unwrap_or(true)
 }
@@ -93,16 +94,17 @@ pub fn find_word_in_line(line: &str, word: &str) -> Option<usize> {
     loop {
         if let Some(pos) = line[search_pos..].find(word) {
             let actual_pos = search_pos + pos;
-            
+
             // Check word boundaries
-            let before_ok = actual_pos == 0 || is_word_boundary_char(line, actual_pos.saturating_sub(1));
+            let before_ok =
+                actual_pos == 0 || is_word_boundary_char(line, actual_pos.saturating_sub(1));
             let end_pos = actual_pos + word.len();
             let after_ok = end_pos >= line.len() || is_word_boundary_char(line, end_pos);
-            
+
             if before_ok && after_ok {
                 return Some(actual_pos);
             }
-            
+
             search_pos = actual_pos + 1;
         } else {
             break;
@@ -163,8 +165,14 @@ pub fn find_function_range(content: &str, func_name: &str) -> Option<Range> {
                     brace_depth -= 1;
                     if found_opening && brace_depth == 0 {
                         return Some(Range {
-                            start: Position { line: start as u32, character: 0 },
-                            end: Position { line: line_num as u32, character: line.len() as u32 }
+                            start: Position {
+                                line: start as u32,
+                                character: 0,
+                            },
+                            end: Position {
+                                line: line_num as u32,
+                                character: line.len() as u32,
+                            },
                         });
                     }
                 }
@@ -181,17 +189,19 @@ pub fn find_symbol_definition_in_content(content: &str, symbol_name: &str) -> Op
     // First pass: look for actual definitions (function, variable, etc.)
     for (line_idx, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
-        
+
         // Skip comments
         if trimmed.starts_with("//") {
             continue;
         }
-        
+
         // Look for symbol at word boundaries
         if let Some(pos) = find_word_in_line(line, symbol_name) {
-            let is_word_boundary_start = pos == 0 || is_word_boundary_char(line, pos.saturating_sub(1));
+            let is_word_boundary_start =
+                pos == 0 || is_word_boundary_char(line, pos.saturating_sub(1));
             let end_pos = pos + symbol_name.len();
-            let is_word_boundary_end = end_pos >= line.len() || is_word_boundary_char(line, end_pos);
+            let is_word_boundary_end =
+                end_pos >= line.len() || is_word_boundary_char(line, end_pos);
 
             if is_word_boundary_start && is_word_boundary_end {
                 // Check if this looks like a definition
@@ -199,12 +209,19 @@ pub fn find_symbol_definition_in_content(content: &str, symbol_name: &str) -> Op
                 let is_definition = after_symbol.starts_with('=')
                     || after_symbol.starts_with(':')
                     || after_symbol.starts_with('(')
-                    || (line[..pos].trim().is_empty() && (after_symbol.starts_with('=') || after_symbol.starts_with(':')));
-                
+                    || (line[..pos].trim().is_empty()
+                        && (after_symbol.starts_with('=') || after_symbol.starts_with(':')));
+
                 if is_definition {
                     return Some(Range {
-                        start: Position { line: line_idx as u32, character: pos as u32 },
-                        end: Position { line: line_idx as u32, character: end_pos as u32 },
+                        start: Position {
+                            line: line_idx as u32,
+                            character: pos as u32,
+                        },
+                        end: Position {
+                            line: line_idx as u32,
+                            character: end_pos as u32,
+                        },
                     });
                 }
             }
@@ -213,4 +230,3 @@ pub fn find_symbol_definition_in_content(content: &str, symbol_name: &str) -> Op
 
     None
 }
-

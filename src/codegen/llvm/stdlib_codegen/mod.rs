@@ -1,18 +1,18 @@
 //! Standard library function codegen
 //! Split into modules by functionality
 
-pub mod io;
-pub mod math;
+pub mod collections;
+pub mod compiler;
 pub mod core;
 pub mod fs;
-pub mod compiler;
-pub mod collections;
 pub mod helpers;
+pub mod io;
+pub mod math;
 
 // Re-export io functions for backward compatibility
 pub use io::*;
 
-// Note: Other modules (math, core, helpers, fs, compiler, collections) are 
+// Note: Other modules (math, core, helpers, fs, compiler, collections) are
 // available via their module paths when needed
 
 // All functions are now delegated to their respective modules

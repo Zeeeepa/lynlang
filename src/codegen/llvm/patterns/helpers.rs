@@ -18,8 +18,7 @@ pub fn values_equal<'ctx>(
         let int2 = val2.into_int_value();
 
         // Ensure both integers have the same bit width for comparison
-        let (int1, int2) = if int1.get_type().get_bit_width() != int2.get_type().get_bit_width()
-        {
+        let (int1, int2) = if int1.get_type().get_bit_width() != int2.get_type().get_bit_width() {
             // Cast to the larger width
             let target_width = std::cmp::max(
                 int1.get_type().get_bit_width(),
@@ -28,13 +27,17 @@ pub fn values_equal<'ctx>(
             let target_type = compiler.context.custom_width_int_type(target_width);
 
             let int1 = if int1.get_type().get_bit_width() < target_width {
-                compiler.builder.build_int_z_extend(int1, target_type, "ext1")?
+                compiler
+                    .builder
+                    .build_int_z_extend(int1, target_type, "ext1")?
             } else {
                 int1
             };
 
             let int2 = if int2.get_type().get_bit_width() < target_width {
-                compiler.builder.build_int_z_extend(int2, target_type, "ext2")?
+                compiler
+                    .builder
+                    .build_int_z_extend(int2, target_type, "ext2")?
             } else {
                 int2
             };
@@ -85,7 +88,7 @@ pub fn apply_pattern_bindings<'ctx>(
         // Determine the AST type based on the LLVM type
         let (actual_value, ast_type) = if value.is_int_value() {
             let int_val = value.into_int_value();
-            
+
             // Check if this is actually a pointer stored as i64 (common for Option payloads)
             // When we have type information from Option_Some_Type, use it
             if int_val.get_type().get_bit_width() == 64 {
@@ -94,12 +97,15 @@ pub fn apply_pattern_bindings<'ctx>(
                     if let crate::ast::AstType::DynVec { .. } = option_type {
                         // This i64 is actually a pointer to a DynVec struct
                         // Convert it to a pointer and load the struct
-                        let ptr_val = compiler.builder.build_int_to_ptr(
-                            int_val,
-                            compiler.context.ptr_type(AddressSpace::default()),
-                            "dynvec_ptr_from_i64"
-                        ).unwrap();
-                        
+                        let ptr_val = compiler
+                            .builder
+                            .build_int_to_ptr(
+                                int_val,
+                                compiler.context.ptr_type(AddressSpace::default()),
+                                "dynvec_ptr_from_i64",
+                            )
+                            .unwrap();
+
                         // DynVec struct type
                         let dynvec_struct_type = compiler.context.struct_type(
                             &[
@@ -110,29 +116,33 @@ pub fn apply_pattern_bindings<'ctx>(
                             ],
                             false,
                         );
-                        
-                        let loaded_struct = compiler.builder.build_load(
-                            dynvec_struct_type,
-                            ptr_val,
-                            "loaded_dynvec"
-                        ).unwrap();
-                        
+
+                        let loaded_struct = compiler
+                            .builder
+                            .build_load(dynvec_struct_type, ptr_val, "loaded_dynvec")
+                            .unwrap();
+
                         (loaded_struct, option_type.clone())
                     } else {
                         // Regular i64 or other type stored as i64
                         (*value, option_type.clone())
                     }
-                } else if let Some(option_type) = compiler.generic_type_context.get("Option_Some_Type") {
-                    // Check if it's a DynVec type  
+                } else if let Some(option_type) =
+                    compiler.generic_type_context.get("Option_Some_Type")
+                {
+                    // Check if it's a DynVec type
                     if let crate::ast::AstType::DynVec { .. } = option_type {
                         // This i64 is actually a pointer to a DynVec struct
                         // Convert it to a pointer and load the struct
-                        let ptr_val = compiler.builder.build_int_to_ptr(
-                            int_val,
-                            compiler.context.ptr_type(AddressSpace::default()),
-                            "dynvec_ptr_from_i64"
-                        ).unwrap();
-                        
+                        let ptr_val = compiler
+                            .builder
+                            .build_int_to_ptr(
+                                int_val,
+                                compiler.context.ptr_type(AddressSpace::default()),
+                                "dynvec_ptr_from_i64",
+                            )
+                            .unwrap();
+
                         // DynVec struct type
                         let dynvec_struct_type = compiler.context.struct_type(
                             &[
@@ -143,13 +153,12 @@ pub fn apply_pattern_bindings<'ctx>(
                             ],
                             false,
                         );
-                        
-                        let loaded_struct = compiler.builder.build_load(
-                            dynvec_struct_type,
-                            ptr_val,
-                            "loaded_dynvec"
-                        ).unwrap();
-                        
+
+                        let loaded_struct = compiler
+                            .builder
+                            .build_load(dynvec_struct_type, ptr_val, "loaded_dynvec")
+                            .unwrap();
+
                         (loaded_struct, option_type.clone())
                     } else {
                         // Regular i64 or other type stored as i64
@@ -186,7 +195,9 @@ pub fn apply_pattern_bindings<'ctx>(
             // 3. DynVec or other collection types (pointer to struct)
             //
             // Check if we have type information from the Option_Some_Type tracker
-            let ast_type = if let Some(option_type) = compiler.generic_tracker.get("Option_Some_Type") {
+            let ast_type = if let Some(option_type) =
+                compiler.generic_tracker.get("Option_Some_Type")
+            {
                 // Use the tracked type from Option extraction
                 option_type.clone()
             } else {
@@ -208,42 +219,45 @@ pub fn apply_pattern_bindings<'ctx>(
                 // We need to be careful: if we extracted a payload from Option.Some where the
                 // payload itself is an enum (like Result), then the struct we're looking at
                 // IS that inner enum, not the outer Option
-                let ast_type = if let Some(option_type) = compiler.generic_tracker.get("Option_Some_Type") {
-                    // Check if Option_Some_Type is itself a generic enum
-                    if let crate::ast::AstType::Generic { name, .. } = option_type {
-                        if name == "Result" || name == "Option" {
-                            // The struct we're binding IS the inner enum type
-                            option_type.clone()
+                let ast_type =
+                    if let Some(option_type) = compiler.generic_tracker.get("Option_Some_Type") {
+                        // Check if Option_Some_Type is itself a generic enum
+                        if let crate::ast::AstType::Generic { name, .. } = option_type {
+                            if name == "Result" || name == "Option" {
+                                // The struct we're binding IS the inner enum type
+                                option_type.clone()
+                            } else {
+                                // Regular Option with non-enum payload
+                                crate::ast::AstType::Generic {
+                                    name: "Option".to_string(),
+                                    type_args: vec![option_type.clone()],
+                                }
+                            }
                         } else {
-                            // Regular Option with non-enum payload
+                            // Regular Option with primitive payload
                             crate::ast::AstType::Generic {
                                 name: "Option".to_string(),
                                 type_args: vec![option_type.clone()],
                             }
                         }
+                    } else if let Some(ok_type) = compiler.generic_tracker.get("Result_Ok_Type") {
+                        // We have Result type information - the struct IS a Result
+                        let err_type = compiler
+                            .generic_tracker
+                            .get("Result_Err_Type")
+                            .cloned()
+                            .unwrap_or(crate::ast::AstType::StaticString);
+                        crate::ast::AstType::Generic {
+                            name: "Result".to_string(),
+                            type_args: vec![ok_type.clone(), err_type],
+                        }
                     } else {
-                        // Regular Option with primitive payload
+                        // Fallback - generic Option with unknown type
                         crate::ast::AstType::Generic {
                             name: "Option".to_string(),
-                            type_args: vec![option_type.clone()],
+                            type_args: vec![crate::ast::AstType::I64],
                         }
-                    }
-                } else if let Some(ok_type) = compiler.generic_tracker.get("Result_Ok_Type") {
-                    // We have Result type information - the struct IS a Result
-                    let err_type = compiler.generic_tracker.get("Result_Err_Type")
-                        .cloned()
-                        .unwrap_or(crate::ast::AstType::StaticString);
-                    crate::ast::AstType::Generic {
-                        name: "Result".to_string(),
-                        type_args: vec![ok_type.clone(), err_type],
-                    }
-                } else {
-                    // Fallback - generic Option with unknown type
-                    crate::ast::AstType::Generic {
-                        name: "Option".to_string(),
-                        type_args: vec![crate::ast::AstType::I64],
-                    }
-                };
+                    };
                 (*value, ast_type)
             } else {
                 // Other struct types
@@ -283,4 +297,3 @@ pub fn restore_variables<'ctx>(
         compiler.variables.insert(name, value);
     }
 }
-
