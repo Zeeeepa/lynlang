@@ -51,3 +51,21 @@ path = "src/bin/zen-format.rs"
 [dev-dependencies]
 tempfile = "3.8"
 # regex is inherited from [dependencies]
+
+# Memory-optimized profiles to prevent OOM during compilation
+[profile.release]
+codegen-units = 1        # Single codegen unit = less parallel memory usage
+lto = "thin"             # Thin LTO = less memory than fat LTO
+opt-level = 3            # Full optimization
+incremental = false      # Disable incremental = less disk/memory for cache
+
+[profile.dev]
+codegen-units = 16       # More parallelism for faster debug builds
+incremental = true       # Keep incremental for dev speed
+
+# Low-memory profile for constrained environments
+[profile.low-memory]
+inherits = "release"
+codegen-units = 1
+lto = false              # Disable LTO entirely - major memory savings
+opt-level = 2            # Slightly less optimization = less memory

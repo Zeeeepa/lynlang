@@ -1,7 +1,7 @@
 # Zen Language Makefile
 # Provides convenient build and test commands
 
-.PHONY: all build test clean install lsp format check help test-lsp-diagnostics
+.PHONY: all build test clean install lsp format check help test-lsp-diagnostics safe-build safe-test low-memory mem-watch
 
 # Default target
 all: build
@@ -95,6 +95,19 @@ quick-test:
 	@./target/debug/zen tests/test_no_gc_comprehensive.zen
 	@echo "✓ Quick tests complete"
 
+# Memory-safe build targets (prevents OOM)
+safe-build:
+	@./scripts/safe-build.sh build
+
+safe-test:
+	@./scripts/safe-build.sh test
+
+low-memory:
+	@ZEN_BUILD_PROFILE=low-memory ./scripts/safe-build.sh build
+
+mem-watch:
+	@./scripts/mem-watch.sh
+
 # Show help
 help:
 	@echo "Zen Language Build System"
@@ -114,6 +127,10 @@ help:
 	@echo "  make docs        - Build documentation"
 	@echo "  make bench       - Run benchmarks"
 	@echo "  make quick-test  - Run quick test subset"
+	@echo "  make safe-build  - Build with memory limits (OOM protection)"
+	@echo "  make safe-test   - Test with memory limits"
+	@echo "  make low-memory  - Build for constrained environments"
+	@echo "  make mem-watch   - Monitor memory usage in real-time"
 	@echo "  make help        - Show this help message"
 
 # Development workflow shortcuts
