@@ -1,10 +1,11 @@
-use super::{symbols, LLVMCompiler, Type};
-use crate::ast::AstType;
+use super::{symbols, LLVMCompiler, StructTypeInfo, Type};
+use crate::ast::{self, AstType};
 use crate::error::CompileError;
 use inkwell::{
     types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum},
     AddressSpace,
 };
+use std::collections::HashMap;
 
 impl<'ctx> LLVMCompiler<'ctx> {
     pub fn to_llvm_type(&mut self, type_: &AstType) -> Result<Type<'ctx>, CompileError> {
@@ -482,5 +483,296 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 None,
             )),
         }
+    }
+
+    /// Parse comma-separated types from a string, handling nested generics
+    pub fn parse_comma_separated_types(&self, type_str: &str) -> Vec<AstType> {
+        let mut result = Vec::new();
+        let mut current = String::new();
+        let mut depth = 0;
+        
+        for ch in type_str.chars() {
+            match ch {
+                '<' => {
+                    depth += 1;
+                    current.push(ch);
+                }
+                '>' => {
+                    depth -= 1;
+                    current.push(ch);
+                }
+                ',' if depth == 0 => {
+                    // End of current type
+                    let parsed = self.parse_type_string(current.trim());
+                    result.push(parsed);
+                    current.clear();
+                }
+                _ => {
+                    current.push(ch);
+                }
+            }
+        }
+        
+        // Don't forget the last type
+        if !current.is_empty() {
+            let parsed = self.parse_type_string(current.trim());
+            result.push(parsed);
+        }
+        
+        result
+    }
+    
+    /// Parse a single type string into an AstType
+    pub fn parse_type_string(&self, type_str: &str) -> AstType {
+        // Check for generic types
+        if let Some(angle_pos) = type_str.find('<') {
+            let base_type = &type_str[..angle_pos];
+            let type_params_str = &type_str[angle_pos+1..type_str.len()-1];
+            
+            match base_type {
+                "DynVec" => {
+                    let element_types = self.parse_comma_separated_types(type_params_str);
+                    AstType::DynVec {
+                        element_types,
+                        allocator_type: None,
+                    }
+                }
+                "Vec" => {
+                    // Vec<T, N> where N is the size
+                    let parts = self.parse_comma_separated_types(type_params_str);
+                    if parts.len() >= 1 {
+                        // For now, default size to 10 if not specified
+                        AstType::Vec {
+                            element_type: Box::new(parts[0].clone()),
+                            size: 10, // Default size
+                        }
+                    } else {
+                        AstType::Vec {
+                            element_type: Box::new(AstType::I32),
+                            size: 10,
+                        }
+                    }
+                }
+                "Option" => {
+                    let type_args = self.parse_comma_separated_types(type_params_str);
+                    AstType::Generic {
+                        name: "Option".to_string(),
+                        type_args,
+                    }
+                }
+                "Result" => {
+                    let type_args = self.parse_comma_separated_types(type_params_str);
+                    AstType::Generic {
+                        name: "Result".to_string(),
+                        type_args,
+                    }
+                }
+                "HashMap" | "HashSet" => {
+                    let type_args = self.parse_comma_separated_types(type_params_str);
+                    AstType::Generic {
+                        name: base_type.to_string(),
+                        type_args,
+                    }
+                }
+                _ => {
+                    // Unknown generic type
+                    let type_args = self.parse_comma_separated_types(type_params_str);
+                    AstType::Generic {
+                        name: base_type.to_string(),
+                        type_args,
+                    }
+                }
+            }
+        } else {
+            // Simple types
+            match type_str {
+                "i8" => AstType::I8,
+                "i16" => AstType::I16,
+                "i32" => AstType::I32,
+                "i64" => AstType::I64,
+                "u8" => AstType::U8,
+                "u16" => AstType::U16,
+                "u32" => AstType::U32,
+                "u64" => AstType::U64,
+                "f32" => AstType::F32,
+                "f64" => AstType::F64,
+                "bool" => AstType::Bool,
+                "string" => AstType::StaticLiteral,
+                "StaticString" => AstType::StaticString,
+                "String" => crate::ast::resolve_string_struct_type(),
+                "void" => AstType::Void,
+                _ => AstType::I32, // Default fallback
+            }
+        }
+    }
+
+    pub fn register_struct_type(
+        &mut self,
+        struct_def: &ast::StructDefinition,
+    ) -> Result<(), CompileError> {
+        let mut field_types = Vec::new();
+        let mut fields = HashMap::new();
+
+        for (index, field) in struct_def.fields.iter().enumerate() {
+            let llvm_type = match &field.type_ {
+                AstType::I8 => self.context.i8_type().as_basic_type_enum(),
+                AstType::I16 => self.context.i16_type().as_basic_type_enum(),
+                AstType::I32 => self.context.i32_type().as_basic_type_enum(),
+                AstType::I64 => self.context.i64_type().as_basic_type_enum(),
+                AstType::U8 => self.context.i8_type().as_basic_type_enum(),
+                AstType::U16 => self.context.i16_type().as_basic_type_enum(),
+                AstType::U32 => self.context.i32_type().as_basic_type_enum(),
+                AstType::U64 => self.context.i64_type().as_basic_type_enum(),
+                AstType::Usize => self.context.i64_type().as_basic_type_enum(),
+                AstType::F32 => self.context.f32_type().as_basic_type_enum(),
+                AstType::F64 => self.context.f64_type().as_basic_type_enum(),
+                AstType::Bool => self.context.bool_type().as_basic_type_enum(),
+                AstType::StaticLiteral | AstType::StaticString => self
+                    .context
+                    .ptr_type(AddressSpace::default())
+                    .as_basic_type_enum(),
+                AstType::Struct { name, .. } if name == "String" => self
+                    .context
+                    .ptr_type(AddressSpace::default())
+                    .as_basic_type_enum(),
+                AstType::Void => {
+                    return Err(CompileError::TypeError(
+                        "Void type not allowed in struct fields".to_string(),
+                        None,
+                    ))
+                }
+                AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) => {
+                    match inner.as_ref() {
+                        AstType::Generic { name, .. } => {
+                            let _ = self.struct_types.get(name);
+                            self.context
+                                .ptr_type(AddressSpace::default())
+                                .as_basic_type_enum()
+                        }
+                        AstType::Struct { name, .. } => {
+                            let _ = self.struct_types.get(name);
+                            self.context
+                                .ptr_type(AddressSpace::default())
+                                .as_basic_type_enum()
+                        }
+                        _ => {
+                            self.context
+                                .ptr_type(AddressSpace::default())
+                                .as_basic_type_enum()
+                        }
+                    }
+                }
+                AstType::Generic { name, .. } => {
+                    if let Some(struct_info) = self.struct_types.get(name) {
+                        struct_info.llvm_type.as_basic_type_enum()
+                    } else {
+                        self.context
+                            .ptr_type(AddressSpace::default())
+                            .as_basic_type_enum()
+                    }
+                }
+                AstType::Struct { name, .. } => {
+                    if let Some(struct_info) = self.struct_types.get(name) {
+                        struct_info.llvm_type.as_basic_type_enum()
+                    } else {
+                        return Err(CompileError::TypeError(
+                            format!("Struct '{}' not yet registered. This may be a forward reference issue. Structs should be defined before use, or the typechecker should resolve Generic types to Struct types.", name),
+                            None
+                        ));
+                    }
+                }
+                AstType::FunctionPointer { .. } => {
+                    self.context
+                        .ptr_type(AddressSpace::default())
+                        .as_basic_type_enum()
+                }
+                _ => {
+                    return Err(CompileError::TypeError(
+                        format!("Unsupported type in struct: {:?}", field.type_),
+                        None,
+                    ))
+                }
+            };
+
+            field_types.push(llvm_type);
+            fields.insert(field.name.clone(), (index, field.type_.clone()));
+        }
+
+        let struct_type = self.context.struct_type(&field_types, false);
+
+        let struct_info = StructTypeInfo {
+            llvm_type: struct_type,
+            fields,
+        };
+
+        self.struct_types
+            .insert(struct_def.name.clone(), struct_info);
+
+        Ok(())
+    }
+
+    pub fn register_enum_type(
+        &mut self,
+        enum_def: &ast::EnumDefinition,
+    ) -> Result<(), CompileError> {
+        let mut variant_indices = HashMap::new();
+        let mut max_payload_size = 0u32;
+        let mut has_payloads = false;
+
+        for (index, variant) in enum_def.variants.iter().enumerate() {
+            variant_indices.insert(variant.name.clone(), index as u64);
+
+            if let Some(payload_type) = &variant.payload {
+                if !matches!(payload_type, AstType::Void) {
+                    has_payloads = true;
+                    let payload_size = match payload_type {
+                        AstType::I8 | AstType::U8 | AstType::Bool => 8,
+                        AstType::I16 | AstType::U16 => 16,
+                        AstType::I32 | AstType::U32 | AstType::F32 => 32,
+                        AstType::I64 | AstType::U64 | AstType::F64 | AstType::Usize => 64,
+                        AstType::StaticLiteral
+                        | AstType::StaticString => 64,
+                        AstType::Struct { name, .. } if name == "String" => 64,
+                        AstType::Ptr(_)
+                        | AstType::MutPtr(_)
+                        | AstType::RawPtr(_) => 64,
+                        AstType::Struct { .. } | AstType::Generic { .. } => 64,
+                        AstType::Void => 0,
+                        _ => 64,
+                    };
+                    max_payload_size = max_payload_size.max(payload_size);
+                }
+            }
+        }
+
+        let enum_struct_type = if has_payloads {
+            let ptr_type = self.context.ptr_type(AddressSpace::default());
+
+            self.context.struct_type(
+                &[
+                    self.context.i64_type().into(),
+                    ptr_type.into(),
+                ],
+                false,
+            )
+        } else {
+            self.context.struct_type(
+                &[
+                    self.context.i64_type().into(),
+                ],
+                false,
+            )
+        };
+
+        let enum_info = symbols::EnumInfo {
+            llvm_type: enum_struct_type,
+            variant_indices,
+            variants: enum_def.variants.clone(),
+        };
+
+        self.symbols
+            .insert(&enum_def.name, symbols::Symbol::EnumType(enum_info));
+
+        Ok(())
     }
 }

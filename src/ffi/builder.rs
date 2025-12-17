@@ -7,10 +7,31 @@ use std::sync::Arc;
 
 use crate::ast::AstType;
 use super::errors::FFIError;
-use super::types::{CallingConvention, FnSignature, FunctionSafety, LoadFlags, TypeMapping, TypeMarshaller};
+use super::types::{CallingConvention, FnSignature, FunctionSafety, LoadFlags, TypeMapping};
 use super::platform::{Platform, PlatformConfig};
-use super::validation::ValidationRule;
 use super::library::Library;
+
+/// Validation rule for FFI configuration
+pub struct ValidationRule {
+    pub name: String,
+    pub validator: Arc<dyn Fn(&LibBuilder) -> Result<(), FFIError> + Send + Sync>,
+}
+
+impl ValidationRule {
+    /// Execute the validation with the provided builder
+    pub fn validate(&self, builder: &LibBuilder) -> Result<(), FFIError> {
+        (self.validator)(builder)
+    }
+}
+
+impl std::fmt::Debug for ValidationRule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ValidationRule")
+            .field("name", &self.name)
+            .field("validator", &"<function>")
+            .finish()
+    }
+}
 
 /// Callback definition for FFI
 #[derive(Clone)]

@@ -1,6 +1,8 @@
 //! Literal expression parsing: integers, floats, strings
 //! Extracted from primary.rs
 
+#![allow(dead_code)]
+
 use super::super::core::Parser;
 use crate::ast::Expression;
 use crate::error::{CompileError, Result};
@@ -179,6 +181,161 @@ pub fn parse_shorthand_enum_variant(parser: &mut Parser) -> Result<Expression> {
         None
     };
 
-    // Use EnumLiteral for shorthand syntax
     Ok(Expression::EnumLiteral { variant, payload })
+}
+
+pub fn parse_special_identifier_with_ufc(parser: &mut Parser, name: &str) -> Result<Expression> {
+    parser.next_token();
+    let mut expr = Expression::Identifier(name.to_string());
+
+    loop {
+        match &parser.current_token {
+            Token::Symbol('.') => {
+                parser.next_token();
+
+                let member = match &parser.current_token {
+                    Token::Identifier(name) => name.clone(),
+                    _ => {
+                        return Err(CompileError::SyntaxError(
+                            "Expected identifier after '.'".to_string(),
+                            Some(parser.current_span.clone()),
+                        ));
+                    }
+                };
+                parser.next_token();
+
+                if parser.current_token == Token::Symbol('(') {
+                    return super::calls::parse_call_expression_with_object(parser, expr, member);
+                } else {
+                    expr = Expression::MemberAccess {
+                        object: Box::new(expr),
+                        member,
+                    };
+                }
+            }
+            _ => break,
+        }
+    }
+
+    Ok(expr)
+}
+
+pub fn parse_generic_type_args_to_string(parser: &mut Parser) -> Result<String> {
+    parser.next_token();
+    let mut type_args = Vec::new();
+    
+    loop {
+        type_args.push(parser.parse_type()?);
+        
+        if parser.current_token == Token::Symbol(',') {
+            parser.next_token();
+        } else if parser.current_token == Token::Operator(">".to_string()) {
+            parser.next_token();
+            break;
+        } else {
+            return Err(CompileError::SyntaxError(
+                "Expected ',' or '>' in generic type arguments".to_string(),
+                Some(parser.current_span.clone()),
+            ));
+        }
+    }
+    
+    let type_args_str = type_args.iter()
+        .map(|t| format!("{}", t))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Ok(type_args_str)
+}
+
+pub fn parse_collection_loop(parser: &mut Parser, collection: Expression) -> Result<Expression> {
+    parser.next_token();
+    if parser.current_token != Token::Symbol('(') {
+        return Err(CompileError::SyntaxError(
+            "Expected '(' after '.loop'".to_string(),
+            Some(parser.current_span.clone()),
+        ));
+    }
+    parser.next_token();
+
+    if parser.current_token != Token::Symbol('(') {
+        return Err(CompileError::SyntaxError(
+            "Expected '(' for loop closure parameter".to_string(),
+            Some(parser.current_span.clone()),
+        ));
+    }
+    parser.next_token();
+
+    let param_name = if let Token::Identifier(p) = &parser.current_token {
+        p.clone()
+    } else {
+        return Err(CompileError::SyntaxError(
+            "Expected parameter name in loop closure".to_string(),
+            Some(parser.current_span.clone()),
+        ));
+    };
+    parser.next_token();
+
+    let param_type = if parser.current_token == Token::Symbol(':') {
+        parser.next_token();
+        Some(parser.parse_type()?)
+    } else {
+        None
+    };
+
+    let param = (param_name, param_type);
+
+    let index_param = if parser.current_token == Token::Symbol(',') {
+        parser.next_token();
+        if let Token::Identifier(idx) = &parser.current_token {
+            let idx_name = idx.clone();
+            parser.next_token();
+
+            let idx_type = if parser.current_token == Token::Symbol(':') {
+                parser.next_token();
+                Some(parser.parse_type()?)
+            } else {
+                None
+            };
+
+            Some((idx_name, idx_type))
+        } else {
+            return Err(CompileError::SyntaxError(
+                "Expected index parameter name after ','".to_string(),
+                Some(parser.current_span.clone()),
+            ));
+        }
+    } else {
+        None
+    };
+
+    if parser.current_token != Token::Symbol(')') {
+        return Err(CompileError::SyntaxError(
+            "Expected ')' after loop parameters".to_string(),
+            Some(parser.current_span.clone()),
+        ));
+    }
+    parser.next_token();
+
+    if parser.current_token != Token::Symbol('{') {
+        return Err(CompileError::SyntaxError(
+            "Expected '{' for loop body".to_string(),
+            Some(parser.current_span.clone()),
+        ));
+    }
+    let body = super::blocks::parse_block_expression(parser)?;
+
+    if parser.current_token != Token::Symbol(')') {
+        return Err(CompileError::SyntaxError(
+            "Expected ')' to close loop call".to_string(),
+            Some(parser.current_span.clone()),
+        ));
+    }
+    parser.next_token();
+
+    Ok(Expression::CollectionLoop {
+        collection: Box::new(collection),
+        param,
+        index_param,
+        body: Box::new(body),
+    })
 }

@@ -164,250 +164,25 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                 Ok(Expression::Comptime(Box::new(expr)))
             }
             Token::Integer(value_str) => {
-                let value = value_str.parse::<i64>().map_err(|_| {
-                    CompileError::SyntaxError(
-                        format!("Invalid integer: {}", value_str),
-                        Some(parser.current_span.clone()),
-                    )
-                })?;
-                parser.next_token();
-                // Default to Integer32 unless out of range
-                let mut expr = if value <= i32::MAX as i64 && value >= i32::MIN as i64 {
-                    Expression::Integer32(value as i32)
-                } else {
-                    Expression::Integer64(value)
-                };
-
-                // Handle UFC on integer literals: 5.double()
-                loop {
-                    match &parser.current_token {
-                        Token::Symbol('.') => {
-                            parser.next_token(); // consume '.'
-
-                            let member = match &parser.current_token {
-                                Token::Identifier(name) => name.clone(),
-                                _ => {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected identifier after '.'".to_string(),
-                                        Some(parser.current_span.clone()),
-                                    ));
-                                }
-                            };
-                            parser.next_token();
-
-                            // Check if it's a method call
-                            if parser.current_token == Token::Symbol('(') {
-                                return super::calls::parse_call_expression_with_object(parser, expr, member);
-                            } else {
-                                // For now, just member access (though unlikely on literals)
-                                expr = Expression::MemberAccess {
-                                    object: Box::new(expr),
-                                    member,
-                                };
-                            }
-                        }
-                        _ => break,
-                    }
-                }
-
-                Ok(expr)
+                let value_str = value_str.clone();
+                super::literals::parse_integer_literal(parser, &value_str)
             }
             Token::Float(value_str) => {
-                let value = value_str.parse::<f64>().map_err(|_| {
-                    CompileError::SyntaxError(
-                        format!("Invalid float: {}", value_str),
-                        Some(parser.current_span.clone()),
-                    )
-                })?;
-                parser.next_token();
-                let mut expr = Expression::Float64(value);
-
-                // Handle UFC on float literals
-                loop {
-                    match &parser.current_token {
-                        Token::Symbol('.') => {
-                            parser.next_token(); // consume '.'
-
-                            let member = match &parser.current_token {
-                                Token::Identifier(name) => name.clone(),
-                                _ => {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected identifier after '.'".to_string(),
-                                        Some(parser.current_span.clone()),
-                                    ));
-                                }
-                            };
-                            parser.next_token();
-
-                            // Check if it's a method call
-                            if parser.current_token == Token::Symbol('(') {
-                                return super::calls::parse_call_expression_with_object(parser, expr, member);
-                            } else {
-                                expr = Expression::MemberAccess {
-                                    object: Box::new(expr),
-                                    member,
-                                };
-                            }
-                        }
-                        _ => break,
-                    }
-                }
-
-                Ok(expr)
+                let value_str = value_str.clone();
+                super::literals::parse_float_literal(parser, &value_str)
             }
             Token::StringLiteral(value) => {
                 let value = value.clone();
-                parser.next_token();
-
-                // Check if the string contains interpolation markers
-                let mut expr = if value.contains('\x01') {
-                    super::blocks::parse_interpolated_string(parser, value)?
-                } else {
-                    Expression::String(value)
-                };
-
-                // Handle UFC on string literals
-                loop {
-                    match &parser.current_token {
-                        Token::Symbol('.') => {
-                            parser.next_token(); // consume '.'
-
-                            let member = match &parser.current_token {
-                                Token::Identifier(name) => name.clone(),
-                                _ => {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected identifier after '.'".to_string(),
-                                        Some(parser.current_span.clone()),
-                                    ));
-                                }
-                            };
-                            parser.next_token();
-
-                            // Check if it's a method call
-                            if parser.current_token == Token::Symbol('(') {
-                                return super::calls::parse_call_expression_with_object(parser, expr, member);
-                            } else {
-                                expr = Expression::MemberAccess {
-                                    object: Box::new(expr),
-                                    member,
-                                };
-                            }
-                        }
-                        _ => break,
-                    }
-                }
-
-                Ok(expr)
+                super::literals::parse_string_literal(parser, &value)
             }
             Token::Symbol('.') => {
-                // Shorthand enum variant syntax: .VariantName or .VariantName(payload)
-                parser.next_token(); // consume '.'
-
-                let variant = match &parser.current_token {
-                    Token::Identifier(v) => v.clone(),
-                    _ => {
-                        return Err(CompileError::SyntaxError(
-                            "Expected variant name after '.'".to_string(),
-                            Some(parser.current_span.clone()),
-                        ));
-                    }
-                };
-                parser.next_token();
-
-                // Check for variant payload
-                let payload = if parser.current_token == Token::Symbol('(') {
-                    parser.next_token(); // consume '('
-                    let expr = parser.parse_expression()?;
-                    if parser.current_token != Token::Symbol(')') {
-                        return Err(CompileError::SyntaxError(
-                            "Expected ')' after enum variant payload".to_string(),
-                            Some(parser.current_span.clone()),
-                        ));
-                    }
-                    parser.next_token(); // consume ')'
-                    Some(Box::new(expr))
-                } else {
-                    None
-                };
-
-                // Use EnumLiteral for shorthand syntax
-                return Ok(Expression::EnumLiteral { variant, payload });
+                super::literals::parse_shorthand_enum_variant(parser)
             }
             Token::AtStd => {
-                // Handle @std token
-                parser.next_token();
-                let mut expr = Expression::Identifier("@std".to_string());
-
-                // Handle UFC on @std
-                loop {
-                    match &parser.current_token {
-                        Token::Symbol('.') => {
-                            parser.next_token(); // consume '.'
-
-                            let member = match &parser.current_token {
-                                Token::Identifier(name) => name.clone(),
-                                _ => {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected identifier after '.'".to_string(),
-                                        Some(parser.current_span.clone()),
-                                    ));
-                                }
-                            };
-                            parser.next_token();
-
-                            // Check if it's a method call
-                            if parser.current_token == Token::Symbol('(') {
-                                return super::calls::parse_call_expression_with_object(parser, expr, member);
-                            } else {
-                                expr = Expression::MemberAccess {
-                                    object: Box::new(expr),
-                                    member,
-                                };
-                            }
-                        }
-                        _ => break,
-                    }
-                }
-
-                Ok(expr)
+                super::literals::parse_special_identifier_with_ufc(parser, "@std")
             }
             Token::AtThis => {
-                // Handle @this token
-                parser.next_token();
-                let mut expr = Expression::Identifier("@this".to_string());
-
-                // Handle UFC on @this
-                loop {
-                    match &parser.current_token {
-                        Token::Symbol('.') => {
-                            parser.next_token(); // consume '.'
-
-                            let member = match &parser.current_token {
-                                Token::Identifier(name) => name.clone(),
-                                _ => {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected identifier after '.'".to_string(),
-                                        Some(parser.current_span.clone()),
-                                    ));
-                                }
-                            };
-                            parser.next_token();
-
-                            // Check if it's a method call
-                            if parser.current_token == Token::Symbol('(') {
-                                return super::calls::parse_call_expression_with_object(parser, expr, member);
-                            } else {
-                                expr = Expression::MemberAccess {
-                                    object: Box::new(expr),
-                                    member,
-                                };
-                            }
-                        }
-                        _ => break,
-                    }
-                }
-
-                Ok(expr)
+                super::literals::parse_special_identifier_with_ufc(parser, "@this")
             }
             Token::Identifier(name) => {
                 let name = name.clone();
@@ -538,70 +313,13 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                 // 4. Collection types: HashMap<K,V>.new()
                 let (name_with_generics, consumed_generics) =
                     if parser.current_token == Token::Operator("<".to_string()) {
-                        // Special handling for Array<T> which needs different treatment
                         if name == "Array" {
-                            // Don't consume generics for Array, let it be handled later
                             (name.clone(), false)
-                        } else if matches!(name.as_str(), "HashMap" | "HashSet" | "DynVec" | "Vec") {
-                            // For collection types, we need to parse and preserve generics
-                            // Parse the generic type arguments properly
-                            parser.next_token(); // consume '<'
-                            let mut type_args = Vec::new();
-                            
-                            // Parse comma-separated type arguments
-                            loop {
-                                type_args.push(parser.parse_type()?);
-                                
-                                if parser.current_token == Token::Symbol(',') {
-                                    parser.next_token(); // consume ','
-                                } else if parser.current_token == Token::Operator(">".to_string()) {
-                                    parser.next_token(); // consume '>'
-                                    break;
-                                } else {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected ',' or '>' in generic type arguments".to_string(),
-                                        Some(parser.current_span.clone()),
-                                    ));
-                                }
-                            }
-                            
-                            // Format the name with the actual type arguments
-                            let type_args_str = type_args.iter()
-                                .map(|t| format!("{}", t))  // Use Display instead of Debug
-                                .collect::<Vec<_>>()
-                                .join(", ");
-                            (format!("{}<{}>", name, type_args_str), true)
-                        } else if super::collections::looks_like_generic_type_args(parser) {
-                            // For other potential generic types
-                            // Parse the generic type arguments properly
-                            parser.next_token(); // consume '<'
-                            let mut type_args = Vec::new();
-                            
-                            // Parse comma-separated type arguments
-                            loop {
-                                type_args.push(parser.parse_type()?);
-                                
-                                if parser.current_token == Token::Symbol(',') {
-                                    parser.next_token(); // consume ','
-                                } else if parser.current_token == Token::Operator(">".to_string()) {
-                                    parser.next_token(); // consume '>'
-                                    break;
-                                } else {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected ',' or '>' in generic type arguments".to_string(),
-                                        Some(parser.current_span.clone()),
-                                    ));
-                                }
-                            }
-                            
-                            // Format the name with the actual type arguments
-                            let type_args_str = type_args.iter()
-                                .map(|t| format!("{}", t))  // Use Display instead of Debug
-                                .collect::<Vec<_>>()
-                                .join(", ");
+                        } else if matches!(name.as_str(), "HashMap" | "HashSet" | "DynVec" | "Vec") 
+                            || super::collections::looks_like_generic_type_args(parser) {
+                            let type_args_str = super::literals::parse_generic_type_args_to_string(parser)?;
                             (format!("{}<{}>", name, type_args_str), true)
                         } else {
-                            // Not generic type args, probably a comparison
                             (name.clone(), false)
                         }
                     } else {
@@ -676,108 +394,10 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                         Token::Symbol('.') => {
                             parser.next_token(); // consume '.'
 
-                            // Handle special tokens that can appear after '.'
                             if let Token::Identifier(id) = &parser.current_token {
                                 if id == "loop" {
-                                    // Handle .loop() method on collections
-                                    parser.next_token(); // consume 'loop'
-                                    if parser.current_token != Token::Symbol('(') {
-                                        return Err(CompileError::SyntaxError(
-                                            "Expected '(' after '.loop'".to_string(),
-                                            Some(parser.current_span.clone()),
-                                        ));
-                                    }
-                                    parser.next_token(); // consume '('
-
-                                    // Parse the closure parameter
-                                    if parser.current_token != Token::Symbol('(') {
-                                        return Err(CompileError::SyntaxError(
-                                            "Expected '(' for loop closure parameter".to_string(),
-                                            Some(parser.current_span.clone()),
-                                        ));
-                                    }
-                                    parser.next_token(); // consume '('
-
-                                    // Get the parameter name and optional type
-                                    let param_name = if let Token::Identifier(p) = &parser.current_token {
-                                        p.clone()
-                                    } else {
-                                        return Err(CompileError::SyntaxError(
-                                            "Expected parameter name in loop closure".to_string(),
-                                            Some(parser.current_span.clone()),
-                                        ));
-                                    };
-                                    parser.next_token();
-
-                                    // Check for optional type annotation
-                                    let param_type = if parser.current_token == Token::Symbol(':') {
-                                        parser.next_token(); // consume ':'
-                                        Some(parser.parse_type()?)
-                                    } else {
-                                        None
-                                    };
-
-                                    let param = (param_name, param_type);
-
-                                    // Check for optional index parameter
-                                    let index_param = if parser.current_token == Token::Symbol(',') {
-                                        parser.next_token(); // consume ','
-                                        if let Token::Identifier(idx) = &parser.current_token {
-                                            let idx_name = idx.clone();
-                                            parser.next_token();
-
-                                            // Check for optional type annotation
-                                            let idx_type = if parser.current_token == Token::Symbol(':') {
-                                                parser.next_token(); // consume ':'
-                                                Some(parser.parse_type()?)
-                                            } else {
-                                                None
-                                            };
-
-                                            Some((idx_name, idx_type))
-                                        } else {
-                                            return Err(CompileError::SyntaxError(
-                                                "Expected index parameter name after ','"
-                                                    .to_string(),
-                                                Some(parser.current_span.clone()),
-                                            ));
-                                        }
-                                    } else {
-                                        None
-                                    };
-
-                                    if parser.current_token != Token::Symbol(')') {
-                                        return Err(CompileError::SyntaxError(
-                                            "Expected ')' after loop parameters".to_string(),
-                                            Some(parser.current_span.clone()),
-                                        ));
-                                    }
-                                    parser.next_token(); // consume ')'
-
-                                    // Parse the body block
-                                    if parser.current_token != Token::Symbol('{') {
-                                        return Err(CompileError::SyntaxError(
-                                            "Expected '{' for loop body".to_string(),
-                                            Some(parser.current_span.clone()),
-                                        ));
-                                    }
-                                    let body = super::blocks::parse_block_expression(parser)?;
-
-                                    if parser.current_token != Token::Symbol(')') {
-                                        return Err(CompileError::SyntaxError(
-                                            "Expected ')' to close loop call".to_string(),
-                                            Some(parser.current_span.clone()),
-                                        ));
-                                    }
-                                    parser.next_token(); // consume ')'
-
-                                    expr = Expression::CollectionLoop {
-                                        collection: Box::new(expr),
-                                        param,
-                                        index_param,
-                                        body: Box::new(body),
-                                    };
-                                    continue; // Continue the loop, no member to process
+                                    expr = super::literals::parse_collection_loop(parser, expr)?;
+                                    continue;
                                 }
                             }
 
@@ -792,39 +412,10 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                             };
                             parser.next_token();
 
-                            // Check for generic method call: obj.method<T>(args)
-                            // We need to handle this BEFORE falling through to member access
-                            let member_with_generics = if parser.current_token == Token::Operator("<".to_string()) {
-                                // This could be a generic method call
-                                // Use lookahead to check if this looks like type args
-                                if super::collections::looks_like_generic_type_args(parser) {
-                                    parser.next_token(); // consume '<'
-                                    let mut type_args = Vec::new();
-                                    
-                                    loop {
-                                        type_args.push(parser.parse_type()?);
-                                        
-                                        if parser.current_token == Token::Symbol(',') {
-                                            parser.next_token(); // consume ','
-                                        } else if parser.current_token == Token::Operator(">".to_string()) {
-                                            parser.next_token(); // consume '>'
-                                            break;
-                                        } else {
-                                            return Err(CompileError::SyntaxError(
-                                                "Expected ',' or '>' in generic type arguments".to_string(),
-                                                Some(parser.current_span.clone()),
-                                            ));
-                                        }
-                                    }
-                                    
-                                    let type_args_str = type_args.iter()
-                                        .map(|t| format!("{}", t))
-                                        .collect::<Vec<_>>()
-                                        .join(", ");
-                                    format!("{}<{}>", member, type_args_str)
-                                } else {
-                                    member.clone()
-                                }
+                            let member_with_generics = if parser.current_token == Token::Operator("<".to_string())
+                                && super::collections::looks_like_generic_type_args(parser) {
+                                let type_args_str = super::literals::parse_generic_type_args_to_string(parser)?;
+                                format!("{}<{}>", member, type_args_str)
                             } else {
                                 member.clone()
                             };
@@ -990,7 +581,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                         parser.next_token(); // consume '=>'
                         let body_expr = parser.parse_expression()?;
                         // Convert expression to block that returns the value
-                        let body = Expression::Block(vec![Statement::Expression(body_expr)]);
+                        let body = Expression::Block(vec![Statement::Expression { expr: body_expr, span: None }]);
                         return Ok(Expression::Closure {
                             params: vec![],
                             return_type: None,
@@ -1153,7 +744,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                                                // Parse the expression body
                             let body_expr = parser.parse_expression()?;
                             // Convert expression to block that returns the value
-                            let body = Expression::Block(vec![Statement::Expression(body_expr)]);
+                        let body = Expression::Block(vec![Statement::Expression { expr: body_expr, span: None }]);
                             return Ok(Expression::Closure {
                                 params,
                                 return_type: None,

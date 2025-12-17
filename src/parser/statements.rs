@@ -22,243 +22,52 @@ impl<'a> Parser<'a> {
             }
             // Parse top-level declarations
             else if let Token::Identifier(name) = &self.current_token {
-                // Check for := operator (likely a module import or constant)
                 if self.peek_token == Token::Operator(":=".to_string()) {
-                    // Save the name and complete state
                     let var_name = name.clone();
                     let saved_current = self.current_token.clone();
                     let saved_peek = self.peek_token.clone();
                     let saved_lex_state = self.lexer.save_state();
 
-                    // Look ahead to see if this is a module import
-                    self.next_token(); // Move to :=
-                    self.next_token(); // Move past :=
+                    self.next_token();
+                    self.next_token();
 
-                    // Check if the right side starts with @std or is a build.import call
-                    let is_module_import = if self.current_token == Token::AtStd {
-                        true
-                    } else if let Token::Identifier(id) = &self.current_token {
-                        if id.starts_with("@std") {
-                            true
-                        } else if id == "build" {
-                            // Check for build.import pattern
-                            let saved_state = self.lexer.save_state();
-                            let saved_current = self.current_token.clone();
-                            let saved_peek = self.peek_token.clone();
+                    let is_module_import = self.is_module_import_after_colon_assign();
 
-                            self.next_token();
-                            let is_import = self.current_token == Token::Symbol('.')
-                                && {
-                                    self.next_token();
-                                    matches!(&self.current_token, Token::Identifier(name) if name == "import")
-                                };
-
-                            // Restore position AND tokens
-                            self.lexer.restore_state(saved_state);
-                            self.current_token = saved_current;
-                            self.peek_token = saved_peek;
-
-                            is_import
-                        } else {
-                            false
-                        }
-                    } else {
-                        false
-                    };
-
-                    // Restore complete state
                     self.current_token = saved_current;
                     self.peek_token = saved_peek;
                     self.lexer.restore_state(saved_lex_state);
 
                     if is_module_import {
-                        // Parse as module import
-                        let alias = var_name;
-                        self.next_token(); // consume name
-                        self.next_token(); // consume :=
-
-                        // Check if it's a build.import call
-                        if let Token::Identifier(id) = &self.current_token {
-                            if id == "build" {
-                                // Handle build.import("module_name") pattern
-                                self.next_token(); // consume 'build'
-                                if self.current_token != Token::Symbol('.') {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected '.' after 'build'".to_string(),
-                                        Some(self.current_span.clone()),
-                                    ));
-                                }
-                                self.next_token(); // consume '.'
-
-                                if !matches!(&self.current_token, Token::Identifier(name) if name == "import")
-                                {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected 'import' after 'build.'".to_string(),
-                                        Some(self.current_span.clone()),
-                                    ));
-                                }
-                                self.next_token(); // consume 'import'
-
-                                if self.current_token != Token::Symbol('(') {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected '(' after 'build.import'".to_string(),
-                                        Some(self.current_span.clone()),
-                                    ));
-                                }
-                                self.next_token(); // consume '('
-
-                                // Get the module name from the string literal
-                                let module_name =
-                                    if let Token::StringLiteral(name) = &self.current_token {
-                                        name.clone()
-                                    } else {
-                                        return Err(CompileError::SyntaxError(
-                                            "Expected string literal for module name".to_string(),
-                                            Some(self.current_span.clone()),
-                                        ));
-                                    };
-                                self.next_token(); // consume string
-
-                                if self.current_token != Token::Symbol(')') {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected ')' after module name".to_string(),
-                                        Some(self.current_span.clone()),
-                                    ));
-                                }
-                                self.next_token(); // consume ')'
-
-                                // Create ModuleImport with std.module_name path
-                                declarations.push(Declaration::ModuleImport {
-                                    alias,
-                                    module_path: format!("std.{}", module_name),
-                                });
-                            } else {
-                                // Parse the module path (@std.module or similar)
-                                let module_path = id.clone();
-                                self.next_token();
-
-                                // Handle member access for @std.module
-                                let full_path = if self.current_token == Token::Symbol('.') {
-                                    let mut path = module_path;
-                                    while self.current_token == Token::Symbol('.') {
-                                        self.next_token(); // consume '.'
-                                        if let Token::Identifier(member) = &self.current_token {
-                                            path.push('.');
-                                            path.push_str(member);
-                                            self.next_token();
-                                        } else {
-                                            break;
-                                        }
-                                    }
-                                    path
-                                } else {
-                                    module_path
-                                };
-
-                                // Create ModuleImport declaration
-                                declarations.push(Declaration::ModuleImport {
-                                    alias,
-                                    module_path: full_path,
-                                });
-                            }
-                        } else {
-                            return Err(CompileError::SyntaxError(
-                                "Expected module path after :=".to_string(),
-                                Some(self.current_span.clone()),
-                            ));
-                        }
+                        self.next_token();
+                        self.next_token();
+                        declarations.push(self.parse_module_import_after_colon_assign(var_name)?);
                     } else {
-                        // Parse as a constant declaration
-                        let stmt = self.parse_statement()?;
-                        // Convert statement to declaration
-                        if let Statement::VariableDeclaration {
-                            name,
-                            type_,
-                            initializer,
-                            ..
-                        } = stmt
-                        {
-                            if let Some(init) = initializer {
-                                declarations.push(Declaration::Constant {
-                                    name,
-                                    type_,
-                                    value: init,
-                                });
-                            } else {
-                                return Err(CompileError::SyntaxError(
-                                    "Constant declaration requires an initializer".to_string(),
-                                    Some(self.current_span.clone()),
-                                ));
-                            }
-                        } else {
-                            return Err(CompileError::SyntaxError(
-                                "Expected variable declaration".to_string(),
-                                Some(self.current_span.clone()),
-                            ));
-                        }
+                        declarations.push(self.parse_constant_from_statement()?);
                     }
                 } else if self.peek_token == Token::Operator("::".to_string()) {
-                    // Could be either:
-                    // 1. Function with type annotation: name :: (params) -> returnType { ... }
-                    // 2. Variable declaration: name :: Type = value
-                    // Need to look ahead to distinguish
-
-                    // Save state for restoration
                     let saved_state = self.lexer.save_state();
                     let saved_current_token = self.current_token.clone();
                     let saved_peek_token = self.peek_token.clone();
 
-                    // Look ahead past ::
-                    self.next_token(); // move to ::
-                    self.next_token(); // move past ::
+                    self.next_token();
+                    self.next_token();
 
-                    // Check if it's a function (starts with '(')
                     let is_function = self.current_token == Token::Symbol('(');
 
-                    // Restore state
                     self.lexer.restore_state(saved_state);
                     self.current_token = saved_current_token;
                     self.peek_token = saved_peek_token;
 
                     if is_function {
-                        // Function with type annotation: name :: (params) -> returnType { ... }
                         declarations.push(Declaration::Function(self.parse_function()?));
                     } else {
-                        // Variable declaration: name :: Type = value
-                        // Parse as top-level variable declaration
-                        let name = if let Token::Identifier(name) = &self.current_token {
-                            name.clone()
+                        let var_name = if let Token::Identifier(n) = &self.current_token {
+                            n.clone()
                         } else {
                             unreachable!()
                         };
-                        self.next_token(); // consume identifier
-                        self.next_token(); // consume '::'
-
-                        let type_ = self.parse_type()?;
-
-                        if self.current_token != Token::Operator("=".to_string()) {
-                            return Err(CompileError::SyntaxError(
-                                "Expected '=' after type in mutable variable declaration"
-                                    .to_string(),
-                                Some(self.current_span.clone()),
-                            ));
-                        }
-                        self.next_token(); // consume '='
-
-                        let value = self.parse_expression()?;
-
-                        // Skip optional semicolon
-                        if self.current_token == Token::Symbol(';') {
-                            self.next_token();
-                        }
-
-                        // Create a top-level mutable variable declaration
-                        // For now, we'll treat it as a constant at the top level
-                        declarations.push(Declaration::Constant {
-                            name,
-                            value,
-                            type_: Some(type_),
-                        });
+                        self.next_token();
+                        declarations.push(self.parse_top_level_mutable_var(var_name)?);
                     }
                 } else if self.peek_token == Token::Symbol(':')
                     || self.peek_token == Token::Operator("<".to_string())
@@ -949,19 +758,21 @@ impl<'a> Parser<'a> {
         match &self.current_token {
             // Check for specific keywords first before generic identifier
             Token::Identifier(id) if id == "return" => {
+                let span = Some(self.current_span.clone());
                 self.next_token();
                 let expr = self.parse_expression()?;
                 if self.current_token == Token::Symbol(';') {
                     self.next_token();
                 }
-                Ok(Statement::Return(expr))
+                Ok(Statement::Return { expr, span })
             }
             Token::Identifier(id) if id == "loop" => {
+                let span = Some(self.current_span.clone());
                 // Check if this is loop() expression or loop{} statement
                 if self.peek_token == Token::Symbol('(') {
                     // loop(() { ... }) - expression form
                     let expr = self.parse_expression()?;
-                    Ok(Statement::Expression(expr))
+                    Ok(Statement::Expression { expr, span })
                 } else {
                     // loop { ... } - statement form
                     self.parse_loop_statement()
@@ -1005,7 +816,7 @@ impl<'a> Parser<'a> {
                     // Wrap multiple statements in a single defer by using the first as the deferred action
                     // In a real implementation, we'd need a Block statement type
                     if statements.is_empty() {
-                        Statement::Expression(Expression::Boolean(true)) // No-op
+                        Statement::Expression { expr: Expression::Boolean(true), span: None } // No-op
                     } else if statements.len() == 1 {
                         statements.into_iter().next().unwrap()
                     } else {
@@ -1036,6 +847,7 @@ impl<'a> Parser<'a> {
             }
             Token::Identifier(id) if id == "comptime" => {
                 // Parse comptime block as statement
+                let span = Some(self.current_span.clone());
                 self.next_token(); // consume 'comptime'
                 if self.current_token != Token::Symbol('{') {
                     // It's a comptime expression, not a block
@@ -1043,7 +855,7 @@ impl<'a> Parser<'a> {
                     if self.current_token == Token::Symbol(';') {
                         self.next_token();
                     }
-                    return Ok(Statement::Expression(expr));
+                    return Ok(Statement::Expression { expr, span });
                 }
                 self.next_token(); // consume '{'
 
@@ -1139,6 +951,7 @@ impl<'a> Parser<'a> {
                     Token::Symbol('.') | Token::Symbol('[') => {
                         // Could be member access or array indexing followed by assignment
                         // Parse the left-hand side expression first
+                        let span = Some(self.current_span.clone());
                         let lhs = self.parse_expression()?;
 
                         // Check if it's followed by an assignment
@@ -1158,34 +971,37 @@ impl<'a> Parser<'a> {
                             if self.current_token == Token::Symbol(';') {
                                 self.next_token();
                             }
-                            Ok(Statement::Expression(lhs))
+                            Ok(Statement::Expression { expr: lhs, span })
                         }
                     }
                     _ => {
                         // Not a variable declaration, treat as expression
+                        let span = Some(self.current_span.clone());
                         let expr = self.parse_expression()?;
                         if self.current_token == Token::Symbol(';') {
                             self.next_token();
                         }
-                        Ok(Statement::Expression(expr))
+                        Ok(Statement::Expression { expr, span })
                     }
                 }
             }
             Token::Symbol('?') => {
                 // Parse conditional expression
+                let span = Some(self.current_span.clone());
                 let expr = self.parse_expression()?;
                 if self.current_token == Token::Symbol(';') {
                     self.next_token();
                 }
-                Ok(Statement::Expression(expr))
+                Ok(Statement::Expression { expr, span })
             }
             Token::Symbol('(') => {
                 // Parse parenthesized expression as statement
+                let span = Some(self.current_span.clone());
                 let expr = self.parse_expression()?;
                 if self.current_token == Token::Symbol(';') {
                     self.next_token();
                 }
-                Ok(Statement::Expression(expr))
+                Ok(Statement::Expression { expr, span })
             }
             Token::Symbol('{') => {
                 // Parse destructuring import: { io, maths } = @std
@@ -1193,11 +1009,12 @@ impl<'a> Parser<'a> {
             }
             // Handle literal expressions as valid statements
             Token::Integer(_) | Token::Float(_) | Token::StringLiteral(_) => {
+                let span = Some(self.current_span.clone());
                 let expr = self.parse_expression()?;
                 if self.current_token == Token::Symbol(';') {
                     self.next_token();
                 }
-                Ok(Statement::Expression(expr))
+                Ok(Statement::Expression { expr, span })
             }
             _ => Err(CompileError::SyntaxError(
                 format!("Unexpected token in statement: {:?}", self.current_token),
