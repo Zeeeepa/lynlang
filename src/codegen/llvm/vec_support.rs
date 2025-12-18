@@ -219,7 +219,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                 // Debug: Check if this is an Option/Result enum struct
                 if let AstType::Generic { name, .. } = &element_ast_type {
-                    if name == "Option" || name == "Result" {
+                    if self.well_known.is_option(name) || self.well_known.is_result(name) {
                         // eprintln!("[DEBUG] Vec.get() returning {} struct", name);
                     }
                 }

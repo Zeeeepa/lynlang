@@ -48,18 +48,19 @@ pub fn infer_expression_type(
             variant,
             payload,
         } => {
-            // Infer the type of enum variants
-            if enum_name == "Option" {
-                if variant == "Some" && payload.is_some() {
+            let wk = &compiler.well_known;
+            if wk.is_option(enum_name) {
+                let parent_name = wk.get_variant_parent_name(variant).unwrap_or(wk.option_name());
+                if wk.is_some(variant) && payload.is_some() {
                     if let Some(ref p) = payload {
                         let inner_type = infer_expression_type(compiler, p)?;
                         Ok(AstType::Generic {
-                            name: "Option".to_string(),
+                            name: parent_name.to_string(),
                             type_args: vec![inner_type],
                         })
                     } else {
                         Ok(AstType::Generic {
-                            name: "Option".to_string(),
+                            name: parent_name.to_string(),
                             type_args: vec![AstType::Generic {
                                 name: "T".to_string(),
                                 type_args: vec![],
@@ -67,16 +68,14 @@ pub fn infer_expression_type(
                         })
                     }
                 } else {
-                    // None variant - use context if available
                     if let Some(t) = compiler.generic_type_context.get("Option_Some_Type") {
                         Ok(AstType::Generic {
-                            name: "Option".to_string(),
+                            name: parent_name.to_string(),
                             type_args: vec![t.clone()],
                         })
                     } else {
-                        // Default to Option<T> with generic T, not Void
                         Ok(AstType::Generic {
-                            name: "Option".to_string(),
+                            name: parent_name.to_string(),
                             type_args: vec![AstType::Generic {
                                 name: "T".to_string(),
                                 type_args: vec![],
@@ -84,28 +83,23 @@ pub fn infer_expression_type(
                         })
                     }
                 }
-            } else if enum_name == "Result" {
-                // For Result, we need to track which variant we're in
-                if variant == "Ok" && payload.is_some() {
+            } else if wk.is_result(enum_name) {
+                let parent_name = wk.get_variant_parent_name(variant).unwrap_or(wk.result_name());
+                if wk.is_ok(variant) && payload.is_some() {
                     if let Some(ref p) = payload {
                         let inner_type = infer_expression_type(compiler, p)?;
-
-                        // NOTE: Can't store type here because infer_expression_type is immutable
-                        // The actual type tracking happens during compile_enum_variant
-
-                        // Try to get error type from context
                         let err_type = compiler
                             .generic_type_context
                             .get("Result_Err_Type")
                             .cloned()
-                            .unwrap_or(AstType::StaticString); // Default to StaticString for errors
+                            .unwrap_or(AstType::StaticString);
                         Ok(AstType::Generic {
-                            name: "Result".to_string(),
+                            name: parent_name.to_string(),
                             type_args: vec![inner_type, err_type],
                         })
                     } else {
                         Ok(AstType::Generic {
-                            name: "Result".to_string(),
+                            name: parent_name.to_string(),
                             type_args: vec![
                                 AstType::Generic {
                                     name: "T".to_string(),
@@ -118,26 +112,21 @@ pub fn infer_expression_type(
                             ],
                         })
                     }
-                } else if variant == "Err" && payload.is_some() {
+                } else if wk.is_err(variant) && payload.is_some() {
                     if let Some(ref p) = payload {
                         let inner_type = infer_expression_type(compiler, p)?;
-
-                        // NOTE: Can't store type here because infer_expression_type is immutable
-                        // The actual type tracking happens during compile_enum_variant
-
-                        // Try to get ok type from context
                         let ok_type = compiler
                             .generic_type_context
                             .get("Result_Ok_Type")
                             .cloned()
                             .unwrap_or(AstType::Void);
                         Ok(AstType::Generic {
-                            name: "Result".to_string(),
+                            name: parent_name.to_string(),
                             type_args: vec![ok_type, inner_type],
                         })
                     } else {
                         Ok(AstType::Generic {
-                            name: "Result".to_string(),
+                            name: parent_name.to_string(),
                             type_args: vec![
                                 AstType::Generic {
                                     name: "T".to_string(),
@@ -151,7 +140,6 @@ pub fn infer_expression_type(
                         })
                     }
                 } else {
-                    // Try to get types from context
                     let ok_type = compiler
                         .generic_type_context
                         .get("Result_Ok_Type")
@@ -163,7 +151,7 @@ pub fn infer_expression_type(
                         .cloned()
                         .unwrap_or(AstType::Void);
                     Ok(AstType::Generic {
-                        name: "Result".to_string(),
+                        name: parent_name.to_string(),
                         type_args: vec![ok_type, err_type],
                     })
                 }
@@ -242,16 +230,12 @@ pub fn infer_expression_type(
             }
         }
         Expression::Raise(object) => {
-            // .raise() extracts T from Result<T,E>
             let object_type = compiler.infer_expression_type(object)?;
-            // If it's Result<T,E>, return T
             if let AstType::Generic { name, type_args } = object_type {
-                if name == "Result" && type_args.len() == 2 {
-                    // The raise() method returns the Ok type (T) from Result<T,E>
+                if compiler.well_known.is_result(&name) && type_args.len() == 2 {
                     return Ok(type_args[0].clone());
                 }
             }
-            // If not a Result type, return Void (will error during compilation)
             Ok(AstType::Void)
         }
         Expression::MethodCall { object, method, .. } => {
@@ -270,18 +254,13 @@ pub fn infer_expression_type(
                 }
             }
 
-            // Special handling for .raise() method which extracts T from Result<T,E>
             if method == "raise" {
-                // Get the type of the object being raised
                 let object_type = compiler.infer_expression_type(object)?;
-                // If it's Result<T,E>, return T
                 if let AstType::Generic { name, type_args } = &object_type {
-                    if name == "Result" && type_args.len() == 2 {
-                        // The raise() method returns the Ok type (T) from Result<T,E>
+                    if compiler.well_known.is_result(name) && type_args.len() == 2 {
                         return Ok(type_args[0].clone());
                     }
                 }
-                // If not a Result type, return Void (will error during compilation)
                 Ok(AstType::Void)
             } else if method == "new" || method == "init" {
                 // Collection constructors and init methods return the type
@@ -354,15 +333,15 @@ pub fn infer_expression_type(
                     "len" | "size" | "length" => Ok(AstType::I64),
                     "is_empty" => Ok(AstType::Bool),
                     "to_i32" => Ok(AstType::Generic {
-                        name: "Option".to_string(),
+                        name: compiler.well_known.get_variant_parent_name(compiler.well_known.some_name()).unwrap_or(compiler.well_known.option_name()).to_string(),
                         type_args: vec![AstType::I32],
                     }),
                     "to_i64" => Ok(AstType::Generic {
-                        name: "Option".to_string(),
+                        name: compiler.well_known.get_variant_parent_name(compiler.well_known.some_name()).unwrap_or(compiler.well_known.option_name()).to_string(),
                         type_args: vec![AstType::I64],
                     }),
                     "to_f64" => Ok(AstType::Generic {
-                        name: "Option".to_string(),
+                        name: compiler.well_known.get_variant_parent_name(compiler.well_known.some_name()).unwrap_or(compiler.well_known.option_name()).to_string(),
                         type_args: vec![AstType::F64],
                     }),
                     "contains" | "starts_with" | "ends_with" => Ok(AstType::Bool),
@@ -374,49 +353,43 @@ pub fn infer_expression_type(
                     }),
                     "char_at" => Ok(AstType::I32),
                     "get" | "remove" | "insert" | "pop" => {
-                        // Try to infer from object type
+                        let option_name = compiler.well_known.get_variant_parent_name(compiler.well_known.some_name()).unwrap_or(compiler.well_known.option_name());
                         if let Ok(object_type) = compiler.infer_expression_type(object) {
                             if let AstType::Generic { name, type_args } = object_type {
                                 if name == "HashMap" && type_args.len() >= 2 {
-                                    // HashMap methods return Option<V>
                                     return Ok(AstType::Generic {
-                                        name: "Option".to_string(),
+                                        name: option_name.to_string(),
                                         type_args: vec![type_args[1].clone()],
                                     });
                                 } else if name == "HashSet" && !type_args.is_empty() {
-                                    // HashSet.remove returns bool
                                     if method == "remove" {
                                         return Ok(AstType::Bool);
                                     }
                                 } else if name == "Array" && !type_args.is_empty() {
-                                    // Array.get returns element type directly (not wrapped in Option)
                                     if method == "get" {
                                         return Ok(type_args[0].clone());
                                     } else if method == "pop" {
-                                        // Array.pop returns Option<element_type>
                                         return Ok(AstType::Generic {
-                                            name: "Option".to_string(),
+                                            name: option_name.to_string(),
                                             type_args: vec![type_args[0].clone()],
                                         });
                                     }
                                 } else if (name == "Vec" || name == "DynVec")
                                     && !type_args.is_empty()
                                 {
-                                    // Vec/DynVec get and pop return Option<element_type>
                                     return Ok(AstType::Generic {
-                                        name: "Option".to_string(),
+                                        name: option_name.to_string(),
                                         type_args: vec![type_args[0].clone()],
                                     });
                                 }
                             }
                         }
 
-                        // Also check for DynVec struct type (not generic)
                         let object_type = compiler.infer_expression_type(object)?;
                         if let AstType::DynVec { element_types, .. } = &object_type {
                             if !element_types.is_empty() && (method == "get" || method == "pop") {
                                 return Ok(AstType::Generic {
-                                    name: "Option".to_string(),
+                                    name: option_name.to_string(),
                                     type_args: vec![element_types[0].clone()],
                                 });
                             }
@@ -584,28 +557,22 @@ pub fn infer_expression_type(
             }
         }
         Expression::Some(value) => {
-            // Option::Some(T) -> Option<T>
             let inner_type = compiler.infer_expression_type(value)?;
             Ok(AstType::Generic {
-                name: "Option".to_string(),
+                name: compiler.well_known.get_variant_parent_name(compiler.well_known.some_name()).unwrap_or(compiler.well_known.option_name()).to_string(),
                 type_args: vec![inner_type],
             })
         }
         Expression::None => {
-            // Option::None -> Option<T> (with generic T)
-            // Try to get type from context first
+            let option_name = compiler.well_known.get_variant_parent_name(compiler.well_known.none_name()).unwrap_or(compiler.well_known.option_name());
             if let Some(t) = compiler.generic_type_context.get("Option_Some_Type") {
-                // eprintln!("[DEBUG] Expression::None has context type: {:?}", t);
                 Ok(AstType::Generic {
-                    name: "Option".to_string(),
+                    name: option_name.to_string(),
                     type_args: vec![t.clone()],
                 })
             } else {
-                // Default to Option<Void> instead of unresolved generic T
-                // This avoids the "Unresolved generic type 'T'" error
-                // eprintln!("[DEBUG] Expression::None defaulting to Option<Void>");
                 Ok(AstType::Generic {
-                    name: "Option".to_string(),
+                    name: option_name.to_string(),
                     type_args: vec![AstType::Void],
                 })
             }
@@ -855,39 +822,37 @@ pub fn infer_closure_return_type(
                 } else {
                     AstType::Void
                 };
-                // For Result.Ok, E type defaults to string (common error type)
+                let result_name = compiler.well_known.get_variant_parent_name(compiler.well_known.ok_name()).unwrap_or(compiler.well_known.result_name());
                 Ok(AstType::Generic {
-                    name: "Result".to_string(),
+                    name: result_name.to_string(),
                     type_args: vec![t_type, AstType::StaticString],
                 })
             } else if name == "Result.Err" {
-                // Infer the E type from the payload
                 let e_type = if !args.is_empty() {
                     infer_expression_type(compiler, &args[0])?
                 } else {
                     crate::ast::resolve_string_struct_type()
                 };
-                // For Result.Err, T type is unknown but we can use i32 as placeholder
+                let result_name = compiler.well_known.get_variant_parent_name(compiler.well_known.err_name()).unwrap_or(compiler.well_known.result_name());
                 Ok(AstType::Generic {
-                    name: "Result".to_string(),
+                    name: result_name.to_string(),
                     type_args: vec![AstType::I32, e_type],
                 })
             } else if name == "Option.Some" {
-                // Infer the T type from the payload
                 let t_type = if !args.is_empty() {
                     infer_expression_type(compiler, &args[0])?
                 } else {
                     AstType::Void
                 };
+                let option_name = compiler.well_known.get_variant_parent_name(compiler.well_known.some_name()).unwrap_or(compiler.well_known.option_name());
                 Ok(AstType::Generic {
-                    name: "Option".to_string(),
+                    name: option_name.to_string(),
                     type_args: vec![t_type],
                 })
             } else if name == "Option.None" {
-                // None variant - type needs to be inferred from context
-                // Use Generic T instead of Void as placeholder
+                let option_name = compiler.well_known.get_variant_parent_name(compiler.well_known.none_name()).unwrap_or(compiler.well_known.option_name());
                 Ok(AstType::Generic {
-                    name: "Option".to_string(),
+                    name: option_name.to_string(),
                     type_args: vec![AstType::Generic {
                         name: "T".to_string(),
                         type_args: vec![],

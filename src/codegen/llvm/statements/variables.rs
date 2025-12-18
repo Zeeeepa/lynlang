@@ -160,7 +160,7 @@ pub fn compile_variable_declaration<'ctx>(
                             type_args,
                         } = &ast_type
                         {
-                            if type_name == "Result" && type_args.len() == 2 {
+                            if compiler.well_known.is_result(type_name) && type_args.len() == 2 {
                                 compiler.track_generic_type(
                                     format!("{}_Result_Ok_Type", name),
                                     type_args[0].clone(),
@@ -179,7 +179,7 @@ pub fn compile_variable_declaration<'ctx>(
                                     type_args[1].clone(),
                                 );
                                 compiler.generic_tracker.track_generic_type(&ast_type, name);
-                            } else if type_name == "Option" && type_args.len() == 1 {
+                            } else if compiler.well_known.is_option(type_name) && type_args.len() == 1 {
                                 compiler.track_generic_type(
                                     format!("{}_Option_Some_Type", name),
                                     type_args[0].clone(),

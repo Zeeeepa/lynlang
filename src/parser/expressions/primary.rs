@@ -2,6 +2,7 @@ use super::super::core::Parser;
 use crate::ast::{AstType, Expression, Statement};
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
+use crate::well_known::well_known;
 
 pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
     match &parser.current_token {
@@ -243,7 +244,8 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
             }
 
             // Check for Option type constructors: Some(value) and None
-            if name == "Some" && parser.current_token == Token::Symbol('(') {
+            let wk = well_known();
+            if wk.is_some(&name) && parser.current_token == Token::Symbol('(') {
                 parser.next_token(); // consume '('
                 let value = parser.parse_expression()?;
                 if parser.current_token != Token::Symbol(')') {
@@ -254,7 +256,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                 }
                 parser.next_token(); // consume ')'
                 return Ok(Expression::Some(Box::new(value)));
-            } else if name == "None" {
+            } else if wk.is_none(&name) {
                 return Ok(Expression::None);
             }
 
@@ -372,11 +374,12 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                 Expression::StdReference
             } else if name == "@this" {
                 Expression::ThisReference
-            } else if name == "None" {
+            } else if well_known().is_none(&name) {
                 // Handle None without parentheses
+                let wk = well_known();
                 Expression::EnumVariant {
-                    enum_name: "Option".to_string(),
-                    variant: "None".to_string(),
+                    enum_name: wk.get_variant_parent_name(&name).unwrap_or(wk.option_name()).to_string(),
+                    variant: name.clone(),
                     payload: None,
                 }
             } else if consumed_generics {
@@ -889,7 +892,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                             Token::Identifier(id) if id == "true" || id == "false" => true,
 
                             // None is a value (Option::None)
-                            Token::Identifier(id) if id == "None" => true,
+                            Token::Identifier(id) if well_known().is_none(id) => true,
 
                             // Lowercase identifiers that aren't primitive types are likely variables (values)
                             Token::Identifier(id) => {

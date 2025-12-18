@@ -2,6 +2,7 @@
 
 use super::types::{Document, SymbolInfo};
 use crate::ast::{Expression, Pattern as AstPattern, PatternArm};
+use crate::well_known::well_known;
 use lsp_types::*;
 
 /// Check pattern exhaustiveness in statements
@@ -214,11 +215,14 @@ pub fn find_missing_variants(
     workspace_symbols: &std::collections::HashMap<String, SymbolInfo>,
     stdlib_symbols: &std::collections::HashMap<String, SymbolInfo>,
 ) -> Vec<String> {
+    let wk = well_known();
+    
     // First check if it's a built-in enum type
-    let known_enum_variants: Vec<String> = if scrutinee_type.starts_with("Option") {
-        vec!["Some".to_string(), "None".to_string()]
-    } else if scrutinee_type.starts_with("Result") {
-        vec!["Ok".to_string(), "Err".to_string()]
+    let base_type = scrutinee_type.split('<').next().unwrap_or(scrutinee_type);
+    let known_enum_variants: Vec<String> = if wk.is_option(base_type) {
+        vec![wk.some_name().to_string(), wk.none_name().to_string()]
+    } else if wk.is_result(base_type) {
+        vec![wk.ok_name().to_string(), wk.err_name().to_string()]
     } else {
         // Try to look up custom enum from symbol tables
         // Extract just the enum name (before any :: or generic params)

@@ -2,25 +2,27 @@
 //! Handles type checking for method calls on various types
 
 use crate::ast::AstType;
+use crate::well_known::well_known;
 
 /// Infer return type for string methods
 pub fn infer_string_method_type(method: &str, is_string_struct: bool) -> Option<AstType> {
+    let wk = well_known();
     match method {
         "len" => Some(AstType::I64),
         "to_i32" => Some(AstType::Generic {
-            name: "Option".to_string(),
+            name: wk.option_name().to_string(),
             type_args: vec![AstType::I32],
         }),
         "to_i64" => Some(AstType::Generic {
-            name: "Option".to_string(),
+            name: wk.option_name().to_string(),
             type_args: vec![AstType::I64],
         }),
         "to_f32" => Some(AstType::Generic {
-            name: "Option".to_string(),
+            name: wk.option_name().to_string(),
             type_args: vec![AstType::F32],
         }),
         "to_f64" => Some(AstType::Generic {
-            name: "Option".to_string(),
+            name: wk.option_name().to_string(),
             type_args: vec![AstType::F64],
         }),
         "substr" => {
@@ -60,6 +62,7 @@ pub fn infer_string_method_type(method: &str, is_string_struct: bool) -> Option<
 
 /// Infer return type for HashMap methods
 pub fn infer_hashmap_method_type(method: &str, type_args: &[AstType]) -> Option<AstType> {
+    let wk = well_known();
     match method {
         "size" | "len" => Some(AstType::I64),
         "is_empty" => Some(AstType::Bool),
@@ -69,7 +72,7 @@ pub fn infer_hashmap_method_type(method: &str, type_args: &[AstType]) -> Option<
             // HashMap.remove() returns Option<V>
             if type_args.len() >= 2 {
                 Some(AstType::Generic {
-                    name: "Option".to_string(),
+                    name: wk.option_name().to_string(),
                     type_args: vec![type_args[1].clone()],
                 })
             } else {
@@ -80,7 +83,7 @@ pub fn infer_hashmap_method_type(method: &str, type_args: &[AstType]) -> Option<
             // HashMap.get() returns Option<V>
             if type_args.len() >= 2 {
                 Some(AstType::Generic {
-                    name: "Option".to_string(),
+                    name: wk.option_name().to_string(),
                     type_args: vec![type_args[1].clone()],
                 })
             } else {
@@ -107,11 +110,12 @@ pub fn infer_hashset_method_type(method: &str) -> Option<AstType> {
 
 /// Infer return type for Vec<T, N> methods
 pub fn infer_vec_method_type(method: &str, element_type: &AstType) -> Option<AstType> {
+    let wk = well_known();
     match method {
         "get" => Some(element_type.clone()), // Returns element directly
         "pop" => Some(AstType::Generic {
             // Returns Option<element>
-            name: "Option".to_string(),
+            name: wk.option_name().to_string(),
             type_args: vec![element_type.clone()],
         }),
         "len" | "capacity" => Some(AstType::Usize),

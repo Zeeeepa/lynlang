@@ -15,6 +15,7 @@ pub mod validation;
 use crate::ast::{AstType, Declaration, Expression, Function, Program, Statement};
 use crate::error::{CompileError, Result, Span};
 use crate::stdlib_metadata::StdNamespace;
+use crate::well_known::WellKnownTypes;
 use behaviors::BehaviorResolver;
 use std::collections::HashMap;
 
@@ -27,24 +28,16 @@ pub struct VariableInfo {
 
 #[allow(dead_code)]
 pub struct TypeChecker {
-    // Symbol table for tracking variable types and mutability
     scopes: Vec<HashMap<String, VariableInfo>>,
-    // Function signatures
     functions: HashMap<String, FunctionSignature>,
-    // Struct definitions
     structs: HashMap<String, StructInfo>,
-    // Enum definitions
     enums: HashMap<String, EnumInfo>,
-    // Behavior/trait resolver
     behavior_resolver: BehaviorResolver,
-    // Standard library namespace
     std_namespace: StdNamespace,
-    // Module imports (alias -> module_path)
     module_imports: HashMap<String, String>,
-    // Current trait implementation type (for resolving Self)
     current_impl_type: Option<String>,
-    // Current span context for error reporting (set when processing statements)
     current_span: Option<Span>,
+    pub well_known: WellKnownTypes,
 }
 
 #[derive(Clone, Debug)]
@@ -189,6 +182,7 @@ impl TypeChecker {
             module_imports: HashMap::new(),
             current_impl_type: None,
             current_span: None,
+            well_known: WellKnownTypes::new(),
         }
     }
 
@@ -703,22 +697,15 @@ impl TypeChecker {
                 })
             }
             Expression::Some(inner) => {
-                // eprintln!("DEBUG TypeChecker: Processing Some() with inner expr");
-                // Check the inner expression to determine the actual type
                 let inner_type = self.infer_expression_type(inner)?;
-                // eprintln!("DEBUG TypeChecker: Some() inner type: {:?}", inner_type);
-                // Option::Some(T) -> Option<T>
                 Ok(AstType::Generic {
-                    name: "Option".to_string(),
+                    name: self.well_known.get_variant_parent_name(self.well_known.some_name()).unwrap().to_string(),
                     type_args: vec![inner_type],
                 })
             }
             Expression::None => {
-                // Option::None -> Option<Void> as a default
-                // The actual type will be inferred from context during type checking
-                // Using Void as placeholder to avoid unresolved generic T
                 Ok(AstType::Generic {
-                    name: "Option".to_string(),
+                    name: self.well_known.get_variant_parent_name(self.well_known.none_name()).unwrap().to_string(),
                     type_args: vec![AstType::Void],
                 })
             }
@@ -887,18 +874,16 @@ impl TypeChecker {
                         type_args,
                     } = scrutinee_type
                     {
-                        if enum_name == "Result" && type_args.len() >= 2 {
-                            // For Result<T,E>, Ok has type T, Err has type E
-                            if variant == "Ok" {
+                        if self.well_known.is_result(enum_name) && type_args.len() >= 2 {
+                            if self.well_known.is_ok(variant) {
                                 type_args[0].clone()
-                            } else if variant == "Err" {
+                            } else if self.well_known.is_err(variant) {
                                 type_args[1].clone()
                             } else {
                                 AstType::I32
                             }
-                        } else if enum_name == "Option" && !type_args.is_empty() {
-                            // For Option<T>, Some has type T
-                            if variant == "Some" {
+                        } else if self.well_known.is_option(enum_name) && !type_args.is_empty() {
+                            if self.well_known.is_some(variant) {
                                 type_args[0].clone()
                             } else {
                                 AstType::Void
@@ -918,25 +903,22 @@ impl TypeChecker {
                 payload,
                 ..
             } => {
-                // For qualified enum patterns with payloads, determine the payload type based on the variant
                 if let Some(payload_pattern) = payload {
                     let payload_type = if let AstType::Generic {
                         name: enum_name,
                         type_args,
                     } = scrutinee_type
                     {
-                        if enum_name == "Result" && type_args.len() >= 2 {
-                            // For Result<T,E>, Ok has type T, Err has type E
-                            if variant == "Ok" {
+                        if self.well_known.is_result(enum_name) && type_args.len() >= 2 {
+                            if self.well_known.is_ok(variant) {
                                 type_args[0].clone()
-                            } else if variant == "Err" {
+                            } else if self.well_known.is_err(variant) {
                                 type_args[1].clone()
                             } else {
                                 AstType::I32
                             }
-                        } else if enum_name == "Option" && !type_args.is_empty() {
-                            // For Option<T>, Some has type T
-                            if variant == "Some" {
+                        } else if self.well_known.is_option(enum_name) && !type_args.is_empty() {
+                            if self.well_known.is_some(variant) {
                                 type_args[0].clone()
                             } else {
                                 AstType::Void

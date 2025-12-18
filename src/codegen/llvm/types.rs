@@ -371,7 +371,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                 // Special handling for Result<T,E> and Option<T> types
                 // These are always represented as { i64 discriminant, ptr payload }
-                if name == "Result" || name == "Option" {
+                if self.well_known.is_result(name) || self.well_known.is_option(name) {
                     let enum_struct_type = self.context.struct_type(
                         &[
                             self.context.i64_type().into(), // discriminant
@@ -416,7 +416,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                 // Special handling for Option<T> and Result<T,E> types
                 // These are registered as enum types in the symbol table
-                if name == "Option" || name == "Result" {
+                if self.well_known.is_option(name) || self.well_known.is_result(name) {
                     // Look up the registered enum type
                     if let Some(symbols::Symbol::EnumType(enum_info)) = self.symbols.lookup(name) {
                         return Ok(Type::Struct(enum_info.llvm_type));
@@ -567,17 +567,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                     }
                 }
-                "Option" => {
+                base if self.well_known.is_option(base) || self.well_known.is_result(base) => {
                     let type_args = self.parse_comma_separated_types(type_params_str);
                     AstType::Generic {
-                        name: "Option".to_string(),
-                        type_args,
-                    }
-                }
-                "Result" => {
-                    let type_args = self.parse_comma_separated_types(type_params_str);
-                    AstType::Generic {
-                        name: "Result".to_string(),
+                        name: base.to_string(),
                         type_args,
                     }
                 }

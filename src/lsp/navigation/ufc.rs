@@ -3,6 +3,7 @@
 use super::super::document_store::DocumentStore;
 use super::super::types::UfcMethodInfo;
 use super::super::utils::format_type;
+use crate::well_known::well_known;
 use lsp_types::*;
 
 /// Find UFC method call at the given position (e.g., receiver.method())
@@ -156,13 +157,14 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
                         return Some(type_name.trim_end_matches('<').to_string());
                     }
                 }
+                let wk = well_known();
                 for type_name in [
                     "HashMap",
                     "DynVec",
                     "Vec",
                     "Array",
-                    "Option",
-                    "Result",
+                    wk.option_name(),
+                    wk.result_name(),
                     "String",
                     "StaticString",
                 ] {
@@ -175,6 +177,7 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
     }
 
     // Pattern matching for function calls and constructors
+    let wk = well_known();
     let receiver_trim = receiver.trim();
     if receiver_trim.starts_with("HashMap(") || receiver_trim.starts_with("HashMap<") {
         return Some("HashMap".to_string());
@@ -189,19 +192,19 @@ fn infer_receiver_type(receiver: &str, store: &DocumentStore) -> Option<String> 
         return Some("Array".to_string());
     }
     if receiver_trim.starts_with("Some(") {
-        return Some("Option".to_string());
+        return Some(wk.option_name().to_string());
     }
-    if receiver_trim == "None" {
-        return Some("Option".to_string());
+    if receiver_trim == wk.none_name() {
+        return Some(wk.option_name().to_string());
     }
     if receiver_trim.starts_with("Ok(") || receiver_trim.starts_with("Err(") {
-        return Some("Result".to_string());
+        return Some(wk.result_name().to_string());
     }
     if receiver_trim.starts_with("Result.") {
-        return Some("Result".to_string());
+        return Some(wk.result_name().to_string());
     }
     if receiver_trim.starts_with("Option.") {
-        return Some("Option".to_string());
+        return Some(wk.option_name().to_string());
     }
     if receiver_trim.starts_with("get_default_allocator()") {
         return Some("Allocator".to_string());
@@ -268,43 +271,44 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
     }
 
     // Legacy fallback: Hardcoded method lists
+    let wk = well_known();
+    if wk.is_result(&base_type) {
+        let result_methods = [
+            "raise",
+            "is_ok",
+            "is_err",
+            "map",
+            "map_err",
+            "unwrap",
+            "unwrap_or",
+            "expect",
+            "unwrap_err",
+            "and_then",
+            "or_else",
+        ];
+        if result_methods.contains(&method_info.method_name.as_str()) {
+            return find_stdlib_location("core/result.zen", &method_info.method_name, store);
+        }
+    }
+    if wk.is_option(&base_type) {
+        let option_methods = [
+            "is_some",
+            "is_none",
+            "unwrap",
+            "unwrap_or",
+            "map",
+            "or",
+            "and",
+            "expect",
+            "and_then",
+            "or_else",
+            "filter",
+        ];
+        if option_methods.contains(&method_info.method_name.as_str()) {
+            return find_stdlib_location("core/option.zen", &method_info.method_name, store);
+        }
+    }
     match base_type.as_str() {
-        "Result" => {
-            let result_methods = [
-                "raise",
-                "is_ok",
-                "is_err",
-                "map",
-                "map_err",
-                "unwrap",
-                "unwrap_or",
-                "expect",
-                "unwrap_err",
-                "and_then",
-                "or_else",
-            ];
-            if result_methods.contains(&method_info.method_name.as_str()) {
-                return find_stdlib_location("core/result.zen", &method_info.method_name, store);
-            }
-        }
-        "Option" => {
-            let option_methods = [
-                "is_some",
-                "is_none",
-                "unwrap",
-                "unwrap_or",
-                "map",
-                "or",
-                "and",
-                "expect",
-                "and_then",
-                "or_else",
-                "filter",
-            ];
-            if option_methods.contains(&method_info.method_name.as_str()) {
-                return find_stdlib_location("core/option.zen", &method_info.method_name, store);
-            }
-        }
         "String" | "StaticString" | "str" => {
             let string_methods = [
                 "len",

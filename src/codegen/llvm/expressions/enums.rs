@@ -20,7 +20,7 @@ pub fn compile_enum_literal<'ctx>(
     // Delegate to the existing implementation
     if let Expression::EnumLiteral { variant, payload } = expr {
         // Try to infer the enum name from context or use Option as default
-        compile_enum_variant(compiler, "Option", variant, payload)
+        compile_enum_variant(compiler, compiler.well_known.option_name(), variant, payload)
     } else {
         Err(CompileError::InternalError(
             "Expected EnumLiteral".to_string(),
@@ -34,12 +34,12 @@ pub fn compile_some<'ctx>(
     value: &Box<Expression>,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     // Some(value) is Option::Some(value)
-    compile_enum_variant(compiler, "Option", "Some", &Some(value.clone()))
+    compile_enum_variant(compiler, compiler.well_known.option_name(), compiler.well_known.some_name(), &Some(value.clone()))
 }
 
 pub fn compile_none<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    // None (or null) is Option::None
-    compile_enum_variant(compiler, "Option", "None", &None)
+    // None is Option::None
+    compile_enum_variant(compiler, compiler.well_known.option_name(), compiler.well_known.none_name(), &None)
 }

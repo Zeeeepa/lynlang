@@ -3,6 +3,7 @@
 use crate::ast::{self, AstType};
 use crate::comptime;
 use crate::error::{CompileError, Span};
+use crate::well_known::WellKnownTypes;
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
@@ -74,21 +75,22 @@ pub struct LLVMCompiler<'ctx> {
     pub builder: Builder<'ctx>,
     pub variables: HashMap<String, VariableInfo<'ctx>>,
     pub functions: HashMap<String, FunctionValue<'ctx>>,
-    pub function_types: HashMap<String, AstType>, // Track function return types
+    pub function_types: HashMap<String, AstType>,
     pub current_function: Option<FunctionValue<'ctx>>,
     pub symbols: symbols::SymbolTable<'ctx>,
     pub struct_types: HashMap<String, StructTypeInfo<'ctx>>,
-    pub loop_stack: Vec<(BasicBlock<'ctx>, BasicBlock<'ctx>)>, // (continue_target, break_target)
-    pub defer_stack: Vec<ast::Expression>, // Stack of deferred expressions (LIFO order)
+    pub loop_stack: Vec<(BasicBlock<'ctx>, BasicBlock<'ctx>)>,
+    pub defer_stack: Vec<ast::Expression>,
     pub comptime_evaluator: comptime::ComptimeInterpreter,
     pub behavior_codegen: Option<behaviors::BehaviorCodegen<'ctx>>,
-    pub current_impl_type: Option<String>, // Track implementing type for trait methods
-    pub inline_counter: usize,             // Counter for unique inline function names
-    pub load_counter: usize,               // Counter for unique load instruction names
-    pub generic_type_context: HashMap<String, AstType>, // Track instantiated generic types (legacy, kept for compatibility)
-    pub generic_tracker: generics::GenericTypeTracker,  // New improved generic type tracking
-    pub module_imports: HashMap<String, u64>, // Track module imports (name -> marker value)
-    pub current_span: Option<Span>,           // Current source location for error reporting
+    pub current_impl_type: Option<String>,
+    pub inline_counter: usize,
+    pub load_counter: usize,
+    pub generic_type_context: HashMap<String, AstType>,
+    pub generic_tracker: generics::GenericTypeTracker,
+    pub module_imports: HashMap<String, u64>,
+    pub current_span: Option<Span>,
+    pub well_known: WellKnownTypes,
 }
 
 impl<'ctx> LLVMCompiler<'ctx> {
@@ -161,12 +163,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Also update the old system for backwards compatibility
         match type_ {
             AstType::Generic { name, type_args } => {
-                if name == "Result" && type_args.len() == 2 {
+                if self.well_known.is_result(name) && type_args.len() == 2 {
                     self.generic_type_context
                         .insert(format!("{}_Ok_Type", prefix), type_args[0].clone());
                     self.generic_type_context
                         .insert(format!("{}_Err_Type", prefix), type_args[1].clone());
-                } else if name == "Option" && type_args.len() == 1 {
+                } else if self.well_known.is_option(name) && type_args.len() == 1 {
                     self.generic_type_context
                         .insert(format!("{}_Some_Type", prefix), type_args[0].clone());
                 }
@@ -218,6 +220,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             generic_tracker: generics::GenericTypeTracker::new(),
             module_imports: HashMap::new(),
             current_span: None,
+            well_known: WellKnownTypes::new(),
         };
 
         // Declare standard library functions
@@ -487,52 +490,46 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     };
 
                     // Handle specific std types and modules
-                    match module_name {
-                        // Built-in types from @std
-                        "Option" | "Some" | "None" => {
-                            // Option types are already registered in register_builtin_types
-                            // Just mark that these names are available as imports
-                            self.module_imports.insert(alias.clone(), 100); // Special marker for Option types
-                        }
-                        "Result" | "Ok" | "Err" => {
-                            // Result types are already registered in register_builtin_types
-                            // Just mark that these names are available as imports
-                            self.module_imports.insert(alias.clone(), 101); // Special marker for Result types
-                        }
-                        // Collections
-                        "HashMap" | "HashSet" | "DynVec" | "Array" | "Vec" => {
-                            self.module_imports.insert(alias.clone(), 102); // Special marker for collections
-                        }
-                        // Allocator types
-                        "Allocator" | "get_default_allocator" => {
-                            self.module_imports.insert(alias.clone(), 103); // Special marker for allocator
-                        }
-                        // Math functions
-                        "min" | "max" | "abs" | "sqrt" | "pow" | "sin" | "cos" | "tan" => {
-                            self.module_imports.insert(alias.clone(), 104); // Special marker for math functions
-                        }
-                        // Regular modules
-                        "io" => {
-                            self.module_imports.insert(alias.clone(), 1);
-                        }
-                        "math" => {
-                            self.module_imports.insert(alias.clone(), 2);
-                        }
-                        "core" => {
-                            self.module_imports.insert(alias.clone(), 3);
-                        }
-                        "GPA" => {
-                            self.module_imports.insert(alias.clone(), 4);
-                        }
-                        "AsyncPool" => {
-                            self.module_imports.insert(alias.clone(), 5);
-                        }
-                        "build" => {
-                            self.module_imports.insert(alias.clone(), 7);
-                        }
-                        _ => {
-                            // Unknown import, store with marker 0
-                            self.module_imports.insert(alias.clone(), 0);
+                    if self.well_known.is_option(module_name) || self.well_known.is_option_variant(module_name) {
+                        self.module_imports.insert(alias.clone(), 100);
+                    } else if self.well_known.is_result(module_name) || self.well_known.is_result_variant(module_name) {
+                        self.module_imports.insert(alias.clone(), 101);
+                    } else {
+                        match module_name {
+                            // Collections
+                            "HashMap" | "HashSet" | "DynVec" | "Array" | "Vec" => {
+                                self.module_imports.insert(alias.clone(), 102);
+                            }
+                            // Allocator types
+                            "Allocator" | "get_default_allocator" => {
+                                self.module_imports.insert(alias.clone(), 103);
+                            }
+                            // Math functions
+                            "min" | "max" | "abs" | "sqrt" | "pow" | "sin" | "cos" | "tan" => {
+                                self.module_imports.insert(alias.clone(), 104);
+                            }
+                            // Regular modules
+                            "io" => {
+                                self.module_imports.insert(alias.clone(), 1);
+                            }
+                            "math" => {
+                                self.module_imports.insert(alias.clone(), 2);
+                            }
+                            "core" => {
+                                self.module_imports.insert(alias.clone(), 3);
+                            }
+                            "GPA" => {
+                                self.module_imports.insert(alias.clone(), 4);
+                            }
+                            "AsyncPool" => {
+                                self.module_imports.insert(alias.clone(), 5);
+                            }
+                            "build" => {
+                                self.module_imports.insert(alias.clone(), 7);
+                            }
+                            _ => {
+                                self.module_imports.insert(alias.clone(), 0);
+                            }
                         }
                     }
                 }

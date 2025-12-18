@@ -1,4 +1,5 @@
 use crate::ast::AstType;
+use crate::well_known::well_known;
 use std::collections::HashMap;
 
 /// Tracks generic type instantiations at different scopes
@@ -72,14 +73,15 @@ impl GenericTypeTracker {
                 );
 
                 // Track each type argument recursively
-                if name == "Result" && type_args.len() == 2 {
+                let wk = well_known();
+                if wk.is_result(name) && type_args.len() == 2 {
                     self.insert(format!("{}_Ok_Type", prefix), type_args[0].clone());
                     self.insert(format!("{}_Err_Type", prefix), type_args[1].clone());
 
                     // Recursively track nested generics
                     self.track_generic_type(&type_args[0], &format!("{}_Ok", prefix));
                     self.track_generic_type(&type_args[1], &format!("{}_Err", prefix));
-                } else if name == "Option" && type_args.len() == 1 {
+                } else if wk.is_option(name) && type_args.len() == 1 {
                     self.insert(format!("{}_Some_Type", prefix), type_args[0].clone());
 
                     // Recursively track nested generics

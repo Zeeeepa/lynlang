@@ -131,7 +131,7 @@ pub fn compile_raise_expression<'ctx>(
     let (returns_result, is_void_function) =
         if let Some(return_type) = compiler.function_types.get(&function_name) {
             match return_type {
-                AstType::Generic { name, .. } if name == "Result" => (true, false),
+                AstType::Generic { name, .. } if compiler.well_known.is_result(name) => (true, false),
                 AstType::Void => (false, true),
                 _ => (false, false),
             }
@@ -148,14 +148,14 @@ pub fn compile_raise_expression<'ctx>(
             // Check if we know the function's return type - clone to avoid borrow issues
             if let Some(return_type) = compiler.function_types.get(name).cloned() {
                 // Track the complex generic type recursively
-                compiler.track_complex_generic(&return_type, "Result");
+                compiler.track_complex_generic(&return_type, compiler.well_known.result_name());
 
                 if let AstType::Generic {
                     name: type_name,
                     type_args,
                 } = &return_type
                 {
-                    if type_name == "Result" && type_args.len() == 2 {
+                    if compiler.well_known.is_result(type_name) && type_args.len() == 2 {
                         // Store Result<T, E> type arguments for proper payload extraction
                         compiler
                             .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
@@ -167,7 +167,7 @@ pub fn compile_raise_expression<'ctx>(
                         // Also use the generic tracker for better nested handling
                         compiler
                             .generic_tracker
-                            .track_generic_type(&return_type, "Result");
+                            .track_generic_type(&return_type, compiler.well_known.result_name());
                     }
                 }
             }
@@ -180,7 +180,7 @@ pub fn compile_raise_expression<'ctx>(
                     type_args,
                 } = &var_type
                 {
-                    if type_name == "Result" && type_args.len() == 2 {
+                    if compiler.well_known.is_result(type_name) && type_args.len() == 2 {
                         // Store Result<T, E> type arguments for proper payload extraction
                         compiler
                             .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
@@ -190,10 +190,10 @@ pub fn compile_raise_expression<'ctx>(
                         );
 
                         // Also track nested generics recursively
-                        compiler.track_complex_generic(&var_type, "Result");
+                        compiler.track_complex_generic(&var_type, compiler.well_known.result_name());
                         compiler
                             .generic_tracker
-                            .track_generic_type(&var_type, "Result");
+                            .track_generic_type(&var_type, compiler.well_known.result_name());
                     }
                 }
             }
@@ -204,8 +204,8 @@ pub fn compile_raise_expression<'ctx>(
             payload,
         } => {
             // For direct Result.Ok(value) or Result.Err(value) constructions
-            if enum_name == "Result" {
-                if variant == "Ok" {
+            if compiler.well_known.is_result(enum_name) {
+                if compiler.well_known.is_ok(variant) {
                     // Infer type from the payload
                     if let Some(payload_expr) = payload {
                         let payload_type = compiler
@@ -219,7 +219,7 @@ pub fn compile_raise_expression<'ctx>(
                             AstType::StaticString,
                         );
                     }
-                } else if variant == "Err" {
+                } else if compiler.well_known.is_err(variant) {
                     // Infer type from the payload
                     if let Some(payload_expr) = payload {
                         let payload_type = compiler
@@ -249,7 +249,7 @@ pub fn compile_raise_expression<'ctx>(
                     type_args,
                 } = &object_type
                 {
-                    if type_name == "Result" && type_args.len() == 2 {
+                    if compiler.well_known.is_result(type_name) && type_args.len() == 2 {
                         compiler
                             .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
                         compiler.track_generic_type(
@@ -257,17 +257,17 @@ pub fn compile_raise_expression<'ctx>(
                             type_args[1].clone(),
                         );
 
-                        compiler.track_complex_generic(&object_type, "Result");
+                        compiler.track_complex_generic(&object_type, compiler.well_known.result_name());
                         compiler
                             .generic_tracker
-                            .track_generic_type(&object_type, "Result");
+                            .track_generic_type(&object_type, compiler.well_known.result_name());
 
                         // For nested Result types, ensure we track the inner type properly
                         if let AstType::Generic {
                             name: inner_name, ..
                         } = &type_args[0]
                         {
-                            if inner_name == "Result" {
+                            if compiler.well_known.is_result(inner_name) {
                                 // This is Result<Result<T,E>,E> - track the nested structure
                                 compiler
                                     .generic_tracker
@@ -285,7 +285,7 @@ pub fn compile_raise_expression<'ctx>(
                     type_args,
                 } = &expr_type
                 {
-                    if type_name == "Result" && type_args.len() == 2 {
+                    if compiler.well_known.is_result(type_name) && type_args.len() == 2 {
                         compiler
                             .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
                         compiler.track_generic_type(
@@ -293,10 +293,10 @@ pub fn compile_raise_expression<'ctx>(
                             type_args[1].clone(),
                         );
 
-                        compiler.track_complex_generic(&expr_type, "Result");
+                        compiler.track_complex_generic(&expr_type, compiler.well_known.result_name());
                         compiler
                             .generic_tracker
-                            .track_generic_type(&expr_type, "Result");
+                            .track_generic_type(&expr_type, compiler.well_known.result_name());
                     }
                 }
             }
@@ -309,7 +309,7 @@ pub fn compile_raise_expression<'ctx>(
                     type_args,
                 } = &expr_type
                 {
-                    if type_name == "Result" && type_args.len() == 2 {
+                    if compiler.well_known.is_result(type_name) && type_args.len() == 2 {
                         compiler
                             .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
                         compiler.track_generic_type(
@@ -317,10 +317,10 @@ pub fn compile_raise_expression<'ctx>(
                             type_args[1].clone(),
                         );
 
-                        compiler.track_complex_generic(&expr_type, "Result");
+                        compiler.track_complex_generic(&expr_type, compiler.well_known.result_name());
                         compiler
                             .generic_tracker
-                            .track_generic_type(&expr_type, "Result");
+                            .track_generic_type(&expr_type, compiler.well_known.result_name());
                     }
                 }
             }
@@ -509,7 +509,7 @@ pub fn compile_raise_expression<'ctx>(
                                 )?)
                             }
                             AstType::Generic { name, type_args }
-                                if name == "Result" && type_args.len() == 2 =>
+                                if compiler.well_known.is_result(name) && type_args.len() == 2 =>
                             {
                                 // Handle nested Result<T,E> - the payload is itself a Result struct
                                 // When we store a nested Result/Option, we heap-allocate the struct and store the pointer
@@ -523,7 +523,7 @@ pub fn compile_raise_expression<'ctx>(
                                 // Also track them with more specific keys for nested context
                                 compiler
                                     .generic_tracker
-                                    .track_generic_type(&ast_type, "Result");
+                                    .track_generic_type(&ast_type, compiler.well_known.result_name());
 
                                 let result_struct_type = compiler.context.struct_type(
                                     &[
@@ -546,7 +546,7 @@ pub fn compile_raise_expression<'ctx>(
                                 Ok(loaded_struct)
                             }
                             AstType::Generic { name, type_args }
-                                if name == "Option" && type_args.len() == 1 =>
+                                if compiler.well_known.is_option(name) && type_args.len() == 1 =>
                             {
                                 // Handle Option<T> - similar to Result but with only one type parameter
                                 let option_struct_type = compiler.context.struct_type(
@@ -617,7 +617,7 @@ pub fn compile_raise_expression<'ctx>(
             // so that subsequent raise() calls will see the correct type
             if let Some(ref ast_type) = extracted_type {
                 if let AstType::Generic { name, type_args } = ast_type {
-                    if name == "Result" && type_args.len() == 2 {
+                    if compiler.well_known.is_result(name) && type_args.len() == 2 {
                         // We're extracting a Result<T,E>, update context for next raise()
                         compiler
                             .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
@@ -625,7 +625,7 @@ pub fn compile_raise_expression<'ctx>(
                             "Result_Err_Type".to_string(),
                             type_args[1].clone(),
                         );
-                    } else if name == "Option" && type_args.len() == 1 {
+                    } else if compiler.well_known.is_option(name) && type_args.len() == 1 {
                         compiler.track_generic_type(
                             "Option_Some_Type".to_string(),
                             type_args[0].clone(),
@@ -994,7 +994,7 @@ pub fn compile_raise_expression<'ctx>(
                                 AstType::F64 => compiler.context.f64_type().into(),
                                 AstType::Bool => compiler.context.bool_type().into(),
                                 AstType::Generic { name, .. }
-                                    if name == "Result" || name == "Option" =>
+                                    if compiler.well_known.is_result(name) || compiler.well_known.is_option(name) =>
                                 {
                                     // For nested generics (Result<Result<T,E>,E2>),
                                     // the payload pointer points to a heap-allocated struct

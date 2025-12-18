@@ -1,6 +1,7 @@
 use crate::ast::{AstType, BinaryOperator, Expression};
 use crate::error::{CompileError, Result};
 use crate::typechecker::{EnumInfo, StructInfo, TypeChecker};
+use crate::well_known::well_known;
 use std::collections::HashMap;
 
 /// Infer the type of a binary operation
@@ -347,31 +348,28 @@ pub fn infer_identifier_type(checker: &mut TypeChecker, name: &str) -> Result<As
         if let Some(angle_pos) = name.find('<') {
             let base_type = &name[..angle_pos];
 
-            match base_type {
-                "HashMap" | "HashSet" | "DynVec" | "Vec" | "Option" | "Result" | "Stack"
-                | "Queue" => {
-                    let (_, type_args) = TypeChecker::parse_generic_type_string(name);
-                    return Ok(AstType::Generic {
-                        name: base_type.to_string(),
-                        type_args,
-                    });
-                }
-                "Ptr" => {
-                    let (_, type_args) = TypeChecker::parse_generic_type_string(name);
-                    let inner = type_args.first().cloned().unwrap_or(AstType::U8);
-                    return Ok(AstType::Ptr(Box::new(inner)));
-                }
-                "MutPtr" => {
-                    let (_, type_args) = TypeChecker::parse_generic_type_string(name);
-                    let inner = type_args.first().cloned().unwrap_or(AstType::U8);
-                    return Ok(AstType::MutPtr(Box::new(inner)));
-                }
-                "RawPtr" => {
-                    let (_, type_args) = TypeChecker::parse_generic_type_string(name);
-                    let inner = type_args.first().cloned().unwrap_or(AstType::U8);
-                    return Ok(AstType::RawPtr(Box::new(inner)));
-                }
-                _ => {}
+            let wk = &checker.well_known;
+            if wk.is_immutable_ptr(base_type) {
+                let (_, type_args) = TypeChecker::parse_generic_type_string(name);
+                let inner = type_args.first().cloned().unwrap_or(AstType::U8);
+                return Ok(AstType::Ptr(Box::new(inner)));
+            } else if wk.is_mutable_ptr(base_type) {
+                let (_, type_args) = TypeChecker::parse_generic_type_string(name);
+                let inner = type_args.first().cloned().unwrap_or(AstType::U8);
+                return Ok(AstType::MutPtr(Box::new(inner)));
+            } else if wk.is_raw_ptr(base_type) {
+                let (_, type_args) = TypeChecker::parse_generic_type_string(name);
+                let inner = type_args.first().cloned().unwrap_or(AstType::U8);
+                return Ok(AstType::RawPtr(Box::new(inner)));
+            } else if matches!(base_type, "HashMap" | "HashSet" | "DynVec" | "Vec" | "Stack" | "Queue")
+                || wk.is_option(base_type)
+                || wk.is_result(base_type)
+            {
+                let (_, type_args) = TypeChecker::parse_generic_type_string(name);
+                return Ok(AstType::Generic {
+                    name: base_type.to_string(),
+                    type_args,
+                });
             }
         }
     }
@@ -542,61 +540,63 @@ pub fn infer_enum_literal_type(
     variant: &str,
     payload: &Option<Box<Expression>>,
 ) -> Result<AstType> {
-    match variant {
-        "Some" => {
-            let inner_type = if let Some(p) = payload {
-                checker.infer_expression_type(p)?
-            } else {
-                AstType::Void
-            };
-            Ok(AstType::Generic {
-                name: "Option".to_string(),
-                type_args: vec![inner_type],
-            })
-        }
-        "None" => Ok(AstType::Generic {
-            name: "Option".to_string(),
+    let wk = well_known();
+
+    if wk.is_some(variant) {
+        let inner_type = if let Some(p) = payload {
+            checker.infer_expression_type(p)?
+        } else {
+            AstType::Void
+        };
+        Ok(AstType::Generic {
+            name: wk.get_variant_parent_name(variant).unwrap().to_string(),
+            type_args: vec![inner_type],
+        })
+    } else if wk.is_none(variant) {
+        Ok(AstType::Generic {
+            name: wk.get_variant_parent_name(variant).unwrap().to_string(),
             type_args: vec![AstType::Generic {
                 name: "T".to_string(),
                 type_args: vec![],
             }],
-        }),
-        "Ok" => {
-            let ok_type = if let Some(p) = payload {
-                checker.infer_expression_type(p)?
-            } else {
-                AstType::Void
-            };
-            Ok(AstType::Generic {
-                name: "Result".to_string(),
-                type_args: vec![ok_type, crate::ast::resolve_string_struct_type()],
-            })
-        }
-        "Err" => {
-            let err_type = if let Some(p) = payload {
-                checker.infer_expression_type(p)?
-            } else {
-                AstType::Void
-            };
-            Ok(AstType::Generic {
-                name: "Result".to_string(),
-                type_args: vec![
-                    AstType::Generic {
-                        name: "T".to_string(),
-                        type_args: vec![],
-                    },
-                    err_type,
-                ],
-            })
-        }
-        _ => Ok(AstType::Void),
+        })
+    } else if wk.is_ok(variant) {
+        let ok_type = if let Some(p) = payload {
+            checker.infer_expression_type(p)?
+        } else {
+            AstType::Void
+        };
+        Ok(AstType::Generic {
+            name: wk.get_variant_parent_name(variant).unwrap().to_string(),
+            type_args: vec![ok_type, crate::ast::resolve_string_struct_type()],
+        })
+    } else if wk.is_err(variant) {
+        let err_type = if let Some(p) = payload {
+            checker.infer_expression_type(p)?
+        } else {
+            AstType::Void
+        };
+        Ok(AstType::Generic {
+            name: wk.get_variant_parent_name(variant).unwrap().to_string(),
+            type_args: vec![
+                AstType::Generic {
+                    name: "T".to_string(),
+                    type_args: vec![],
+                },
+                err_type,
+            ],
+        })
+    } else {
+        Ok(AstType::Void)
     }
 }
 
 pub fn infer_raise_type(checker: &mut TypeChecker, expr: &Expression) -> Result<AstType> {
     let result_type = checker.infer_expression_type(expr)?;
     match result_type {
-        AstType::Generic { name, type_args } if name == "Result" && !type_args.is_empty() => {
+        AstType::Generic { ref name, ref type_args }
+            if checker.well_known.is_result(name) && !type_args.is_empty() =>
+        {
             Ok(type_args[0].clone())
         }
         _ => Err(CompileError::TypeError(
@@ -724,7 +724,6 @@ pub fn infer_method_call_type(
         return Ok(AstType::Void);
     }
 
-    // Generic type methods (HashMap, HashSet, Result)
     if let AstType::Generic { name, type_args } = &object_type {
         if name == "HashMap" {
             if let Some(return_type) = method_types::infer_hashmap_method_type(method, type_args) {
@@ -734,7 +733,7 @@ pub fn infer_method_call_type(
             if let Some(return_type) = method_types::infer_hashset_method_type(method) {
                 return Ok(return_type);
             }
-        } else if name == "Result" {
+        } else if checker.well_known.is_result(name) {
             if let Some(return_type) = method_types::infer_result_method_type(method, type_args) {
                 return Ok(return_type);
             }
@@ -774,6 +773,7 @@ pub fn infer_enum_variant_type(
     variant: &str,
     enums: &HashMap<String, EnumInfo>,
 ) -> Result<AstType> {
+    let wk = well_known();
     let enum_type_name = if enum_name.is_empty() {
         let mut found_enum = None;
         for (name, info) in enums {
@@ -787,7 +787,11 @@ pub fn infer_enum_variant_type(
                 break;
             }
         }
-        found_enum.unwrap_or_else(|| "Option".to_string())
+        found_enum.unwrap_or_else(|| {
+            wk.get_variant_parent_name(variant)
+                .unwrap_or(wk.option_name())
+                .to_string()
+        })
     } else {
         enum_name.to_string()
     };
@@ -806,6 +810,24 @@ pub fn infer_enum_variant_type(
             variants,
         })
     } else {
+        if enum_type_name.contains('<') {
+            let (base_name, type_args) =
+                crate::typechecker::TypeChecker::parse_generic_type_string(&enum_type_name);
+
+            if wk.is_immutable_ptr(&base_name) && type_args.len() == 1 {
+                return Ok(AstType::Ptr(Box::new(type_args[0].clone())));
+            } else if wk.is_mutable_ptr(&base_name) && type_args.len() == 1 {
+                return Ok(AstType::MutPtr(Box::new(type_args[0].clone())));
+            } else if wk.is_raw_ptr(&base_name) && type_args.len() == 1 {
+                return Ok(AstType::RawPtr(Box::new(type_args[0].clone())));
+            }
+
+            return Ok(AstType::Generic {
+                name: base_name,
+                type_args,
+            });
+        }
+
         Ok(AstType::Generic {
             name: enum_type_name,
             type_args: vec![],

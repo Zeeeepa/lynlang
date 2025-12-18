@@ -133,22 +133,22 @@ pub fn compile_function_call<'ctx>(
                     "int_to_ptr" => return stdlib_codegen::compile_int_to_ptr(compiler, args),
                     _ => {}
                 }
-            } else if module == "Result" {
+            } else if compiler.well_known.is_result(module) {
                 // Handle Result enum constructors
                 let payload = if !args.is_empty() {
                     Some(Box::new(args[0].clone()))
                 } else {
                     None
                 };
-                return compiler.compile_enum_variant("Result", func, &payload);
-            } else if module == "Option" {
+                return compiler.compile_enum_variant(module, func, &payload);
+            } else if compiler.well_known.is_option(module) {
                 // Handle Option enum constructors
                 let payload = if !args.is_empty() {
                     Some(Box::new(args[0].clone()))
                 } else {
                     None
                 };
-                return compiler.compile_enum_variant("Option", func, &payload);
+                return compiler.compile_enum_variant(module, func, &payload);
             }
         }
     }
@@ -221,12 +221,12 @@ pub fn compile_function_call<'ctx>(
                 type_args,
             } = return_type
             {
-                if type_name == "Result" && type_args.len() == 2 {
+                if compiler.well_known.is_result(type_name) && type_args.len() == 2 {
                     Some(vec![
                         ("Result_Ok_Type".to_string(), type_args[0].clone()),
                         ("Result_Err_Type".to_string(), type_args[1].clone()),
                     ])
-                } else if type_name == "Option" && type_args.len() == 1 {
+                } else if compiler.well_known.is_option(type_name) && type_args.len() == 1 {
                     Some(vec![("Option_Some_Type".to_string(), type_args[0].clone())])
                 } else {
                     None
@@ -495,14 +495,14 @@ pub fn compile_function_call<'ctx>(
                     type_args,
                 } = return_type.as_ref()
                 {
-                    if type_name == "Result" && type_args.len() == 2 {
+                    if compiler.well_known.is_result(type_name) && type_args.len() == 2 {
                         compiler
                             .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
                         compiler.track_generic_type(
                             "Result_Err_Type".to_string(),
                             type_args[1].clone(),
                         );
-                    } else if type_name == "Option" && type_args.len() == 1 {
+                    } else if compiler.well_known.is_option(type_name) && type_args.len() == 1 {
                         compiler.track_generic_type(
                             "Option_Some_Type".to_string(),
                             type_args[0].clone(),

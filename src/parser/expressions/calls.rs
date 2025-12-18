@@ -2,6 +2,7 @@ use super::super::core::Parser;
 use crate::ast::Expression;
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
+use crate::well_known::well_known;
 
 pub fn parse_call_expression(parser: &mut Parser, function_name: String) -> Result<Expression> {
     parser.next_token(); // consume '('
@@ -24,63 +25,60 @@ pub fn parse_call_expression(parser: &mut Parser, function_name: String) -> Resu
     parser.next_token(); // consume ')'
 
     // Check if this is an enum constructor (Some, None, Ok, Err)
-    let mut expr = match function_name.as_str() {
-        "Some" => {
-            if arguments.len() != 1 {
-                return Err(CompileError::SyntaxError(
-                    "Some constructor expects exactly one argument".to_string(),
-                    Some(parser.current_span.clone()),
-                ));
-            }
-            Expression::EnumVariant {
-                enum_name: "Option".to_string(),
-                variant: "Some".to_string(),
-                payload: Some(Box::new(arguments.into_iter().next().unwrap())),
-            }
+    let wk = well_known();
+    let mut expr = if wk.is_some(&function_name) {
+        if arguments.len() != 1 {
+            return Err(CompileError::SyntaxError(
+                "Some constructor expects exactly one argument".to_string(),
+                Some(parser.current_span.clone()),
+            ));
         }
-        "None" => {
-            if !arguments.is_empty() {
-                return Err(CompileError::SyntaxError(
-                    "None constructor expects no arguments".to_string(),
-                    Some(parser.current_span.clone()),
-                ));
-            }
-            Expression::EnumVariant {
-                enum_name: "Option".to_string(),
-                variant: "None".to_string(),
-                payload: None,
-            }
+        Expression::EnumVariant {
+            enum_name: wk.get_variant_parent_name(&function_name).unwrap_or(wk.option_name()).to_string(),
+            variant: function_name,
+            payload: Some(Box::new(arguments.into_iter().next().unwrap())),
         }
-        "Ok" => {
-            if arguments.len() != 1 {
-                return Err(CompileError::SyntaxError(
-                    "Ok constructor expects exactly one argument".to_string(),
-                    Some(parser.current_span.clone()),
-                ));
-            }
-            Expression::EnumVariant {
-                enum_name: "Result".to_string(),
-                variant: "Ok".to_string(),
-                payload: Some(Box::new(arguments.into_iter().next().unwrap())),
-            }
+    } else if wk.is_none(&function_name) {
+        if !arguments.is_empty() {
+            return Err(CompileError::SyntaxError(
+                "None constructor expects no arguments".to_string(),
+                Some(parser.current_span.clone()),
+            ));
         }
-        "Err" => {
-            if arguments.len() != 1 {
-                return Err(CompileError::SyntaxError(
-                    "Err constructor expects exactly one argument".to_string(),
-                    Some(parser.current_span.clone()),
-                ));
-            }
-            Expression::EnumVariant {
-                enum_name: "Result".to_string(),
-                variant: "Err".to_string(),
-                payload: Some(Box::new(arguments.into_iter().next().unwrap())),
-            }
+        Expression::EnumVariant {
+            enum_name: wk.get_variant_parent_name(&function_name).unwrap_or(wk.option_name()).to_string(),
+            variant: function_name,
+            payload: None,
         }
-        _ => Expression::FunctionCall {
+    } else if wk.is_ok(&function_name) {
+        if arguments.len() != 1 {
+            return Err(CompileError::SyntaxError(
+                "Ok constructor expects exactly one argument".to_string(),
+                Some(parser.current_span.clone()),
+            ));
+        }
+        Expression::EnumVariant {
+            enum_name: wk.get_variant_parent_name(&function_name).unwrap_or(wk.result_name()).to_string(),
+            variant: function_name,
+            payload: Some(Box::new(arguments.into_iter().next().unwrap())),
+        }
+    } else if wk.is_err(&function_name) {
+        if arguments.len() != 1 {
+            return Err(CompileError::SyntaxError(
+                "Err constructor expects exactly one argument".to_string(),
+                Some(parser.current_span.clone()),
+            ));
+        }
+        Expression::EnumVariant {
+            enum_name: wk.get_variant_parent_name(&function_name).unwrap_or(wk.result_name()).to_string(),
+            variant: function_name,
+            payload: Some(Box::new(arguments.into_iter().next().unwrap())),
+        }
+    } else {
+        Expression::FunctionCall {
             name: function_name,
             args: arguments,
-        },
+        }
     };
 
     // Continue parsing method chaining after function call

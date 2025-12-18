@@ -125,7 +125,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                 // Special case: If scrutinee is a raw pointer and pattern is Some/None,
                 // treat it as Option-like (null = None, non-null = Some)
-                if scrutinee_val.is_pointer_value() && (variant == "Some" || variant == "None") {
+                if scrutinee_val.is_pointer_value() && (self.well_known.is_some(variant) || self.well_known.is_none(variant)) {
                     let ptr_val = scrutinee_val.into_pointer_value();
                     let ptr_type = ptr_val.get_type();
                     let null_ptr = ptr_type.const_null();
@@ -137,10 +137,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         "ptr_is_null",
                     )?;
 
-                    if variant == "None" {
+                    if self.well_known.is_none(variant) {
                         // None pattern matches null pointer
                         return Ok((is_null, bindings));
-                    } else if variant == "Some" {
+                    } else if self.well_known.is_some(variant) {
                         // Some pattern matches non-null pointer
                         let is_not_null = self.builder.build_int_compare(
                             inkwell::IntPredicate::NE,
@@ -393,18 +393,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             self.context.i64_type().const_int(0, false).into()
                                         } else {
                                             // Check the generic type context for Option<T> and Result<T,E> type info
-                                            let load_type = if variant == "Some" {
+                                            let load_type = if self.well_known.is_some(variant) {
                                                 let t = self
                                                     .generic_type_context
                                                     .get("Option_Some_Type")
                                                     .cloned();
                                                 // Track Option_Some_Type from generic context
                                                 t
-                                            } else if variant == "Ok" {
+                                            } else if self.well_known.is_ok(variant) {
                                                 self.generic_type_context
                                                     .get("Result_Ok_Type")
                                                     .cloned()
-                                            } else if variant == "Err" {
+                                            } else if self.well_known.is_err(variant) {
                                                 self.generic_type_context
                                                     .get("Result_Err_Type")
                                                     .cloned()
@@ -478,7 +478,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     AstType::StaticString
                                                     | AstType::StaticLiteral => loaded_payload, // Static strings are already pointers, don't load
                                                     AstType::Generic { name, type_args }
-                                                        if name == "Result" || name == "Option" =>
+                                                        if self.well_known.is_result(&name) || self.well_known.is_option(&name) =>
                                                     {
                                                         // For nested generics (Result<Result<T,E>,E2>),
                                                         // the payload is a struct stored directly
@@ -493,7 +493,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         // Update the generic type context for the nested type
                                                         // This ensures that when we pattern match on the nested type,
                                                         // we have the correct type information
-                                                        if name == "Result" && type_args.len() == 2
+                                                        if self.well_known.is_result(&name) && type_args.len() == 2
                                                         {
                                                             // For Result<T,E>, track the nested types
                                                             self.track_generic_type(
@@ -514,7 +514,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                                 &type_args[1],
                                                                 "Result_Err",
                                                             );
-                                                        } else if name == "Option"
+                                                        } else if self.well_known.is_option(&name)
                                                             && type_args.len() == 1
                                                         {
                                                             // For Option<T>, track the nested type
@@ -623,7 +623,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         // Not null path - check the generic type context for Option<T> and Result<T,E> type info
                                         self.builder.position_at_end(then_bb);
                                         // First check the new generic tracker for nested types
-                                        let load_type = if variant == "Some" {
+                                        let load_type = if self.well_known.is_some(variant) {
                                             self.generic_tracker
                                                 .get("Option_Some_Type")
                                                 .cloned()
@@ -632,7 +632,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         .get("Option_Some_Type")
                                                         .cloned()
                                                 })
-                                        } else if variant == "Ok" {
+                                        } else if self.well_known.is_ok(variant) {
                                             self.generic_tracker
                                                 .get("Result_Ok_Type")
                                                 .cloned()
@@ -641,7 +641,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         .get("Result_Ok_Type")
                                                         .cloned()
                                                 })
-                                        } else if variant == "Err" {
+                                        } else if self.well_known.is_err(variant) {
                                             self.generic_tracker
                                                 .get("Result_Err_Type")
                                                 .cloned()
@@ -730,7 +730,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     extracted
                                                 } // Static strings are already pointers, don't load
                                                 AstType::Generic { name, type_args }
-                                                    if name == "Option" || name == "Result" =>
+                                                    if self.well_known.is_option(&name) || self.well_known.is_result(&name) =>
                                                 {
                                                     // For nested generics (Result<Option<T>, E> or Option<Result<T,E>>),
                                                     // the payload is itself an enum struct. Load it as a struct.
@@ -749,7 +749,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         );
 
                                                     // Update generic type context for the nested type
-                                                    if name == "Result" && type_args.len() == 2 {
+                                                    if self.well_known.is_result(&name) && type_args.len() == 2 {
                                                         // For Result<T,E>, track the nested types
                                                         // Use different keys to avoid conflicts with outer Result
                                                         self.track_generic_type(
@@ -770,7 +770,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                             &type_args[1],
                                                             "Nested_Result_Err",
                                                         );
-                                                    } else if name == "Option"
+                                                    } else if self.well_known.is_option(&name)
                                                         && type_args.len() == 1
                                                     {
                                                         // For Option<T>, track the nested type
@@ -793,7 +793,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                             // Update keys for next level of pattern matching
                                                             // CRITICAL FIX: When we load a nested Result/Option, we need to update
                                                             // the type context for its inner payloads
-                                                            if name == "Result"
+                                                            if self.well_known.is_result(&name)
                                                                 && type_args.len() == 2
                                                             {
                                                                 // The inner Result's Ok type becomes the new Result_Ok_Type
@@ -807,7 +807,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                                 );
 
                                                                 // If the Ok type is i32, make sure we track that properly
-                                                            } else if name == "Option"
+                                                            } else if self.well_known.is_option(&name)
                                                                 && type_args.len() == 1
                                                             {
                                                                 self.track_generic_type(

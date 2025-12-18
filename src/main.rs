@@ -18,6 +18,7 @@ mod parser;
 mod stdlib_metadata;
 mod type_system;
 mod typechecker;
+mod well_known;
 
 use zen::compiler::Compiler;
 use zen::error::{CompileError, Result};

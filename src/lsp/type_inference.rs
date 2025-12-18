@@ -245,13 +245,14 @@ pub fn infer_receiver_type(receiver: &str, documents: &HashMap<Url, Document>) -
                     }
                 }
                 // Fallback to simple contains checks
+                let wk = well_known();
                 for type_name in [
                     "HashMap",
                     "DynVec",
                     "Vec",
                     "Array",
-                    "Option",
-                    "Result",
+                    wk.option_name(),
+                    wk.result_name(),
                     "String",
                     "StaticString",
                 ] {
@@ -264,6 +265,7 @@ pub fn infer_receiver_type(receiver: &str, documents: &HashMap<Url, Document>) -
     }
 
     // Enhanced pattern matching for function calls and constructors (no regex)
+    let wk = well_known();
     let receiver_trim = receiver.trim();
     if receiver_trim.starts_with("HashMap(") {
         return Some("HashMap".to_string());
@@ -278,19 +280,19 @@ pub fn infer_receiver_type(receiver: &str, documents: &HashMap<Url, Document>) -
         return Some("Array".to_string());
     }
     if receiver_trim.starts_with("Some(") {
-        return Some("Option".to_string());
+        return Some(wk.option_name().to_string());
     }
-    if receiver_trim == "None" {
-        return Some("Option".to_string());
+    if receiver_trim == wk.none_name() {
+        return Some(wk.option_name().to_string());
     }
     if receiver_trim.starts_with("Ok(") || receiver_trim.starts_with("Err(") {
-        return Some("Result".to_string());
+        return Some(wk.result_name().to_string());
     }
     if receiver_trim.starts_with("Result.") {
-        return Some("Result".to_string());
+        return Some(wk.result_name().to_string());
     }
     if receiver_trim.starts_with("Option.") {
-        return Some("Option".to_string());
+        return Some(wk.option_name().to_string());
     }
     if receiver_trim.starts_with("get_default_allocator()") {
         return Some("Allocator".to_string());
@@ -348,16 +350,19 @@ pub fn infer_base_expression_type(
     }
 
     // Constructor calls
+    let wk = well_known();
     if let Some(type_name) = expr.split('(').next() {
+        if wk.is_some(type_name) || wk.is_none(type_name) {
+            return Some(wk.option_name().to_string());
+        }
+        if wk.is_ok(type_name) || wk.is_err(type_name) {
+            return Some(wk.result_name().to_string());
+        }
         match type_name {
             "HashMap" => return Some("HashMap".to_string()),
             "DynVec" => return Some("DynVec".to_string()),
             "Vec" => return Some("Vec".to_string()),
             "Array" => return Some("Array".to_string()),
-            "Some" => return Some("Option".to_string()),
-            "None" => return Some("Option".to_string()),
-            "Ok" => return Some("Result".to_string()),
-            "Err" => return Some("Result".to_string()),
             "get_default_allocator" => return Some("Allocator".to_string()),
             _ => {
                 // Check if it's a variable (limit search for performance)
@@ -386,52 +391,56 @@ pub fn infer_base_expression_type(
 }
 
 fn legacy_get_method_return_type(receiver_type: &str, method_name: &str) -> Option<String> {
+    let wk = well_known();
+    let option_type = wk.option_name().to_string();
+    let result_type = wk.result_name().to_string();
+    
     // Comprehensive method return type mapping
     match receiver_type {
         "String" | "StaticString" | "str" => match method_name {
             "to_string" | "to_upper" | "to_lower" | "trim" | "concat" | "replace" | "substr"
             | "reverse" | "repeat" => Some("String".to_string()),
-            "to_i32" | "to_i64" | "to_f64" => Some("Option".to_string()),
+            "to_i32" | "to_i64" | "to_f64" => Some(option_type.clone()),
             "split" => Some("Array".to_string()),
             "len" | "index_of" => Some("i32".to_string()),
-            "char_at" => Some("Option".to_string()),
+            "char_at" => Some(option_type.clone()),
             "contains" | "starts_with" | "ends_with" | "is_empty" => Some("bool".to_string()),
             "to_bytes" => Some("Array".to_string()),
             _ => None,
         },
         "HashMap" => match method_name {
-            "get" | "remove" => Some("Option".to_string()),
+            "get" | "remove" => Some(option_type.clone()),
             "keys" | "values" => Some("Array".to_string()),
             "len" | "capacity" => Some("i32".to_string()),
             "contains_key" | "is_empty" => Some("bool".to_string()),
-            "insert" => Some("Option".to_string()), // Returns old value if any
+            "insert" => Some(option_type.clone()), // Returns old value if any
             _ => None,
         },
         "DynVec" | "Vec" => match method_name {
-            "get" | "pop" | "first" | "last" => Some("Option".to_string()),
+            "get" | "pop" | "first" | "last" => Some(option_type.clone()),
             "len" | "capacity" => Some("i32".to_string()),
             "is_empty" | "is_full" | "contains" => Some("bool".to_string()),
             _ => None,
         },
         "Array" => match method_name {
-            "get" | "pop" | "first" | "last" => Some("Option".to_string()),
+            "get" | "pop" | "first" | "last" => Some(option_type.clone()),
             "len" => Some("i32".to_string()),
             "is_empty" | "contains" => Some("bool".to_string()),
             "slice" => Some("Array".to_string()),
             _ => None,
         },
-        "Option" => match method_name {
+        rt if wk.is_option(rt) => match method_name {
             "is_some" | "is_none" => Some("bool".to_string()),
             "unwrap" | "unwrap_or" | "expect" => Some("T".to_string()), // Would need generics tracking
-            "map" => Some("Option".to_string()),
-            "and" | "or" => Some("Option".to_string()),
+            "map" => Some(option_type.clone()),
+            "and" | "or" => Some(option_type.clone()),
             _ => None,
         },
-        "Result" => match method_name {
+        rt if wk.is_result(rt) => match method_name {
             "is_ok" | "is_err" => Some("bool".to_string()),
             "unwrap" | "raise" | "expect" | "unwrap_or" => Some("T".to_string()),
-            "map" => Some("Result".to_string()),
-            "map_err" => Some("Result".to_string()),
+            "map" => Some(result_type.clone()),
+            "map_err" => Some(result_type.clone()),
             _ => None,
         },
         "Allocator" => match method_name {
@@ -593,17 +602,19 @@ pub fn infer_base_expression_type_from_store(expr: &str, store: &DocumentStore) 
 
 // Additional parsing and extraction functions
 use crate::ast::AstType;
+use crate::well_known::well_known;
 
 pub fn extract_generic_types(ast_type: &AstType) -> (Option<String>, Option<String>) {
+    let wk = well_known();
     match ast_type {
         // Result<T, E>
-        AstType::Generic { name, type_args } if name == "Result" && type_args.len() == 2 => {
+        AstType::Generic { name, type_args } if wk.is_result(name) && type_args.len() == 2 => {
             let ok_type = format_type(&type_args[0]);
             let err_type = format_type(&type_args[1]);
             (Some(ok_type), Some(err_type))
         }
         // Option<T>
-        AstType::Generic { name, type_args } if name == "Option" && type_args.len() == 1 => {
+        AstType::Generic { name, type_args } if wk.is_option(name) && type_args.len() == 1 => {
             let inner_type = format_type(&type_args[0]);
             (Some(inner_type), None)
         }

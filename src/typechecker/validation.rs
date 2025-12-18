@@ -1,4 +1,5 @@
 use crate::ast::AstType;
+use crate::well_known::well_known;
 
 /// Check if two types are compatible (for assignment, parameter passing, etc.)
 pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
@@ -129,7 +130,7 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
                 name: actual_name,
                 type_args: actual_args,
             },
-        ) if expected_name == "Option" && actual_name == "Option" => {
+        ) if well_known().is_option(expected_name) && well_known().is_option(actual_name) => {
             expected_args.len() == actual_args.len()
                 && expected_args
                     .iter()
@@ -146,7 +147,7 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
                 name: actual_name,
                 type_args: actual_args,
             },
-        ) if expected_name == "Result" && actual_name == "Result" => {
+        ) if well_known().is_result(expected_name) && well_known().is_result(actual_name) => {
             expected_args.len() == actual_args.len()
                 && expected_args
                     .iter()
@@ -264,7 +265,7 @@ pub fn requires_initialization(type_: &AstType) -> bool {
 pub fn is_valid_condition_type(type_: &AstType) -> bool {
     matches!(type_, AstType::Bool)
         || type_.is_numeric()
-        || matches!(type_, AstType::Generic { name, .. } if name == "Option")
+        || matches!(type_, AstType::Generic { name, .. } if well_known().is_option(name))
 }
 
 /// Check if a type can be indexed

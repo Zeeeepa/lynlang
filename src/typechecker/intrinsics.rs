@@ -4,6 +4,7 @@
 use crate::ast::AstType;
 use crate::error::Result;
 use crate::stdlib_metadata::compiler as compiler_intrinsics;
+use crate::well_known::well_known;
 
 /// Check compiler intrinsic function calls and return their type
 /// Returns None if not a compiler intrinsic, otherwise returns Ok(type) or error
@@ -50,25 +51,35 @@ pub fn check_stdlib_function(module: &str, func: &str) -> Option<AstType> {
 
         // Filesystem functions
         ("fs", "read_file") => {
+            let wk = well_known();
             let string_type = crate::ast::resolve_string_struct_type();
             Some(AstType::Generic {
-                name: "Result".to_string(),
+                name: wk.result_name().to_string(),
                 type_args: vec![string_type.clone(), string_type],
             })
         }
-        ("fs", "write_file") => Some(AstType::Generic {
-            name: "Result".to_string(),
-            type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
-        }),
+        ("fs", "write_file") => {
+            let wk = well_known();
+            Some(AstType::Generic {
+                name: wk.result_name().to_string(),
+                type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
+            })
+        }
         ("fs", "exists") => Some(AstType::Bool),
-        ("fs", "remove_file") => Some(AstType::Generic {
-            name: "Result".to_string(),
-            type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
-        }),
-        ("fs", "create_dir") => Some(AstType::Generic {
-            name: "Result".to_string(),
-            type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
-        }),
+        ("fs", "remove_file") => {
+            let wk = well_known();
+            Some(AstType::Generic {
+                name: wk.result_name().to_string(),
+                type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
+            })
+        }
+        ("fs", "create_dir") => {
+            let wk = well_known();
+            Some(AstType::Generic {
+                name: wk.result_name().to_string(),
+                type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
+            })
+        }
 
         _ => None,
     }

@@ -220,7 +220,8 @@ fn get_payload_type_from_context<'ctx>(
     enum_name: &str,
     variant: &str,
 ) -> Option<crate::ast::AstType> {
-    if enum_name == "Option" && variant == "Some" {
+    let wk = &compiler.well_known;
+    if wk.is_option(enum_name) && wk.is_some(variant) {
         compiler
             .generic_type_context
             .get("Nested_Option_Some_Type")
@@ -232,8 +233,8 @@ fn get_payload_type_from_context<'ctx>(
                     .cloned()
             })
             .or_else(|| compiler.generic_tracker.get("Option_Some_Type").cloned())
-    } else if enum_name == "Result" {
-        if variant == "Ok" {
+    } else if wk.is_result(enum_name) {
+        if wk.is_ok(variant) {
             compiler
                 .generic_type_context
                 .get("Nested_Result_Ok_Result_Ok_Type")
@@ -246,7 +247,7 @@ fn get_payload_type_from_context<'ctx>(
                 })
                 .or_else(|| compiler.generic_type_context.get("Result_Ok_Type").cloned())
                 .or_else(|| compiler.generic_tracker.get("Result_Ok_Type").cloned())
-        } else if variant == "Err" {
+        } else if wk.is_err(variant) {
             compiler
                 .generic_type_context
                 .get("Nested_Result_Err_Type")

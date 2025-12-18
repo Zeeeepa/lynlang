@@ -222,24 +222,24 @@ pub fn apply_pattern_bindings<'ctx>(
                 let ast_type =
                     if let Some(option_type) = compiler.generic_tracker.get("Option_Some_Type") {
                         // Check if Option_Some_Type is itself a generic enum
-                        if let crate::ast::AstType::Generic { name, .. } = option_type {
-                            if name == "Result" || name == "Option" {
-                                // The struct we're binding IS the inner enum type
-                                option_type.clone()
-                            } else {
-                                // Regular Option with non-enum payload
-                                crate::ast::AstType::Generic {
-                                    name: "Option".to_string(),
-                                    type_args: vec![option_type.clone()],
-                                }
-                            }
+                    if let crate::ast::AstType::Generic { name, .. } = option_type {
+                        if compiler.well_known.is_option_or_result(name) {
+                            // The struct we're binding IS the inner enum type
+                            option_type.clone()
                         } else {
-                            // Regular Option with primitive payload
+                            // Regular Option with non-enum payload
                             crate::ast::AstType::Generic {
-                                name: "Option".to_string(),
+                                name: compiler.well_known.option_name().to_string(),
                                 type_args: vec![option_type.clone()],
                             }
                         }
+                    } else {
+                        // Regular Option with primitive payload
+                        crate::ast::AstType::Generic {
+                            name: compiler.well_known.option_name().to_string(),
+                            type_args: vec![option_type.clone()],
+                        }
+                    }
                     } else if let Some(ok_type) = compiler.generic_tracker.get("Result_Ok_Type") {
                         // We have Result type information - the struct IS a Result
                         let err_type = compiler
@@ -248,13 +248,13 @@ pub fn apply_pattern_bindings<'ctx>(
                             .cloned()
                             .unwrap_or(crate::ast::AstType::StaticString);
                         crate::ast::AstType::Generic {
-                            name: "Result".to_string(),
+                            name: compiler.well_known.result_name().to_string(),
                             type_args: vec![ok_type.clone(), err_type],
                         }
                     } else {
                         // Fallback - generic Option with unknown type
                         crate::ast::AstType::Generic {
-                            name: "Option".to_string(),
+                            name: compiler.well_known.option_name().to_string(),
                             type_args: vec![crate::ast::AstType::I64],
                         }
                     };

@@ -187,7 +187,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
                 AstType::Generic {
                     name: enum_name, ..
-                } if enum_name == "Option" || enum_name == "Result" => {
+                } if self.well_known.is_option(enum_name) || self.well_known.is_result(enum_name) => {
                     // For Option and Result generics, load as enum struct
                     let enum_struct_type = self.context.struct_type(
                         &[

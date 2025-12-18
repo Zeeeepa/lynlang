@@ -2,6 +2,7 @@ use super::core::Parser;
 use crate::ast::{BinaryOperator, Expression, Pattern};
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
+use crate::well_known::well_known;
 
 impl<'a> Parser<'a> {
     pub fn parse_pattern(&mut self) -> Result<Pattern> {
@@ -86,9 +87,10 @@ impl<'a> Parser<'a> {
                 }
 
                 // Check if it's None without parentheses
-                if name == "None" {
+                let wk = well_known();
+                if wk.is_none(&name) {
                     return Ok(Pattern::EnumLiteral {
-                        variant: "None".to_string(),
+                        variant: name,
                         payload: None,
                     });
                 }
@@ -177,7 +179,7 @@ impl<'a> Parser<'a> {
                 // Check if we're parsing an enum variant without payload
                 // Common enum variant names should be treated as enum literals
                 let is_common_enum_variant =
-                    matches!(name.as_str(), "Some" | "None" | "Ok" | "Err");
+                    wk.is_option_variant(&name) || wk.is_result_variant(&name);
 
                 // Also check if the identifier starts with a capital letter (enum convention)
                 let is_capitalized = name.chars().next().map_or(false, |c| c.is_uppercase());

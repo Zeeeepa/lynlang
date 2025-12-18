@@ -79,7 +79,7 @@ pub fn declare_function<'ctx>(
     let actual_return_type = if function.name == "main" {
         match &function.return_type {
             AstType::Void => AstType::I32, // Convert void to i32
-            AstType::Generic { name, .. } if name == "Result" => {
+            AstType::Generic { name, .. } if compiler.well_known.is_result(name) => {
                 // Main returning Result<T,E> is not supported in JIT mode
                 eprintln!(
                     "Warning: main() returning Result<T,E> is not fully supported in JIT mode"
@@ -217,13 +217,13 @@ pub fn compile_function_body<'ctx>(
 
     // Extract generic type information from the function's return type
     if let AstType::Generic { name, type_args } = &function.return_type {
-        if name == "Result" && type_args.len() == 2 {
+        if compiler.well_known.is_result(name) && type_args.len() == 2 {
             compiler.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
             compiler.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
-            compiler.track_complex_generic(&function.return_type, "Result");
-        } else if name == "Option" && type_args.len() == 1 {
+            compiler.track_complex_generic(&function.return_type, compiler.well_known.result_name());
+        } else if compiler.well_known.is_option(name) && type_args.len() == 1 {
             compiler.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
-            compiler.track_complex_generic(&function.return_type, "Option");
+            compiler.track_complex_generic(&function.return_type, compiler.well_known.option_name());
         }
     }
 

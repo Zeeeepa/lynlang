@@ -47,11 +47,11 @@ pub fn compile_enum_variant<'ctx>(
 
     // Track Result<T, E> type information when compiling Result variants
     // This happens BEFORE we compile the payload, so we know what type this Result should be
-    if enum_name == "Result" && payload.is_some() {
+    if compiler.well_known.is_result(enum_name) && payload.is_some() {
         if let Some(ref payload_expr) = payload {
             let payload_type = super::inference::infer_expression_type(compiler, payload_expr);
             if let Ok(t) = payload_type {
-                let key = if variant == "Ok" {
+                let key = if compiler.well_known.is_ok(variant) {
                     "Result_Ok_Type".to_string()
                 } else {
                     "Result_Err_Type".to_string()
@@ -60,7 +60,7 @@ pub fn compile_enum_variant<'ctx>(
                 compiler.track_generic_type(key.clone(), t.clone());
                 // Also track nested generics recursively
                 if matches!(t, AstType::Generic { .. }) {
-                    let prefix = if variant == "Ok" {
+                    let prefix = if compiler.well_known.is_ok(variant) {
                         "Result_Ok"
                     } else {
                         "Result_Err"
@@ -71,7 +71,7 @@ pub fn compile_enum_variant<'ctx>(
                 }
                 // Track custom enum types too
                 if matches!(t, AstType::EnumType { .. }) {
-                    let prefix = if variant == "Ok" {
+                    let prefix = if compiler.well_known.is_ok(variant) {
                         "Result_Ok"
                     } else {
                         "Result_Err"
@@ -83,7 +83,7 @@ pub fn compile_enum_variant<'ctx>(
     }
 
     // Track Option<T> type information when compiling Option variants
-    if enum_name == "Option" && payload.is_some() {
+    if compiler.well_known.is_option(enum_name) && payload.is_some() {
         if let Some(ref payload_expr) = payload {
             let payload_type = super::inference::infer_expression_type(compiler, payload_expr);
             if let Ok(t) = payload_type {
@@ -139,10 +139,12 @@ pub fn compile_enum_variant<'ctx>(
             (Some(info), tag_val)
         } else {
             // If enum not found, infer enum name from variant for common types
-            let inferred_enum = match variant {
-                "Ok" | "Err" => Some("Result"),
-                "Some" | "None" => Some("Option"),
-                _ => None,
+            let inferred_enum = if compiler.well_known.is_result_variant(variant) {
+                compiler.well_known.get_variant_parent_name(variant)
+            } else if compiler.well_known.is_option_variant(variant) {
+                compiler.well_known.get_variant_parent_name(variant)
+            } else {
+                None
             };
 
             if let Some(inferred_name) = inferred_enum {
@@ -193,7 +195,7 @@ pub fn compile_enum_variant<'ctx>(
         let is_nested_enum = match expr.as_ref() {
             Expression::EnumVariant { .. } => true,
             Expression::MemberAccess { member, .. } => {
-                member == "Ok" || member == "Err" || member == "Some" || member == "None"
+                compiler.well_known.is_ok(member) || compiler.well_known.is_err(member) || compiler.well_known.is_some(member) || compiler.well_known.is_none(member)
             }
             _ => false,
         };

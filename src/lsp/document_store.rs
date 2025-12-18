@@ -7,6 +7,7 @@ use super::utils::format_type;
 use crate::ast::*;
 use crate::lexer::{Lexer, Token};
 use crate::parser::Parser;
+use crate::well_known::well_known;
 use lsp_types::*;
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
@@ -103,18 +104,19 @@ impl DocumentStore {
         }
 
         // Also register built-in generic types (Option, Result)
+        let wk = well_known();
         let builtin_generics = vec![
             (
-                "Option",
+                wk.option_name(),
                 AstType::Generic {
-                    name: "Option".to_string(),
+                    name: wk.option_name().to_string(),
                     type_args: vec![],
                 },
             ),
             (
-                "Result",
+                wk.result_name(),
                 AstType::Generic {
-                    name: "Result".to_string(),
+                    name: wk.result_name().to_string(),
                     type_args: vec![],
                 },
             ),
