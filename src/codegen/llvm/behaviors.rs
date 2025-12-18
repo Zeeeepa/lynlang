@@ -642,6 +642,29 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
 
+        // Try looking up qualified method name: Type.method (e.g., "String.len")
+        // This handles methods defined as: String.len = (self: String) usize { ... }
+        let qualified_method_name = format!("{}.{}", type_name, method_name);
+        if self.function_types.contains_key(&qualified_method_name)
+            || self.module.get_function(&qualified_method_name).is_some()
+        {
+            // Build the argument list: [object, ...args]
+            let mut ufc_args = vec![object.clone()];
+            ufc_args.extend_from_slice(args);
+
+            // Try to call the qualified function
+            match super::functions::calls::compile_function_call(
+                self,
+                &qualified_method_name,
+                &ufc_args,
+            ) {
+                Ok(result) => return Ok(result),
+                Err(_) => {
+                    // Function not found or wrong signature, continue to fallback
+                }
+            }
+        }
+
         // Fallback to UFC (Uniform Function Call): object.method(args) -> method(object, args)
         // This handles cases like vec_ref.get(0) where vec_ref is &DynVec<String>
         // Try to find a function with the method name that takes the object as first parameter
@@ -664,7 +687,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         Err(CompileError::UndeclaredFunction(
             format!("{}.{}", type_name, method_name),
-            None,
+            self.get_current_span(),
         ))
     }
 

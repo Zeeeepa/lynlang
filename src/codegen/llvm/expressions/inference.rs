@@ -451,7 +451,22 @@ pub fn infer_expression_type(
                         Ok(AstType::Bool)
                     }
                     _ => {
-                        // Try to look up the function for UFC
+                        // Try qualified method name first (Type.method format)
+                        let object_type = infer_expression_type(compiler, object)?;
+                        let type_name = match &object_type {
+                            AstType::Struct { name, .. } => Some(name.clone()),
+                            AstType::Generic { name, .. } => Some(name.clone()),
+                            _ => None,
+                        };
+                        
+                        if let Some(type_name) = type_name {
+                            let qualified_name = format!("{}.{}", type_name, method);
+                            if let Some(func_return_type) = compiler.function_types.get(&qualified_name) {
+                                return Ok(func_return_type.clone());
+                            }
+                        }
+                        
+                        // Fall back to plain UFC
                         if let Some(func_return_type) = compiler.function_types.get(method) {
                             Ok(func_return_type.clone())
                         } else {
