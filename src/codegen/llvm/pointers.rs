@@ -21,7 +21,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let ast_type = &var_info.ast_type;
 
                 // If the variable is already a pointer type, return it directly
-                if matches!(ast_type, AstType::Ptr(_)) {
+                if ast_type.is_ptr_type() {
                     Ok(alloca.as_basic_value_enum())
                 } else {
                     // For non-pointer variables, return the address
@@ -42,38 +42,35 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // First, check if expr is an identifier for a pointer variable
         if let Expression::Identifier(name) = expr {
             if let Ok((alloca, ast_type)) = self.get_variable(name) {
-                match ast_type {
-                    AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) => {
-                        // This is a pointer variable, so we need to:
-                        // 1. Load the pointer value from the alloca
-                        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                        let ptr_value = self.builder.build_load(ptr_type, alloca, "load_ptr")?;
-                        let ptr = ptr_value.into_pointer_value();
+                if let Some(inner) = ast_type.ptr_inner() {
+                    // This is a pointer variable, so we need to:
+                    // 1. Load the pointer value from the alloca
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let ptr_value = self.builder.build_load(ptr_type, alloca, "load_ptr")?;
+                    let ptr = ptr_value.into_pointer_value();
 
-                        // 2. Load the value from the address stored in the pointer
-                        let llvm_type = self.to_llvm_type(&inner)?;
-                        return match llvm_type {
-                            super::Type::Basic(basic_type) => Ok(self
-                                .builder
-                                .build_load(basic_type, ptr, "deref_value")?
-                                .into()),
-                            super::Type::Struct(struct_type) => Ok(self
-                                .builder
-                                .build_load(struct_type, ptr, "deref_struct")?
-                                .into()),
-                            _ => Err(CompileError::TypeError(
-                                "Cannot dereference non-basic/non-struct type".to_string(),
-                                None,
-                            )),
-                        };
-                    }
-                    _ => {
-                        return Err(CompileError::TypeMismatch {
-                            expected: "pointer".to_string(),
-                            found: format!("{:?}", ast_type),
-                            span: None,
-                        });
-                    }
+                    // 2. Load the value from the address stored in the pointer
+                    let llvm_type = self.to_llvm_type(inner)?;
+                    return match llvm_type {
+                        super::Type::Basic(basic_type) => Ok(self
+                            .builder
+                            .build_load(basic_type, ptr, "deref_value")?
+                            .into()),
+                        super::Type::Struct(struct_type) => Ok(self
+                            .builder
+                            .build_load(struct_type, ptr, "deref_struct")?
+                            .into()),
+                        _ => Err(CompileError::TypeError(
+                            "Cannot dereference non-basic/non-struct type".to_string(),
+                            None,
+                        )),
+                    };
+                } else {
+                    return Err(CompileError::TypeMismatch {
+                        expected: "pointer".to_string(),
+                        found: format!("{:?}", ast_type),
+                        span: None,
+                    });
                 }
             }
         }

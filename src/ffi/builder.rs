@@ -298,7 +298,7 @@ impl LibBuilder {
             name_str.clone(),
             TypeMapping {
                 c_type: format!("struct {}", name_str),
-                zen_type: AstType::Ptr(Box::new(AstType::Void)),
+                zen_type: AstType::ptr(AstType::Void),
                 marshaller: None,
             },
         );
@@ -582,7 +582,7 @@ impl LibBuilder {
             | AstType::U64
             | AstType::F32
             | AstType::F64 => true,
-            AstType::Ptr(_) => true,
+            t if t.is_ptr_type() => true,
             AstType::Struct { name, .. } if name == "String" => true,
             AstType::Array { .. } => true,
             AstType::FixedArray { .. } => true,

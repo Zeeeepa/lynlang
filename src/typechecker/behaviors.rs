@@ -71,7 +71,7 @@ impl BehaviorResolver {
                             },
                             AstType::Usize,
                         ],
-                        return_type: AstType::RawPtr(Box::new(AstType::U8)),
+                        return_type: AstType::raw_ptr(AstType::U8),
                         has_self: true,
                     },
                     BehaviorMethodInfo {
@@ -81,7 +81,7 @@ impl BehaviorResolver {
                                 name: "Self".to_string(),
                                 type_args: vec![],
                             },
-                            AstType::RawPtr(Box::new(AstType::U8)),
+                            AstType::raw_ptr(AstType::U8),
                             AstType::Usize,
                         ],
                         return_type: AstType::Void,
@@ -94,11 +94,11 @@ impl BehaviorResolver {
                                 name: "Self".to_string(),
                                 type_args: vec![],
                             },
-                            AstType::RawPtr(Box::new(AstType::U8)),
+                            AstType::raw_ptr(AstType::U8),
                             AstType::Usize,
                             AstType::Usize,
                         ],
-                        return_type: AstType::RawPtr(Box::new(AstType::U8)),
+                        return_type: AstType::raw_ptr(AstType::U8),
                         has_self: true,
                     },
                 ],
@@ -211,14 +211,26 @@ impl BehaviorResolver {
                     fields: vec![], // Empty fields - this is just a type reference
                 }
             }
-            AstType::Ptr(inner) => {
-                AstType::Ptr(Box::new(self.replace_self_type(inner, concrete_type)))
+            t if t.is_immutable_ptr() => {
+                if let Some(inner) = t.ptr_inner() {
+                    AstType::ptr(self.replace_self_type(inner, concrete_type))
+                } else {
+                    ast_type.clone()
+                }
             }
-            AstType::MutPtr(inner) => {
-                AstType::MutPtr(Box::new(self.replace_self_type(inner, concrete_type)))
+            t if t.is_mutable_ptr() => {
+                if let Some(inner) = t.ptr_inner() {
+                    AstType::mut_ptr(self.replace_self_type(inner, concrete_type))
+                } else {
+                    ast_type.clone()
+                }
             }
-            AstType::RawPtr(inner) => {
-                AstType::RawPtr(Box::new(self.replace_self_type(inner, concrete_type)))
+            t if t.is_raw_ptr() => {
+                if let Some(inner) = t.ptr_inner() {
+                    AstType::raw_ptr(self.replace_self_type(inner, concrete_type))
+                } else {
+                    ast_type.clone()
+                }
             }
             // Option and Result are now Generic types - handled in Generic match above
             AstType::Array(element) => {
@@ -427,7 +439,7 @@ mod tests {
                     params: vec![
                         Parameter {
                             name: "self".to_string(),
-                            type_: AstType::Ptr(Box::new(AstType::Generic {
+                            type_: AstType::ptr(AstType::Generic {
                                 name: "Self".to_string(),
                                 type_args: vec![],
                             })),
@@ -479,7 +491,7 @@ mod tests {
             methods: vec![
                 Function {
                     name: "distance".to_string(),
-                    args: vec![("self".to_string(), AstType::Ptr(Box::new(AstType::Struct {
+                    args: vec![("self".to_string(), AstType::ptr(AstType::Struct {
                         name: "Point".to_string(),
                         fields: vec![],
                     })))],

@@ -91,19 +91,19 @@ impl GenericTypeTracker {
 
                     // Recursively track nested generics
                     self.track_generic_type(&type_args[0], &format!("{}_Element", prefix));
-                } else if name == "Vec" && type_args.len() == 1 {
+                } else if well_known().is_vec(name) && type_args.len() == 1 {
                     self.insert(format!("{}_Element_Type", prefix), type_args[0].clone());
 
                     // Recursively track nested generics
                     self.track_generic_type(&type_args[0], &format!("{}_Element", prefix));
-                } else if name == "HashMap" && type_args.len() == 2 {
+                } else if well_known().is_hash_map(name) && type_args.len() == 2 {
                     self.insert(format!("{}_Key_Type", prefix), type_args[0].clone());
                     self.insert(format!("{}_Value_Type", prefix), type_args[1].clone());
 
                     // Recursively track nested generics
                     self.track_generic_type(&type_args[0], &format!("{}_Key", prefix));
                     self.track_generic_type(&type_args[1], &format!("{}_Value", prefix));
-                } else if name == "HashSet" && type_args.len() == 1 {
+                } else if well_known().is_hash_set(name) && type_args.len() == 1 {
                     self.insert(format!("{}_Element_Type", prefix), type_args[0].clone());
 
                     // Recursively track nested generics
@@ -210,13 +210,14 @@ mod tests {
     #[test]
     fn test_nested_generic_tracking() {
         let mut tracker = GenericTypeTracker::new();
+        let wk = well_known();
 
         // Create a nested generic type: Result<Option<i32>, String>
         let nested_type = AstType::Generic {
-            name: "Result".to_string(),
+            name: wk.result_name().to_string(),
             type_args: vec![
                 AstType::Generic {
-                    name: "Option".to_string(),
+                    name: wk.option_name().to_string(),
                     type_args: vec![AstType::I32],
                 },
                 crate::ast::resolve_string_struct_type(),

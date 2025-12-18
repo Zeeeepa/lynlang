@@ -44,18 +44,23 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
     }
 
     // Check for pointer compatibility
+    if expected.is_ptr_type() && actual.is_ptr_type() {
+        if let (Some(expected_inner), Some(actual_inner)) = (expected.ptr_inner(), actual.ptr_inner()) {
+            return types_compatible(expected_inner, actual_inner);
+        }
+    }
+    // Allow array to decay to pointer
+    if expected.is_ptr_type() {
+        if let Some(expected_inner) = expected.ptr_inner() {
+            if let AstType::Array(actual_inner) = actual {
+                return types_compatible(expected_inner, actual_inner);
+            }
+            if let AstType::FixedArray { element_type, .. } = actual {
+                return types_compatible(expected_inner, element_type);
+            }
+        }
+    }
     match (expected, actual) {
-        (AstType::Ptr(expected_inner), AstType::Ptr(actual_inner)) => {
-            types_compatible(expected_inner, actual_inner)
-        }
-        // Allow array to decay to pointer
-        (AstType::Ptr(expected_inner), AstType::Array(actual_inner)) => {
-            types_compatible(expected_inner, actual_inner)
-        }
-        // Allow fixed array to decay to pointer
-        (AstType::Ptr(expected_inner), AstType::FixedArray { element_type, .. }) => {
-            types_compatible(expected_inner, element_type)
-        }
         // Check struct compatibility
         (
             AstType::Struct {
@@ -236,15 +241,19 @@ pub fn can_implicitly_convert(from: &AstType, to: &AstType) -> bool {
     }
 
     // Array to pointer decay
-    matches!(
-        (from, to),
-        (AstType::Array(from_elem), AstType::Ptr(to_elem))
-            if types_compatible(from_elem, to_elem)
-    ) || matches!(
-        (from, to),
-        (AstType::FixedArray { element_type: from_elem, .. }, AstType::Ptr(to_elem))
-            if types_compatible(from_elem, to_elem)
-    )
+    if let Some(to_elem) = to.ptr_inner() {
+        if let AstType::Array(from_elem) = from {
+            if types_compatible(from_elem, to_elem) {
+                return true;
+            }
+        }
+        if let AstType::FixedArray { element_type: from_elem, .. } = from {
+            if types_compatible(from_elem, to_elem) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 /// Check if a type requires explicit initialization
@@ -271,10 +280,12 @@ pub fn is_valid_condition_type(type_: &AstType) -> bool {
 /// Check if a type can be indexed
 #[allow(dead_code)]
 pub fn can_be_indexed(type_: &AstType) -> Option<AstType> {
+    if let Some(inner) = type_.ptr_inner() {
+        return Some(inner.clone());
+    }
     match type_ {
         AstType::Array(elem_type) => Some((**elem_type).clone()),
         AstType::FixedArray { element_type, .. } => Some((**element_type).clone()),
-        AstType::Ptr(elem_type) => Some((**elem_type).clone()),
         AstType::Struct { name, .. } if name == "String" => Some(AstType::U8), // Indexing string gives bytes
         _ => None,
     }
@@ -283,8 +294,10 @@ pub fn can_be_indexed(type_: &AstType) -> Option<AstType> {
 /// Check if a type supports the dereference operation
 #[allow(dead_code)]
 pub fn can_be_dereferenced(type_: &AstType) -> Option<AstType> {
+    if let Some(inner) = type_.ptr_inner() {
+        return Some(inner.clone());
+    }
     match type_ {
-        AstType::Ptr(inner) => Some((**inner).clone()),
         AstType::Ref(inner) => Some((**inner).clone()),
         _ => None,
     }

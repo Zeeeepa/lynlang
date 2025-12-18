@@ -46,7 +46,7 @@ pub fn check_stdlib_function(module: &str, func: &str) -> Option<AstType> {
         ("string", "concat") => Some(crate::ast::resolve_string_struct_type()),
 
         // Memory functions
-        ("mem", "alloc") => Some(AstType::Ptr(Box::new(AstType::U8))),
+        ("mem", "alloc") => Some(AstType::ptr(AstType::U8)),
         ("mem", "free") => Some(AstType::Void),
 
         // Filesystem functions

@@ -47,14 +47,26 @@ pub fn replace_self_in_ast_type(ast_type: &AstType, concrete_type: &str) -> AstT
                 type_args: vec![],
             }
         }
-        AstType::Ptr(inner) => {
-            AstType::Ptr(Box::new(replace_self_in_ast_type(inner, concrete_type)))
+        t if t.is_immutable_ptr() => {
+            if let Some(inner) = t.ptr_inner() {
+                AstType::ptr(replace_self_in_ast_type(inner, concrete_type))
+            } else {
+                ast_type.clone()
+            }
         }
-        AstType::MutPtr(inner) => {
-            AstType::MutPtr(Box::new(replace_self_in_ast_type(inner, concrete_type)))
+        t if t.is_mutable_ptr() => {
+            if let Some(inner) = t.ptr_inner() {
+                AstType::mut_ptr(replace_self_in_ast_type(inner, concrete_type))
+            } else {
+                ast_type.clone()
+            }
         }
-        AstType::RawPtr(inner) => {
-            AstType::RawPtr(Box::new(replace_self_in_ast_type(inner, concrete_type)))
+        t if t.is_raw_ptr() => {
+            if let Some(inner) = t.ptr_inner() {
+                AstType::raw_ptr(replace_self_in_ast_type(inner, concrete_type))
+            } else {
+                ast_type.clone()
+            }
         }
         // Option and Result are now Generic types - handled in Generic match above
         AstType::Array(element) => {

@@ -301,7 +301,13 @@ fn type_to_string(ast_type: &AstType) -> String {
         AstType::Bool => "bool".to_string(),
         AstType::Struct { name, .. } if name == "String" => "string".to_string(),
         AstType::Void => "void".to_string(),
-        AstType::Ptr(inner) => format!("ptr_{}", type_to_string(inner)),
+        t if t.is_ptr_type() => {
+            if let Some(inner) = t.ptr_inner() {
+                format!("ptr_{}", type_to_string(inner))
+            } else {
+                "ptr".to_string()
+            }
+        }
         AstType::Array(inner) => format!("arr_{}", type_to_string(inner)),
         AstType::Generic { name, type_args } => {
             if type_args.is_empty() {

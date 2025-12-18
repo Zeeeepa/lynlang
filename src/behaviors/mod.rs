@@ -4,6 +4,7 @@
 
 use crate::ast::{AstType, Expression};
 use crate::error::{CompileError, Result};
+use crate::well_known::well_known;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -154,13 +155,13 @@ impl BehaviorRegistry {
                                     name: "T".to_string(),
                                     fields: vec![],
                                 },
-                                AstType::Ptr(Box::new(AstType::Struct {
+                                AstType::ptr(AstType::Struct {
                                     name: "Writer".to_string(),
                                     fields: vec![],
-                                })),
+                                }),
                             ],
                             return_type: AstType::Struct {
-                                name: "Result".to_string(),
+                                name: well_known().result_name().to_string(),
                                 fields: vec![],
                             },
                         },
@@ -172,12 +173,12 @@ impl BehaviorRegistry {
                     BehaviorMethod {
                         name: "deserialize".to_string(),
                         signature: FnSignature {
-                            params: vec![AstType::Ptr(Box::new(AstType::Struct {
+                            params: vec![AstType::ptr(AstType::Struct {
                                 name: "Reader".to_string(),
                                 fields: vec![],
-                            }))],
+                            })],
                             return_type: AstType::Struct {
-                                name: "Result".to_string(),
+                                name: well_known().result_name().to_string(),
                                 fields: vec![],
                             },
                         },

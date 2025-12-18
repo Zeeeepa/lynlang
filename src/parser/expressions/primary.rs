@@ -194,7 +194,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
             }
 
             // Check for Vec<T, size>() constructor vs Vec<T> { ... } struct literal vs Vec<T>.method()
-            if name == "Vec" && parser.current_token == Token::Operator("<".to_string()) {
+            if well_known().is_vec(&name) && parser.current_token == Token::Operator("<".to_string()) {
                 // Look ahead to see what follows Vec<...>
                 let saved_state = parser.lexer.save_state();
                 let saved_current_token = parser.current_token.clone();
@@ -234,7 +234,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
             }
 
             // Check for DynVec<T>() or DynVec<T1, T2, ...>() constructor
-            if name == "DynVec" && parser.current_token == Token::Operator("<".to_string()) {
+            if well_known().is_dyn_vec(&name) && parser.current_token == Token::Operator("<".to_string()) {
                 return super::collections::parse_dynvec_constructor(parser);
             }
 

@@ -1,5 +1,6 @@
 use super::{symbols, LLVMCompiler, StructTypeInfo};
 use crate::ast::{self, AstType};
+use crate::well_known::well_known;
 use std::collections::HashMap;
 
 impl<'ctx> LLVMCompiler<'ctx> {
@@ -21,7 +22,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let mut fields = HashMap::new();
                 fields.insert(
                     "data".to_string(),
-                    (0, AstType::Ptr(Box::new(AstType::Void))),
+                    (0, AstType::ptr(AstType::Void)),
                 );
                 fields.insert("length".to_string(), (1, AstType::I64));
                 fields.insert("capacity".to_string(), (2, AstType::I64));
@@ -38,51 +39,52 @@ impl<'ctx> LLVMCompiler<'ctx> {
             .context
             .struct_type(&[self.context.i64_type().into(), ptr_type.into()], false);
 
+        let wk = well_known();
         let mut variant_indices = HashMap::new();
-        variant_indices.insert("Some".to_string(), 0);
-        variant_indices.insert("None".to_string(), 1);
+        variant_indices.insert(wk.some_name().to_string(), 0);
+        variant_indices.insert(wk.none_name().to_string(), 1);
 
         let option_info = symbols::EnumInfo {
             llvm_type: enum_struct_type,
             variant_indices: variant_indices.clone(),
             variants: vec![
                 ast::EnumVariant {
-                    name: "Some".to_string(),
+                    name: wk.some_name().to_string(),
                     payload: Some(AstType::Generic {
                         name: "T".to_string(),
                         type_args: vec![],
                     }),
                 },
                 ast::EnumVariant {
-                    name: "None".to_string(),
+                    name: wk.none_name().to_string(),
                     payload: None,
                 },
             ],
         };
         self.symbols
-            .insert("Option", symbols::Symbol::EnumType(option_info));
+            .insert(wk.option_name(), symbols::Symbol::EnumType(option_info));
 
         let result_struct_type = self
             .context
             .struct_type(&[self.context.i64_type().into(), ptr_type.into()], false);
 
         let mut result_variant_indices = HashMap::new();
-        result_variant_indices.insert("Ok".to_string(), 0);
-        result_variant_indices.insert("Err".to_string(), 1);
+        result_variant_indices.insert(wk.ok_name().to_string(), 0);
+        result_variant_indices.insert(wk.err_name().to_string(), 1);
 
         let result_info = symbols::EnumInfo {
             llvm_type: result_struct_type,
             variant_indices: result_variant_indices,
             variants: vec![
                 ast::EnumVariant {
-                    name: "Ok".to_string(),
+                    name: wk.ok_name().to_string(),
                     payload: Some(AstType::Generic {
                         name: "T".to_string(),
                         type_args: vec![],
                     }),
                 },
                 ast::EnumVariant {
-                    name: "Err".to_string(),
+                    name: wk.err_name().to_string(),
                     payload: Some(AstType::Generic {
                         name: "E".to_string(),
                         type_args: vec![],
@@ -91,7 +93,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             ],
         };
         self.symbols
-            .insert("Result", symbols::Symbol::EnumType(result_info));
+            .insert(wk.result_name(), symbols::Symbol::EnumType(result_info));
     }
 
     pub fn declare_stdlib_functions(&mut self) {
@@ -145,7 +147,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 .insert("get_default_allocator".to_string(), func);
             self.function_types.insert(
                 "get_default_allocator".to_string(),
-                AstType::Ptr(Box::new(AstType::Void)),
+                AstType::ptr(AstType::Void),
             );
         }
     }

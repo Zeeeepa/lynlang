@@ -1,6 +1,7 @@
 use super::{symbols, LLVMCompiler, StructTypeInfo, Type};
 use crate::ast::{self, AstType};
 use crate::error::CompileError;
+use crate::well_known::well_known;
 use inkwell::{
     types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum},
     AddressSpace,
@@ -41,69 +42,24 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 ))
             }
             AstType::Void => Ok(Type::Void),
-            AstType::Ptr(inner) => {
-                let inner_type = self.to_llvm_type(inner)?;
-                match inner_type {
-                    Type::Basic(_) => Ok(Type::Basic(
-                        self.context.ptr_type(AddressSpace::default()).into(),
-                    )),
-                    Type::Struct(_) => Ok(Type::Basic(
-                        self.context.ptr_type(AddressSpace::default()).into(),
-                    )),
-                    Type::Void => {
-                        // For void pointers, use i8* as the LLVM representation
-                        Ok(Type::Basic(
+            // Handle all pointer types (Ptr, MutPtr, RawPtr) - they're all the same in LLVM
+            t if t.is_ptr_type() => {
+                if let Some(inner) = t.ptr_inner() {
+                    let inner_type = self.to_llvm_type(inner)?;
+                    match inner_type {
+                        Type::Basic(_) | Type::Struct(_) | Type::Void => Ok(Type::Basic(
                             self.context.ptr_type(AddressSpace::default()).into(),
-                        ))
+                        )),
+                        _ => Err(CompileError::UnsupportedFeature(
+                            "Unsupported pointer type".to_string(),
+                            None,
+                        )),
                     }
-                    _ => Err(CompileError::UnsupportedFeature(
-                        "Unsupported pointer type".to_string(),
+                } else {
+                    Err(CompileError::UnsupportedFeature(
+                        "Invalid pointer type".to_string(),
                         None,
-                    )),
-                }
-            }
-            AstType::MutPtr(inner) => {
-                // MutPtr<T> is the same as Ptr<T> in LLVM - mutability is tracked at language level
-                let inner_type = self.to_llvm_type(inner)?;
-                match inner_type {
-                    Type::Basic(_) => Ok(Type::Basic(
-                        self.context.ptr_type(AddressSpace::default()).into(),
-                    )),
-                    Type::Struct(_) => Ok(Type::Basic(
-                        self.context.ptr_type(AddressSpace::default()).into(),
-                    )),
-                    Type::Void => {
-                        // For void pointers, use i8* as the LLVM representation
-                        Ok(Type::Basic(
-                            self.context.ptr_type(AddressSpace::default()).into(),
-                        ))
-                    }
-                    _ => Err(CompileError::UnsupportedFeature(
-                        "Unsupported mutable pointer type".to_string(),
-                        None,
-                    )),
-                }
-            }
-            AstType::RawPtr(inner) => {
-                // RawPtr<T> is also the same as regular pointers in LLVM - safety is tracked at language level
-                let inner_type = self.to_llvm_type(inner)?;
-                match inner_type {
-                    Type::Basic(_) => Ok(Type::Basic(
-                        self.context.ptr_type(AddressSpace::default()).into(),
-                    )),
-                    Type::Struct(_) => Ok(Type::Basic(
-                        self.context.ptr_type(AddressSpace::default()).into(),
-                    )),
-                    Type::Void => {
-                        // For void pointers, use i8* as the LLVM representation
-                        Ok(Type::Basic(
-                            self.context.ptr_type(AddressSpace::default()).into(),
-                        ))
-                    }
-                    _ => Err(CompileError::UnsupportedFeature(
-                        "Unsupported raw pointer type".to_string(),
-                        None,
-                    )),
+                    ))
                 }
             }
             AstType::Struct { name, fields: _ } => {
@@ -442,7 +398,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 {
                     // Check if it's an enum type that was parsed as Generic
                     Ok(Type::Struct(enum_info.llvm_type))
-                } else if name == "DynVec" && type_args.len() == 1 {
+                } else if well_known().is_dyn_vec(name) && type_args.len() == 1 {
                     // Convert Generic DynVec to proper DynVec type
                     // This happens when type parsing creates Generic instead of DynVec
                     let dynvec_type = AstType::DynVec {
@@ -648,25 +604,21 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         None,
                     ))
                 }
-                AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) => {
-                    match inner.as_ref() {
-                        AstType::Generic { name, .. } => {
-                            let _ = self.struct_types.get(name);
-                            self.context
-                                .ptr_type(AddressSpace::default())
-                                .as_basic_type_enum()
+                t if t.is_ptr_type() => {
+                    if let Some(inner) = t.ptr_inner() {
+                        match inner {
+                            AstType::Generic { name, .. } => {
+                                let _ = self.struct_types.get(name);
+                            }
+                            AstType::Struct { name, .. } => {
+                                let _ = self.struct_types.get(name);
+                            }
+                            _ => {}
                         }
-                        AstType::Struct { name, .. } => {
-                            let _ = self.struct_types.get(name);
-                            self.context
-                                .ptr_type(AddressSpace::default())
-                                .as_basic_type_enum()
-                        }
-                        _ => self
-                            .context
-                            .ptr_type(AddressSpace::default())
-                            .as_basic_type_enum(),
                     }
+                    self.context
+                        .ptr_type(AddressSpace::default())
+                        .as_basic_type_enum()
                 }
                 AstType::Generic { name, .. } => {
                     if let Some(struct_info) = self.struct_types.get(name) {
@@ -737,7 +689,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         AstType::I64 | AstType::U64 | AstType::F64 | AstType::Usize => 64,
                         AstType::StaticLiteral | AstType::StaticString => 64,
                         AstType::Struct { name, .. } if name == "String" => 64,
-                        AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_) => 64,
+                        t if t.is_ptr_type() => 64,
                         AstType::Struct { .. } | AstType::Generic { .. } => 64,
                         AstType::Void => 0,
                         _ => 64,

@@ -327,9 +327,27 @@ pub fn format_type(ast_type: &AstType) -> String {
         AstType::StaticString => "StaticString".to_string(),
         AstType::Struct { name, .. } if name == "String" => "String".to_string(),
         AstType::Void => "void".to_string(),
-        AstType::Ptr(inner) => format!("Ptr<{}>", format_type(inner)),
-        AstType::MutPtr(inner) => format!("MutPtr<{}>", format_type(inner)),
-        AstType::RawPtr(inner) => format!("RawPtr<{}>", format_type(inner)),
+        t if t.is_immutable_ptr() => {
+            if let Some(inner) = t.ptr_inner() {
+                format!("Ptr<{}>", format_type(inner))
+            } else {
+                "Ptr<?>".to_string()
+            }
+        }
+        t if t.is_mutable_ptr() => {
+            if let Some(inner) = t.ptr_inner() {
+                format!("MutPtr<{}>", format_type(inner))
+            } else {
+                "MutPtr<?>".to_string()
+            }
+        }
+        t if t.is_raw_ptr() => {
+            if let Some(inner) = t.ptr_inner() {
+                format!("RawPtr<{}>", format_type(inner))
+            } else {
+                "RawPtr<?>".to_string()
+            }
+        }
         AstType::Ref(inner) => format!("&{}", format_type(inner)),
         AstType::Range {
             start_type,

@@ -138,9 +138,16 @@ pub fn infer_member_type(
             }
         }
         // Handle pointer to struct types
-        AstType::Ptr(inner) => {
+        t if t.is_ptr_type() => {
             // Dereference the pointer and check the inner type
-            infer_member_type(inner, member, structs, enums, span)
+            if let Some(inner) = t.ptr_inner() {
+                infer_member_type(inner, member, structs, enums, span)
+            } else {
+                Err(CompileError::TypeError(
+                    format!("Type '{}' is not a struct", t),
+                    span,
+                ))
+            }
         }
         // Handle Generic types that represent structs
         AstType::Generic { name, .. } => {
@@ -298,14 +305,8 @@ fn types_comparable(left: &AstType, right: &AstType) -> bool {
         return true;
     }
 
-    let is_left_ptr = matches!(
-        left,
-        AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_)
-    );
-    let is_right_ptr = matches!(
-        right,
-        AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_)
-    );
+    let is_left_ptr = left.is_ptr_type();
+    let is_right_ptr = right.is_ptr_type();
     if is_left_ptr && is_right_ptr {
         return true;
     }
@@ -352,15 +353,15 @@ pub fn infer_identifier_type(checker: &mut TypeChecker, name: &str) -> Result<As
             if wk.is_immutable_ptr(base_type) {
                 let (_, type_args) = TypeChecker::parse_generic_type_string(name);
                 let inner = type_args.first().cloned().unwrap_or(AstType::U8);
-                return Ok(AstType::Ptr(Box::new(inner)));
+                return Ok(AstType::ptr(inner));
             } else if wk.is_mutable_ptr(base_type) {
                 let (_, type_args) = TypeChecker::parse_generic_type_string(name);
                 let inner = type_args.first().cloned().unwrap_or(AstType::U8);
-                return Ok(AstType::MutPtr(Box::new(inner)));
+                return Ok(AstType::mut_ptr(inner));
             } else if wk.is_raw_ptr(base_type) {
                 let (_, type_args) = TypeChecker::parse_generic_type_string(name);
                 let inner = type_args.first().cloned().unwrap_or(AstType::U8);
-                return Ok(AstType::RawPtr(Box::new(inner)));
+                return Ok(AstType::raw_ptr(inner));
             } else if matches!(base_type, "HashMap" | "HashSet" | "DynVec" | "Vec" | "Stack" | "Queue")
                 || wk.is_option(base_type)
                 || wk.is_result(base_type)
@@ -499,32 +500,41 @@ pub fn infer_struct_field_type(
     span: Option<crate::error::Span>,
 ) -> Result<AstType> {
     match struct_type {
-        AstType::Ptr(inner) => match inner.as_ref() {
-            AstType::Struct { name, .. } => infer_member_type(
-                &AstType::Struct {
-                    name: name.clone(),
-                    fields: vec![],
-                },
-                field,
-                structs,
-                enums,
-                span,
-            ),
-            AstType::Generic { name, .. } => infer_member_type(
-                &AstType::Generic {
-                    name: name.clone(),
-                    type_args: vec![],
-                },
-                field,
-                structs,
-                enums,
-                span,
-            ),
-            _ => Err(CompileError::TypeError(
-                format!("Cannot access field '{}' on non-struct pointer type", field),
-                span,
-            )),
-        },
+        t if t.is_ptr_type() => {
+            if let Some(inner) = t.ptr_inner() {
+                match inner {
+                    AstType::Struct { name, .. } => infer_member_type(
+                        &AstType::Struct {
+                            name: name.clone(),
+                            fields: vec![],
+                        },
+                        field,
+                        structs,
+                        enums,
+                        span,
+                    ),
+                    AstType::Generic { name, .. } => infer_member_type(
+                        &AstType::Generic {
+                            name: name.clone(),
+                            type_args: vec![],
+                        },
+                        field,
+                        structs,
+                        enums,
+                        span,
+                    ),
+                    _ => Err(CompileError::TypeError(
+                        format!("Cannot access field '{}' on non-struct pointer type", field),
+                        span,
+                    )),
+                }
+            } else {
+                Err(CompileError::TypeError(
+                    format!("Cannot access field '{}' on type {:?}", field, struct_type),
+                    span,
+                ))
+            }
+        }
         AstType::Struct { .. } | AstType::Generic { .. } => {
             infer_member_type(struct_type, field, structs, enums, span)
         }
@@ -645,10 +655,8 @@ pub fn infer_inline_c_type(
             | AstType::Usize
             | AstType::F32
             | AstType::F64
-            | AstType::Bool
-            | AstType::Ptr(_)
-            | AstType::MutPtr(_)
-            | AstType::RawPtr(_) => {}
+            | AstType::Bool => {}
+            t if t.is_ptr_type() => {}
             _ => {
                 eprintln!(
                     "Warning: Using complex type {:?} in inline_c() - ensure C compatibility",
@@ -688,12 +696,7 @@ pub fn infer_method_call_type(
 
     let object_type = checker.infer_expression_type(object)?;
 
-    let dereferenced_type = match &object_type {
-        AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) => {
-            Some(inner.as_ref().clone())
-        }
-        _ => None,
-    };
+    let dereferenced_type = object_type.ptr_inner().map(|inner| inner.clone());
 
     let effective_type = dereferenced_type.as_ref().unwrap_or(&object_type);
 
@@ -737,11 +740,7 @@ pub fn infer_method_call_type(
             if let Some(return_type) = method_types::infer_result_method_type(method, type_args) {
                 return Ok(return_type);
             }
-        } else if name == "Vec" && !type_args.is_empty() {
-            if let Some(return_type) = method_types::infer_vec_method_type(method, &type_args[0]) {
-                return Ok(return_type);
-            }
-        } else if name == "DynVec" && !type_args.is_empty() {
+        } else if well_known().is_vec_type(name) && !type_args.is_empty() {
             if let Some(return_type) = method_types::infer_vec_method_type(method, &type_args[0]) {
                 return Ok(return_type);
             }
@@ -757,11 +756,23 @@ pub fn infer_method_call_type(
 
     // Pointer methods
     if dereferenced_type.is_none() {
-        if let AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) = &object_type
-        {
+        if let Some(inner) = object_type.ptr_inner() {
             if let Some(return_type) = method_types::infer_pointer_method_type(method, inner) {
                 return Ok(return_type);
             }
+        }
+    }
+
+    // Try trait/behavior method resolution
+    let type_name = match effective_type {
+        AstType::Struct { name, .. } => Some(name.clone()),
+        AstType::Generic { name, .. } => Some(name.clone()),
+        AstType::Enum { name, .. } => Some(name.clone()),
+        _ => None,
+    };
+    if let Some(type_name) = type_name {
+        if let Some(method_info) = checker.resolve_trait_method(&type_name, method) {
+            return Ok(method_info.return_type);
         }
     }
 
@@ -815,11 +826,11 @@ pub fn infer_enum_variant_type(
                 crate::typechecker::TypeChecker::parse_generic_type_string(&enum_type_name);
 
             if wk.is_immutable_ptr(&base_name) && type_args.len() == 1 {
-                return Ok(AstType::Ptr(Box::new(type_args[0].clone())));
+                return Ok(AstType::ptr(type_args[0].clone()));
             } else if wk.is_mutable_ptr(&base_name) && type_args.len() == 1 {
-                return Ok(AstType::MutPtr(Box::new(type_args[0].clone())));
+                return Ok(AstType::mut_ptr(type_args[0].clone()));
             } else if wk.is_raw_ptr(&base_name) && type_args.len() == 1 {
-                return Ok(AstType::RawPtr(Box::new(type_args[0].clone())));
+                return Ok(AstType::raw_ptr(type_args[0].clone()));
             }
 
             return Ok(AstType::Generic {

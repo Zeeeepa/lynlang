@@ -1,5 +1,6 @@
 //! Type representations in the AST
 
+use crate::well_known::well_known;
 use std::fmt;
 
 /// Resolve String type from stdlib - returns the struct type definition
@@ -14,7 +15,7 @@ pub fn resolve_string_struct_type() -> AstType {
     AstType::Struct {
         name: "String".to_string(),
         fields: vec![
-            ("data".to_string(), AstType::Ptr(Box::new(AstType::U8))),
+            ("data".to_string(), AstType::ptr(AstType::U8)),
             ("len".to_string(), AstType::U64),
             ("capacity".to_string(), AstType::U64),
             (
@@ -47,10 +48,6 @@ pub enum AstType {
     // String is defined in stdlib/string.zen as a struct, not a compiler primitive
     // Use resolve_string_struct_type() helper to get the struct type
     Void,
-    // New pointer types as per spec
-    Ptr(Box<AstType>),    // Immutable pointer
-    MutPtr(Box<AstType>), // Mutable pointer
-    RawPtr(Box<AstType>), // Raw pointer for FFI/unsafe
     Array(Box<AstType>),
     // Vec<T, size> - Fixed-size vector with compile-time size
     Vec {
@@ -123,6 +120,62 @@ pub struct TraitConstraint {
     pub trait_name: String,
 }
 
+// ============================================================================
+// Helper constructors for pointer types (use these instead of direct variants)
+// These create Generic types that codegen recognizes via well_known registry
+// ============================================================================
+
+impl AstType {
+    /// Create a Ptr<T> type (immutable pointer)
+    pub fn ptr(inner: AstType) -> AstType {
+        AstType::Generic {
+            name: well_known().ptr_name().to_string(),
+            type_args: vec![inner],
+        }
+    }
+
+    /// Create a MutPtr<T> type (mutable pointer)
+    pub fn mut_ptr(inner: AstType) -> AstType {
+        AstType::Generic {
+            name: well_known().mut_ptr_name().to_string(),
+            type_args: vec![inner],
+        }
+    }
+
+    /// Create a RawPtr<T> type (raw/unsafe pointer)
+    pub fn raw_ptr(inner: AstType) -> AstType {
+        AstType::Generic {
+            name: well_known().raw_ptr_name().to_string(),
+            type_args: vec![inner],
+        }
+    }
+
+    pub fn is_ptr_type(&self) -> bool {
+        matches!(self, AstType::Generic { name, type_args } if type_args.len() == 1 && well_known().is_ptr(name))
+    }
+
+    pub fn is_immutable_ptr(&self) -> bool {
+        matches!(self, AstType::Generic { name, type_args } if type_args.len() == 1 && well_known().is_immutable_ptr(name))
+    }
+
+    pub fn is_mutable_ptr(&self) -> bool {
+        matches!(self, AstType::Generic { name, type_args } if type_args.len() == 1 && well_known().is_mutable_ptr(name))
+    }
+
+    pub fn is_raw_ptr(&self) -> bool {
+        matches!(self, AstType::Generic { name, type_args } if type_args.len() == 1 && well_known().is_raw_ptr(name))
+    }
+
+    pub fn ptr_inner(&self) -> Option<&AstType> {
+        match self {
+            AstType::Generic { name, type_args } if type_args.len() == 1 && well_known().is_ptr(name) => {
+                Some(&type_args[0])
+            }
+            _ => None,
+        }
+    }
+}
+
 // Display implementation for generating clean type names
 impl fmt::Display for AstType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -143,9 +196,6 @@ impl fmt::Display for AstType {
             AstType::StaticString => write!(f, "StaticString"),
             // String is now a struct type from stdlib, resolved via Struct variant
             AstType::Void => write!(f, "void"),
-            AstType::Ptr(inner) => write!(f, "Ptr<{}>", inner),
-            AstType::MutPtr(inner) => write!(f, "MutPtr<{}>", inner),
-            AstType::RawPtr(inner) => write!(f, "RawPtr<{}>", inner),
             AstType::Array(inner) => write!(f, "Array<{}>", inner),
             AstType::Vec { element_type, size } => write!(f, "Vec<{}, {}>", element_type, size),
             AstType::DynVec { element_types, .. } => {

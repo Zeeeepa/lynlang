@@ -131,10 +131,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 for (field_name, (_index, field_type)) in &struct_info.fields {
                                     fields.push((field_name.clone(), field_type.clone()));
                                 }
-                                AstType::Ptr(Box::new(AstType::Struct {
+                                AstType::ptr(AstType::Struct {
                                     name: impl_type.clone(),
                                     fields,
-                                }))
+                                })
                             } else {
                                 AstType::Struct {
                                     name: impl_type.clone(),
@@ -198,9 +198,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let alloca = alloca; // Shadow to keep same name as before
                 let var_type = &var_type; // Take reference to match original code
                                           // Handle pointer to struct (p.x where p is *Point)
-                if let AstType::Ptr(inner_type) = var_type {
+                if let Some(inner_type) = var_type.ptr_inner() {
                     // Check if it's a struct or a generic type that represents a struct
-                    let struct_name = match &**inner_type {
+                    let struct_name = match inner_type {
                         AstType::Struct { name, .. } => Some(name.clone()),
                         AstType::Generic { name, .. } => {
                             // Check if this generic is actually a registered struct type
@@ -376,10 +376,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 if let Expression::Identifier(ptr_name) = &**inner {
                     if let Some(var_info) = self.variables.get(ptr_name) {
                         let ptr_type = &var_info.ast_type;
-                        if let AstType::Ptr(inner_type) = ptr_type {
+                        if let Some(inner_type) = ptr_type.ptr_inner() {
                             if let AstType::Struct {
                                 name: struct_name, ..
-                            } = &**inner_type
+                            } = inner_type
                             {
                                 // Get struct type info
                                 let struct_info =
@@ -870,15 +870,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 ))
                             }
                         }
-                        AstType::Ptr(inner) => {
+                        t if t.is_ptr_type() => {
                             // Handle pointer to struct
-                            match &**inner {
-                                AstType::Struct {
+                            match t.ptr_inner() {
+                                Some(AstType::Struct {
                                     name: struct_name, ..
-                                } => Ok(struct_name.clone()),
-                                AstType::Generic {
+                                }) => Ok(struct_name.clone()),
+                                Some(AstType::Generic {
                                     name: type_name, ..
-                                } => {
+                                }) => {
                                     // Check if this generic is actually a registered struct type
                                     if self.struct_types.contains_key(type_name) {
                                         Ok(type_name.clone())
@@ -941,17 +941,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let object_type = self.infer_expression_type(object)?;
 
                 // Then get the struct name from the object type
-                let object_struct = match object_type {
-                    AstType::Struct { name, .. } => name,
-                    AstType::Ptr(inner) => match &*inner {
-                        AstType::Struct { name, .. } => name.clone(),
-                        _ => {
+                let object_struct = match &object_type {
+                    AstType::Struct { name, .. } => name.clone(),
+                    t if t.is_ptr_type() => {
+                        if let Some(inner) = t.ptr_inner() {
+                            match inner {
+                                AstType::Struct { name, .. } => name.clone(),
+                                _ => {
+                                    return Err(CompileError::TypeError(
+                                        format!("Cannot infer struct type from MemberAccess expression"),
+                                        None,
+                                    ))
+                                }
+                            }
+                        } else {
                             return Err(CompileError::TypeError(
                                 format!("Cannot infer struct type from MemberAccess expression"),
                                 None,
                             ))
                         }
-                    },
+                    }
                     _ => {
                         return Err(CompileError::TypeError(
                             format!("Cannot infer struct type from MemberAccess expression"),
@@ -1010,33 +1019,30 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 match ptr_expr.as_ref() {
                     Expression::Identifier(name) => {
                         if let Some(var_info) = self.variables.get(name) {
-                            match &var_info.ast_type {
-                                AstType::Ptr(inner)
-                                | AstType::MutPtr(inner)
-                                | AstType::RawPtr(inner) => {
-                                    match &**inner {
-                                        AstType::Struct { name: struct_name, .. } => Ok(struct_name.clone()),
-                                        AstType::Generic { name: type_name, .. } => {
-                                            // Check if this generic is actually a registered struct type
-                                            if self.struct_types.contains_key(type_name) {
-                                                Ok(type_name.clone())
-                                            } else {
-                                                Err(CompileError::TypeError(
-                                                    format!("Pointer does not point to a struct type, got Generic: {}", type_name),
-                                                    None
-                                                ))
-                                            }
+                            if let Some(inner) = var_info.ast_type.ptr_inner() {
+                                match inner {
+                                    AstType::Struct { name: struct_name, .. } => Ok(struct_name.clone()),
+                                    AstType::Generic { name: type_name, .. } => {
+                                        // Check if this generic is actually a registered struct type
+                                        if self.struct_types.contains_key(type_name) {
+                                            Ok(type_name.clone())
+                                        } else {
+                                            Err(CompileError::TypeError(
+                                                format!("Pointer does not point to a struct type, got Generic: {}", type_name),
+                                                None
+                                            ))
                                         }
-                                        _ => Err(CompileError::TypeError(
-                                            format!("Pointer does not point to a struct type, got: {:?}", &**inner),
-                                            None
-                                        ))
                                     }
+                                    _ => Err(CompileError::TypeError(
+                                        format!("Pointer does not point to a struct type, got: {:?}", inner),
+                                        None
+                                    ))
                                 }
-                                _ => Err(CompileError::TypeError(
+                            } else {
+                                Err(CompileError::TypeError(
                                     format!("Cannot dereference non-pointer type"),
                                     None,
-                                )),
+                                ))
                             }
                         } else {
                             Err(CompileError::TypeError(

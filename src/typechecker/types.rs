@@ -81,7 +81,7 @@ impl AstType {
             AstType::F32 | AstType::F64 => "0.0".to_string(),
             AstType::Bool => "false".to_string(),
             AstType::Struct { name, .. } if name == "String" => "\"\"".to_string(),
-            AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_) => "null".to_string(),
+            t if t.is_ptr_type() => "null".to_string(),
             _ => "null".to_string(),
         }
     }
@@ -89,40 +89,34 @@ impl AstType {
     /// Check if this type is a pointer type
     #[allow(dead_code)]
     pub fn is_pointer(&self) -> bool {
-        matches!(
-            self,
-            AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_)
-        )
+        self.is_ptr_type()
     }
 
     /// Get the pointed-to type if this is a pointer type
     #[allow(dead_code)]
     pub fn pointee_type(&self) -> Option<&AstType> {
-        match self {
-            AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) => Some(inner),
-            _ => None,
-        }
+        self.ptr_inner()
     }
 
     /// Check if this is a mutable pointer type
     #[allow(dead_code)]
     pub fn is_mutable_pointer(&self) -> bool {
-        matches!(self, AstType::MutPtr(_))
+        self.is_mutable_ptr()
     }
 
     /// Check if this is a raw/unsafe pointer type
     #[allow(dead_code)]
     pub fn is_raw_pointer(&self) -> bool {
-        matches!(self, AstType::RawPtr(_))
+        self.is_raw_ptr()
     }
 
     /// Convert between pointer types while preserving the pointee type
     #[allow(dead_code)]
     pub fn as_pointer_type(&self, pointer_kind: PointerKind) -> Option<AstType> {
         self.pointee_type().map(|inner| match pointer_kind {
-            PointerKind::Immutable => AstType::Ptr(Box::new(inner.clone())),
-            PointerKind::Mutable => AstType::MutPtr(Box::new(inner.clone())),
-            PointerKind::Raw => AstType::RawPtr(Box::new(inner.clone())),
+            PointerKind::Immutable => AstType::ptr(inner.clone()),
+            PointerKind::Mutable => AstType::mut_ptr(inner.clone()),
+            PointerKind::Raw => AstType::raw_ptr(inner.clone()),
         })
     }
 }

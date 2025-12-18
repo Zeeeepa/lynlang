@@ -54,7 +54,13 @@ impl TypeSubstitution {
                     type_args: type_args.iter().map(|t| self.apply(t)).collect(),
                 }
             }
-            AstType::Ptr(inner) => AstType::Ptr(Box::new(self.apply(inner))),
+            t if t.is_ptr_type() => {
+                if let Some(inner) = t.ptr_inner() {
+                    AstType::ptr(self.apply(inner))
+                } else {
+                    ast_type.clone()
+                }
+            }
             AstType::Array(inner) => AstType::Array(Box::new(self.apply(inner))),
             // Option and Result are now Generic types - handled in Generic match above
             AstType::Ref(inner) => AstType::Ref(Box::new(self.apply(inner))),
@@ -81,7 +87,14 @@ pub fn is_generic_type(ast_type: &AstType) -> bool {
             // Check if any type arguments are generic
             type_args.iter().any(is_generic_type)
         }
-        AstType::Ptr(inner) | AstType::Array(inner) | AstType::Ref(inner) => is_generic_type(inner),
+        t if t.is_ptr_type() => {
+            if let Some(inner) = t.ptr_inner() {
+                is_generic_type(inner)
+            } else {
+                false
+            }
+        }
+        AstType::Array(inner) | AstType::Ref(inner) => is_generic_type(inner),
         // Option and Result are now Generic types - handled above
         AstType::Function { args, return_type } => {
             args.iter().any(is_generic_type) || is_generic_type(return_type)
@@ -108,7 +121,12 @@ fn extract_type_params_recursive(ast_type: &AstType, params: &mut Vec<String>) {
                 extract_type_params_recursive(arg, params);
             }
         }
-        AstType::Ptr(inner) | AstType::Array(inner) | AstType::Ref(inner) => {
+        t if t.is_ptr_type() => {
+            if let Some(inner) = t.ptr_inner() {
+                extract_type_params_recursive(inner, params);
+            }
+        }
+        AstType::Array(inner) | AstType::Ref(inner) => {
             extract_type_params_recursive(inner, params);
         }
         // Option and Result are now Generic types - handled in Generic match above

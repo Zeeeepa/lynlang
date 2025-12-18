@@ -86,8 +86,8 @@ fn register_core_module(checker: &mut TypeChecker, alias: &str) {
 fn register_compiler_module(checker: &mut TypeChecker, alias: &str) {
     // Register compiler intrinsics - these are handled specially in codegen
     // Using RawPtr(U8) for pointer types to match stdlib usage
-    let raw_ptr_u8 = AstType::RawPtr(Box::new(AstType::U8));
-    let ptr_u8 = AstType::Ptr(Box::new(AstType::U8));
+    let raw_ptr_u8 = AstType::raw_ptr(AstType::U8);
+    let ptr_u8 = AstType::ptr(AstType::U8);
     let compiler_funcs = vec![
         ("inline_c", vec![AstType::StaticString], AstType::Void),
         // Memory primitives
@@ -203,7 +203,7 @@ fn register_allocator_function(checker: &mut TypeChecker, alias: &str) {
         alias.to_string(), // Use alias directly as the function name
         FunctionSignature {
             params: vec![],                                     // No parameters
-            return_type: AstType::Ptr(Box::new(AstType::Void)), // Returns opaque allocator pointer
+            return_type: AstType::ptr(AstType::Void), // Returns opaque allocator pointer
             is_external: true,
         },
     );

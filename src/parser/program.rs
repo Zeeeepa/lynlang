@@ -5,6 +5,7 @@ use super::core::Parser;
 use crate::ast::{Declaration, Statement};
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
+use crate::well_known::well_known;
 
 impl<'a> Parser<'a> {
     /// Parse an @export declaration
@@ -134,11 +135,15 @@ impl<'a> Parser<'a> {
             for name in imported_names {
                 let actual_module_path = if module_path == "@std" {
                     // Map common symbols to their actual module locations
-                    match name.as_str() {
-                        "Option" | "Some" | "None" => "@std.core.option".to_string(),
-                        "Result" | "Ok" | "Err" => "@std.core.result".to_string(),
-                        "io" | "println" | "print" => "@std.io".to_string(),
-                        _ => format!("{}.{}", module_path, name),
+                    let wk = well_known();
+                    if wk.is_option(&name) || wk.is_option_variant(&name) {
+                        "@std.core.option".to_string()
+                    } else if wk.is_result(&name) || wk.is_result_variant(&name) {
+                        "@std.core.result".to_string()
+                    } else if name == "io" || name == "println" || name == "print" {
+                        "@std.io".to_string()
+                    } else {
+                        format!("{}.{}", module_path, name)
                     }
                 } else {
                     format!("{}.{}", module_path, name)

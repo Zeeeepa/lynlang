@@ -2,6 +2,7 @@ use super::core::Parser;
 use crate::ast::AstType;
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
+use crate::well_known::well_known;
 
 impl<'a> Parser<'a> {
     pub fn parse_type(&mut self) -> Result<AstType> {
@@ -40,64 +41,30 @@ impl<'a> Parser<'a> {
                     "StaticString" => Ok(AstType::StaticString), // User-facing: static strings (compile-time, no allocator)
                     "String" => Ok(crate::ast::resolve_string_struct_type()), // Dynamic strings that require allocator
                     "void" => Ok(AstType::Void),
-                    "ptr" => Ok(AstType::Ptr(Box::new(AstType::Void))),
-                    // Zen spec pointer types
-                    "Ptr" => {
-                        // Ptr<T> type
+                    "ptr" => Ok(AstType::ptr(AstType::Void)),
+                    // Well-known pointer types (Ptr, MutPtr, RawPtr)
+                    _ if well_known().is_ptr(&type_name) => {
+                        let wk = well_known();
                         if self.current_token == Token::Operator("<".to_string()) {
                             self.next_token();
                             let inner_type = self.parse_type()?;
                             if self.current_token != Token::Operator(">".to_string()) {
                                 return Err(CompileError::SyntaxError(
-                                    "Expected '>' after Ptr type argument".to_string(),
+                                    format!("Expected '>' after {} type argument", type_name),
                                     Some(self.current_span.clone()),
                                 ));
                             }
                             self.next_token();
-                            Ok(AstType::Ptr(Box::new(inner_type)))
-                        } else {
-                            return Err(CompileError::SyntaxError(
-                                "Ptr type requires type argument: Ptr<T>".to_string(),
-                                Some(self.current_span.clone()),
-                            ));
-                        }
-                    }
-                    "MutPtr" => {
-                        // MutPtr<T> type
-                        if self.current_token == Token::Operator("<".to_string()) {
-                            self.next_token();
-                            let inner_type = self.parse_type()?;
-                            if self.current_token != Token::Operator(">".to_string()) {
-                                return Err(CompileError::SyntaxError(
-                                    "Expected '>' after MutPtr type argument".to_string(),
-                                    Some(self.current_span.clone()),
-                                ));
+                            if wk.is_immutable_ptr(&type_name) {
+                                Ok(AstType::ptr(inner_type))
+                            } else if wk.is_mutable_ptr(&type_name) {
+                                Ok(AstType::mut_ptr(inner_type))
+                            } else {
+                                Ok(AstType::raw_ptr(inner_type))
                             }
-                            self.next_token();
-                            Ok(AstType::MutPtr(Box::new(inner_type)))
                         } else {
                             return Err(CompileError::SyntaxError(
-                                "MutPtr type requires type argument: MutPtr<T>".to_string(),
-                                Some(self.current_span.clone()),
-                            ));
-                        }
-                    }
-                    "RawPtr" => {
-                        // RawPtr<T> type
-                        if self.current_token == Token::Operator("<".to_string()) {
-                            self.next_token();
-                            let inner_type = self.parse_type()?;
-                            if self.current_token != Token::Operator(">".to_string()) {
-                                return Err(CompileError::SyntaxError(
-                                    "Expected '>' after RawPtr type argument".to_string(),
-                                    Some(self.current_span.clone()),
-                                ));
-                            }
-                            self.next_token();
-                            Ok(AstType::RawPtr(Box::new(inner_type)))
-                        } else {
-                            return Err(CompileError::SyntaxError(
-                                "RawPtr type requires type argument: RawPtr<T>".to_string(),
+                                format!("{} type requires type argument: {}<T>", type_name, type_name),
                                 Some(self.current_span.clone()),
                             ));
                         }
@@ -328,7 +295,7 @@ impl<'a> Parser<'a> {
                 } else {
                     // Regular pointer
                     let pointee_type = self.parse_type()?;
-                    Ok(AstType::Ptr(Box::new(pointee_type)))
+                    Ok(AstType::ptr(pointee_type))
                 }
             }
             Token::Operator(op) if op == "*" => {
@@ -368,7 +335,7 @@ impl<'a> Parser<'a> {
                 } else {
                     // Regular pointer
                     let pointee_type = self.parse_type()?;
-                    Ok(AstType::Ptr(Box::new(pointee_type)))
+                    Ok(AstType::ptr(pointee_type))
                 }
             }
             Token::Symbol('(') => {

@@ -135,7 +135,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
-                AstType::Ptr(_inner) | AstType::MutPtr(_inner) | AstType::RawPtr(_inner) => {
+                t if t.is_ptr_type() => {
                     // For pointer types (Ptr, MutPtr, RawPtr)
                     // We need to load the pointer value from the alloca
                     // All pointer types are loaded as LLVM pointers

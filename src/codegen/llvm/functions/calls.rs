@@ -356,9 +356,12 @@ pub fn compile_function_call<'ctx>(
                     }
                 }
             }
-            crate::ast::AstType::Ptr(inner)
-                if matches!(**inner, crate::ast::AstType::FunctionPointer { .. }) =>
+            t if t.is_ptr_type()
+                && t.ptr_inner()
+                    .map(|inner| matches!(inner, crate::ast::AstType::FunctionPointer { .. }))
+                    .unwrap_or(false) =>
             {
+                let inner = t.ptr_inner().unwrap();
                 let inner_llvm_type = compiler.to_llvm_type(inner)?;
                 match inner_llvm_type {
                     super::super::Type::Basic(inkwell::types::BasicTypeEnum::PointerType(
@@ -370,7 +373,7 @@ pub fn compile_function_call<'ctx>(
                         if let crate::ast::AstType::FunctionPointer {
                             param_types,
                             return_type,
-                        } = &**inner
+                        } = inner
                         {
                             let param_types_basic: Result<Vec<BasicTypeEnum>, CompileError> =
                                 param_types
@@ -393,7 +396,7 @@ pub fn compile_function_call<'ctx>(
                             let param_types_basic = param_types_basic?;
                             let param_metadata: Vec<BasicMetadataTypeEnum> =
                                 param_types_basic.iter().map(|ty| (*ty).into()).collect();
-                            let ret_type = compiler.to_llvm_type(return_type)?;
+                            let ret_type = compiler.to_llvm_type(return_type.as_ref())?;
                             match ret_type {
                                 super::super::Type::Basic(b) => match b {
                                     BasicTypeEnum::IntType(t) => t.fn_type(&param_metadata, false),

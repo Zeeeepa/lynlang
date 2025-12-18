@@ -2,6 +2,7 @@ use super::super::{symbols, LLVMCompiler};
 use crate::ast::{AstType, Expression};
 use crate::error::CompileError;
 use crate::stdlib_metadata::compiler as compiler_intrinsics;
+use crate::well_known::well_known;
 
 pub fn infer_expression_type(
     compiler: &LLVMCompiler,
@@ -356,12 +357,12 @@ pub fn infer_expression_type(
                         let option_name = compiler.well_known.get_variant_parent_name(compiler.well_known.some_name()).unwrap_or(compiler.well_known.option_name());
                         if let Ok(object_type) = compiler.infer_expression_type(object) {
                             if let AstType::Generic { name, type_args } = object_type {
-                                if name == "HashMap" && type_args.len() >= 2 {
+                                if well_known().is_hash_map(&name) && type_args.len() >= 2 {
                                     return Ok(AstType::Generic {
                                         name: option_name.to_string(),
                                         type_args: vec![type_args[1].clone()],
                                     });
-                                } else if name == "HashSet" && !type_args.is_empty() {
+                                } else if well_known().is_hash_set(&name) && !type_args.is_empty() {
                                     if method == "remove" {
                                         return Ok(AstType::Bool);
                                     }
@@ -374,7 +375,7 @@ pub fn infer_expression_type(
                                             type_args: vec![type_args[0].clone()],
                                         });
                                     }
-                                } else if (name == "Vec" || name == "DynVec")
+                                } else if well_known().is_vec_type(&name)
                                     && !type_args.is_empty()
                                 {
                                     return Ok(AstType::Generic {
@@ -685,23 +686,27 @@ pub fn infer_expression_type(
                     }
                 }
                 // Handle pointer to struct types
-                AstType::Ptr(inner) => {
+                t if t.is_ptr_type() => {
                     // Recursively infer member type from inner type
-                    if let AstType::Struct { name, .. } = &**inner {
-                        if let Some(struct_info) = compiler.struct_types.get(name) {
-                            if let Some((_index, field_type)) = struct_info.fields.get(member) {
-                                Ok(field_type.clone())
+                    if let Some(inner) = t.ptr_inner() {
+                        if let AstType::Struct { name, .. } = inner {
+                            if let Some(struct_info) = compiler.struct_types.get(name) {
+                                if let Some((_index, field_type)) = struct_info.fields.get(member) {
+                                    Ok(field_type.clone())
+                                } else {
+                                    Err(CompileError::TypeError(
+                                        format!("Struct '{}' has no field '{}'", name, member),
+                                        None,
+                                    ))
+                                }
                             } else {
                                 Err(CompileError::TypeError(
-                                    format!("Struct '{}' has no field '{}'", name, member),
+                                    format!("Unknown struct type: {}", name),
                                     None,
                                 ))
                             }
                         } else {
-                            Err(CompileError::TypeError(
-                                format!("Unknown struct type: {}", name),
-                                None,
-                            ))
+                            Ok(AstType::Void)
                         }
                     } else {
                         Ok(AstType::Void)
@@ -734,26 +739,25 @@ pub fn infer_expression_type(
         Expression::CreateReference(inner) => {
             // expr.ref() -> Ptr<T>
             let inner_type = infer_expression_type(compiler, inner)?;
-            Ok(AstType::Ptr(Box::new(inner_type)))
+            Ok(AstType::ptr(inner_type))
         }
         Expression::CreateMutableReference(inner) => {
             // expr.mut_ref() -> MutPtr<T>
             let inner_type = infer_expression_type(compiler, inner)?;
-            Ok(AstType::MutPtr(Box::new(inner_type)))
+            Ok(AstType::mut_ptr(inner_type))
         }
         Expression::AddressOf(inner) => {
             // &expr -> Ptr<T>
             let inner_type = infer_expression_type(compiler, inner)?;
-            Ok(AstType::Ptr(Box::new(inner_type)))
+            Ok(AstType::ptr(inner_type))
         }
         Expression::Dereference(inner) | Expression::PointerDereference(inner) => {
             // *ptr or ptr.val -> T (unwrap Ptr<T>/MutPtr<T>/RawPtr<T>)
             let ptr_type = infer_expression_type(compiler, inner)?;
-            match ptr_type {
-                AstType::Ptr(inner_type)
-                | AstType::MutPtr(inner_type)
-                | AstType::RawPtr(inner_type) => Ok(*inner_type),
-                _ => Ok(AstType::Void), // Not a pointer type
+            if let Some(inner_type) = ptr_type.ptr_inner() {
+                Ok(inner_type.clone())
+            } else {
+                Ok(AstType::Void) // Not a pointer type
             }
         }
         Expression::PointerAddress(inner) => {

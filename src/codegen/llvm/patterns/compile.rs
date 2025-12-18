@@ -153,9 +153,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         if let Some(payload_pattern) = payload {
                             // Try to infer the pointee type from scrutinee type
                             if let Some(scrut_type) = scrutinee_type {
-                                if let crate::ast::AstType::Ptr(inner_type)
-                                | crate::ast::AstType::MutPtr(inner_type)
-                                | crate::ast::AstType::RawPtr(inner_type) = scrut_type
+                                if let Some(inner_type) = scrut_type.ptr_inner()
                                 {
                                     // We know the pointee type - dereference and bind
                                     let pointee_llvm_type = self.to_llvm_type(inner_type)?;

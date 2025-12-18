@@ -110,14 +110,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let resolved_type = if param_name == "self" {
                     // For 'self', use the type name directly
                     // Check if it's a pointer type
-                    if let crate::ast::AstType::Ptr(_)
-                    | crate::ast::AstType::MutPtr(_)
-                    | crate::ast::AstType::RawPtr(_) = param_type
-                    {
+                    if param_type.is_ptr_type() {
                         param_type.clone() // Keep pointer types as-is
                     } else {
                         // For non-pointer self, create a pointer type
-                        crate::ast::AstType::Ptr(Box::new(crate::ast::AstType::Generic {
+                        crate::ast::AstType::ptr(crate::ast::AstType::Generic {
                             name: type_name.clone(),
                             type_args: impl_block
                                 .type_params
@@ -127,7 +124,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     type_args: vec![],
                                 })
                                 .collect(),
-                        }))
+                        })
                     }
                 } else {
                     // Replace Self with actual type
@@ -387,7 +384,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         fields: vec![],
                                     }
                                 };
-                            crate::ast::AstType::Ptr(Box::new(struct_type))
+                            crate::ast::AstType::ptr(struct_type)
                         } else {
                             // Not a Self type, use the parameter type as-is
                             param_type.clone()
@@ -698,15 +695,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Look up the variable's type in our type tracking
                 if let Some(var_info) = self.variables.get(name) {
                     // Handle pointer/reference types by dereferencing
-                    let effective_type = match &var_info.ast_type {
-                        crate::ast::AstType::Ptr(inner)
-                        | crate::ast::AstType::MutPtr(inner)
-                        | crate::ast::AstType::RawPtr(inner) => {
-                            // Dereference pointer to get inner type
-                            inner.as_ref()
-                        }
-                        _ => &var_info.ast_type,
-                    };
+                    let effective_type = var_info.ast_type.ptr_inner().unwrap_or(&var_info.ast_type);
 
                     match effective_type {
                         crate::ast::AstType::Struct { name, .. } => Ok(name.clone()),
@@ -723,12 +712,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     match self.infer_expression_type(expr) {
                         Ok(ast_type) => {
                             // Handle pointer types
-                            let effective_type = match &ast_type {
-                                crate::ast::AstType::Ptr(inner)
-                                | crate::ast::AstType::MutPtr(inner)
-                                | crate::ast::AstType::RawPtr(inner) => inner.as_ref(),
-                                _ => &ast_type,
-                            };
+                            let effective_type = ast_type.ptr_inner().unwrap_or(&ast_type);
 
                             match effective_type {
                                 crate::ast::AstType::Struct { name, .. } => Ok(name.clone()),
@@ -748,12 +732,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 match self.infer_expression_type(expr) {
                     Ok(ast_type) => {
                         // Handle pointer types
-                        let effective_type = match &ast_type {
-                            crate::ast::AstType::Ptr(inner)
-                            | crate::ast::AstType::MutPtr(inner)
-                            | crate::ast::AstType::RawPtr(inner) => inner.as_ref(),
-                            _ => &ast_type,
-                        };
+                        let effective_type = ast_type.ptr_inner().unwrap_or(&ast_type);
 
                         match effective_type {
                             crate::ast::AstType::Struct { name, .. } => Ok(name.clone()),

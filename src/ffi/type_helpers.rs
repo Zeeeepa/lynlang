@@ -77,17 +77,17 @@ pub fn string() -> AstType {
 
 pub fn c_string() -> AstType {
     // C string is a pointer to char (u8)
-    AstType::Ptr(Box::new(AstType::U8))
+    AstType::ptr(AstType::U8)
 }
 
 pub fn raw_ptr(inner: AstType) -> AstType {
     // Use regular Pointer for raw pointers in FFI
-    AstType::Ptr(Box::new(inner))
+    AstType::ptr(inner)
 }
 
 pub fn ptr(inner: AstType) -> AstType {
     // Use regular Pointer type
-    AstType::Ptr(Box::new(inner))
+    AstType::ptr(inner)
 }
 
 pub fn array(size: usize, element_type: AstType) -> AstType {

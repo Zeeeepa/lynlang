@@ -257,7 +257,7 @@ pub fn compile_variable_declaration<'ctx>(
                             BasicValueEnum::PointerValue(_) => {
                                 // For pointers (including strings), use ptr type
                                 // Store the inferred AST type as Ptr(U8) - the generic pointer type
-                                inferred_ast_type = Some(AstType::Ptr(Box::new(AstType::U8)));
+                                inferred_ast_type = Some(AstType::ptr(AstType::U8));
                                 Type::Basic(
                                     compiler
                                         .context
@@ -369,7 +369,7 @@ pub fn compile_variable_declaration<'ctx>(
                     },
                 );
                 return Ok(());
-            } else if let AstType::Ptr(_inner) = type_ {
+            } else if type_.is_ptr_type() {
                 // For pointers, if the initializer is AddressOf, use the pointer inside the alloca
                 let ptr_value = match init_expr {
                     Expression::AddressOf(expr) => {
@@ -421,7 +421,7 @@ pub fn compile_variable_declaration<'ctx>(
                     }
                 }
                 BasicValueEnum::FloatValue(_) => AstType::F64,
-                BasicValueEnum::PointerValue(_) => AstType::Ptr(Box::new(AstType::Void)),
+                BasicValueEnum::PointerValue(_) => AstType::ptr(AstType::Void),
                 BasicValueEnum::StructValue(_) => {
                     // For structs, we need to get the type from the struct_types map
                     // This is a simplified version - in practice, you'd need to track struct types
@@ -527,38 +527,33 @@ pub fn compile_assignment<'ctx>(
                 // ptr.val = value: store value at the address ptr points to
                 if let Expression::Identifier(name) = &**ptr_expr {
                     if let Ok((alloca, ast_type)) = compiler.get_variable(name) {
-                        match &ast_type {
-                            crate::ast::AstType::Ptr(inner)
-                            | crate::ast::AstType::MutPtr(inner)
-                            | crate::ast::AstType::RawPtr(inner) => {
-                                let ptr_type =
-                                    compiler.context.ptr_type(inkwell::AddressSpace::default());
-                                let ptr_val = compiler.builder.build_load(
-                                    ptr_type,
-                                    alloca,
-                                    "load_ptr_for_store",
-                                )?;
-                                let val = compiler.compile_expression(value)?;
-                                let inner_llvm_type = compiler.to_llvm_type(inner)?;
-                                let expected_type = match inner_llvm_type {
-                                    super::super::Type::Basic(ty) => ty,
-                                    super::super::Type::Struct(st) => st.into(),
-                                    _ => {
-                                        compiler
-                                            .builder
-                                            .build_store(ptr_val.into_pointer_value(), val)?;
-                                        return Ok(());
-                                    }
-                                };
-                                compiler.coercing_store(
-                                    val,
-                                    ptr_val.into_pointer_value(),
-                                    expected_type,
-                                    &format!("pointer dereference of '{}'", name),
-                                )?;
-                                return Ok(());
-                            }
-                            _ => {}
+                        if let Some(inner) = ast_type.ptr_inner() {
+                            let ptr_type =
+                                compiler.context.ptr_type(inkwell::AddressSpace::default());
+                            let ptr_val = compiler.builder.build_load(
+                                ptr_type,
+                                alloca,
+                                "load_ptr_for_store",
+                            )?;
+                            let val = compiler.compile_expression(value)?;
+                            let inner_llvm_type = compiler.to_llvm_type(inner)?;
+                            let expected_type = match inner_llvm_type {
+                                super::super::Type::Basic(ty) => ty,
+                                super::super::Type::Struct(st) => st.into(),
+                                _ => {
+                                    compiler
+                                        .builder
+                                        .build_store(ptr_val.into_pointer_value(), val)?;
+                                    return Ok(());
+                                }
+                            };
+                            compiler.coercing_store(
+                                val,
+                                ptr_val.into_pointer_value(),
+                                expected_type,
+                                &format!("pointer dereference of '{}'", name),
+                            )?;
+                            return Ok(());
                         }
                     }
                 }
@@ -579,15 +574,14 @@ pub fn compile_assignment<'ctx>(
                     let ptr_val = compiler.compile_expression(ptr_expr)?;
                     if let BasicValueEnum::PointerValue(struct_ptr) = ptr_val {
                         let ptr_type = compiler.infer_expression_type(ptr_expr)?;
-                        let struct_name = match &ptr_type {
-                            crate::ast::AstType::Ptr(inner)
-                            | crate::ast::AstType::MutPtr(inner)
-                            | crate::ast::AstType::RawPtr(inner) => match &**inner {
+                        let struct_name = if let Some(inner) = ptr_type.ptr_inner() {
+                            match inner {
                                 crate::ast::AstType::Struct { name, .. } => Some(name.clone()),
                                 crate::ast::AstType::Generic { name, .. } => Some(name.clone()),
                                 _ => None,
-                            },
-                            _ => None,
+                            }
+                        } else {
+                            None
                         };
 
                         if let Some(struct_name) = struct_name {

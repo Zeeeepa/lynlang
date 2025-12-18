@@ -380,8 +380,10 @@ impl TypeChecker {
             Expression::ArrayIndex { array, .. } => {
                 // Array indexing returns the element type
                 let array_type = self.infer_expression_type(array)?;
+                if let Some(elem_type) = array_type.ptr_inner() {
+                    return Ok(elem_type.clone());
+                }
                 match array_type {
-                    AstType::Ptr(elem_type) => Ok(*elem_type),
                     AstType::Array(elem_type) => Ok(*elem_type),
                     _ => Err(CompileError::TypeError(
                         format!("Cannot index type {:?}", array_type),
@@ -391,17 +393,17 @@ impl TypeChecker {
             }
             Expression::AddressOf(inner) => {
                 let inner_type = self.infer_expression_type(inner)?;
-                Ok(AstType::Ptr(Box::new(inner_type)))
+                Ok(AstType::ptr(inner_type))
             }
             Expression::Dereference(inner) => {
                 let inner_type = self.infer_expression_type(inner)?;
-                match inner_type {
-                    AstType::Ptr(elem_type) => Ok(*elem_type),
-                    _ => Err(CompileError::TypeError(
-                        format!("Cannot dereference non-pointer type {:?}", inner_type),
-                        None,
-                    )),
+                if let Some(elem_type) = inner_type.ptr_inner() {
+                    return Ok(elem_type.clone());
                 }
+                Err(CompileError::TypeError(
+                    format!("Cannot dereference non-pointer type {:?}", inner_type),
+                    None,
+                ))
             }
             Expression::PointerOffset { pointer, .. } => {
                 // Pointer offset returns the same pointer type
@@ -641,30 +643,29 @@ impl TypeChecker {
             Expression::PointerDereference(expr) => {
                 // ptr.val -> T (if ptr is Ptr<T>, MutPtr<T>, or RawPtr<T>)
                 let ptr_type = self.infer_expression_type(expr)?;
-                match ptr_type {
-                    AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) => {
-                        Ok(*inner)
-                    }
-                    _ => Err(CompileError::TypeError(
+                if let Some(inner) = ptr_type.ptr_inner() {
+                    Ok(inner.clone())
+                } else {
+                    Err(CompileError::TypeError(
                         format!("Cannot dereference non-pointer type: {:?}", ptr_type),
                         None,
-                    )),
+                    ))
                 }
             }
             Expression::PointerAddress(expr) => {
                 // expr.addr -> RawPtr<T> (if expr is of type T)
                 let expr_type = self.infer_expression_type(expr)?;
-                Ok(AstType::RawPtr(Box::new(expr_type)))
+                Ok(AstType::raw_ptr(expr_type))
             }
             Expression::CreateReference(expr) => {
                 // expr.ref() -> Ptr<T> (if expr is of type T)
                 let expr_type = self.infer_expression_type(expr)?;
-                Ok(AstType::Ptr(Box::new(expr_type)))
+                Ok(AstType::ptr(expr_type))
             }
             Expression::CreateMutableReference(expr) => {
                 // expr.mut_ref() -> MutPtr<T> (if expr is of type T)
                 let expr_type = self.infer_expression_type(expr)?;
-                Ok(AstType::MutPtr(Box::new(expr_type)))
+                Ok(AstType::mut_ptr(expr_type))
             }
             Expression::VecConstructor {
                 element_type,
@@ -726,6 +727,16 @@ impl TypeChecker {
 
     fn types_compatible(&self, expected: &AstType, actual: &AstType) -> bool {
         validation::types_compatible(expected, actual)
+    }
+
+    /// Resolve a trait/behavior method for a type
+    /// Returns the method info if the type implements a trait with this method
+    pub fn resolve_trait_method(
+        &self,
+        type_name: &str,
+        method_name: &str,
+    ) -> Option<behaviors::MethodInfo> {
+        self.behavior_resolver.resolve_method(type_name, method_name)
     }
 
     fn register_stdlib_module(&mut self, alias: &str, module_path: &str) -> Result<()> {

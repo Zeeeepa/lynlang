@@ -8,6 +8,7 @@ use lsp_types::*;
 use serde_json::Value;
 
 use super::document_store::DocumentStore;
+use crate::well_known::well_known;
 
 // ============================================================================
 // PUBLIC HANDLER FUNCTION
@@ -439,19 +440,10 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                         last_was_type_name = true;
                         (TYPE_TYPE, MOD_DEFAULT_LIBRARY)
                     }
-                    "Option" | "Result" => {
-                        last_was_type_name = true;
-                        (TYPE_ENUM, MOD_DEFAULT_LIBRARY)
-                    }
                     "HashMap" | "DynVec" | "Vec" | "Array" | "HashSet" => {
                         _in_allocator_context = true; // These types need allocators
                         last_was_type_name = true;
                         (TYPE_CLASS, MOD_DEFAULT_LIBRARY)
-                    }
-                    // Pointer types - these always take generic parameters
-                    "Ptr" | "MutPtr" | "RawPtr" => {
-                        last_was_type_name = true;
-                        (TYPE_TYPE, MOD_DEFAULT_LIBRARY)
                     }
                     "Allocator" => {
                         last_was_type_name = true;
@@ -461,8 +453,18 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                     // Allocator-related functions (highlight specially)
                     "get_default_allocator" => (TYPE_FUNCTION, MOD_DEFAULT_LIBRARY | MOD_STATIC),
 
-                    // Enum variants
-                    "Some" | "None" | "Ok" | "Err" => (TYPE_ENUM_MEMBER, 0),
+                    // Well-known types and variants (Option, Result, Ptr, etc.)
+                    _ if well_known().is_option_or_result(&word) => {
+                        last_was_type_name = true;
+                        (TYPE_ENUM, MOD_DEFAULT_LIBRARY)
+                    }
+                    _ if well_known().is_ptr(&word) => {
+                        last_was_type_name = true;
+                        (TYPE_TYPE, MOD_DEFAULT_LIBRARY)
+                    }
+                    _ if well_known().is_option_variant(&word) || well_known().is_result_variant(&word) => {
+                        (TYPE_ENUM_MEMBER, 0)
+                    }
 
                     // Function names (when we know we're after 'fn')
                     _ if in_function && prev_line == line_idx as u32 => {

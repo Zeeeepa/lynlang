@@ -163,7 +163,7 @@ impl Library {
                 {
                     match &version_fn_sig.returns {
                         AstType::Struct { name, .. } if name == "String" => {}
-                        AstType::Ptr(_) => {
+                        t if t.is_ptr_type() => {
                             eprintln!("Version check enabled for: {}", required_version);
                         }
                         _ => {
@@ -249,7 +249,7 @@ impl Library {
             FunctionSafety::Safe => Ok(()),
             FunctionSafety::Trusted => {
                 for param_type in &sig.params {
-                    if matches!(param_type, AstType::Ptr(_)) {
+                    if param_type.is_ptr_type() {
                         // Could add more validation here
                     }
                 }

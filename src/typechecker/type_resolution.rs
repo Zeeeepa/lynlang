@@ -72,15 +72,18 @@ fn resolve_generic_to_struct_impl(
                 type_args: resolved_args,
             }
         }
-        AstType::Ptr(inner) => AstType::Ptr(Box::new(resolve_generic_to_struct_impl(
-            checker, inner, visited,
-        ))),
-        AstType::MutPtr(inner) => AstType::MutPtr(Box::new(resolve_generic_to_struct_impl(
-            checker, inner, visited,
-        ))),
-        AstType::RawPtr(inner) => AstType::RawPtr(Box::new(resolve_generic_to_struct_impl(
-            checker, inner, visited,
-        ))),
+        t if t.is_immutable_ptr() => {
+            let inner = t.ptr_inner().unwrap();
+            AstType::ptr(resolve_generic_to_struct_impl(checker, inner, visited))
+        }
+        t if t.is_mutable_ptr() => {
+            let inner = t.ptr_inner().unwrap();
+            AstType::mut_ptr(resolve_generic_to_struct_impl(checker, inner, visited))
+        }
+        t if t.is_raw_ptr() => {
+            let inner = t.ptr_inner().unwrap();
+            AstType::raw_ptr(resolve_generic_to_struct_impl(checker, inner, visited))
+        }
         AstType::Struct { name, fields } => {
             // Recursively resolve fields
             let resolved_fields: Vec<(String, AstType)> = fields

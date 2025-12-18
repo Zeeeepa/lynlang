@@ -422,10 +422,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Check if it's a function
         if let Some(function) = self.module.get_function(name) {
             let ptr = function.as_global_value().as_pointer_value();
-            let ty = AstType::Ptr(Box::new(AstType::Function {
+            let ty = AstType::ptr(AstType::Function {
                 args: vec![],
                 return_type: Box::new(AstType::Void),
-            }));
+            });
             return Ok((ptr, ty));
         }
 

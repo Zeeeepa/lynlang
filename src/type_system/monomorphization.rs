@@ -323,7 +323,14 @@ impl Monomorphizer {
                 }
                 Ok(())
             }
-            AstType::Ptr(inner) | AstType::Array(inner) | AstType::Ref(inner) => {
+            t if t.is_ptr_type() => {
+                if let Some(inner) = t.ptr_inner() {
+                    self.collect_instantiations_from_type(inner)
+                } else {
+                    Ok(())
+                }
+            }
+            AstType::Array(inner) | AstType::Ref(inner) => {
                 self.collect_instantiations_from_type(inner)
             }
             // Option and Result are now Generic types - handled in Generic match above
@@ -384,7 +391,14 @@ impl Monomorphizer {
     fn type_uses_parameter(&self, ast_type: &AstType, param_name: &str) -> bool {
         match ast_type {
             AstType::Generic { name, .. } if name == param_name => true,
-            AstType::Ptr(inner) | AstType::Array(inner) | AstType::Ref(inner) => {
+            t if t.is_ptr_type() => {
+                if let Some(inner) = t.ptr_inner() {
+                    self.type_uses_parameter(inner, param_name)
+                } else {
+                    false
+                }
+            }
+            AstType::Array(inner) | AstType::Ref(inner) => {
                 self.type_uses_parameter(inner, param_name)
             }
             // Option and Result are now Generic types - handled in Generic match above
