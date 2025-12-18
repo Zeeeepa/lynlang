@@ -14,7 +14,10 @@ pub fn compile_pattern_match<'ctx>(
 
             // Get the current function and create blocks for pattern matching
             let current_fn = compiler.current_function.ok_or_else(|| {
-                CompileError::InternalError("Pattern matching outside function".to_string(), None)
+                CompileError::InternalError(
+                    "Pattern matching outside function".to_string(),
+                    compiler.get_current_span(),
+                )
             })?;
 
             // Create a merge block
@@ -122,7 +125,10 @@ pub fn compile_pattern_match<'ctx>(
             let scrutinee_val = compiler.compile_expression(scrutinee)?;
 
             let current_fn = compiler.current_function.ok_or_else(|| {
-                CompileError::InternalError("Conditional outside function".to_string(), None)
+                CompileError::InternalError(
+                    "Conditional outside function".to_string(),
+                    compiler.get_current_span(),
+                )
             })?;
 
             let then_block = compiler.context.append_basic_block(current_fn, "then");

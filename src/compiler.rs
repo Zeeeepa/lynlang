@@ -398,7 +398,7 @@ impl<'ctx> Compiler<'ctx> {
         let monomorphized_program = match monomorphizer.monomorphize_program(&processed_program) {
             Ok(p) => p,
             Err(err) => {
-                errors.push(CompileError::InternalError(err, None));
+                errors.push(err);
                 return errors; // Can't continue without monomorphization
             }
         };

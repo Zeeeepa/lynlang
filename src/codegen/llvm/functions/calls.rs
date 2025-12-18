@@ -83,8 +83,12 @@ pub fn compile_function_call<'ctx>(
                     _ => {}
                 }
             } else if module == "compiler" {
-                // Handle compiler intrinsics
-                match func {
+                let base_func = if let Some(angle_pos) = func.find('<') {
+                    &func[..angle_pos]
+                } else {
+                    func
+                };
+                match base_func {
                     "inline_c" => return stdlib_codegen::compile_inline_c(compiler, args),
                     "raw_allocate" => return stdlib_codegen::compile_raw_allocate(compiler, args),
                     "raw_deallocate" => {
@@ -105,7 +109,9 @@ pub fn compile_function_call<'ctx>(
                     "unload_library" => {
                         return stdlib_codegen::compile_unload_library(compiler, args)
                     }
-                    "null_ptr" => return stdlib_codegen::compile_null_ptr(compiler, args),
+                    "null_ptr" | "nullptr" => {
+                        return stdlib_codegen::compile_null_ptr(compiler, args)
+                    }
                     "discriminant" => return stdlib_codegen::compile_discriminant(compiler, args),
                     "set_discriminant" => {
                         return stdlib_codegen::compile_set_discriminant(compiler, args)
@@ -521,7 +527,10 @@ pub fn compile_function_call<'ctx>(
         }
     } else {
         // Function not found
-        Err(CompileError::UndeclaredFunction(name.to_string(), None))
+        Err(CompileError::UndeclaredFunction(
+            name.to_string(),
+            compiler.get_current_span(),
+        ))
     }
 }
 

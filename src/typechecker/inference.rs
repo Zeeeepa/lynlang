@@ -348,19 +348,38 @@ pub fn infer_identifier_type(checker: &mut TypeChecker, name: &str) -> Result<As
             let base_type = &name[..angle_pos];
 
             match base_type {
-                "HashMap" | "HashSet" | "DynVec" | "Vec" => {
+                "HashMap" | "HashSet" | "DynVec" | "Vec" | "Option" | "Result" | "Stack"
+                | "Queue" => {
                     let (_, type_args) = TypeChecker::parse_generic_type_string(name);
                     return Ok(AstType::Generic {
                         name: base_type.to_string(),
                         type_args,
                     });
                 }
+                "Ptr" => {
+                    let (_, type_args) = TypeChecker::parse_generic_type_string(name);
+                    let inner = type_args.first().cloned().unwrap_or(AstType::U8);
+                    return Ok(AstType::Ptr(Box::new(inner)));
+                }
+                "MutPtr" => {
+                    let (_, type_args) = TypeChecker::parse_generic_type_string(name);
+                    let inner = type_args.first().cloned().unwrap_or(AstType::U8);
+                    return Ok(AstType::MutPtr(Box::new(inner)));
+                }
+                "RawPtr" => {
+                    let (_, type_args) = TypeChecker::parse_generic_type_string(name);
+                    let inner = type_args.first().cloned().unwrap_or(AstType::U8);
+                    return Ok(AstType::RawPtr(Box::new(inner)));
+                }
                 _ => {}
             }
         }
     }
 
-    Err(CompileError::UndeclaredVariable(name.to_string(), None))
+    Err(CompileError::UndeclaredVariable(
+        name.to_string(),
+        checker.get_current_span(),
+    ))
 }
 
 pub fn infer_function_call_type(
@@ -376,8 +395,16 @@ pub fn infer_function_call_type(
             let module = parts[0];
             let func = parts[1];
 
-            if let Some(result) = intrinsics::check_compiler_intrinsic(module, func, args.len()) {
-                if module == "compiler" && func == "inline_c" && args.len() == 1 {
+            let base_func = if let Some(angle_pos) = func.find('<') {
+                &func[..angle_pos]
+            } else {
+                func
+            };
+
+            if let Some(result) =
+                intrinsics::check_compiler_intrinsic(module, base_func, args.len())
+            {
+                if module == "compiler" && base_func == "inline_c" && args.len() == 1 {
                     let arg_type = checker.infer_expression_type(&args[0])?;
                     match arg_type {
                         AstType::StaticString | AstType::StaticLiteral => {}
@@ -385,7 +412,7 @@ pub fn infer_function_call_type(
                             return Err(CompileError::TypeError(
                                 "compiler.inline_c() requires a string literal argument"
                                     .to_string(),
-                                None,
+                                checker.get_current_span(),
                             ))
                         }
                     }
@@ -393,7 +420,7 @@ pub fn infer_function_call_type(
                 return result;
             }
 
-            if let Some(return_type) = intrinsics::check_stdlib_function(module, func) {
+            if let Some(return_type) = intrinsics::check_stdlib_function(module, base_func) {
                 return Ok(return_type);
             }
         }
@@ -709,6 +736,14 @@ pub fn infer_method_call_type(
             }
         } else if name == "Result" {
             if let Some(return_type) = method_types::infer_result_method_type(method, type_args) {
+                return Ok(return_type);
+            }
+        } else if name == "Vec" && !type_args.is_empty() {
+            if let Some(return_type) = method_types::infer_vec_method_type(method, &type_args[0]) {
+                return Ok(return_type);
+            }
+        } else if name == "DynVec" && !type_args.is_empty() {
+            if let Some(return_type) = method_types::infer_vec_method_type(method, &type_args[0]) {
                 return Ok(return_type);
             }
         }

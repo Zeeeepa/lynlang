@@ -10,14 +10,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
         arms: &[(Expression, Expression)],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         let parent_function = self.current_function.ok_or_else(|| {
-            CompileError::InternalError("No current function for conditional".to_string(), None)
+            CompileError::InternalError(
+                "No current function for conditional".to_string(),
+                self.get_current_span(),
+            )
         })?;
         let cond_val = self.compile_expression(scrutinee)?;
         if !cond_val.is_int_value() || cond_val.into_int_value().get_type().get_bit_width() != 1 {
             return Err(CompileError::TypeMismatch {
                 expected: "boolean (i1) for conditional expression".to_string(),
                 found: format!("{:?}", cond_val.get_type()),
-                span: None,
+                span: self.get_current_span(),
             });
         }
         let then_bb = self.context.append_basic_block(parent_function, "then");

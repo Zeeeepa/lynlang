@@ -1,5 +1,6 @@
 use super::{GenericInstance, TypeSubstitution};
 use crate::ast::{AstType, EnumDefinition, Function, StructDefinition, TypeParameter};
+use crate::error::CompileError;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -146,12 +147,15 @@ impl TypeEnvironment {
         &self,
         expected: &[TypeParameter],
         provided: &[AstType],
-    ) -> Result<(), String> {
+    ) -> Result<(), CompileError> {
         if expected.len() != provided.len() {
-            return Err(format!(
-                "Type argument count mismatch: expected {}, got {}",
-                expected.len(),
-                provided.len()
+            return Err(CompileError::TypeError(
+                format!(
+                    "Type argument count mismatch: expected {}, got {}",
+                    expected.len(),
+                    provided.len()
+                ),
+                None,
             ));
         }
 

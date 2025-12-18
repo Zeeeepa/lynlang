@@ -1,6 +1,7 @@
 use super::super::{symbols, LLVMCompiler};
 use crate::ast::{AstType, Expression};
 use crate::error::CompileError;
+use crate::stdlib_metadata::compiler as compiler_intrinsics;
 
 pub fn infer_expression_type(
     compiler: &LLVMCompiler,
@@ -193,37 +194,24 @@ pub fn infer_expression_type(
             }
         }
         Expression::FunctionCall { name, .. } => {
-            // Check if this is a compiler intrinsic function call (e.g., compiler.raw_allocate)
             if name.starts_with("compiler.") {
-                let method = &name[9..]; // Remove "compiler." prefix
-                match method {
-                    "raw_allocate" | "raw_reallocate" | "raw_ptr_offset" | "raw_ptr_cast"
-                    | "gep" | "gep_struct" | "get_payload" | "null_ptr" | "load_library"
-                    | "get_symbol" | "call_external" => {
-                        // All these return *u8 (pointer to u8)
-                        return Ok(AstType::Ptr(Box::new(AstType::U8)));
-                    }
-                    "raw_deallocate" | "deallocate" | "inline_c" | "unload_library"
-                    | "set_discriminant" | "set_payload" => {
-                        // These return void
-                        return Ok(AstType::Void);
-                    }
-                    "discriminant" => {
-                        // Returns i64 (the discriminant tag)
-                        return Ok(AstType::I64);
-                    }
-                    _ => {}
+                let method = &name[9..];
+                let base_method = if let Some(angle_pos) = method.find('<') {
+                    &method[..angle_pos]
+                } else {
+                    method
+                };
+                if let Some(return_type) =
+                    compiler_intrinsics::get_intrinsic_return_type(base_method)
+                {
+                    return Ok(return_type);
                 }
             }
 
-            // Check if this is a generic type constructor like HashMap<K,V>()
-            if name.contains('<') && name.contains('>') {
-                // Parse the generic type from the name
+            if name.contains('<') && name.contains('>') && !name.starts_with("compiler.") {
                 if let Some(angle_pos) = name.find('<') {
                     let base_type = &name[..angle_pos];
                     let type_params_str = &name[angle_pos + 1..name.len() - 1];
-
-                    // Parse type parameters - need to handle nested generics
                     let type_args =
                         super::utils::parse_type_args_string(compiler, type_params_str)?;
 
@@ -267,28 +255,17 @@ pub fn infer_expression_type(
             Ok(AstType::Void)
         }
         Expression::MethodCall { object, method, .. } => {
-            // Special handling for compiler module methods
             if let Expression::Identifier(name) = &**object {
                 if name == "compiler" {
-                    // Compiler intrinsic methods
-                    match method.as_str() {
-                        "raw_allocate" | "raw_reallocate" | "raw_ptr_offset" | "raw_ptr_cast"
-                        | "gep" | "gep_struct" | "get_payload" | "null_ptr" | "load_library"
-                        | "get_symbol" | "call_external" => {
-                            // All these methods return *u8 (pointer to u8)
-                            // Use Ptr(U8) which is more standard than RawPtr
-                            return Ok(AstType::Ptr(Box::new(AstType::U8)));
-                        }
-                        "raw_deallocate" | "deallocate" | "inline_c" | "unload_library"
-                        | "set_discriminant" | "set_payload" => {
-                            // These methods return void
-                            return Ok(AstType::Void);
-                        }
-                        "discriminant" => {
-                            // Returns i64 (the discriminant tag)
-                            return Ok(AstType::I64);
-                        }
-                        _ => {}
+                    let base_method = if let Some(angle_pos) = method.find('<') {
+                        &method[..angle_pos]
+                    } else {
+                        method.as_str()
+                    };
+                    if let Some(return_type) =
+                        compiler_intrinsics::get_intrinsic_return_type(base_method)
+                    {
+                        return Ok(return_type);
                     }
                 }
             }
@@ -355,6 +332,10 @@ pub fn infer_expression_type(
                         }),
                         "AsyncPool" => Ok(AstType::Struct {
                             name: "AsyncPool".to_string(),
+                            fields: vec![],
+                        }),
+                        "String" => Ok(AstType::Struct {
+                            name: "String".to_string(),
                             fields: vec![],
                         }),
                         _ => Ok(AstType::Void),
@@ -766,6 +747,41 @@ pub fn infer_expression_type(
                     Ok(AstType::Void)
                 }
             }
+        }
+        // Pointer operations
+        Expression::CreateReference(inner) => {
+            // expr.ref() -> Ptr<T>
+            let inner_type = infer_expression_type(compiler, inner)?;
+            Ok(AstType::Ptr(Box::new(inner_type)))
+        }
+        Expression::CreateMutableReference(inner) => {
+            // expr.mut_ref() -> MutPtr<T>
+            let inner_type = infer_expression_type(compiler, inner)?;
+            Ok(AstType::MutPtr(Box::new(inner_type)))
+        }
+        Expression::AddressOf(inner) => {
+            // &expr -> Ptr<T>
+            let inner_type = infer_expression_type(compiler, inner)?;
+            Ok(AstType::Ptr(Box::new(inner_type)))
+        }
+        Expression::Dereference(inner) | Expression::PointerDereference(inner) => {
+            // *ptr or ptr.val -> T (unwrap Ptr<T>/MutPtr<T>/RawPtr<T>)
+            let ptr_type = infer_expression_type(compiler, inner)?;
+            match ptr_type {
+                AstType::Ptr(inner_type)
+                | AstType::MutPtr(inner_type)
+                | AstType::RawPtr(inner_type) => Ok(*inner_type),
+                _ => Ok(AstType::Void), // Not a pointer type
+            }
+        }
+        Expression::PointerAddress(inner) => {
+            // ptr.addr -> usize
+            let _ = infer_expression_type(compiler, inner)?;
+            Ok(AstType::Usize)
+        }
+        Expression::PointerOffset { pointer, .. } => {
+            // ptr + offset -> same pointer type
+            infer_expression_type(compiler, pointer)
         }
         _ => Ok(AstType::Void),
     }

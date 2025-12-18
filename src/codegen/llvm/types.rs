@@ -108,7 +108,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             AstType::Struct { name, fields: _ } => {
                 let struct_info = self.struct_types.get(name).ok_or_else(|| {
-                    CompileError::TypeError(format!("Undefined struct type: {}", name), None)
+                    CompileError::TypeError(
+                        format!("Undefined struct type: {}", name),
+                        self.get_current_span(),
+                    )
                 })?;
                 Ok(Type::Struct(struct_info.llvm_type))
             }
@@ -338,16 +341,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
             }
             AstType::Generic { name, type_args } => {
-                // Special handling for empty generic names - this is likely a bug
                 if name.is_empty() {
-                    // Debug output commented out to avoid false test failures
-                    // eprintln!(
-                    //     "ERROR: Empty generic type name with type_args={:?}",
-                    //     type_args
-                    // );
-                    // eprintln!("Backtrace:");
-                    // Try to return a default type to avoid crash
                     return Ok(Type::Basic(self.context.i32_type().into()));
+                }
+
+                if name.len() == 1
+                    && name.chars().next().unwrap().is_uppercase()
+                    && type_args.is_empty()
+                {
+                    let placeholder = self.context.struct_type(&[], false);
+                    return Ok(Type::Struct(placeholder));
                 }
 
                 // Special handling for Array<T> type - dynamic array with pointer and length
@@ -447,10 +450,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         allocator_type: None,
                     };
                     self.to_llvm_type(&dynvec_type)
+                } else if type_args
+                    .iter()
+                    .any(|t| matches!(t, AstType::Generic { .. }))
+                {
+                    let placeholder = self.context.struct_type(&[], false);
+                    Ok(Type::Struct(placeholder))
                 } else {
-                    // After monomorphization, we should not encounter generic types
-                    // If we do, it means monomorphization failed to resolve this type
-                    // eprintln!("DEBUG: Unresolved generic type: name='{}', type_args={:?}", name, type_args);
                     Err(CompileError::InternalError(
                         format!("Unresolved generic type '{}' found after monomorphization. This is a compiler bug.", name),
                         None

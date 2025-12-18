@@ -1,12 +1,66 @@
 use super::{StdFunction, StdModuleTrait};
 use crate::ast::AstType;
+use crate::error::CompileError;
 use std::collections::HashMap;
+use std::sync::OnceLock;
 
 /// The @std.compiler module provides low-level compiler intrinsics
 /// These are the ONLY primitives exposed - everything else is built in Zen
+///
+/// This is the SINGLE SOURCE OF TRUTH for all compiler intrinsic type information.
+/// Both the typechecker and codegen should use these definitions.
 pub struct CompilerModule {
     functions: HashMap<String, StdFunction>,
     types: HashMap<String, AstType>,
+}
+
+/// Global singleton for compiler intrinsics - avoids repeated HashMap construction
+static COMPILER_MODULE: OnceLock<CompilerModule> = OnceLock::new();
+
+/// Get the global compiler module instance
+pub fn get_compiler_module() -> &'static CompilerModule {
+    COMPILER_MODULE.get_or_init(CompilerModule::new)
+}
+
+/// Quick lookup for compiler intrinsic return type
+/// Returns None if not a compiler intrinsic
+pub fn get_intrinsic_return_type(func_name: &str) -> Option<AstType> {
+    get_compiler_module()
+        .get_function(func_name)
+        .map(|f| f.return_type)
+}
+
+/// Get full intrinsic function info (params + return type)
+/// Returns None if not a compiler intrinsic
+pub fn get_intrinsic_info(func_name: &str) -> Option<StdFunction> {
+    get_compiler_module().get_function(func_name)
+}
+
+/// Check if a function name is a compiler intrinsic
+pub fn is_compiler_intrinsic(func_name: &str) -> bool {
+    get_compiler_module().functions.contains_key(func_name)
+}
+
+/// Validate intrinsic call and return its type
+/// Returns Err if wrong number of arguments, Ok(type) if valid, None if not an intrinsic
+pub fn check_intrinsic_call(
+    func_name: &str,
+    args_len: usize,
+) -> Option<Result<AstType, CompileError>> {
+    let func = get_compiler_module().get_function(func_name)?;
+    let expected = func.params.len();
+
+    if args_len != expected {
+        Some(Err(CompileError::TypeError(
+            format!(
+                "compiler.{}() expects {} argument(s), got {}",
+                func_name, expected, args_len
+            ),
+            None,
+        )))
+    } else {
+        Some(Ok(func.return_type))
+    }
 }
 
 impl CompilerModule {
@@ -299,7 +353,18 @@ impl CompilerModule {
             },
         );
 
-        // GEP for struct field access - variant that operates on typed pointers
+        // Alias for null_ptr (common naming convention)
+        functions.insert(
+            "nullptr".to_string(),
+            StdFunction {
+                name: "nullptr".to_string(),
+                params: vec![],
+                return_type: AstType::RawPtr(Box::new(AstType::U8)),
+                is_builtin: true,
+            },
+        );
+
+        // GEP for struct field access
         functions.insert(
             "gep_struct".to_string(),
             StdFunction {

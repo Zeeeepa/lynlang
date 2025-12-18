@@ -194,8 +194,8 @@ pub fn parse_call_expression_with_object(
             parser.next_token(); // consume '('
             let mut params = vec![];
 
-            // Parse closure parameters
-            while parser.current_token != Token::Symbol(')') && parser.current_token != Token::Eof {
+            // Parse closure parameters (at most 1 or 2 params for .loop())
+            if parser.current_token != Token::Symbol(')') && parser.current_token != Token::Eof {
                 if let Token::Identifier(param_name) = &parser.current_token {
                     let pname = param_name.clone();
                     parser.next_token();
@@ -228,7 +228,6 @@ pub fn parse_call_expression_with_object(
                             params.push((pname, param_type));
                         }
                     }
-                    break; // .loop() only takes 1 or 2 params
                 } else {
                     return Err(CompileError::SyntaxError(
                         "Expected parameter name in closure".to_string(),

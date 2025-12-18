@@ -1,83 +1,23 @@
-// Zen Standard Library: Stack
-// LIFO (Last In First Out) data structure
-// Uses compile-time generics with Vec<T>
+// Zen Standard Library: Stack<T>
+// LIFO data structure - placeholder for full implementation
+// TODO: Implement with compiler.raw_allocate/gep/load/store once generic struct instantiation works
 
 { compiler } = @std
-{ Ptr, Option } = @std.core
-{ Allocator } = @std.memory.allocator
 
-// Stack<T> - implemented using Vec<T> internally
 Stack<T>: {
-    data: Vec<T>,
-    allocator: Allocator
+    data: RawPtr<u8>,
+    len: usize,
+    capacity: usize
 }
 
-// ============================================================================
-// Constructors
-// ============================================================================
-
-// Create new empty stack
-Stack<T>.new = (allocator: Allocator) Stack<T> {
-    return Stack<T> {
-        data: Vec<T>.new(allocator),
-        allocator: allocator
-    }
+Stack<T>.size = (self: Stack<T>) usize {
+    return self.len
 }
 
-// Create stack with initial capacity
-Stack<T>.with_capacity = (allocator: Allocator, capacity: usize) Stack<T> {
-    return Stack<T> {
-        data: Vec<T>.with_capacity(allocator, capacity),
-        allocator: allocator
-    }
-}
-
-// ============================================================================
-// Properties
-// ============================================================================
-
-// Get stack size
-Stack<T>.len = (self: Stack<T>) usize {
-    return self.data.len()
-}
-
-// Check if empty
 Stack<T>.is_empty = (self: Stack<T>) bool {
-    return self.data.is_empty()
+    return self.len == 0
 }
 
-// ============================================================================
-// Operations
-// ============================================================================
-
-// Push element onto stack
-Stack<T>.push = (self: MutPtr<Stack<T>>, elem: T) void {
-    self.val.data.mut_ref().push(elem)
-}
-
-// Pop element from stack (removes top)
-Stack<T>.pop = (self: MutPtr<Stack<T>>) void {
-    self.val.data.mut_ref().pop()
-}
-
-// Peek at top element without removing
-Stack<T>.peek = (self: Stack<T>) Option<T> {
-    len = self.data.len()
-    len == 0 ?
-        | true { return Option.None }
-        | false { return self.data.get(len - 1) }
-}
-
-// Clear stack
 Stack<T>.clear = (self: MutPtr<Stack<T>>) void {
-    self.val.data.mut_ref().clear()
-}
-
-// ============================================================================
-// Memory Management
-// ============================================================================
-
-// Free stack memory
-Stack<T>.free = (self: MutPtr<Stack<T>>) void {
-    self.val.data.mut_ref().free()
+    self.val.len = 0
 }

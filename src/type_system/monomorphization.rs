@@ -1,5 +1,6 @@
 use super::{TypeEnvironment, TypeInstantiator};
 use crate::ast::{AstType, Declaration, Expression, Function, Program};
+use crate::error::CompileError;
 use crate::typechecker::TypeChecker;
 use std::collections::{HashMap, HashSet};
 
@@ -25,15 +26,12 @@ impl Monomorphizer {
     }
 
     #[allow(dead_code)]
-    pub fn monomorphize_program(&mut self, program: &Program) -> Result<Program, String> {
+    pub fn monomorphize_program(&mut self, program: &Program) -> Result<Program, CompileError> {
         let mut declarations = Vec::new();
 
         // eprintln!("DEBUG: Starting monomorphize_program, type checking first");
         // First, type check the program to get type information
-        self.type_checker.check_program(program).map_err(|e| {
-            // eprintln!("DEBUG: Type check error: {}", e);
-            e.to_string()
-        })?;
+        self.type_checker.check_program(program)?;
 
         // After type checking, update functions with inferred return types
         let mut updated_functions = std::collections::HashMap::new();
@@ -56,12 +54,14 @@ impl Monomorphizer {
 
                     if !func.type_params.is_empty() {
                         self.env.register_generic_function(updated_func.clone());
+                        declarations.push(Declaration::Function(updated_func));
                     } else {
                         declarations.push(Declaration::Function(updated_func));
                     }
                 }
                 Declaration::Struct(struct_def) if !struct_def.type_params.is_empty() => {
                     self.env.register_generic_struct(struct_def.clone());
+                    declarations.push(decl.clone());
                 }
                 Declaration::Enum(enum_def) if !enum_def.type_params.is_empty() => {
                     self.env.register_generic_enum(enum_def.clone());
@@ -124,7 +124,7 @@ impl Monomorphizer {
     fn collect_instantiations_from_declaration(
         &mut self,
         decl: &Declaration,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompileError> {
         match decl {
             Declaration::Function(func) => self.collect_instantiations_from_function(func),
             Declaration::Struct(struct_def) => {
@@ -143,7 +143,10 @@ impl Monomorphizer {
         }
     }
 
-    fn collect_instantiations_from_function(&mut self, func: &Function) -> Result<(), String> {
+    fn collect_instantiations_from_function(
+        &mut self,
+        func: &Function,
+    ) -> Result<(), CompileError> {
         for stmt in &func.body {
             self.collect_instantiations_from_statement(stmt)?;
         }
@@ -153,7 +156,7 @@ impl Monomorphizer {
     fn collect_instantiations_from_statement(
         &mut self,
         stmt: &crate::ast::Statement,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompileError> {
         match stmt {
             crate::ast::Statement::Expression { expr, .. } => {
                 self.collect_instantiations_from_expression(expr)
@@ -189,7 +192,10 @@ impl Monomorphizer {
         }
     }
 
-    fn collect_instantiations_from_expression(&mut self, expr: &Expression) -> Result<(), String> {
+    fn collect_instantiations_from_expression(
+        &mut self,
+        expr: &Expression,
+    ) -> Result<(), CompileError> {
         match expr {
             Expression::FunctionCall { name, args } => {
                 // Check if this is a generic function
@@ -301,7 +307,7 @@ impl Monomorphizer {
         }
     }
 
-    fn collect_instantiations_from_type(&mut self, ast_type: &AstType) -> Result<(), String> {
+    fn collect_instantiations_from_type(&mut self, ast_type: &AstType) -> Result<(), CompileError> {
         match ast_type {
             AstType::Generic { name, type_args } => {
                 if !type_args.is_empty()
@@ -344,7 +350,7 @@ impl Monomorphizer {
         &self,
         generic_func: &Function,
         args: &[Expression],
-    ) -> Result<Vec<AstType>, String> {
+    ) -> Result<Vec<AstType>, CompileError> {
         let mut type_args = Vec::new();
 
         // For each type parameter in the generic function, try to infer it from the arguments
@@ -390,7 +396,7 @@ impl Monomorphizer {
         }
     }
 
-    fn infer_expression_type(&self, expr: &Expression) -> Result<AstType, String> {
+    fn infer_expression_type(&self, expr: &Expression) -> Result<AstType, CompileError> {
         match expr {
             Expression::Integer32(_) => Ok(AstType::I32),
             Expression::Integer64(_) => Ok(AstType::I64),
@@ -410,7 +416,7 @@ impl Monomorphizer {
     fn transform_declarations(
         &mut self,
         declarations: Vec<Declaration>,
-    ) -> Result<Vec<Declaration>, String> {
+    ) -> Result<Vec<Declaration>, CompileError> {
         let mut result = Vec::new();
 
         for decl in declarations {
@@ -426,7 +432,7 @@ impl Monomorphizer {
         Ok(result)
     }
 
-    fn transform_function(&mut self, mut func: Function) -> Result<Function, String> {
+    fn transform_function(&mut self, mut func: Function) -> Result<Function, CompileError> {
         func.body = self.transform_statements(func.body)?;
         Ok(func)
     }
@@ -434,7 +440,7 @@ impl Monomorphizer {
     fn transform_statements(
         &mut self,
         statements: Vec<crate::ast::Statement>,
-    ) -> Result<Vec<crate::ast::Statement>, String> {
+    ) -> Result<Vec<crate::ast::Statement>, CompileError> {
         let mut result = Vec::new();
 
         for stmt in statements {
@@ -447,7 +453,7 @@ impl Monomorphizer {
     fn transform_statement(
         &mut self,
         stmt: crate::ast::Statement,
-    ) -> Result<crate::ast::Statement, String> {
+    ) -> Result<crate::ast::Statement, CompileError> {
         match stmt {
             crate::ast::Statement::Expression { expr, span } => {
                 Ok(crate::ast::Statement::Expression {
@@ -492,7 +498,7 @@ impl Monomorphizer {
         }
     }
 
-    fn transform_expression(&mut self, expr: Expression) -> Result<Expression, String> {
+    fn transform_expression(&mut self, expr: Expression) -> Result<Expression, CompileError> {
         match expr {
             Expression::FunctionCall { name, args } => {
                 // Check if this is a call to a generic function that has been monomorphized

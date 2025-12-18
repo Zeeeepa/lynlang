@@ -281,7 +281,8 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_trait(&mut self) -> Result<TraitDefinition> {
-        // Parse trait name
+        let start_span = self.current_span.clone();
+
         let name = if let Token::Identifier(n) = &self.current_token {
             n.clone()
         } else {
@@ -346,6 +347,7 @@ impl<'a> Parser<'a> {
             name,
             type_params,
             methods,
+            span: Some(start_span),
         })
     }
 

@@ -342,12 +342,15 @@ pub fn compile_variable_declaration<'ctx>(
                         );
                         return Ok(());
                     } else {
-                        return Err(CompileError::UndeclaredFunction(func_name.clone(), None));
+                        return Err(CompileError::UndeclaredFunction(
+                            func_name.clone(),
+                            compiler.get_current_span(),
+                        ));
                     }
                 } else {
                     return Err(CompileError::TypeError(
                         "Function pointer initializer must be a function name".to_string(),
-                        None,
+                        compiler.get_current_span(),
                     ));
                 }
             } else if let AstType::Bool = type_ {
@@ -487,17 +490,15 @@ pub fn compile_assignment<'ctx>(
     match statement {
         Statement::VariableAssignment { name, value, .. } => {
             // Get the variable info
-            let var_info = compiler
-                .variables
-                .get(name)
-                .cloned()
-                .ok_or_else(|| CompileError::UndeclaredVariable(name.clone(), None))?;
+            let var_info = compiler.variables.get(name).cloned().ok_or_else(|| {
+                CompileError::UndeclaredVariable(name.clone(), compiler.get_current_span())
+            })?;
 
             // Check if variable is mutable
             if !var_info.is_mutable {
                 return Err(CompileError::TypeError(
                     format!("Cannot assign to immutable variable '{}'", name),
-                    None,
+                    compiler.get_current_span(),
                 ));
             }
 
@@ -517,19 +518,111 @@ pub fn compile_assignment<'ctx>(
             Ok(())
         }
         Statement::PointerAssignment { pointer, value } => {
-            // Special case for array indexing on left side
             if let Expression::ArrayIndex { array, index } = pointer {
-                // Get the address of the array element
                 let element_ptr = compiler.compile_array_index_address(array, index)?;
                 let val = compiler.compile_expression(value)?;
                 compiler.builder.build_store(element_ptr, val)?;
                 Ok(())
-            } else {
-                // Compile pointer expression to get the pointer value
+            } else if let Expression::PointerDereference(ptr_expr) = pointer {
+                // ptr.val = value: store value at the address ptr points to
+                if let Expression::Identifier(name) = &**ptr_expr {
+                    if let Ok((alloca, ast_type)) = compiler.get_variable(name) {
+                        match &ast_type {
+                            crate::ast::AstType::Ptr(inner)
+                            | crate::ast::AstType::MutPtr(inner)
+                            | crate::ast::AstType::RawPtr(inner) => {
+                                let ptr_type =
+                                    compiler.context.ptr_type(inkwell::AddressSpace::default());
+                                let ptr_val = compiler.builder.build_load(
+                                    ptr_type,
+                                    alloca,
+                                    "load_ptr_for_store",
+                                )?;
+                                let val = compiler.compile_expression(value)?;
+                                let inner_llvm_type = compiler.to_llvm_type(inner)?;
+                                let expected_type = match inner_llvm_type {
+                                    super::super::Type::Basic(ty) => ty,
+                                    super::super::Type::Struct(st) => st.into(),
+                                    _ => {
+                                        compiler
+                                            .builder
+                                            .build_store(ptr_val.into_pointer_value(), val)?;
+                                        return Ok(());
+                                    }
+                                };
+                                compiler.coercing_store(
+                                    val,
+                                    ptr_val.into_pointer_value(),
+                                    expected_type,
+                                    &format!("pointer dereference of '{}'", name),
+                                )?;
+                                return Ok(());
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                let ptr_value = compiler.compile_expression(ptr_expr)?;
+                let val = compiler.compile_expression(value)?;
+                if let BasicValueEnum::PointerValue(ptr) = ptr_value {
+                    compiler.builder.build_store(ptr, val)?;
+                    Ok(())
+                } else {
+                    Err(CompileError::TypeError(
+                        "Pointer assignment requires a pointer value".to_string(),
+                        None,
+                    ))
+                }
+            } else if let Expression::MemberAccess { object, member } = pointer {
+                // ptr.val.field = value: store value at field within dereferenced struct
+                if let Expression::PointerDereference(ptr_expr) = &**object {
+                    let ptr_val = compiler.compile_expression(ptr_expr)?;
+                    if let BasicValueEnum::PointerValue(struct_ptr) = ptr_val {
+                        let ptr_type = compiler.infer_expression_type(ptr_expr)?;
+                        let struct_name = match &ptr_type {
+                            crate::ast::AstType::Ptr(inner)
+                            | crate::ast::AstType::MutPtr(inner)
+                            | crate::ast::AstType::RawPtr(inner) => match &**inner {
+                                crate::ast::AstType::Struct { name, .. } => Some(name.clone()),
+                                crate::ast::AstType::Generic { name, .. } => Some(name.clone()),
+                                _ => None,
+                            },
+                            _ => None,
+                        };
+
+                        if let Some(struct_name) = struct_name {
+                            if let Some(struct_info) = compiler.struct_types.get(&struct_name) {
+                                if let Some((field_idx, _field_type)) =
+                                    struct_info.fields.get(member)
+                                {
+                                    let field_ptr = compiler.builder.build_struct_gep(
+                                        struct_info.llvm_type,
+                                        struct_ptr,
+                                        *field_idx as u32,
+                                        &format!("{}_field_ptr", member),
+                                    )?;
+                                    let val = compiler.compile_expression(value)?;
+                                    compiler.builder.build_store(field_ptr, val)?;
+                                    return Ok(());
+                                }
+                            }
+                        }
+                    }
+                }
                 let ptr_value = compiler.compile_expression(pointer)?;
                 let val = compiler.compile_expression(value)?;
-
-                // ptr_value should be a PointerValue
+                if let BasicValueEnum::PointerValue(ptr) = ptr_value {
+                    compiler.builder.build_store(ptr, val)?;
+                    Ok(())
+                } else {
+                    Err(CompileError::TypeError(
+                        "Pointer assignment requires a pointer value".to_string(),
+                        None,
+                    ))
+                }
+            } else {
+                let ptr_value = compiler.compile_expression(pointer)?;
+                let val = compiler.compile_expression(value)?;
                 if let BasicValueEnum::PointerValue(ptr) = ptr_value {
                     compiler.builder.build_store(ptr, val)?;
                     Ok(())

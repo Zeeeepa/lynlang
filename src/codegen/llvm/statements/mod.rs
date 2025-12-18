@@ -10,28 +10,30 @@ use crate::error::CompileError;
 impl<'ctx> LLVMCompiler<'ctx> {
     pub fn compile_statement(&mut self, statement: &Statement) -> Result<(), CompileError> {
         match statement {
-            Statement::Expression { expr, .. } => {
+            Statement::Expression { expr, span } => {
+                self.set_span(span.clone());
                 expressions::compile_expression_statement(self, expr)
             }
-            Statement::Return { expr, .. } => control::compile_return(self, expr),
-            Statement::VariableDeclaration { .. } => {
+            Statement::Return { expr, span } => {
+                self.set_span(span.clone());
+                control::compile_return(self, expr)
+            }
+            Statement::VariableDeclaration { span, .. } => {
+                self.set_span(span.clone());
                 variables::compile_variable_declaration(self, statement)
             }
-            Statement::VariableAssignment { .. } => variables::compile_assignment(self, statement),
+            Statement::VariableAssignment { span, .. } => {
+                self.set_span(span.clone());
+                variables::compile_assignment(self, statement)
+            }
             Statement::PointerAssignment { .. } => variables::compile_assignment(self, statement),
             Statement::Loop { .. } => control::compile_loop(self, statement),
             Statement::Break { .. } => control::compile_break(self),
             Statement::Continue { .. } => control::compile_continue(self),
             Statement::Defer(_) => deferred::compile_defer(self, statement),
             Statement::ThisDefer(_) => deferred::compile_defer(self, statement),
-            Statement::ComptimeBlock(_) => {
-                // Comptime blocks are handled elsewhere
-                Ok(())
-            }
-            Statement::ModuleImport { .. } | Statement::DestructuringImport { .. } => {
-                // Module imports are handled at parse time
-                Ok(())
-            }
+            Statement::ComptimeBlock(_) => Ok(()),
+            Statement::ModuleImport { .. } | Statement::DestructuringImport { .. } => Ok(()),
         }
     }
 

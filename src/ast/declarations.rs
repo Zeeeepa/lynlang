@@ -3,6 +3,7 @@
 use super::expressions::Expression;
 use super::statements::Statement;
 use super::types::{AstType, EnumVariant, TypeParameter};
+use crate::error::Span;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {
@@ -82,6 +83,7 @@ pub struct TraitDefinition {
     pub name: String,
     pub type_params: Vec<TypeParameter>,
     pub methods: Vec<TraitMethod>,
+    pub span: Option<Span>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

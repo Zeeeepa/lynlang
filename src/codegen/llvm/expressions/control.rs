@@ -84,7 +84,10 @@ pub fn compile_break<'ctx>(
             .last()
             .map(|(_continue_target, break_target)| *break_target)
             .ok_or_else(|| {
-                CompileError::TypeError("break expression outside of loop".to_string(), None)
+                CompileError::TypeError(
+                    "break expression outside of loop".to_string(),
+                    compiler.get_current_span(),
+                )
             })?;
 
         // If break has a value, compile it
@@ -123,7 +126,10 @@ pub fn compile_continue<'ctx>(
             .last()
             .map(|(continue_target, _break_target)| *continue_target)
             .ok_or_else(|| {
-                CompileError::TypeError("continue expression outside of loop".to_string(), None)
+                CompileError::TypeError(
+                    "continue expression outside of loop".to_string(),
+                    compiler.get_current_span(),
+                )
             })?;
 
         // Branch to continue target

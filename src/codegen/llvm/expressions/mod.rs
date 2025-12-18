@@ -97,20 +97,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Expression::Comptime(_) => utils::compile_comptime_expression(self, expr),
             Expression::Raise(_) => utils::compile_raise_expression(self, expr),
 
-            // Pointers
-            Expression::AddressOf(_)
-            | Expression::Dereference(_)
-            | Expression::PointerOffset { .. }
-            | Expression::PointerDereference(_)
-            | Expression::PointerAddress(_)
-            | Expression::CreateReference(_)
-            | Expression::CreateMutableReference(_) => {
-                // Pointer operations - delegate to pointers.rs if it exists, otherwise handle here
-                Err(CompileError::InternalError(
-                    "Pointer operations not yet refactored".to_string(),
-                    None,
-                ))
+            // Pointers - delegate to pointers.rs
+            Expression::AddressOf(inner) => self.compile_address_of(inner),
+            Expression::Dereference(inner) => self.compile_dereference(inner),
+            Expression::PointerOffset { pointer, offset } => {
+                self.compile_pointer_offset(pointer, offset)
             }
+            Expression::PointerDereference(inner) => self.compile_dereference(inner),
+            Expression::PointerAddress(inner) => self.compile_pointer_to_int(inner),
+            Expression::CreateReference(inner) => self.compile_address_of(inner),
+            Expression::CreateMutableReference(inner) => self.compile_address_of(inner),
 
             _ => Err(CompileError::InternalError(
                 format!("Unhandled expression type: {:?}", expr),

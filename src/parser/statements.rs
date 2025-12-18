@@ -22,7 +22,67 @@ impl<'a> Parser<'a> {
             }
             // Parse top-level declarations
             else if let Token::Identifier(name) = &self.current_token {
-                if self.peek_token == Token::Operator(":=".to_string()) {
+                // Handle special identifiers "type" and "comptime" first
+                if name == "type" {
+                    declarations.push(Declaration::TypeAlias(self.parse_type_alias()?));
+                } else if name == "comptime" {
+                    self.next_token(); // consume 'comptime'
+                    if self.current_token != Token::Symbol('{') {
+                        return Err(CompileError::SyntaxError(
+                            "Expected '{' after comptime".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                    self.next_token(); // consume '{'
+
+                    let mut statements = vec![];
+                    while self.current_token != Token::Symbol('}')
+                        && self.current_token != Token::Eof
+                    {
+                        let stmt = self.parse_statement()?;
+
+                        if let Statement::VariableDeclaration {
+                            initializer, name, ..
+                        } = &stmt
+                        {
+                            if let Some(expr) = initializer {
+                                let is_import = match expr {
+                                    Expression::MemberAccess { object, .. } => {
+                                        if let Expression::Identifier(id) = &**object {
+                                            id.starts_with("@std") || id == "@std"
+                                        } else {
+                                            false
+                                        }
+                                    }
+                                    Expression::FunctionCall { name, .. } => {
+                                        name.contains("import") || name == "build.import"
+                                    }
+                                    Expression::Identifier(id) => id.starts_with("@std"),
+                                    _ => false,
+                                };
+
+                                if is_import {
+                                    return Err(CompileError::SyntaxError(
+                                        format!("Import '{}' not allowed inside comptime block. Imports must be at module level.", name),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                            }
+                        }
+
+                        statements.push(stmt);
+                    }
+
+                    if self.current_token != Token::Symbol('}') {
+                        return Err(CompileError::SyntaxError(
+                            "Expected '}' to close comptime block".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                    self.next_token(); // consume '}'
+
+                    declarations.push(Declaration::ComptimeBlock(statements));
+                } else if self.peek_token == Token::Operator(":=".to_string()) {
                     let var_name = name.clone();
                     let saved_current = self.current_token.clone();
                     let saved_peek = self.peek_token.clone();
@@ -682,78 +742,6 @@ impl<'a> Parser<'a> {
                         name, self.current_span.line, self.current_span.column);
                     self.next_token();
                     continue;
-                }
-            } else if let Token::Identifier(id) = &self.current_token {
-                if id == "type" {
-                    // Parse type alias: type Name = Type or type Name<T> = Type<T>
-                    declarations.push(Declaration::TypeAlias(self.parse_type_alias()?));
-                } else if id == "comptime" {
-                    // Parse comptime block
-                    self.next_token(); // consume 'comptime'
-                    if self.current_token != Token::Symbol('{') {
-                        return Err(CompileError::SyntaxError(
-                            "Expected '{' after comptime".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
-                    }
-                    self.next_token(); // consume '{'
-
-                    let mut statements = vec![];
-                    while self.current_token != Token::Symbol('}')
-                        && self.current_token != Token::Eof
-                    {
-                        let stmt = self.parse_statement()?;
-
-                        // Check if the parsed statement contains an import
-                        if let Statement::VariableDeclaration {
-                            initializer, name, ..
-                        } = &stmt
-                        {
-                            if let Some(expr) = initializer {
-                                // Check for @std patterns or build.import calls
-                                let is_import = match expr {
-                                    Expression::MemberAccess { object, .. } => {
-                                        if let Expression::Identifier(id) = &**object {
-                                            id.starts_with("@std") || id == "@std"
-                                        } else {
-                                            false
-                                        }
-                                    }
-                                    Expression::FunctionCall { name, .. } => {
-                                        name.contains("import") || name == "build.import"
-                                    }
-                                    Expression::Identifier(id) => id.starts_with("@std"),
-                                    _ => false,
-                                };
-
-                                // Reject imports inside comptime blocks
-                                if is_import {
-                                    return Err(CompileError::SyntaxError(
-                                        format!("Import '{}' not allowed inside comptime block. Imports must be at module level.", name),
-                                        Some(self.current_span.clone()),
-                                    ));
-                                }
-                            }
-                        }
-
-                        statements.push(stmt);
-                    }
-
-                    if self.current_token != Token::Symbol('}') {
-                        return Err(CompileError::SyntaxError(
-                            "Expected '}' to close comptime block".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
-                    }
-                    self.next_token(); // consume '}'
-
-                    // Add comptime block to declarations
-                    declarations.push(Declaration::ComptimeBlock(statements));
-                } else {
-                    return Err(CompileError::SyntaxError(
-                        format!("Unexpected identifier at top level: {:?}", id),
-                        Some(self.current_span.clone()),
-                    ));
                 }
             } else {
                 return Err(CompileError::SyntaxError(

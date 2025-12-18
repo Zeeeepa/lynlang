@@ -1,6 +1,5 @@
 use super::{symbols, LLVMCompiler, StructTypeInfo};
 use crate::ast::{self, AstType};
-use inkwell::types::BasicType;
 use std::collections::HashMap;
 
 impl<'ctx> LLVMCompiler<'ctx> {

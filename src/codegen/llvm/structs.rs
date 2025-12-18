@@ -22,7 +22,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         let (llvm_type, fields_with_info) = {
             let struct_info = self.struct_types.get(name).ok_or_else(|| {
-                CompileError::TypeError(format!("Undefined struct type: {}", name), None)
+                CompileError::TypeError(
+                    format!("Undefined struct type: {}", name),
+                    self.get_current_span(),
+                )
             })?;
             let mut fields_with_info = Vec::new();
             for (field_name, field_expr) in fields {
@@ -30,7 +33,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     struct_info.fields.get(field_name).ok_or_else(|| {
                         CompileError::TypeError(
                             format!("No field '{}' in struct '{}'", field_name, name),
-                            None,
+                            self.get_current_span(),
                         )
                     })?;
                 fields_with_info.push((
@@ -78,7 +81,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
             .build_load(llvm_type, alloca, &format!("{}_val", name))
         {
             Ok(val) => Ok(val),
-            Err(e) => Err(CompileError::InternalError(e.to_string(), None)),
+            Err(e) => Err(CompileError::InternalError(
+                e.to_string(),
+                self.get_current_span(),
+            )),
         }
     }
 
@@ -162,7 +168,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
             } else {
                 // Variable not found in either storage
-                return Err(CompileError::UndeclaredVariable(name.to_string(), None));
+                return Err(CompileError::UndeclaredVariable(
+                    name.to_string(),
+                    self.get_current_span(),
+                ));
             };
 
             // Check if this is a stdlib module reference (GPA.init())
@@ -469,7 +478,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                     }
                 } else {
-                    return Err(CompileError::UndeclaredVariable(name.clone(), None));
+                    return Err(CompileError::UndeclaredVariable(
+                        name.clone(),
+                        self.get_current_span(),
+                    ));
                 }
             } else {
                 // For other object types, fall back to compiling and extracting
@@ -496,12 +508,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 }
                             }
                         } else {
-                            return Err(CompileError::UndeclaredVariable(name.clone(), None));
+                            return Err(CompileError::UndeclaredVariable(
+                                name.clone(),
+                                self.get_current_span(),
+                            ));
                         }
                     } else {
                         return Err(CompileError::TypeError(
                             format!("Cannot infer struct type for nested access"),
-                            None,
+                            self.get_current_span(),
                         ));
                     };
 
@@ -740,7 +755,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Get struct type info (clone to avoid borrow checker issues)
         let (llvm_type, field_index, field_type) = {
             let struct_info = self.struct_types.get(&struct_name).ok_or_else(|| {
-                CompileError::TypeError(format!("Struct type '{}' not found", struct_name), None)
+                CompileError::TypeError(
+                    format!("Struct type '{}' not found", struct_name),
+                    self.get_current_span(),
+                )
             })?;
 
             // Find field index and type
@@ -1051,7 +1069,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
     ) -> Result<(), CompileError> {
         // Get the struct type info using the struct name
         let struct_type_info = self.struct_types.get(struct_name).ok_or_else(|| {
-            CompileError::TypeError(format!("Struct '{}' not found", struct_name), None)
+            CompileError::TypeError(
+                format!("Struct '{}' not found", struct_name),
+                self.get_current_span(),
+            )
         })?;
 
         let struct_type = struct_type_info.llvm_type;

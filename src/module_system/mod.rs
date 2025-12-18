@@ -113,51 +113,7 @@ impl ModuleSystem {
                 return Ok(&self.modules[module_path]);
             }
 
-            // Try to resolve to stdlib file
-            let stdlib_path = self.cwd.join("stdlib");
-            if stdlib_path.exists() {
-                // Build file path: stdlib/core/option.zen or stdlib/io/io.zen
-                let mut file_path = stdlib_path.clone();
-                for part in &path_parts {
-                    file_path = file_path.join(part);
-                }
-                file_path.set_extension("zen");
-
-                // Also try directory/module_name.zen pattern (e.g., stdlib/io/io.zen)
-                let alt_path = if path_parts.len() == 1 {
-                    stdlib_path
-                        .join(path_parts[0])
-                        .join(format!("{}.zen", path_parts[0]))
-                } else {
-                    file_path.clone()
-                };
-
-                // Determine which file to load
-                let file_to_load = if alt_path.exists() {
-                    alt_path
-                } else if file_path.exists() {
-                    file_path
-                } else {
-                    // File not found - check if it's a built-in compiler module
-                    if path_parts.len() == 1 && path_parts[0] == "compiler" {
-                        // Built-in compiler module
-                        let empty_program = Program {
-                            declarations: Vec::new(),
-                            statements: Vec::new(),
-                        };
-                        self.modules.insert(module_path.to_string(), empty_program);
-                        return Ok(&self.modules[module_path]);
-                    }
-                    // File not found - fallback to empty program
-                    let empty_program = Program {
-                        declarations: Vec::new(),
-                        statements: Vec::new(),
-                    };
-                    self.modules.insert(module_path.to_string(), empty_program);
-                    return Ok(&self.modules[module_path]);
-                };
-
-                // Load and parse the file
+            if let Some(file_to_load) = self.find_stdlib_file(&path_parts) {
                 let source = std::fs::read_to_string(&file_to_load).map_err(|e| {
                     CompileError::FileNotFound(
                         file_to_load.display().to_string(),
@@ -174,14 +130,12 @@ impl ModuleSystem {
                     )
                 })?;
 
-                // Process imports in the loaded module
                 for decl in &program.declarations {
                     if let Declaration::ModuleImport {
                         alias: _,
                         module_path: import_path,
                     } = decl
                     {
-                        // Recursively load imported modules
                         self.load_module(import_path)?;
                     }
                 }
@@ -190,8 +144,6 @@ impl ModuleSystem {
                 return Ok(&self.modules[module_path]);
             }
 
-            // Fallback: Create an empty program for built-in modules
-            // The actual functionality is provided by the compiler's stdlib module
             let empty_program = Program {
                 declarations: Vec::new(),
                 statements: Vec::new(),
@@ -286,6 +238,34 @@ impl ModuleSystem {
         }
 
         merged
+    }
+
+    fn find_stdlib_file(&self, path_parts: &[&str]) -> Option<PathBuf> {
+        for search_path in &self.search_paths {
+            let path_str = search_path.to_string_lossy();
+            if !path_str.ends_with("stdlib") && !path_str.contains("stdlib") {
+                continue;
+            }
+
+            let mut file_path = search_path.clone();
+            for part in path_parts {
+                file_path = file_path.join(part);
+            }
+            file_path.set_extension("zen");
+            if file_path.exists() {
+                return Some(file_path);
+            }
+
+            if path_parts.len() == 1 {
+                let alt_path = search_path
+                    .join(path_parts[0])
+                    .join(format!("{}.zen", path_parts[0]));
+                if alt_path.exists() {
+                    return Some(alt_path);
+                }
+            }
+        }
+        None
     }
 }
 

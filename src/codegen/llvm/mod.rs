@@ -2,7 +2,7 @@
 
 use crate::ast::{self, AstType};
 use crate::comptime;
-use crate::error::CompileError;
+use crate::error::{CompileError, Span};
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
@@ -88,9 +88,66 @@ pub struct LLVMCompiler<'ctx> {
     pub generic_type_context: HashMap<String, AstType>, // Track instantiated generic types (legacy, kept for compatibility)
     pub generic_tracker: generics::GenericTypeTracker,  // New improved generic type tracking
     pub module_imports: HashMap<String, u64>, // Track module imports (name -> marker value)
+    pub current_span: Option<Span>,           // Current source location for error reporting
 }
 
 impl<'ctx> LLVMCompiler<'ctx> {
+    // ============================================================================
+    // SPAN TRACKING HELPERS
+    // These methods help propagate source location information to error messages
+    // ============================================================================
+
+    /// Set the current span for error reporting
+    pub fn set_span(&mut self, span: Option<Span>) {
+        self.current_span = span;
+    }
+
+    /// Get the current span for error reporting
+    pub fn get_current_span(&self) -> Option<Span> {
+        self.current_span.clone()
+    }
+
+    /// Create an error with the current span context
+    pub fn error_with_span(&self, error: CompileError) -> CompileError {
+        if self.current_span.is_some() {
+            self.add_span_to_error(error)
+        } else {
+            error
+        }
+    }
+
+    /// Add the current span to an error if it doesn't already have one
+    fn add_span_to_error(&self, error: CompileError) -> CompileError {
+        match error {
+            CompileError::UndeclaredVariable(name, None) => {
+                CompileError::UndeclaredVariable(name, self.current_span.clone())
+            }
+            CompileError::UndeclaredFunction(name, None) => {
+                CompileError::UndeclaredFunction(name, self.current_span.clone())
+            }
+            CompileError::TypeMismatch {
+                expected,
+                found,
+                span: None,
+            } => CompileError::TypeMismatch {
+                expected,
+                found,
+                span: self.current_span.clone(),
+            },
+            CompileError::InternalError(msg, None) => {
+                CompileError::InternalError(msg, self.current_span.clone())
+            }
+            CompileError::UnsupportedFeature(msg, None) => {
+                CompileError::UnsupportedFeature(msg, self.current_span.clone())
+            }
+            CompileError::SyntaxError(msg, None) => {
+                CompileError::SyntaxError(msg, self.current_span.clone())
+            }
+            // If error already has a span, keep it
+            other => other,
+        }
+    }
+
     /// Helper to track generic types in both old and new systems
     pub fn track_generic_type(&mut self, key: String, type_: AstType) {
         self.generic_type_context.insert(key.clone(), type_.clone());
@@ -160,6 +217,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             generic_type_context: HashMap::new(),
             generic_tracker: generics::GenericTypeTracker::new(),
             module_imports: HashMap::new(),
+            current_span: None,
         };
 
         // Declare standard library functions
@@ -178,7 +236,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 symbols::Symbol::Type(ty) => Some(*ty),
                 _ => None,
             })
-            .ok_or_else(|| CompileError::UndeclaredVariable(name.to_string(), None))
+            .ok_or_else(|| {
+                CompileError::UndeclaredVariable(name.to_string(), self.current_span.clone())
+            })
     }
 
     // ============================================================================
@@ -322,7 +382,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
     ) -> Result<(), CompileError> {
         let symbol = symbols::Symbol::Variable(ptr);
         if self.symbols.exists_in_current_scope(name) {
-            return Err(CompileError::UndeclaredVariable(name.to_string(), None));
+            return Err(CompileError::UndeclaredVariable(
+                name.to_string(),
+                self.current_span.clone(),
+            ));
         }
         self.symbols.insert(name, symbol);
         Ok(())
@@ -363,7 +426,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
             return Ok((ptr, ty));
         }
 
-        Err(CompileError::UndeclaredVariable(name.to_string(), None))
+        Err(CompileError::UndeclaredVariable(
+            name.to_string(),
+            self.current_span.clone(),
+        ))
     }
 
     pub fn compile_program(&mut self, program: &ast::Program) -> Result<(), CompileError> {

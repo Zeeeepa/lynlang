@@ -154,19 +154,11 @@ impl BehaviorResolver {
     /// Register a trait definition (using same storage as behaviors)
     #[allow(dead_code)]
     pub fn register_trait(&mut self, trait_def: &TraitDefinition) -> Result<()> {
-        if self.behaviors.contains_key(&trait_def.name) {
-            return Err(CompileError::TypeError(
-                format!("Trait '{}' already defined", trait_def.name),
-                None,
-            ));
-        }
-
-        let methods = trait_def
+        let methods: Vec<BehaviorMethodInfo> = trait_def
             .methods
             .iter()
             .map(|m| {
                 let has_self = m.params.first().map(|p| p.name == "self").unwrap_or(false);
-
                 BehaviorMethodInfo {
                     name: m.name.clone(),
                     param_types: m.params.iter().map(|p| p.type_.clone()).collect(),
@@ -175,6 +167,25 @@ impl BehaviorResolver {
                 }
             })
             .collect();
+
+        if let Some(existing) = self.behaviors.get(&trait_def.name) {
+            let methods_match = existing.methods.len() == methods.len()
+                && existing
+                    .methods
+                    .iter()
+                    .zip(methods.iter())
+                    .all(|(a, b)| a.name == b.name);
+            if methods_match {
+                return Ok(());
+            }
+            return Err(CompileError::TypeError(
+                format!(
+                    "Trait '{}' already defined with different signature",
+                    trait_def.name
+                ),
+                trait_def.span.clone(),
+            ));
+        }
 
         let info = BehaviorInfo {
             name: trait_def.name.clone(),

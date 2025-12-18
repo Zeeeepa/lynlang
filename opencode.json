@@ -2,8 +2,9 @@
   "$schema": "https://opencode.ai/config.json",
   "lsp": {
     "zen": {
-      "command": ["./target/release/zen-lsp"],
-      "extensions": [".zen"]
+      "command": ["/home/ubuntu/zenlang/target/release/zen-lsp"],
+      "extensions": [".zen"],
+      "root_markers": ["Cargo.toml", "build.zen"]
     }
   }
 }

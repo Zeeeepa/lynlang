@@ -114,7 +114,7 @@ pub fn infer_vec_method_type(method: &str, element_type: &AstType) -> Option<Ast
             name: "Option".to_string(),
             type_args: vec![element_type.clone()],
         }),
-        "len" | "capacity" => Some(AstType::I64),
+        "len" | "capacity" => Some(AstType::Usize),
         "push" | "set" | "clear" => Some(AstType::Void),
         _ => None,
     }

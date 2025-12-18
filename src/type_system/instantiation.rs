@@ -1,5 +1,6 @@
 use super::{TypeEnvironment, TypeSubstitution};
 use crate::ast::{AstType, EnumDefinition, Expression, Function, Statement, StructDefinition};
+use crate::error::CompileError;
 
 #[allow(dead_code)]
 pub struct TypeInstantiator<'a> {
@@ -17,7 +18,7 @@ impl<'a> TypeInstantiator<'a> {
         &mut self,
         func: &Function,
         type_args: Vec<AstType>,
-    ) -> Result<Function, String> {
+    ) -> Result<Function, CompileError> {
         self.env.validate_type_args(&func.type_params, &type_args)?;
 
         let mut substitution = TypeSubstitution::new();
@@ -53,7 +54,7 @@ impl<'a> TypeInstantiator<'a> {
         &mut self,
         struct_def: &StructDefinition,
         type_args: Vec<AstType>,
-    ) -> Result<StructDefinition, String> {
+    ) -> Result<StructDefinition, CompileError> {
         self.env
             .validate_type_args(&struct_def.type_params, &type_args)?;
 
@@ -94,7 +95,7 @@ impl<'a> TypeInstantiator<'a> {
         &mut self,
         enum_def: &EnumDefinition,
         type_args: Vec<AstType>,
-    ) -> Result<EnumDefinition, String> {
+    ) -> Result<EnumDefinition, CompileError> {
         self.env
             .validate_type_args(&enum_def.type_params, &type_args)?;
 
@@ -133,7 +134,7 @@ impl<'a> TypeInstantiator<'a> {
         &mut self,
         method: &Function,
         substitution: &TypeSubstitution,
-    ) -> Result<Function, String> {
+    ) -> Result<Function, CompileError> {
         let instantiated_args: Vec<(String, AstType)> = method
             .args
             .iter()
@@ -158,7 +159,7 @@ impl<'a> TypeInstantiator<'a> {
         &mut self,
         statements: &[Statement],
         substitution: &TypeSubstitution,
-    ) -> Result<Vec<Statement>, String> {
+    ) -> Result<Vec<Statement>, CompileError> {
         statements
             .iter()
             .map(|stmt| self.instantiate_statement(stmt, substitution))
@@ -169,7 +170,7 @@ impl<'a> TypeInstantiator<'a> {
         &mut self,
         statement: &Statement,
         substitution: &TypeSubstitution,
-    ) -> Result<Statement, String> {
+    ) -> Result<Statement, CompileError> {
         match statement {
             Statement::VariableDeclaration {
                 name,
