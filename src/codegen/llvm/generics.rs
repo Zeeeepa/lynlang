@@ -1,4 +1,5 @@
 use crate::ast::AstType;
+use crate::stdlib_types::StdlibTypeRegistry;
 use crate::well_known::well_known;
 use std::collections::HashMap;
 
@@ -91,22 +92,19 @@ impl GenericTypeTracker {
 
                     // Recursively track nested generics
                     self.track_generic_type(&type_args[0], &format!("{}_Element", prefix));
-                } else if well_known().is_vec(name) && type_args.len() == 1 {
+                } else if name == "Vec" && type_args.len() == 1 {
                     self.insert(format!("{}_Element_Type", prefix), type_args[0].clone());
 
-                    // Recursively track nested generics
                     self.track_generic_type(&type_args[0], &format!("{}_Element", prefix));
-                } else if well_known().is_hash_map(name) && type_args.len() == 2 {
+                } else if name == "HashMap" && type_args.len() == 2 {
                     self.insert(format!("{}_Key_Type", prefix), type_args[0].clone());
                     self.insert(format!("{}_Value_Type", prefix), type_args[1].clone());
 
-                    // Recursively track nested generics
                     self.track_generic_type(&type_args[0], &format!("{}_Key", prefix));
                     self.track_generic_type(&type_args[1], &format!("{}_Value", prefix));
-                } else if well_known().is_hash_set(name) && type_args.len() == 1 {
+                } else if name == "HashSet" && type_args.len() == 1 {
                     self.insert(format!("{}_Element_Type", prefix), type_args[0].clone());
 
-                    // Recursively track nested generics
                     self.track_generic_type(&type_args[0], &format!("{}_Element", prefix));
                 } else {
                     // For other generic types, track type arguments by index
@@ -183,7 +181,7 @@ impl GenericTypeTracker {
             AstType::F32 => "f32".to_string(),
             AstType::F64 => "f64".to_string(),
             AstType::Bool => "bool".to_string(),
-            AstType::Struct { name, .. } if name == "String" => "string".to_string(),
+            AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => "string".to_string(),
             AstType::Void => "void".to_string(),
             AstType::Generic { name, type_args } => {
                 let mut s = name.clone();

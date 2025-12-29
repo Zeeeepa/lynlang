@@ -138,18 +138,18 @@ cargo test vec_ --all
 
 ## File Organization
 
-**Design Documents** (moved to `design/`):
+**Design Documents** (in `docs/design/`):
+- `ARCHITECTURE.md` - LLVM primitives vs Zen features
 - `SAFE_POINTERS_DESIGN.md` - Ptr<T> vs Ref<T> rationale
 - `SAFE_TYPE_SYSTEM_DESIGN.md` - Type system architecture
-- `STDLIB_ARCHITECTURE_REVIEW.md` - Stdlib design overview
-- `STDLIB_IMPLEMENTATION_ROADMAP.md` - Phased implementation plan
-- `STDLIB_WORK_BREAKDOWN.md` - Detailed code breakdown
+- `STDLIB_DESIGN.md` - Stdlib design overview
+- `SEPARATION_OF_CONCERNS.md` - Compiler primitives vs Zen-defined types
+- `NEXT_STEPS.md` - This file
 
-**Root Documentation**:
-- `README.md` - Project overview
+**User Documentation** (in `docs/`):
+- `README.md` - Documentation index
 - `INTRINSICS_REFERENCE.md` - Compiler intrinsics reference
-- `STDLIB_IMPLEMENTATION.md` - Standard library guide
-- `NEXT_STEPS.md` - This file (consolidated view)
+- `QUICK_START.md` - Getting started guide
 
 ---
 

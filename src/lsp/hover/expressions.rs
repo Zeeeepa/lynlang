@@ -93,15 +93,15 @@ pub fn analyze_expression_hover(
 
                 if is_hovering_on_object {
                     // Recursively analyze the object
+                    let effective_symbol = symbol_name
+                        .find('.')
+                        .map(|pos| &symbol_name[..pos])
+                        .unwrap_or(symbol_name);
                     return analyze_expression_hover(
                         object,
                         &expr_str[..last_dot_pos],
                         relative_pos,
-                        if symbol_name.contains('.') {
-                            &symbol_name[..symbol_name.find('.').unwrap()]
-                        } else {
-                            symbol_name
-                        },
+                        effective_symbol,
                         local_symbols,
                         store,
                     );

@@ -43,8 +43,8 @@ impl<'a> Parser<'a> {
     /// Check if the current position looks like an import statement
     #[allow(dead_code)]
     pub fn is_import_statement(&self) -> bool {
-        // Check for @std imports
-        if self.current_token == Token::AtStd {
+        // Check for @std or @builtin imports
+        if self.current_token == Token::AtStd || self.current_token == Token::AtBuiltin {
             return true;
         }
 

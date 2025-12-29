@@ -1,0 +1,183 @@
+// Compiler Intrinsics Module
+// This is THE ONLY file that should call raw @builtin intrinsics
+// All other stdlib modules should import from here
+//
+// Architecture:
+//   @builtin.*          - Raw Rust/LLVM intrinsics (only used in this file)
+//   @std.compiler.*     - This module (safe wrappers for other stdlib)
+//   { compiler } = @std - User-facing import
+
+// =============================================================================
+// MEMORY ALLOCATION
+// =============================================================================
+
+// Allocate raw memory (wraps malloc)
+raw_allocate = (size: usize) RawPtr<u8> {
+    return @builtin.raw_allocate(size)
+}
+
+// Deallocate raw memory (wraps free)
+raw_deallocate = (ptr: RawPtr<u8>, size: usize) void {
+    @builtin.raw_deallocate(ptr, size)
+}
+
+// Reallocate raw memory (wraps realloc)
+raw_reallocate = (ptr: RawPtr<u8>, old_size: usize, new_size: usize) RawPtr<u8> {
+    return @builtin.raw_reallocate(ptr, old_size, new_size)
+}
+
+// =============================================================================
+// POINTER OPERATIONS
+// =============================================================================
+
+// Get null pointer
+null_ptr = () RawPtr<u8> {
+    return @builtin.null_ptr()
+}
+
+// Pointer arithmetic - offset by bytes
+gep = (base: RawPtr<u8>, offset: i64) RawPtr<u8> {
+    return @builtin.gep(base, offset)
+}
+
+// Struct field access by index (uses 8-byte alignment approximation)
+gep_struct = (ptr: RawPtr<u8>, field_index: i32) RawPtr<u8> {
+    return @builtin.gep_struct(ptr, field_index)
+}
+
+// Pointer type cast (zero-cost, affects type only)
+raw_ptr_cast = (ptr: RawPtr<u8>) RawPtr<u8> {
+    return @builtin.raw_ptr_cast(ptr)
+}
+
+// =============================================================================
+// POINTER <-> INTEGER CONVERSION
+// =============================================================================
+
+// Convert pointer to integer address
+ptr_to_int = (ptr: RawPtr<u8>) i64 {
+    return @builtin.ptr_to_int(ptr)
+}
+
+// Convert integer address to pointer
+int_to_ptr = (addr: i64) RawPtr<u8> {
+    return @builtin.int_to_ptr(addr)
+}
+
+// =============================================================================
+// MEMORY ACCESS (GENERIC)
+// =============================================================================
+
+// Load value from pointer (type T inferred or defaults to i32)
+load<T> = (ptr: RawPtr<u8>) T {
+    return @builtin.load<T>(ptr)
+}
+
+// Store value to pointer (type T inferred from value)
+store<T> = (ptr: RawPtr<u8>, value: T) void {
+    @builtin.store<T>(ptr, value)
+}
+
+// =============================================================================
+// ENUM INTROSPECTION
+// =============================================================================
+
+// Get enum discriminant (variant tag)
+// Enums are laid out as: [i32 discriminant][padding][payload]
+discriminant = (enum_ptr: RawPtr<u8>) i32 {
+    return @builtin.discriminant(enum_ptr)
+}
+
+// Set enum discriminant
+set_discriminant = (enum_ptr: RawPtr<u8>, tag: i32) void {
+    @builtin.set_discriminant(enum_ptr, tag)
+}
+
+// Get pointer to enum payload (offset 4 bytes from start)
+get_payload = (enum_ptr: RawPtr<u8>) RawPtr<u8> {
+    return @builtin.get_payload(enum_ptr)
+}
+
+// =============================================================================
+// MEMORY OPERATIONS (BULK)
+// =============================================================================
+
+// Fill memory with a byte value
+memset = (dest: RawPtr<u8>, value: u8, size: usize) void {
+    @builtin.memset(dest, value, size)
+}
+
+// Copy memory from src to dest (non-overlapping)
+memcpy = (dest: RawPtr<u8>, src: RawPtr<u8>, size: usize) void {
+    @builtin.memcpy(dest, src, size)
+}
+
+// Copy memory (handles overlapping regions)
+memmove = (dest: RawPtr<u8>, src: RawPtr<u8>, size: usize) void {
+    @builtin.memmove(dest, src, size)
+}
+
+// Compare memory regions (returns 0 if equal, <0 if a<b, >0 if a>b)
+memcmp = (ptr1: RawPtr<u8>, ptr2: RawPtr<u8>, size: usize) i32 {
+    return @builtin.memcmp(ptr1, ptr2, size)
+}
+
+// =============================================================================
+// TYPE INTROSPECTION
+// =============================================================================
+
+// Get size of type T in bytes
+sizeof<T> = () usize {
+    return @builtin.sizeof<T>()
+}
+
+// =============================================================================
+// BITWISE OPERATIONS
+// =============================================================================
+
+// Byte swap for 16-bit integers (endianness conversion)
+bswap16 = (value: u16) u16 {
+    return @builtin.bswap16(value)
+}
+
+// Byte swap for 32-bit integers (endianness conversion)
+bswap32 = (value: u32) u32 {
+    return @builtin.bswap32(value)
+}
+
+// Byte swap for 64-bit integers (endianness conversion)
+bswap64 = (value: u64) u64 {
+    return @builtin.bswap64(value)
+}
+
+// Count leading zeros
+ctlz = (value: u64) u64 {
+    return @builtin.ctlz(value)
+}
+
+// Count trailing zeros
+cttz = (value: u64) u64 {
+    return @builtin.cttz(value)
+}
+
+// Population count (number of 1 bits)
+ctpop = (value: u64) u64 {
+    return @builtin.ctpop(value)
+}
+
+// =============================================================================
+// HELPER FUNCTIONS (built on top of intrinsics)
+// =============================================================================
+
+// Check if pointer is null
+is_null = (ptr: RawPtr<u8>) bool {
+    addr = ptr_to_int(ptr)
+    return addr == 0
+}
+
+// Allocate and zero memory
+allocate_zeroed = (size: usize) RawPtr<u8> {
+    ptr = raw_allocate(size)
+    memset(ptr, 0, size)
+    return ptr
+}

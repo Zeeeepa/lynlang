@@ -128,20 +128,7 @@ fn check_allocator_in_expression(
                             "{} requires an allocator for memory management. Add get_default_allocator() as the last parameter.",
                             base_name
                         ),
-                        related_information: Some(vec![DiagnosticRelatedInformation {
-                            location: Location {
-                                uri: Url::parse("file:///").unwrap(),
-                                range: Range {
-                                    start: position,
-                                    end: position,
-                                },
-                            },
-                            message: format!(
-                                "Quick fix: {}({}, get_default_allocator())",
-                                name,
-                                if args.is_empty() { "" } else { "..., " }
-                            ),
-                        }]),
+                        related_information: None,
                         tags: None,
                         data: None,
                     });

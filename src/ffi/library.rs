@@ -15,6 +15,7 @@ use super::types::{
     CallingConvention, FnSignature, FunctionSafety, LoadFlags, TypeMapping, TypeMarshaller,
 };
 use crate::ast::AstType;
+use crate::stdlib_types::StdlibTypeRegistry;
 
 /// Represents a loaded dynamic library
 pub struct Library {
@@ -162,7 +163,7 @@ impl Library {
                     .or_else(|_| self.get_function("get_version"))
                 {
                     match &version_fn_sig.returns {
-                        AstType::Struct { name, .. } if name == "String" => {}
+                        AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => {}
                         t if t.is_ptr_type() => {
                             eprintln!("Version check enabled for: {}", required_version);
                         }

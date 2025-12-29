@@ -156,31 +156,22 @@ pub fn parse_call_expression_with_object(
     // These should be treated as qualified function names, not method calls
     let is_module_call = match &object {
         Expression::Identifier(obj_name) => {
-            // Common module names from @std
-            obj_name == "io"
-                || obj_name == "math"
-                || obj_name == "core"
-                || obj_name == "compiler"
-                || obj_name == "net"
-                || obj_name == "os"
-                || obj_name == "fs"
-                || obj_name == "json"
-                || obj_name == "http"
-                || obj_name == "time"
+            matches!(obj_name.as_str(),
+                "io" | "math" | "core" | "compiler" | "net" | "os" | "fs" |
+                "json" | "http" | "time" | "gpa" | "memory" | "allocator" |
+                "collections" | "testing" | "random" | "string" | "vec" | "error"
+            )
         }
-        // Handle @std.module.function syntax
+        // Handle @std.module.function and @builtin.function syntax
         Expression::MemberAccess {
             object: base,
             member: _,
         } => {
-            // Check if this is @std.module accessing a function
-            if let Expression::StdReference = base.as_ref() {
-                // This is @std.module, so it's a module call
-                true
-            } else {
-                false
-            }
+            // Check if this is @std.module or @builtin accessing a function
+            matches!(base.as_ref(), Expression::StdReference | Expression::BuiltinReference)
         }
+        // Direct @builtin.function call
+        Expression::BuiltinReference => true,
         _ => false,
     };
 
@@ -333,22 +324,38 @@ pub fn parse_call_expression_with_object(
     // UFCS implementation: Transform object.method(args) into method(object, args)
     // First, check if this is a stdlib method call (module function)
     let mut expr = if is_module_call {
-        // This is a stdlib call like io.print or @std.io.println
+        // This is a stdlib call like io.print or @std.io.println or @builtin.raw_allocate
         let module_name = match &object {
             Expression::Identifier(name) => name.clone(),
             Expression::MemberAccess {
                 object: base,
                 member,
             } => {
-                // Handle @std.module syntax
-                if let Expression::StdReference = base.as_ref() {
-                    member.clone()
-                } else {
-                    return Err(CompileError::SyntaxError(
-                        "Expected module identifier for method call".to_string(),
-                        Some(parser.current_span.clone()),
-                    ));
+                // Handle @std.module or @builtin syntax
+                match base.as_ref() {
+                    Expression::StdReference => member.clone(),
+                    Expression::BuiltinReference => {
+                        // For @builtin.function, use "builtin" as module name
+                        // The full path becomes builtin.function_name
+                        return Ok(Expression::FunctionCall {
+                            name: format!("builtin.{}", method_name),
+                            args: arguments,
+                        });
+                    }
+                    _ => {
+                        return Err(CompileError::SyntaxError(
+                            "Expected module identifier for method call".to_string(),
+                            Some(parser.current_span.clone()),
+                        ));
+                    }
                 }
+            }
+            // Direct @builtin.function call
+            Expression::BuiltinReference => {
+                return Ok(Expression::FunctionCall {
+                    name: format!("builtin.{}", method_name),
+                    args: arguments,
+                });
             }
             _ => {
                 return Err(CompileError::SyntaxError(

@@ -1,5 +1,5 @@
 use super::super::LLVMCompiler;
-use crate::ast::Expression;
+use crate::ast::{Expression, Statement};
 use crate::error::CompileError;
 use inkwell::values::BasicValueEnum;
 
@@ -9,10 +9,8 @@ pub fn compile_pattern_match<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     match expr {
         Expression::QuestionMatch { scrutinee, arms } => {
-            // Compile the scrutinee expression
             let scrutinee_val = compiler.compile_expression(scrutinee)?;
 
-            // Get the current function and create blocks for pattern matching
             let current_fn = compiler.current_function.ok_or_else(|| {
                 CompileError::InternalError(
                     "Pattern matching outside function".to_string(),
@@ -20,18 +18,16 @@ pub fn compile_pattern_match<'ctx>(
                 )
             })?;
 
-            // Create a merge block
             let merge_block = compiler
                 .context
                 .append_basic_block(current_fn, "pattern_merge");
+            let default_block = compiler
+                .context
+                .append_basic_block(current_fn, "pattern_default");
 
-            // Test patterns and branch to appropriate arms
             let current_block = compiler.builder.get_insert_block().unwrap();
-
-            // Infer the scrutinee type to help with pointer pattern matching
             let scrutinee_type = compiler.infer_expression_type(scrutinee).ok();
 
-            // Ensure we have at least one arm
             if arms.is_empty() {
                 return Err(CompileError::InternalError(
                     "Pattern match must have at least one arm".to_string(),
@@ -39,7 +35,6 @@ pub fn compile_pattern_match<'ctx>(
                 ));
             }
 
-            // Create blocks for each arm's test and body
             let mut test_blocks = Vec::new();
             let mut body_blocks = Vec::new();
 
@@ -54,74 +49,116 @@ pub fn compile_pattern_match<'ctx>(
                 body_blocks.push(body_block);
             }
 
-            // Branch from entry to first test block
             compiler.builder.position_at_end(current_block);
             compiler
                 .builder
                 .build_unconditional_branch(test_blocks[0])?;
 
+            let mut incoming_values: Vec<(BasicValueEnum<'ctx>, inkwell::basic_block::BasicBlock<'ctx>)> = Vec::new();
+            let mut first_arm_value: Option<BasicValueEnum<'ctx>> = None;
+
             for (i, arm) in arms.iter().enumerate() {
-                // Position at the test block for this arm
                 compiler.builder.position_at_end(test_blocks[i]);
 
-                // Test the pattern - pass scrutinee type for pointer pattern matching
                 let (matches, bindings) = compiler.compile_pattern_test_with_type(
                     &scrutinee_val,
                     &arm.pattern,
                     scrutinee_type.as_ref(),
                 )?;
 
-                // Determine next block: either next test block or merge block
                 let next_test_block = if i < arms.len() - 1 {
                     test_blocks[i + 1]
                 } else {
-                    merge_block
+                    default_block
                 };
 
-                // Branch based on pattern match: if match, go to body; else, go to next test/merge
                 compiler.builder.build_conditional_branch(
                     matches,
                     body_blocks[i],
                     next_test_block,
                 )?;
 
-                // Compile the arm body
                 compiler.builder.position_at_end(body_blocks[i]);
-
-                // Apply pattern bindings
                 compiler.apply_pattern_bindings(&bindings);
 
-                // Compile the body expression - handle Block expressions specially
-                match &arm.body {
+                let arm_value = match &arm.body {
                     Expression::Block(stmts) => {
-                        // Compile statements in the block
-                        for stmt in stmts {
-                            compiler.compile_statement(stmt)?;
+                        if stmts.is_empty() {
+                            compiler.context.i32_type().const_int(0, false).into()
+                        } else {
+                            for stmt in &stmts[..stmts.len() - 1] {
+                                compiler.compile_statement(stmt)?;
+                            }
+                            let last = &stmts[stmts.len() - 1];
+                            if let Statement::Expression { expr, .. } = last {
+                                compiler.compile_expression(expr)?
+                            } else {
+                                compiler.compile_statement(last)?;
+                                compiler.context.i32_type().const_int(0, false).into()
+                            }
                         }
                     }
                     _ => {
-                        compiler.compile_expression(&arm.body)?;
+                        compiler.compile_expression(&arm.body)?
                     }
+                };
+
+                if first_arm_value.is_none() {
+                    first_arm_value = Some(arm_value);
                 }
 
-                // Branch to merge block only if the block isn't already terminated
-                // (e.g., by a return statement)
-                let current_block = compiler.builder.get_insert_block().unwrap();
-                if current_block.get_terminator().is_none() {
+                let arm_end_block = compiler.builder.get_insert_block().unwrap();
+                if arm_end_block.get_terminator().is_none() {
+                    incoming_values.push((arm_value, arm_end_block));
                     compiler.builder.build_unconditional_branch(merge_block)?;
                 }
             }
 
-            // Position builder at merge block
+            compiler.builder.position_at_end(default_block);
+            let default_value: BasicValueEnum = if let Some(first_val) = first_arm_value {
+                if first_val.is_int_value() {
+                    first_val.into_int_value().get_type().const_zero().into()
+                } else if first_val.is_float_value() {
+                    first_val.into_float_value().get_type().const_zero().into()
+                } else if first_val.is_pointer_value() {
+                    first_val.into_pointer_value().get_type().const_null().into()
+                } else {
+                    compiler.context.i32_type().const_int(0, false).into()
+                }
+            } else {
+                compiler.context.i32_type().const_int(0, false).into()
+            };
+            incoming_values.push((default_value, default_block));
+            compiler.builder.build_unconditional_branch(merge_block)?;
+
             compiler.builder.position_at_end(merge_block);
 
-            // For now, return a dummy value - proper phi node merging would require
-            // tracking values from each arm. This is a TODO for proper expression typing.
-            // Return i32 zero for void-like expressions (QuestionMatch shouldn't be used for values)
-            Ok(compiler.context.i32_type().const_int(0, false).into())
+            if incoming_values.is_empty() {
+                Ok(compiler.context.i32_type().const_int(0, false).into())
+            } else if incoming_values.len() == 1 {
+                Ok(incoming_values[0].0)
+            } else {
+                let first_val = incoming_values[0].0;
+                let phi = if first_val.is_int_value() {
+                    compiler.builder.build_phi(first_val.into_int_value().get_type(), "match_result")?
+                } else if first_val.is_float_value() {
+                    compiler.builder.build_phi(first_val.into_float_value().get_type(), "match_result")?
+                } else if first_val.is_pointer_value() {
+                    compiler.builder.build_phi(first_val.into_pointer_value().get_type(), "match_result")?
+                } else if first_val.is_struct_value() {
+                    compiler.builder.build_phi(first_val.into_struct_value().get_type(), "match_result")?
+                } else {
+                    return Ok(compiler.context.i32_type().const_int(0, false).into());
+                };
+
+                for (val, block) in &incoming_values {
+                    phi.add_incoming(&[(val, *block)]);
+                }
+
+                Ok(phi.as_basic_value())
+            }
         }
         Expression::Conditional { scrutinee, arms } => {
-            // Similar to QuestionMatch but simpler - just boolean check
             let scrutinee_val = compiler.compile_expression(scrutinee)?;
 
             let current_fn = compiler.current_function.ok_or_else(|| {
@@ -137,59 +174,110 @@ pub fn compile_pattern_match<'ctx>(
                 .context
                 .append_basic_block(current_fn, "cond_merge");
 
-            // Branch based on scrutinee
             compiler.builder.build_conditional_branch(
                 scrutinee_val.into_int_value(),
                 then_block,
                 else_block,
             )?;
 
-            // Compile then branch
+            let mut incoming_values: Vec<(BasicValueEnum<'ctx>, inkwell::basic_block::BasicBlock<'ctx>)> = Vec::new();
+
             compiler.builder.position_at_end(then_block);
-            if let Some(then_arm) = arms.first() {
+            let then_value = if let Some(then_arm) = arms.first() {
                 match &then_arm.body {
                     Expression::Block(stmts) => {
-                        for stmt in stmts {
-                            compiler.compile_statement(stmt)?;
+                        if stmts.is_empty() {
+                            compiler.context.i32_type().const_int(0, false).into()
+                        } else {
+                            for stmt in &stmts[..stmts.len() - 1] {
+                                compiler.compile_statement(stmt)?;
+                            }
+                            let last = &stmts[stmts.len() - 1];
+                            if let Statement::Expression { expr, .. } = last {
+                                compiler.compile_expression(expr)?
+                            } else {
+                                compiler.compile_statement(last)?;
+                                compiler.context.i32_type().const_int(0, false).into()
+                            }
                         }
                     }
                     _ => {
-                        compiler.compile_expression(&then_arm.body)?;
+                        compiler.compile_expression(&then_arm.body)?
                     }
                 }
-            }
-            // Branch to merge only if block isn't already terminated (e.g., by return)
-            let then_current_block = compiler.builder.get_insert_block().unwrap();
-            if then_current_block.get_terminator().is_none() {
+            } else {
+                compiler.context.i32_type().const_int(0, false).into()
+            };
+
+            let then_end_block = compiler.builder.get_insert_block().unwrap();
+            if then_end_block.get_terminator().is_none() {
+                incoming_values.push((then_value, then_end_block));
                 compiler.builder.build_unconditional_branch(merge_block)?;
             }
 
-            // Compile else branch
             compiler.builder.position_at_end(else_block);
-            if arms.len() > 1 {
+            let else_value = if arms.len() > 1 {
                 if let Some(else_arm) = arms.get(1) {
                     match &else_arm.body {
                         Expression::Block(stmts) => {
-                            for stmt in stmts {
-                                compiler.compile_statement(stmt)?;
+                            if stmts.is_empty() {
+                                compiler.context.i32_type().const_int(0, false).into()
+                            } else {
+                                for stmt in &stmts[..stmts.len() - 1] {
+                                    compiler.compile_statement(stmt)?;
+                                }
+                                let last = &stmts[stmts.len() - 1];
+                                if let Statement::Expression { expr, .. } = last {
+                                    compiler.compile_expression(expr)?
+                                } else {
+                                    compiler.compile_statement(last)?;
+                                    compiler.context.i32_type().const_int(0, false).into()
+                                }
                             }
                         }
                         _ => {
-                            compiler.compile_expression(&else_arm.body)?;
+                            compiler.compile_expression(&else_arm.body)?
                         }
                     }
+                } else {
+                    compiler.context.i32_type().const_int(0, false).into()
                 }
-            }
-            // Branch to merge only if block isn't already terminated (e.g., by return)
-            let else_current_block = compiler.builder.get_insert_block().unwrap();
-            if else_current_block.get_terminator().is_none() {
+            } else {
+                compiler.context.i32_type().const_int(0, false).into()
+            };
+
+            let else_end_block = compiler.builder.get_insert_block().unwrap();
+            if else_end_block.get_terminator().is_none() {
+                incoming_values.push((else_value, else_end_block));
                 compiler.builder.build_unconditional_branch(merge_block)?;
             }
 
-            // Position at merge
             compiler.builder.position_at_end(merge_block);
-            // Void expressions don't produce a value, so we return a dummy i32
-            Ok(compiler.context.i32_type().const_int(0, false).into())
+
+            if incoming_values.is_empty() {
+                Ok(compiler.context.i32_type().const_int(0, false).into())
+            } else if incoming_values.len() == 1 {
+                Ok(incoming_values[0].0)
+            } else {
+                let first_val = incoming_values[0].0;
+                let phi = if first_val.is_int_value() {
+                    compiler.builder.build_phi(first_val.into_int_value().get_type(), "cond_result")?
+                } else if first_val.is_float_value() {
+                    compiler.builder.build_phi(first_val.into_float_value().get_type(), "cond_result")?
+                } else if first_val.is_pointer_value() {
+                    compiler.builder.build_phi(first_val.into_pointer_value().get_type(), "cond_result")?
+                } else if first_val.is_struct_value() {
+                    compiler.builder.build_phi(first_val.into_struct_value().get_type(), "cond_result")?
+                } else {
+                    return Ok(compiler.context.i32_type().const_int(0, false).into());
+                };
+
+                for (val, block) in &incoming_values {
+                    phi.add_incoming(&[(val, *block)]);
+                }
+
+                Ok(phi.as_basic_value())
+            }
         }
         _ => Err(CompileError::InternalError(
             format!("Expected QuestionMatch or Conditional, got {:?}", expr),

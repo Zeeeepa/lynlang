@@ -364,7 +364,6 @@ impl CompilerModule {
             },
         );
 
-        // GEP for struct field access
         functions.insert(
             "gep_struct".to_string(),
             StdFunction {
@@ -377,6 +376,351 @@ impl CompilerModule {
                     ("field_index".to_string(), AstType::I32),
                 ],
                 return_type: AstType::raw_ptr(AstType::U8),
+                is_builtin: true,
+            },
+        );
+
+        // Memory operations
+        functions.insert(
+            "memcpy".to_string(),
+            StdFunction {
+                name: "memcpy".to_string(),
+                params: vec![
+                    ("dest".to_string(), AstType::raw_ptr(AstType::U8)),
+                    ("src".to_string(), AstType::raw_ptr(AstType::U8)),
+                    ("size".to_string(), AstType::Usize),
+                ],
+                return_type: AstType::Void,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "memmove".to_string(),
+            StdFunction {
+                name: "memmove".to_string(),
+                params: vec![
+                    ("dest".to_string(), AstType::raw_ptr(AstType::U8)),
+                    ("src".to_string(), AstType::raw_ptr(AstType::U8)),
+                    ("size".to_string(), AstType::Usize),
+                ],
+                return_type: AstType::Void,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "memset".to_string(),
+            StdFunction {
+                name: "memset".to_string(),
+                params: vec![
+                    ("dest".to_string(), AstType::raw_ptr(AstType::U8)),
+                    ("value".to_string(), AstType::U8),
+                    ("size".to_string(), AstType::Usize),
+                ],
+                return_type: AstType::Void,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "memcmp".to_string(),
+            StdFunction {
+                name: "memcmp".to_string(),
+                params: vec![
+                    ("ptr1".to_string(), AstType::raw_ptr(AstType::U8)),
+                    ("ptr2".to_string(), AstType::raw_ptr(AstType::U8)),
+                    ("size".to_string(), AstType::Usize),
+                ],
+                return_type: AstType::I32,
+                is_builtin: true,
+            },
+        );
+
+        // Bitwise operations
+        functions.insert(
+            "bswap16".to_string(),
+            StdFunction {
+                name: "bswap16".to_string(),
+                params: vec![("value".to_string(), AstType::U16)],
+                return_type: AstType::U16,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "bswap32".to_string(),
+            StdFunction {
+                name: "bswap32".to_string(),
+                params: vec![("value".to_string(), AstType::U32)],
+                return_type: AstType::U32,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "bswap64".to_string(),
+            StdFunction {
+                name: "bswap64".to_string(),
+                params: vec![("value".to_string(), AstType::U64)],
+                return_type: AstType::U64,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "ctlz".to_string(),
+            StdFunction {
+                name: "ctlz".to_string(),
+                params: vec![("value".to_string(), AstType::U64)],
+                return_type: AstType::U64,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "cttz".to_string(),
+            StdFunction {
+                name: "cttz".to_string(),
+                params: vec![("value".to_string(), AstType::U64)],
+                return_type: AstType::U64,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "ctpop".to_string(),
+            StdFunction {
+                name: "ctpop".to_string(),
+                params: vec![("value".to_string(), AstType::U64)],
+                return_type: AstType::U64,
+                is_builtin: true,
+            },
+        );
+
+        // Atomic operations
+        functions.insert(
+            "atomic_load".to_string(),
+            StdFunction {
+                name: "atomic_load".to_string(),
+                params: vec![("ptr".to_string(), AstType::raw_ptr(AstType::U64))],
+                return_type: AstType::U64,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "atomic_store".to_string(),
+            StdFunction {
+                name: "atomic_store".to_string(),
+                params: vec![
+                    ("ptr".to_string(), AstType::raw_ptr(AstType::U64)),
+                    ("value".to_string(), AstType::U64),
+                ],
+                return_type: AstType::Void,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "atomic_add".to_string(),
+            StdFunction {
+                name: "atomic_add".to_string(),
+                params: vec![
+                    ("ptr".to_string(), AstType::raw_ptr(AstType::U64)),
+                    ("value".to_string(), AstType::U64),
+                ],
+                return_type: AstType::U64,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "atomic_sub".to_string(),
+            StdFunction {
+                name: "atomic_sub".to_string(),
+                params: vec![
+                    ("ptr".to_string(), AstType::raw_ptr(AstType::U64)),
+                    ("value".to_string(), AstType::U64),
+                ],
+                return_type: AstType::U64,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "atomic_cas".to_string(),
+            StdFunction {
+                name: "atomic_cas".to_string(),
+                params: vec![
+                    ("ptr".to_string(), AstType::raw_ptr(AstType::U64)),
+                    ("expected".to_string(), AstType::U64),
+                    ("new_value".to_string(), AstType::U64),
+                ],
+                return_type: AstType::Bool,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "atomic_xchg".to_string(),
+            StdFunction {
+                name: "atomic_xchg".to_string(),
+                params: vec![
+                    ("ptr".to_string(), AstType::raw_ptr(AstType::U64)),
+                    ("value".to_string(), AstType::U64),
+                ],
+                return_type: AstType::U64,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "fence".to_string(),
+            StdFunction {
+                name: "fence".to_string(),
+                params: vec![],
+                return_type: AstType::Void,
+                is_builtin: true,
+            },
+        );
+
+        // Overflow-checked arithmetic
+        functions.insert(
+            "add_overflow".to_string(),
+            StdFunction {
+                name: "add_overflow".to_string(),
+                params: vec![
+                    ("a".to_string(), AstType::I64),
+                    ("b".to_string(), AstType::I64),
+                ],
+                return_type: AstType::Struct {
+                    name: "OverflowResult".to_string(),
+                    fields: vec![
+                        ("result".to_string(), AstType::I64),
+                        ("overflow".to_string(), AstType::Bool),
+                    ],
+                },
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "sub_overflow".to_string(),
+            StdFunction {
+                name: "sub_overflow".to_string(),
+                params: vec![
+                    ("a".to_string(), AstType::I64),
+                    ("b".to_string(), AstType::I64),
+                ],
+                return_type: AstType::Struct {
+                    name: "OverflowResult".to_string(),
+                    fields: vec![
+                        ("result".to_string(), AstType::I64),
+                        ("overflow".to_string(), AstType::Bool),
+                    ],
+                },
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "mul_overflow".to_string(),
+            StdFunction {
+                name: "mul_overflow".to_string(),
+                params: vec![
+                    ("a".to_string(), AstType::I64),
+                    ("b".to_string(), AstType::I64),
+                ],
+                return_type: AstType::Struct {
+                    name: "OverflowResult".to_string(),
+                    fields: vec![
+                        ("result".to_string(), AstType::I64),
+                        ("overflow".to_string(), AstType::Bool),
+                    ],
+                },
+                is_builtin: true,
+            },
+        );
+
+        // Type conversion intrinsics
+        functions.insert(
+            "trunc_f64_i64".to_string(),
+            StdFunction {
+                name: "trunc_f64_i64".to_string(),
+                params: vec![("value".to_string(), AstType::F64)],
+                return_type: AstType::I64,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "trunc_f32_i32".to_string(),
+            StdFunction {
+                name: "trunc_f32_i32".to_string(),
+                params: vec![("value".to_string(), AstType::F32)],
+                return_type: AstType::I32,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "sitofp_i64_f64".to_string(),
+            StdFunction {
+                name: "sitofp_i64_f64".to_string(),
+                params: vec![("value".to_string(), AstType::I64)],
+                return_type: AstType::F64,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "uitofp_u64_f64".to_string(),
+            StdFunction {
+                name: "uitofp_u64_f64".to_string(),
+                params: vec![("value".to_string(), AstType::U64)],
+                return_type: AstType::F64,
+                is_builtin: true,
+            },
+        );
+
+        // Debug/introspection
+        functions.insert(
+            "alignof".to_string(),
+            StdFunction {
+                name: "alignof".to_string(),
+                params: vec![],
+                return_type: AstType::Usize,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "unreachable".to_string(),
+            StdFunction {
+                name: "unreachable".to_string(),
+                params: vec![],
+                return_type: AstType::Void,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "trap".to_string(),
+            StdFunction {
+                name: "trap".to_string(),
+                params: vec![],
+                return_type: AstType::Void,
+                is_builtin: true,
+            },
+        );
+
+        functions.insert(
+            "debugtrap".to_string(),
+            StdFunction {
+                name: "debugtrap".to_string(),
+                params: vec![],
+                return_type: AstType::Void,
                 is_builtin: true,
             },
         );

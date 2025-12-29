@@ -121,11 +121,11 @@ pub fn handle_references(
 
         // Find the symbol at the cursor position
         if let Some(symbol_name) = find_symbol_at_position(&doc.content, position) {
-            eprintln!("[LSP] Find references for symbol: '{}'", symbol_name);
+            log::debug!("[LSP] Find references for symbol: '{}'", symbol_name);
 
             // Determine the scope of the symbol
             let symbol_scope = determine_symbol_scope(&doc, &symbol_name, position);
-            eprintln!("[LSP] Symbol scope: {:?}", symbol_scope);
+            log::debug!("[LSP] Symbol scope: {:?}", symbol_scope);
 
             match symbol_scope {
                 SymbolScope::Local { ref function_name } => {
@@ -169,7 +169,7 @@ pub fn handle_references(
                 }
             }
 
-            eprintln!("[LSP] Found {} reference(s)", locations.len());
+            log::debug!("[LSP] Found {} reference(s)", locations.len());
         }
     }
 

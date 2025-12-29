@@ -82,7 +82,11 @@ pub fn compile_function_call<'ctx>(
                     "panic" => return compiler.compile_core_panic(args),
                     _ => {}
                 }
-            } else if module == "compiler" {
+            } else if module == "compiler" || module == "builtin" || module == "@builtin" {
+                // Both @std.compiler and @builtin route to the same intrinsics
+                // @builtin is the raw intrinsic accessor (used only in compiler.zen)
+                // @std.compiler will eventually route through compiler.zen
+                // Handle "@builtin" with @ prefix from parsing
                 let base_func = if let Some(angle_pos) = func.find('<') {
                     &func[..angle_pos]
                 } else {
@@ -131,6 +135,26 @@ pub fn compile_function_call<'ctx>(
                     }
                     "ptr_to_int" => return stdlib_codegen::compile_ptr_to_int(compiler, args),
                     "int_to_ptr" => return stdlib_codegen::compile_int_to_ptr(compiler, args),
+                    "sizeof" => {
+                        // Parse type argument from function name if present (e.g., sizeof<i32>)
+                        let type_arg = if let Some(angle_pos) = func.find('<') {
+                            let type_str = &func[angle_pos + 1..func.len() - 1];
+                            crate::parser::parse_type_from_string(type_str).ok()
+                        } else {
+                            None
+                        };
+                        return stdlib_codegen::compile_sizeof(compiler, type_arg.as_ref());
+                    }
+                    "memset" => return stdlib_codegen::compile_memset(compiler, args),
+                    "memcpy" => return stdlib_codegen::compile_memcpy(compiler, args),
+                    "memmove" => return stdlib_codegen::compile_memmove(compiler, args),
+                    "memcmp" => return stdlib_codegen::compile_memcmp(compiler, args),
+                    "bswap16" => return stdlib_codegen::compile_bswap16(compiler, args),
+                    "bswap32" => return stdlib_codegen::compile_bswap32(compiler, args),
+                    "bswap64" => return stdlib_codegen::compile_bswap64(compiler, args),
+                    "ctlz" => return stdlib_codegen::compile_ctlz(compiler, args),
+                    "cttz" => return stdlib_codegen::compile_cttz(compiler, args),
+                    "ctpop" => return stdlib_codegen::compile_ctpop(compiler, args),
                     _ => {}
                 }
             } else if compiler.well_known.is_result(module) {
@@ -456,10 +480,38 @@ pub fn compile_function_call<'ctx>(
             }
         };
 
-        // Compile arguments
+        // Compile arguments with type casting for function pointer calls
         let mut compiled_args = Vec::with_capacity(args.len());
-        for arg in args {
-            let val = compiler.compile_expression(arg)?;
+        let param_types = function_type.get_param_types();
+
+        for (i, arg) in args.iter().enumerate() {
+            let mut val = compiler.compile_expression(arg)?;
+
+            // Cast integer arguments to match expected parameter type if needed
+            if i < param_types.len() {
+                let expected_type = param_types[i];
+                if val.is_int_value() && expected_type.is_int_type() {
+                    let int_val = val.into_int_value();
+                    let expected_int_type = expected_type.into_int_type();
+                    if int_val.get_type().get_bit_width() != expected_int_type.get_bit_width() {
+                        // Need to cast
+                        if int_val.get_type().get_bit_width() < expected_int_type.get_bit_width() {
+                            // Sign extend
+                            val = compiler
+                                .builder
+                                .build_int_s_extend(int_val, expected_int_type, "extend")?
+                                .into();
+                        } else {
+                            // Truncate
+                            val = compiler
+                                .builder
+                                .build_int_truncate(int_val, expected_int_type, "trunc")?
+                                .into();
+                        }
+                    }
+                }
+            }
+
             compiled_args.push(val);
         }
         let args_metadata: Vec<inkwell::values::BasicMetadataValueEnum> = compiled_args

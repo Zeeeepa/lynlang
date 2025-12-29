@@ -4,6 +4,7 @@
 use super::super::{symbols, LLVMCompiler};
 use crate::ast::Pattern;
 use crate::error::CompileError;
+use crate::stdlib_types::StdlibTypeRegistry;
 use inkwell::values::{BasicValueEnum, IntValue};
 use inkwell::IntPredicate;
 
@@ -301,7 +302,7 @@ fn load_payload_by_type<'ctx>(
             .builder
             .build_load(compiler.context.f64_type(), ptr_val, "payload_f64")
             .unwrap_or(fallback)),
-        AstType::Struct { name, .. } if name == "String" => Ok(fallback),
+        AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => Ok(fallback),
         AstType::StaticString | AstType::StaticLiteral => Ok(fallback),
         _ => try_load_integer(compiler, ptr_val, fallback),
     }

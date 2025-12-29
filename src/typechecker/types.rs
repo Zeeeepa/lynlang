@@ -1,4 +1,5 @@
 use crate::ast::AstType;
+use crate::stdlib_types::StdlibTypeRegistry;
 
 /// Helper functions for working with types
 impl AstType {
@@ -80,7 +81,7 @@ impl AstType {
             }
             AstType::F32 | AstType::F64 => "0.0".to_string(),
             AstType::Bool => "false".to_string(),
-            AstType::Struct { name, .. } if name == "String" => "\"\"".to_string(),
+            AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => "\"\"".to_string(),
             t if t.is_ptr_type() => "null".to_string(),
             _ => "null".to_string(),
         }

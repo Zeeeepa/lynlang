@@ -188,7 +188,7 @@ impl TypeChecker {
 
     pub fn check_program(&mut self, program: &Program) -> Result<()> {
         // First pass: collect all type definitions and function signatures
-        for declaration in &program.declarations {
+        for declaration in program.declarations.iter() {
             self.collect_declaration_types(declaration)?;
         }
 
@@ -204,7 +204,6 @@ impl TypeChecker {
             let struct_names: Vec<String> = self.structs.keys().cloned().collect();
             for struct_name in struct_names {
                 let resolved_fields: Vec<(String, AstType)> = {
-                    // Get the current fields (immutable borrow)
                     let struct_info = self.structs.get(&struct_name).unwrap();
                     struct_info
                         .fields
@@ -218,7 +217,6 @@ impl TypeChecker {
                         })
                         .collect()
                 };
-                // Now update the struct info (mutable borrow)
                 if let Some(struct_info) = self.structs.get_mut(&struct_name) {
                     struct_info.fields = resolved_fields;
                 }
@@ -229,17 +227,13 @@ impl TypeChecker {
         for declaration in &program.declarations {
             if let Declaration::Function(func) = declaration {
                 if func.return_type == AstType::Void && !func.body.is_empty() {
-                    // Try to infer the actual return type from the body
                     match self.infer_function_return_type(func) {
                         Ok(inferred_type) => {
-                            // Update the function signature with the inferred return type
                             if let Some(sig) = self.functions.get_mut(&func.name) {
                                 sig.return_type = inferred_type;
                             }
                         }
-                        Err(_) => {
-                            // Keep it as Void if inference fails
-                        }
+                        Err(_) => {}
                     }
                 }
             }
@@ -358,6 +352,13 @@ impl TypeChecker {
                 // Return a type representing @std
                 Ok(AstType::Generic {
                     name: "Std".to_string(),
+                    type_args: vec![],
+                })
+            }
+            Expression::BuiltinReference => {
+                // Return a type representing @builtin (raw compiler intrinsics)
+                Ok(AstType::Generic {
+                    name: "Builtin".to_string(),
                     type_args: vec![],
                 })
             }

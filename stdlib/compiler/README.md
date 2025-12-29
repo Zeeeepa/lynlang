@@ -2,18 +2,71 @@
 
 The `@std.compiler` module provides **minimal low-level primitives** that are the foundation for building all higher-level features in Zen.
 
-## Architecture Philosophy
+## Architecture
 
-**Compiler Level**: Only exposes minimal primitives
-- Memory operations
-- Pointer operations  
-- Function calling
-- Library loading
+```
+┌─────────────────────────────────────────────────────┐
+│  Layer 1: Rust/LLVM Intrinsics                     │
+│                                                     │
+│  src/stdlib_metadata/compiler.rs                   │
+│  └── Type signatures (57 defined)                 │
+│                                                     │
+│  src/codegen/llvm/stdlib_codegen/compiler.rs       │
+│  └── LLVM IR generation (13 implemented)          │
+│                                                     │
+│  Accessed via: @builtin.*                          │
+└─────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────┐
+│  Layer 2: stdlib/compiler/compiler.zen             │
+│  (THE ONLY file that uses @builtin.*)              │
+│                                                     │
+│  Wraps raw intrinsics with Zen types              │
+│  Provides safe abstractions                        │
+│                                                     │
+│  Accessed via: { compiler } = @std                 │
+└─────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────┐
+│  Layer 3: Other Stdlib Modules                     │
+│                                                     │
+│  stdlib/memory/gpa.zen                              │
+│  stdlib/core/ptr.zen                                │
+│  stdlib/vec.zen                                     │
+│                                                     │
+│  Import: { compiler } = @std                       │
+│  Use: compiler.raw_allocate(size)                  │
+└─────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────┐
+│  Layer 4: User Code                                 │
+│                                                     │
+│  { gpa } = @std.memory                              │
+│  { Vec } = @std                                    │
+│  // Uses safe abstractions, NOT raw intrinsics    │
+└─────────────────────────────────────────────────────┘
+```
 
-**Zen Level**: Builds everything else
-- Allocators (GPA, AsyncPool)
-- FFI libraries
-- Collections
+## Key Symbols
+
+| Symbol | Meaning | Used By |
+|--------|---------|---------|
+| `@builtin.*` | Raw Rust/LLVM intrinsics | ONLY compiler.zen |
+| `@std.compiler` | This module (compiler.zen) | Other stdlib modules |
+| `@std.*` | Standard library modules | User code |
+
+## Philosophy
+
+**Compiler Level (Rust)**: Only exposes minimal primitives
+- Memory operations (malloc/free/realloc wrappers)
+- Pointer arithmetic (LLVM GEP)
+- Enum introspection (discriminant/payload)
+- Type introspection (sizeof - incomplete)
+
+**Zen Level (stdlib/)**: Builds everything else
+- Allocators (GPA wraps raw_allocate)
+- Safe pointers (Ptr<T> wraps RawPtr)
+- Collections (Vec, String use allocators)
 - All standard library features
 
 ## Available Primitives
@@ -106,21 +159,39 @@ load_library = (path: string) Result<LibraryHandle, FFIError> {
 
 ## Implementation Status
 
-✅ **Implemented**:
-- `raw_allocate`, `raw_deallocate`, `raw_reallocate`
-- `raw_ptr_offset`, `raw_ptr_cast`
-- `null_ptr`
-- `inline_c` (placeholder - returns void for now)
+**13 of 57 intrinsics have working LLVM codegen.**
 
-⏳ **Placeholder** (returns errors):
-- `load_library`
-- `get_symbol`
-- `unload_library`
-- `call_external`
+✅ **Fully Implemented (13)**:
+- Memory: `raw_allocate`, `raw_deallocate`, `raw_reallocate`
+- Pointers: `gep`, `gep_struct`, `raw_ptr_offset`, `raw_ptr_cast`, `null_ptr`
+- Conversion: `ptr_to_int`, `int_to_ptr`
+- Memory Access: `load<T>`, `store<T>`
+- Enum: `discriminant`, `set_discriminant`, `get_payload`
+
+❌ **Stubs (return void or errors)**:
+- FFI: `inline_c`, `load_library`, `get_symbol`, `unload_library`, `call_external`
+
+❌ **Defined but No Codegen (36)**:
+- Memory: `memcpy`, `memmove`, `memset`, `memcmp`
+- Atomic: `atomic_load`, `atomic_store`, `atomic_add`, `atomic_sub`, `atomic_cas`, `atomic_xchg`, `fence`
+- Bitwise: `bswap16`, `bswap32`, `bswap64`, `ctlz`, `cttz`, `ctpop`
+- Overflow: `add_overflow`, `sub_overflow`, `mul_overflow`
+- Type: `sizeof` (hardcoded 8), `alignof`
+- Debug: `unreachable`, `trap`, `debugtrap`
+
+## Source Files
+
+| File | Purpose |
+|------|---------|
+| `src/stdlib_metadata/compiler.rs` | Type signatures (57 intrinsics) |
+| `src/codegen/llvm/stdlib_codegen/compiler.rs` | LLVM codegen (13 working) |
+| `src/codegen/llvm/functions/calls.rs` | Intrinsic dispatcher |
+| `docs/INTRINSICS_REFERENCE.md` | Full documentation |
 
 ## See Also
 
-- `examples/compiler_intrinsics.zen` - Example usage
-- `stdlib/memory/gpa.zen` - GPA allocator built from primitives
-- `stdlib/ffi/ffi.zen` - FFI library built from primitives
+- `docs/INTRINSICS_REFERENCE.md` - Complete reference with examples
+- `stdlib/memory/gpa.zen` - GPA allocator uses raw_allocate/deallocate
+- `stdlib/core/ptr.zen` - Ptr<T> uses pointer intrinsics
+- `stdlib/ffi/ffi.zen` - FFI wrappers (stubs)
 

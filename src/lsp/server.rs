@@ -47,7 +47,7 @@ fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
     let end_line = range.end.line as usize;
     let end_char = range.end.character as usize;
 
-    eprintln!("[LSP DEBUG] apply_text_edit called: range=({}:{} -> {}:{}), new_text='{}' (len={}), content_len={}",
+    log::debug!("[LSP] apply_text_edit called: range=({}:{} -> {}:{}), new_text='{}' (len={}), content_len={}",
               start_line, start_char, end_line, end_char,
               new_text.chars().take(30).collect::<String>(),
               new_text.len(), content.len());
@@ -85,11 +85,11 @@ fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
     let start_byte = position_to_byte_offset(content, start_line, start_char);
     let end_byte = position_to_byte_offset(content, end_line, end_char);
 
-    eprintln!(
+    log::debug!(
         "[LSP DEBUG] Converted positions: start_byte={}, end_byte={}",
         start_byte, end_byte
     );
-    eprintln!(
+    log::debug!(
         "[LSP DEBUG] Will replace: '{}'",
         &content[start_byte..end_byte.min(content.len())]
             .chars()
@@ -103,7 +103,7 @@ fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
     let (start_byte, end_byte) = if start_byte <= end_byte {
         (start_byte, end_byte)
     } else {
-        eprintln!(
+        log::debug!(
             "[LSP WARN] Start byte > end byte, swapping: {} > {}",
             start_byte, end_byte
         );
@@ -117,7 +117,7 @@ fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
     result.push_str(new_text);
     result.push_str(&content[end_byte..]);
 
-    eprintln!(
+    log::debug!(
         "[LSP DEBUG] Result length: {} (was {})",
         result.len(),
         content.len()
@@ -570,6 +570,7 @@ impl ZenLanguageServer {
             "textDocument/signatureHelp" => self.handle_signature_help(req),
             "textDocument/inlayHint" => self.handle_inlay_hints(req),
             "textDocument/codeLens" => self.handle_code_lens(req),
+            "textDocument/foldingRange" => self.handle_folding_range(req),
             "workspace/symbol" => self.handle_workspace_symbol(req),
             "textDocument/prepareCallHierarchy" => self.handle_prepare_call_hierarchy(req),
             "callHierarchy/incomingCalls" => self.handle_incoming_calls(req),
@@ -620,14 +621,14 @@ impl ZenLanguageServer {
                         for change in &params.content_changes {
                             current_content = if let Some(range) = &change.range {
                                 // Incremental change: apply the edit to the current document content
-                                eprintln!("[LSP DEBUG] Applying incremental change: range=({}:{} -> {}:{}), text='{}'",
+                                log::debug!("[LSP] Applying incremental change: range=({}:{} -> {}:{}), text='{}'",
                                          range.start.line, range.start.character,
                                          range.end.line, range.end.character,
                                          change.text.chars().take(20).collect::<String>());
                                 apply_text_edit(&current_content, range, &change.text)
                             } else {
                                 // Full document replacement (no range field)
-                                eprintln!("[LSP DEBUG] Applying full document replacement");
+                                log::debug!("[LSP] Applying full document replacement");
                                 change.text.clone()
                             };
                         }
@@ -640,7 +641,7 @@ impl ZenLanguageServer {
                         )
                     }
                     Err(e) => {
-                        eprintln!("[LSP] Error locking store for didChange: {:?}", e);
+                        log::debug!("[LSP] Error locking store for didChange: {:?}", e);
                         Vec::new()
                     }
                 };
@@ -648,12 +649,12 @@ impl ZenLanguageServer {
                 if let Err(e) =
                     self.publish_diagnostics(params.text_document.uri.clone(), diagnostics)
                 {
-                    eprintln!("[LSP] Error publishing diagnostics: {:?}", e);
+                    log::debug!("[LSP] Error publishing diagnostics: {:?}", e);
                 }
 
                 // Notify client to refresh semantic tokens when document changes
                 if let Err(e) = self.request_semantic_tokens_refresh() {
-                    eprintln!("[LSP] Error requesting semantic tokens refresh: {:?}", e);
+                    log::debug!("[LSP] Error requesting semantic tokens refresh: {:?}", e);
                 }
             }
             "initialized" => {
@@ -753,6 +754,75 @@ impl ZenLanguageServer {
 
     fn handle_code_lens(&self, req: Request) -> Response {
         handle_code_lens(req, &self.store)
+    }
+
+    fn handle_folding_range(&self, req: Request) -> Response {
+        let params: FoldingRangeParams = match serde_json::from_value(req.params) {
+            Ok(p) => p,
+            Err(_) => {
+                return Response {
+                    id: req.id,
+                    result: Some(Value::Null),
+                    error: None,
+                };
+            }
+        };
+
+        let store = match self.store.lock() {
+            Ok(s) => s,
+            Err(_) => {
+                return Response {
+                    id: req.id,
+                    result: Some(serde_json::to_value(Vec::<FoldingRange>::new()).unwrap_or(Value::Null)),
+                    error: None,
+                };
+            }
+        };
+
+        let mut ranges = Vec::new();
+
+        if let Some(doc) = store.documents.get(&params.text_document.uri) {
+            let lines: Vec<&str> = doc.content.lines().collect();
+            let mut brace_stack: Vec<(u32, FoldingRangeKind)> = Vec::new();
+
+            for (line_num, line) in lines.iter().enumerate() {
+                let trimmed = line.trim();
+                
+                if trimmed.starts_with("//") {
+                    continue;
+                }
+
+                for ch in line.chars() {
+                    if ch == '{' {
+                        let kind = if trimmed.contains("= (") || trimmed.ends_with(") {") {
+                            FoldingRangeKind::Region
+                        } else {
+                            FoldingRangeKind::Region
+                        };
+                        brace_stack.push((line_num as u32, kind));
+                    } else if ch == '}' {
+                        if let Some((start_line, kind)) = brace_stack.pop() {
+                            if line_num as u32 > start_line {
+                                ranges.push(FoldingRange {
+                                    start_line,
+                                    start_character: None,
+                                    end_line: line_num as u32,
+                                    end_character: None,
+                                    kind: Some(kind),
+                                    collapsed_text: None,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Response {
+            id: req.id,
+            result: Some(serde_json::to_value(ranges).unwrap_or(Value::Null)),
+            error: None,
+        }
     }
 
     fn handle_code_action(&self, req: Request) -> Response {

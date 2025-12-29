@@ -67,10 +67,9 @@ pub fn handle_code_action(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Re
                 }
             }
 
-            // Add code action for missing error handling
             if diagnostic.message.contains("Result") && diagnostic.message.contains("unwrap") {
                 if let Some(action) =
-                    create_error_handling_action(diagnostic, &params.text_document.uri)
+                    create_error_handling_action(diagnostic, &params.text_document.uri, &doc.content)
                 {
                     actions.push(action);
                 }
@@ -98,8 +97,7 @@ pub fn handle_code_action(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Re
             }
         }
 
-        // Add imports for common types if they're missing
-        if let Some(action) = create_add_import_action(&params.range, &doc.content) {
+        if let Some(action) = create_add_import_action(&params.text_document.uri, &doc.content) {
             actions.push(action);
         }
     }
@@ -192,20 +190,45 @@ fn create_allocator_fix_action(diagnostic: &Diagnostic, uri: &Url, content: &str
 
 fn create_string_conversion_action(
     diagnostic: &Diagnostic,
-    _uri: &Url,
-    _content: &str,
+    uri: &Url,
+    content: &str,
 ) -> Option<CodeAction> {
-    // Determine conversion direction
-    let title = if diagnostic.message.contains("expected StaticString") {
-        "Convert to StaticString"
-    } else if diagnostic.message.contains("expected String") {
-        "Convert to String with allocator"
+    let lines: Vec<&str> = content.lines().collect();
+    let line_idx = diagnostic.range.start.line as usize;
+    let line = lines.get(line_idx)?;
+    
+    let start_char = diagnostic.range.start.character as usize;
+    let end_char = (diagnostic.range.end.character as usize).min(line.len());
+    
+    // Extract the text at the diagnostic range
+    let selected = if start_char < line.len() && start_char < end_char {
+        &line[start_char..end_char]
     } else {
         return None;
     };
 
+    // Determine conversion direction and create actual edit
+    let (title, new_text) = if diagnostic.message.contains("expected StaticString") {
+        // If it's a String, call .as_static() - common pattern
+        ("Convert to StaticString", format!("{}.as_static()", selected))
+    } else if diagnostic.message.contains("expected String") {
+        // If it's a StaticString (literal), wrap with String.from()
+        ("Convert to String", format!("String.from({})", selected))
+    } else {
+        return None;
+    };
+
+    let text_edit = TextEdit {
+        range: diagnostic.range.clone(),
+        new_text,
+    };
+
     let workspace_edit = WorkspaceEdit {
-        changes: None, // Would need more context to implement actual conversion
+        changes: Some({
+            let mut changes = HashMap::new();
+            changes.insert(uri.clone(), vec![text_edit]);
+            changes
+        }),
         document_changes: None,
         change_annotations: None,
     };
@@ -222,25 +245,54 @@ fn create_string_conversion_action(
     })
 }
 
-fn create_error_handling_action(diagnostic: &Diagnostic, _uri: &Url) -> Option<CodeAction> {
-    let title = "Add proper error handling";
+fn create_error_handling_action(
+    diagnostic: &Diagnostic,
+    uri: &Url,
+    content: &str,
+) -> Option<CodeAction> {
+    let lines: Vec<&str> = content.lines().collect();
+    let line_idx = diagnostic.range.start.line as usize;
+    let line = lines.get(line_idx)?;
 
-    let workspace_edit = WorkspaceEdit {
-        changes: None, // Would need AST analysis to implement
-        document_changes: None,
-        change_annotations: None,
-    };
+    // Look for .unwrap() and suggest .raise() instead (Zen's error propagation)
+    if let Some(unwrap_pos) = line.find(".unwrap()") {
+        let text_edit = TextEdit {
+            range: Range {
+                start: Position {
+                    line: diagnostic.range.start.line,
+                    character: unwrap_pos as u32,
+                },
+                end: Position {
+                    line: diagnostic.range.start.line,
+                    character: (unwrap_pos + 9) as u32, // ".unwrap()" is 9 chars
+                },
+            },
+            new_text: ".raise()".to_string(),
+        };
 
-    Some(CodeAction {
-        title: title.to_string(),
-        kind: Some(CodeActionKind::QUICKFIX),
-        diagnostics: Some(vec![diagnostic.clone()]),
-        edit: Some(workspace_edit),
-        command: None,
-        is_preferred: Some(false),
-        disabled: None,
-        data: None,
-    })
+        let workspace_edit = WorkspaceEdit {
+            changes: Some({
+                let mut changes = HashMap::new();
+                changes.insert(uri.clone(), vec![text_edit]);
+                changes
+            }),
+            document_changes: None,
+            change_annotations: None,
+        };
+
+        return Some(CodeAction {
+            title: "Replace .unwrap() with .raise() for error propagation".to_string(),
+            kind: Some(CodeActionKind::QUICKFIX),
+            diagnostics: Some(vec![diagnostic.clone()]),
+            edit: Some(workspace_edit),
+            command: None,
+            is_preferred: Some(true),
+            disabled: None,
+            data: None,
+        });
+    }
+
+    None
 }
 
 fn create_extract_variable_action(range: &Range, uri: &Url, content: &str) -> Option<CodeAction> {
@@ -567,9 +619,8 @@ fn generate_variable_name(expression: &str) -> String {
     "extracted_value".to_string()
 }
 
-fn create_add_import_action(_range: &Range, content: &str) -> Option<CodeAction> {
-    // Check if common types are used but not imported
-    let needs_io = content.contains("io.") && !content.contains("{ io }");
+fn create_add_import_action(uri: &Url, content: &str) -> Option<CodeAction> {
+    let needs_io = content.contains("io.") && !content.contains("{ io }") && !content.contains("{io}");
     let needs_allocator = (content.contains("get_default_allocator")
         || content.contains("GPA")
         || content.contains("AsyncPool"))
@@ -579,8 +630,7 @@ fn create_add_import_action(_range: &Range, content: &str) -> Option<CodeAction>
         return None;
     }
 
-    // Determine what to import
-    let _import_statement = if needs_io && needs_allocator {
+    let import_statement = if needs_io && needs_allocator {
         "{ io, GPA, AsyncPool } = @std\n"
     } else if needs_io {
         "{ io } = @std\n"
@@ -588,23 +638,32 @@ fn create_add_import_action(_range: &Range, content: &str) -> Option<CodeAction>
         "{ GPA, AsyncPool } = @std\n"
     };
 
-    // Insert at the top of the file
+    let text_edit = TextEdit {
+        range: Range {
+            start: Position { line: 0, character: 0 },
+            end: Position { line: 0, character: 0 },
+        },
+        new_text: import_statement.to_string(),
+    };
+
     let workspace_edit = WorkspaceEdit {
-        changes: None, // Would need URI context
+        changes: Some({
+            let mut changes = HashMap::new();
+            changes.insert(uri.clone(), vec![text_edit]);
+            changes
+        }),
         document_changes: None,
         change_annotations: None,
     };
 
     Some(CodeAction {
-        title: "Add missing import from @std".to_string(),
+        title: format!("Add import: {}", import_statement.trim()),
         kind: Some(CodeActionKind::QUICKFIX),
         diagnostics: None,
         edit: Some(workspace_edit),
         command: None,
         is_preferred: Some(false),
-        disabled: Some(lsp_types::CodeActionDisabled {
-            reason: "Needs implementation".to_string(),
-        }),
+        disabled: None,
         data: None,
     })
 }

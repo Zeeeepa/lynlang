@@ -17,9 +17,11 @@ pub fn handle_document_symbols(
     req: Request,
     store: &std::sync::Arc<std::sync::Mutex<DocumentStore>>,
 ) -> Response {
+    log::debug!("[LSP SYMBOLS] Starting document symbols request");
     let params: DocumentSymbolParams = match serde_json::from_value(req.params) {
         Ok(p) => p,
-        Err(_) => {
+        Err(e) => {
+            log::debug!("[LSP SYMBOLS] Failed to parse params: {:?}", e);
             return Response {
                 id: req.id,
                 result: Some(Value::Null),
@@ -28,9 +30,15 @@ pub fn handle_document_symbols(
         }
     };
 
+    log::debug!("[LSP SYMBOLS] Waiting for store lock...");
+    let lock_start = std::time::Instant::now();
     let store = match store.lock() {
-        Ok(s) => s,
-        Err(_) => {
+        Ok(s) => {
+            log::debug!("[LSP SYMBOLS] Got store lock in {:?}", lock_start.elapsed());
+            s
+        },
+        Err(e) => {
+            log::debug!("[LSP SYMBOLS] Failed to get store lock: {:?}", e);
             return Response {
                 id: req.id,
                 result: Some(
@@ -41,7 +49,9 @@ pub fn handle_document_symbols(
             };
         }
     };
+    log::debug!("[LSP SYMBOLS] Looking up document: {}", params.text_document.uri);
     if let Some(doc) = store.documents.get(&params.text_document.uri) {
+        log::debug!("[LSP SYMBOLS] Found document with {} symbols", doc.symbols.len());
         let symbols: Vec<DocumentSymbol> = doc
             .symbols
             .values()
@@ -58,6 +68,7 @@ pub fn handle_document_symbols(
             })
             .collect();
 
+        log::debug!("[LSP SYMBOLS] Returning {} symbols", symbols.len());
         return Response {
             id: req.id,
             result: Some(serde_json::to_value(symbols).unwrap_or(Value::Null)),
@@ -65,6 +76,7 @@ pub fn handle_document_symbols(
         };
     }
 
+    log::debug!("[LSP SYMBOLS] Document not found in store");
     Response {
         id: req.id,
         result: Some(Value::Null),

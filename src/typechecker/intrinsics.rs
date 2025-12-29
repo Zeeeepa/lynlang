@@ -8,12 +8,18 @@ use crate::well_known::well_known;
 
 /// Check compiler intrinsic function calls and return their type
 /// Returns None if not a compiler intrinsic, otherwise returns Ok(type) or error
+/// Accepts both "compiler" (via @std.compiler) and "builtin"/"@builtin" modules
 pub fn check_compiler_intrinsic(
     module: &str,
     func: &str,
     args_len: usize,
 ) -> Option<Result<AstType>> {
-    if module != "compiler" {
+    // Both @std.compiler and @builtin route to the same intrinsics
+    // Handle both "builtin" and "@builtin" (with @ prefix from parsing)
+    let is_compiler = module == "compiler";
+    let is_builtin = module == "builtin" || module == "@builtin";
+
+    if !is_compiler && !is_builtin {
         return None;
     }
 

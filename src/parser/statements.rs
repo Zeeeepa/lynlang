@@ -942,6 +942,10 @@ impl<'a> Parser<'a> {
                         // Immutable assignment with = (per LANGUAGE_SPEC.zen)
                         self.parse_variable_declaration()
                     }
+                    Token::Operator(op) if op == ":=" => {
+                        // Constant with inferred type (per LANGUAGE_SPEC.zen line 21)
+                        self.parse_variable_declaration()
+                    }
                     Token::Operator(op) if op == "::=" => {
                         // Mutable assignment with ::=
                         self.parse_variable_declaration()
@@ -1022,6 +1026,15 @@ impl<'a> Parser<'a> {
                 }
                 Ok(Statement::Expression { expr, span })
             }
+            // Handle @builtin and @std as expression statements (for calls like @builtin.store())
+            Token::AtBuiltin | Token::AtStd => {
+                let span = Some(self.current_span.clone());
+                let expr = self.parse_expression()?;
+                if self.current_token == Token::Symbol(';') {
+                    self.next_token();
+                }
+                Ok(Statement::Expression { expr, span })
+            }
             _ => Err(CompileError::SyntaxError(
                 format!("Unexpected token in statement: {:?}", self.current_token),
                 Some(self.current_span.clone()),
@@ -1045,12 +1058,14 @@ impl<'a> Parser<'a> {
 
         let (is_mutable, declaration_type, type_) = match &self.current_token {
             Token::Operator(op) if op == "=" => {
-                // Immutable assignment: name = value (per LANGUAGE_SPEC.zen)
+                self.next_token();
+                (false, VariableDeclarationType::InferredImmutable, None)
+            }
+            Token::Operator(op) if op == ":=" => {
                 self.next_token();
                 (false, VariableDeclarationType::InferredImmutable, None)
             }
             Token::Operator(op) if op == "::=" => {
-                // Inferred mutable: name ::= value
                 self.next_token();
                 (true, VariableDeclarationType::InferredMutable, None)
             }

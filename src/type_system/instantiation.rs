@@ -1,6 +1,7 @@
 use super::{TypeEnvironment, TypeSubstitution};
 use crate::ast::{AstType, EnumDefinition, Expression, Function, Statement, StructDefinition};
 use crate::error::CompileError;
+use crate::stdlib_types::StdlibTypeRegistry;
 
 #[allow(dead_code)]
 pub struct TypeInstantiator<'a> {
@@ -299,7 +300,7 @@ fn type_to_string(ast_type: &AstType) -> String {
         AstType::F32 => "f32".to_string(),
         AstType::F64 => "f64".to_string(),
         AstType::Bool => "bool".to_string(),
-        AstType::Struct { name, .. } if name == "String" => "string".to_string(),
+        AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => "string".to_string(),
         AstType::Void => "void".to_string(),
         t if t.is_ptr_type() => {
             if let Some(inner) = t.ptr_inner() {

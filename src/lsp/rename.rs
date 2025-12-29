@@ -50,7 +50,7 @@ pub fn handle_rename(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Respons
         let position = params.text_document_position.position;
 
         if let Some(symbol_name) = find_symbol_at_position(&doc.content, position) {
-            eprintln!(
+            log::debug!(
                 "[LSP] Rename: symbol='{}' -> '{}' at {}:{}",
                 symbol_name, new_name, position.line, position.character
             );
@@ -58,14 +58,14 @@ pub fn handle_rename(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Respons
             // Determine the scope of the symbol
             let symbol_scope = determine_symbol_scope(doc, &symbol_name, position);
 
-            eprintln!("[LSP] Symbol scope: {:?}", symbol_scope);
+            log::debug!("[LSP] Symbol scope: {:?}", symbol_scope);
 
             let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
 
             match symbol_scope {
                 SymbolScope::Local { function_name } => {
                     // Local variable or parameter - only rename in current file, within function
-                    eprintln!(
+                    log::debug!(
                         "[LSP] Renaming local symbol in function '{}'",
                         function_name
                     );
@@ -80,12 +80,12 @@ pub fn handle_rename(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Respons
                 }
                 SymbolScope::ModuleLevel => {
                     // Module-level symbol (function, struct, enum) - rename across workspace
-                    eprintln!("[LSP] Renaming module-level symbol across workspace");
+                    log::debug!("[LSP] Renaming module-level symbol across workspace");
 
                     // Find all workspace files that might reference this symbol
                     let workspace_files = collect_workspace_files(&store);
 
-                    eprintln!(
+                    log::debug!(
                         "[LSP] Scanning {} workspace files for references",
                         workspace_files.len()
                     );
@@ -94,7 +94,7 @@ pub fn handle_rename(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Respons
                         if let Some(edits) = rename_in_file(&file_content, &symbol_name, &new_name)
                         {
                             if !edits.is_empty() {
-                                eprintln!(
+                                log::debug!(
                                     "[LSP] Found {} occurrences in {}",
                                     edits.len(),
                                     file_uri.path()
@@ -106,7 +106,7 @@ pub fn handle_rename(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Respons
                 }
                 SymbolScope::Unknown => {
                     // Fallback: only rename in current file
-                    eprintln!("[LSP] Unknown scope, renaming only in current file");
+                    log::debug!("[LSP] Unknown scope, renaming only in current file");
 
                     if let Some(edits) = rename_in_file(&doc.content, &symbol_name, &new_name) {
                         if !edits.is_empty() {
@@ -116,7 +116,7 @@ pub fn handle_rename(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Respons
                 }
             }
 
-            eprintln!(
+            log::debug!(
                 "[LSP] Rename will affect {} files with {} total edits",
                 changes.len(),
                 changes.values().map(|v| v.len()).sum::<usize>()

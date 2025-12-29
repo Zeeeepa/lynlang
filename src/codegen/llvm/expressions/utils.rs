@@ -1,6 +1,7 @@
 use super::super::LLVMCompiler;
 use crate::ast::{AstType, Expression};
 use crate::error::CompileError;
+use crate::stdlib_types::StdlibTypeRegistry;
 use inkwell::{values::BasicValueEnum, AddressSpace};
 
 pub fn parse_type_args_string(
@@ -570,8 +571,7 @@ pub fn compile_raise_expression<'ctx>(
 
                                 Ok(loaded)
                             }
-                            AstType::Struct { name, .. } if name == "String" => {
-                                // String struct - already a pointer value
+                            AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => {
                                 Ok(ptr_val.into())
                             }
                             AstType::StaticString | AstType::StaticLiteral => {

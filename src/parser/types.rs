@@ -39,7 +39,13 @@ impl<'a> Parser<'a> {
                     "f64" => Ok(AstType::F64),
                     "bool" => Ok(AstType::Bool),
                     "StaticString" => Ok(AstType::StaticString), // User-facing: static strings (compile-time, no allocator)
-                    "String" => Ok(crate::ast::resolve_string_struct_type()), // Dynamic strings that require allocator
+                    // String is a struct type - return as Generic to be resolved later
+                    // IMPORTANT: Do NOT call resolve_string_struct_type() here as it causes
+                    // circular dependency with stdlib_types() OnceLock initialization
+                    "String" => Ok(AstType::Generic {
+                        name: "String".to_string(),
+                        type_args: vec![],
+                    }),
                     "void" => Ok(AstType::Void),
                     "ptr" => Ok(AstType::ptr(AstType::Void)),
                     // Well-known pointer types (Ptr, MutPtr, RawPtr)

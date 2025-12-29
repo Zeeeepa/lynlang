@@ -24,16 +24,6 @@ pub enum WellKnownType {
     MutPtr,
     /// RawPtr<T> - raw/unsafe pointer
     RawPtr,
-    /// String - dynamic string type
-    String,
-    /// Vec<T> - dynamic array (stack-allocated metadata)
-    Vec,
-    /// DynVec<T...> - dynamic vector with allocator
-    DynVec,
-    /// HashMap<K, V> - hash map collection
-    HashMap,
-    /// HashSet<T> - hash set collection
-    HashSet,
 }
 
 /// Well-known enum variants
@@ -62,21 +52,15 @@ impl WellKnownTypes {
     /// Create a new registry with all well-known types registered
     pub fn new() -> Self {
         let mut wkt = Self {
-            types: HashMap::with_capacity(10),
+            types: HashMap::with_capacity(5),
             variants: HashMap::with_capacity(4),
         };
 
-        // Register well-known types
         wkt.types.insert("Option".into(), WellKnownType::Option);
         wkt.types.insert("Result".into(), WellKnownType::Result);
         wkt.types.insert("Ptr".into(), WellKnownType::Ptr);
         wkt.types.insert("MutPtr".into(), WellKnownType::MutPtr);
         wkt.types.insert("RawPtr".into(), WellKnownType::RawPtr);
-        wkt.types.insert("String".into(), WellKnownType::String);
-        wkt.types.insert("Vec".into(), WellKnownType::Vec);
-        wkt.types.insert("DynVec".into(), WellKnownType::DynVec);
-        wkt.types.insert("HashMap".into(), WellKnownType::HashMap);
-        wkt.types.insert("HashSet".into(), WellKnownType::HashSet);
 
         // Register well-known variants
         wkt.variants
@@ -160,59 +144,6 @@ impl WellKnownTypes {
         )
     }
 
-    /// Check if a type name is String
-    #[inline]
-    pub fn is_string(&self, name: &str) -> bool {
-        self.get_type(name) == Some(WellKnownType::String)
-    }
-
-    /// Check if a type name is Vec
-    #[inline]
-    pub fn is_vec(&self, name: &str) -> bool {
-        self.get_type(name) == Some(WellKnownType::Vec)
-    }
-
-    /// Check if a type name is DynVec
-    #[inline]
-    pub fn is_dyn_vec(&self, name: &str) -> bool {
-        self.get_type(name) == Some(WellKnownType::DynVec)
-    }
-
-    /// Check if a type name is Vec or DynVec
-    #[inline]
-    pub fn is_vec_type(&self, name: &str) -> bool {
-        matches!(
-            self.get_type(name),
-            Some(WellKnownType::Vec | WellKnownType::DynVec)
-        )
-    }
-
-    /// Check if a type name is HashMap
-    #[inline]
-    pub fn is_hash_map(&self, name: &str) -> bool {
-        self.get_type(name) == Some(WellKnownType::HashMap)
-    }
-
-    /// Check if a type name is HashSet
-    #[inline]
-    pub fn is_hash_set(&self, name: &str) -> bool {
-        self.get_type(name) == Some(WellKnownType::HashSet)
-    }
-
-    /// Check if a type name is a collection type (Vec, DynVec, HashMap, HashSet)
-    #[inline]
-    pub fn is_collection(&self, name: &str) -> bool {
-        matches!(
-            self.get_type(name),
-            Some(
-                WellKnownType::Vec
-                    | WellKnownType::DynVec
-                    | WellKnownType::HashMap
-                    | WellKnownType::HashSet
-            )
-        )
-    }
-
     // ========================================================================
     // Variant checks
     // ========================================================================
@@ -292,11 +223,6 @@ impl WellKnownTypes {
             WellKnownType::Ptr => "Ptr",
             WellKnownType::MutPtr => "MutPtr",
             WellKnownType::RawPtr => "RawPtr",
-            WellKnownType::String => "String",
-            WellKnownType::Vec => "Vec",
-            WellKnownType::DynVec => "DynVec",
-            WellKnownType::HashMap => "HashMap",
-            WellKnownType::HashSet => "HashSet",
         })
     }
 
@@ -332,31 +258,6 @@ impl WellKnownTypes {
     #[inline]
     pub fn raw_ptr_name(&self) -> &'static str {
         "RawPtr"
-    }
-
-    #[inline]
-    pub fn string_name(&self) -> &'static str {
-        "String"
-    }
-
-    #[inline]
-    pub fn vec_name(&self) -> &'static str {
-        "Vec"
-    }
-
-    #[inline]
-    pub fn dyn_vec_name(&self) -> &'static str {
-        "DynVec"
-    }
-
-    #[inline]
-    pub fn hash_map_name(&self) -> &'static str {
-        "HashMap"
-    }
-
-    #[inline]
-    pub fn hash_set_name(&self) -> &'static str {
-        "HashSet"
     }
 
     // ========================================================================
@@ -438,32 +339,10 @@ mod tests {
         assert!(wkt.is_ptr("Ptr"));
         assert!(wkt.is_ptr("MutPtr"));
         assert!(wkt.is_ptr("RawPtr"));
-        assert!(wkt.is_string("String"));
-        assert!(wkt.is_vec("Vec"));
-        assert!(wkt.is_dyn_vec("DynVec"));
-        assert!(wkt.is_hash_map("HashMap"));
-        assert!(wkt.is_hash_set("HashSet"));
 
         assert!(!wkt.is_option("Result"));
         assert!(!wkt.is_result("Option"));
         assert!(!wkt.is_ptr("Option"));
-        assert!(!wkt.is_string("Vec"));
-    }
-
-    #[test]
-    fn test_collection_checks() {
-        let wkt = WellKnownTypes::new();
-
-        assert!(wkt.is_collection("Vec"));
-        assert!(wkt.is_collection("DynVec"));
-        assert!(wkt.is_collection("HashMap"));
-        assert!(wkt.is_collection("HashSet"));
-        assert!(wkt.is_vec_type("Vec"));
-        assert!(wkt.is_vec_type("DynVec"));
-
-        assert!(!wkt.is_collection("Option"));
-        assert!(!wkt.is_collection("String"));
-        assert!(!wkt.is_vec_type("HashMap"));
     }
 
     #[test]

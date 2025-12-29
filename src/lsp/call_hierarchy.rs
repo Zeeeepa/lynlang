@@ -333,8 +333,9 @@ fn extract_function_calls_from_line(line: &str, line_num: u32) -> Vec<(String, R
 
             while let Some(&(_, next_ch)) = chars.peek() {
                 if next_ch.is_alphanumeric() || next_ch == '_' {
-                    let (_, ch) = chars.next().unwrap();
-                    name.push(ch);
+                    if let Some((_, ch)) = chars.next() {
+                        name.push(ch);
+                    }
                 } else {
                     break;
                 }

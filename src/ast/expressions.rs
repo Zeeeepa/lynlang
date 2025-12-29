@@ -137,6 +137,8 @@ pub enum Expression {
     },
     // @std reference
     StdReference,
+    // @builtin reference (raw compiler intrinsics)
+    BuiltinReference,
     // @this reference (current scope)
     ThisReference,
     // Method call with UFC (Uniform Function Call)

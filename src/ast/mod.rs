@@ -6,7 +6,6 @@
 mod declarations;
 mod expressions;
 mod patterns;
-mod span;
 mod statements;
 mod types;
 
@@ -14,7 +13,6 @@ mod types;
 pub use declarations::*;
 pub use expressions::*;
 pub use patterns::*;
-// pub use span::{Position, Span}; // Currently unused
 pub use statements::*;
 pub use types::*;
 

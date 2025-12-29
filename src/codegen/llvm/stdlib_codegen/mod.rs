@@ -294,3 +294,83 @@ pub fn compile_int_to_ptr<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     compiler::compile_int_to_ptr(compiler, args)
 }
+
+// Delegate to compiler module - sizeof intrinsic
+pub fn compile_sizeof<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    type_arg: Option<&ast::AstType>,
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_sizeof(compiler, type_arg)
+}
+
+// Delegate to compiler module - memory intrinsics
+pub fn compile_memset<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_memset(compiler, args)
+}
+
+pub fn compile_memcpy<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_memcpy(compiler, args)
+}
+
+pub fn compile_memmove<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_memmove(compiler, args)
+}
+
+pub fn compile_memcmp<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_memcmp(compiler, args)
+}
+
+// Delegate to compiler module - bitwise intrinsics
+pub fn compile_bswap16<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_bswap16(compiler, args)
+}
+
+pub fn compile_bswap32<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_bswap32(compiler, args)
+}
+
+pub fn compile_bswap64<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_bswap64(compiler, args)
+}
+
+pub fn compile_ctlz<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_ctlz(compiler, args)
+}
+
+pub fn compile_cttz<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_cttz(compiler, args)
+}
+
+pub fn compile_ctpop<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_ctpop(compiler, args)
+}

@@ -61,7 +61,6 @@ pub fn index_stdlib_directory(path: &Path, symbols: &mut HashMap<String, SymbolI
                     let file_path_str = entry_path.to_string_lossy();
                     let file_symbols = extract_symbols_static(&content, Some(&file_path_str));
 
-                    // Convert path to URI for stdlib symbols
                     if let Ok(uri) = Url::from_file_path(&entry_path) {
                         for (name, mut symbol) in file_symbols {
                             symbol.definition_uri = Some(uri.clone());
@@ -70,7 +69,6 @@ pub fn index_stdlib_directory(path: &Path, symbols: &mut HashMap<String, SymbolI
                     }
                 }
             } else if entry_path.is_dir() {
-                // Recursively index subdirectories
                 index_stdlib_directory(&entry_path, symbols);
             }
         }

@@ -98,7 +98,7 @@ demo_loops = () void {
     
     // Simple counter loop
     io.println("Counter loop (0-4):")
-    i := 0
+    i ::= 0
     loop(() {
         i >= 5 ? { break }
         io.print("${i} ")
@@ -112,7 +112,7 @@ demo_loops = () void {
 // ============================================================================
 
 compute_greeting = (hour: i32) StaticString {
-    greeting := ""
+    greeting ::= ""
     hour < 12 ?
         | true { greeting = "Good morning" }
         | false {

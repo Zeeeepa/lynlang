@@ -1,8 +1,62 @@
 // LSP Utility Functions
 
 use crate::ast::AstType;
-use crate::error::CompileError;
+use crate::error::{CompileError, Span};
+use crate::stdlib_types::StdlibTypeRegistry;
 use lsp_types::*;
+
+/// Convert a byte offset to LSP Position (line and character)
+/// Returns (line, character) where line is 0-based and character is UTF-16 code unit offset
+pub fn byte_offset_to_lsp_position(content: &str, byte_offset: usize) -> Position {
+    let mut line = 0u32;
+    let mut line_start_offset = 0usize;
+    
+    for (idx, ch) in content.char_indices() {
+        if idx >= byte_offset {
+            break;
+        }
+        if ch == '\n' {
+            line += 1;
+            line_start_offset = idx + 1;
+        }
+    }
+    
+    // Calculate character offset within the line (in UTF-16 code units for LSP)
+    let char_offset = if byte_offset >= line_start_offset {
+        content[line_start_offset..byte_offset.min(content.len())]
+            .chars()
+            .map(|c| c.len_utf16() as u32)
+            .sum()
+    } else {
+        0
+    };
+    
+    Position {
+        line,
+        character: char_offset,
+    }
+}
+
+/// Convert a compiler Span to LSP Range using source content for accurate multi-line handling
+pub fn span_to_lsp_range(span: &Span, content: Option<&str>) -> Range {
+    if let Some(content) = content {
+        // Use accurate byte offset conversion
+        let start = byte_offset_to_lsp_position(content, span.start);
+        let end = byte_offset_to_lsp_position(content, span.end);
+        Range { start, end }
+    } else {
+        // Fallback: use span's line/column for start, estimate end on same line
+        let start = Position {
+            line: if span.line > 0 { span.line as u32 - 1 } else { 0 },
+            character: span.column as u32,
+        };
+        let end = Position {
+            line: start.line,
+            character: (span.column + (span.end.saturating_sub(span.start)).max(1)) as u32,
+        };
+        Range { start, end }
+    }
+}
 
 // Convert CompileError to LSP Diagnostic (without source context)
 pub fn compile_error_to_diagnostic(error: CompileError) -> Diagnostic {
@@ -110,25 +164,9 @@ pub fn compile_error_to_diagnostic_with_content(
 
     // Convert span to LSP range, or try to infer from error message and content
     let (start_pos, end_pos) = if let Some(span) = span {
-        let start = Position {
-            line: if span.line > 0 {
-                span.line as u32 - 1
-            } else {
-                0
-            },
-            character: span.column as u32,
-        };
-        let end = Position {
-            line: if span.line > 0 {
-                span.line as u32 - 1
-            } else {
-                0
-            },
-            character: (span.column + (span.end - span.start).max(1)) as u32,
-        };
-        (start, end)
+        let range = span_to_lsp_range(&span, content);
+        (range.start, range.end)
     } else if let Some(content) = content {
-        // Try to infer position from error message context
         infer_error_position(&error, content)
     } else {
         (
@@ -325,7 +363,7 @@ pub fn format_type(ast_type: &AstType) -> String {
         AstType::Bool => "bool".to_string(),
         AstType::StaticLiteral => "str".to_string(), // Internal string literal type
         AstType::StaticString => "StaticString".to_string(),
-        AstType::Struct { name, .. } if name == "String" => "String".to_string(),
+        AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => "String".to_string(),
         AstType::Void => "void".to_string(),
         t if t.is_immutable_ptr() => {
             if let Some(inner) = t.ptr_inner() {
@@ -418,5 +456,120 @@ pub fn format_type(ast_type: &AstType) -> String {
                 format_type(return_type)
             )
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_byte_offset_to_lsp_position_simple() {
+        let content = "hello\nworld";
+        
+        let pos = byte_offset_to_lsp_position(content, 0);
+        assert_eq!((pos.line, pos.character), (0, 0));
+        
+        let pos = byte_offset_to_lsp_position(content, 3);
+        assert_eq!((pos.line, pos.character), (0, 3));
+        
+        let pos = byte_offset_to_lsp_position(content, 5);
+        assert_eq!((pos.line, pos.character), (0, 5));
+        
+        let pos = byte_offset_to_lsp_position(content, 6);
+        assert_eq!((pos.line, pos.character), (1, 0));
+        
+        let pos = byte_offset_to_lsp_position(content, 9);
+        assert_eq!((pos.line, pos.character), (1, 3));
+    }
+
+    #[test]
+    fn test_byte_offset_emoji_utf16_surrogate_pairs() {
+        let content = "a😀b";
+        
+        let pos = byte_offset_to_lsp_position(content, 0);
+        assert_eq!((pos.line, pos.character), (0, 0));
+        
+        let pos = byte_offset_to_lsp_position(content, 1);
+        assert_eq!((pos.line, pos.character), (0, 1));
+        
+        let pos = byte_offset_to_lsp_position(content, 5);
+        assert_eq!((pos.line, pos.character), (0, 3));
+    }
+
+    #[test]
+    fn test_byte_offset_japanese_bmp_characters() {
+        let content = "日本語";
+        
+        let pos = byte_offset_to_lsp_position(content, 0);
+        assert_eq!((pos.line, pos.character), (0, 0));
+        
+        let pos = byte_offset_to_lsp_position(content, 3);
+        assert_eq!((pos.line, pos.character), (0, 1));
+        
+        let pos = byte_offset_to_lsp_position(content, 6);
+        assert_eq!((pos.line, pos.character), (0, 2));
+    }
+
+    #[test]
+    fn test_byte_offset_multiline_mixed_unicode() {
+        let content = "hello\n世界\n😀";
+        
+        let pos = byte_offset_to_lsp_position(content, 0);
+        assert_eq!((pos.line, pos.character), (0, 0));
+        
+        let pos = byte_offset_to_lsp_position(content, 6);
+        assert_eq!((pos.line, pos.character), (1, 0));
+        
+        let pos = byte_offset_to_lsp_position(content, 9);
+        assert_eq!((pos.line, pos.character), (1, 1));
+        
+        let pos = byte_offset_to_lsp_position(content, 13);
+        assert_eq!((pos.line, pos.character), (2, 0));
+    }
+
+    #[test]
+    fn test_byte_offset_edge_cases() {
+        let pos = byte_offset_to_lsp_position("", 0);
+        assert_eq!((pos.line, pos.character), (0, 0));
+        
+        let pos = byte_offset_to_lsp_position("hi", 100);
+        assert_eq!(pos.line, 0);
+        
+        let content = "a\n\nb";
+        let pos = byte_offset_to_lsp_position(content, 2);
+        assert_eq!((pos.line, pos.character), (1, 0));
+        
+        let pos = byte_offset_to_lsp_position(content, 3);
+        assert_eq!((pos.line, pos.character), (2, 0));
+    }
+
+    #[test]
+    fn test_span_to_lsp_range_with_content() {
+        let content = "hello\nworld\ntest";
+        let span = Span { start: 6, end: 11, line: 2, column: 0 };
+        
+        let range = span_to_lsp_range(&span, Some(content));
+        assert_eq!((range.start.line, range.start.character), (1, 0));
+        assert_eq!((range.end.line, range.end.character), (1, 5));
+    }
+
+    #[test]
+    fn test_span_to_lsp_range_fallback_without_content() {
+        let span = Span { start: 10, end: 15, line: 3, column: 5 };
+        
+        let range = span_to_lsp_range(&span, None);
+        assert_eq!((range.start.line, range.start.character), (2, 5));
+        assert_eq!((range.end.line, range.end.character), (2, 10));
+    }
+
+    #[test]
+    fn test_span_to_lsp_range_multiline_span() {
+        let content = "line1\nline2\nline3";
+        let span = Span { start: 0, end: 11, line: 1, column: 0 };
+        
+        let range = span_to_lsp_range(&span, Some(content));
+        assert_eq!((range.start.line, range.start.character), (0, 0));
+        assert_eq!((range.end.line, range.end.character), (1, 5));
     }
 }

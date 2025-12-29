@@ -60,16 +60,10 @@ impl<'ctx> Compiler<'ctx> {
     /// Gets the LLVM module after compilation for execution engine creation.
     #[allow(dead_code)]
     pub fn get_module(&self, program: &Program) -> Result<Module<'ctx>> {
-        // Process module imports
         let processed_program = self.process_imports(program)?;
-
-        // Execute comptime blocks and expressions
         let processed_program = self.execute_comptime(processed_program)?;
-
-        // Resolve Self types in trait implementations
         let processed_program = self.resolve_self_types(processed_program)?;
 
-        // Monomorphize the program to resolve all generic types
         let mut monomorphizer = Monomorphizer::new();
         let monomorphized_program = monomorphizer.monomorphize_program(&processed_program)?;
 

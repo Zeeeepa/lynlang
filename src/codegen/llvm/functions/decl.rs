@@ -274,7 +274,32 @@ pub fn compile_function_body<'ctx>(
         if i == stmt_count - 1 {
             if let ast::Statement::Expression { expr, .. } = statement {
                 if !matches!(actual_return_type, AstType::Void) {
-                    let value = compiler.compile_expression(expr)?;
+                    let mut value = compiler.compile_expression(expr)?;
+                    
+                    if let Some(expected_ret_type) = function_value.get_type().get_return_type() {
+                        let actual_type = value.get_type();
+                        if actual_type != expected_ret_type {
+                            if actual_type.is_int_type() && expected_ret_type.is_int_type() {
+                                let int_val = value.into_int_value();
+                                let expected_int_type = expected_ret_type.into_int_type();
+                                let actual_width = int_val.get_type().get_bit_width();
+                                let expected_width = expected_int_type.get_bit_width();
+                                
+                                if actual_width != expected_width {
+                                    if actual_width < expected_width {
+                                        value = compiler.builder
+                                            .build_int_s_extend(int_val, expected_int_type, "ret_extend")?
+                                            .into();
+                                    } else {
+                                        value = compiler.builder
+                                            .build_int_truncate(int_val, expected_int_type, "ret_trunc")?
+                                            .into();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
                     compiler.builder.build_return(Some(&value))?;
                     return Ok(());
                 }

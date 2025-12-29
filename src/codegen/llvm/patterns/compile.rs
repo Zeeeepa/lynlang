@@ -2,6 +2,7 @@ use super::super::VariableInfo;
 use super::super::{symbols, LLVMCompiler};
 use crate::ast::Pattern;
 use crate::error::CompileError;
+use crate::stdlib_types::StdlibTypeRegistry;
 use inkwell::values::{BasicValueEnum, IntValue};
 use inkwell::AddressSpace;
 use std::collections::HashMap;
@@ -469,10 +470,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         )
                                                         .unwrap_or(loaded_payload),
                                                     AstType::Struct { name, .. }
-                                                        if name == "String" =>
+                                                        if StdlibTypeRegistry::is_string_type(&name) =>
                                                     {
                                                         loaded_payload
-                                                    } // String struct is already a pointer, don't load
+                                                    }
                                                     AstType::StaticString
                                                     | AstType::StaticLiteral => loaded_payload, // Static strings are already pointers, don't load
                                                     AstType::Generic { name, type_args }
@@ -720,10 +721,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     )
                                                     .unwrap_or(extracted),
                                                 AstType::Struct { name, .. }
-                                                    if name == "String" =>
+                                                    if StdlibTypeRegistry::is_string_type(&name) =>
                                                 {
                                                     extracted
-                                                } // String struct is already a pointer, don't load
+                                                }
                                                 AstType::StaticString | AstType::StaticLiteral => {
                                                     extracted
                                                 } // Static strings are already pointers, don't load

@@ -1,6 +1,7 @@
 use super::{symbols, LLVMCompiler};
 use crate::ast::AstType;
 use crate::error::CompileError;
+use crate::stdlib_types::StdlibTypeRegistry;
 use inkwell::values::BasicValueEnum;
 
 impl<'ctx> LLVMCompiler<'ctx> {
@@ -123,9 +124,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
-                AstType::Struct { name, .. } if name == "String" => {
-                    // String struct is stored as a pointer
-                    // Use empty string to let LLVM auto-generate unique names
+                AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => {
                     match self.builder.build_load(
                         self.context.ptr_type(inkwell::AddressSpace::default()),
                         ptr,

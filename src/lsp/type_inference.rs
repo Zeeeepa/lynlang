@@ -145,7 +145,7 @@ pub fn infer_variable_type(
                 // Check for constructor calls (Type { ... } or Type(...))
                 if let Some(brace_pos) = rhs.find('{') {
                     let type_name = rhs[..brace_pos].trim();
-                    if !type_name.is_empty() && type_name.chars().next().unwrap().is_uppercase() {
+                    if type_name.chars().next().is_some_and(|c| c.is_uppercase()) {
                         return Some(format!(
                             "```zen\n{} = {} {{ ... }}\n```\n\n**Type:** `{}`\n\n**Inferred from:** constructor",
                             var_name, type_name, type_name
@@ -565,7 +565,41 @@ fn split_method_chain(receiver: &str) -> Vec<String> {
 
 // Wrapper functions that work with DocumentStore
 
-pub fn infer_receiver_type_from_store(receiver: &str, store: &DocumentStore) -> Option<String> {
+pub fn find_self_type_in_enclosing_function(content: &str, position: Position) -> Option<String> {
+    let lines: Vec<&str> = content.lines().collect();
+    let current_line = position.line as usize;
+
+    for line_idx in (0..=current_line).rev() {
+        let line = lines.get(line_idx)?;
+
+        if let Some(self_pos) = line.find("self:") {
+            let after_self = &line[self_pos + 5..];
+            let type_end = after_self
+                .find(|c| c == ',' || c == ')')
+                .unwrap_or(after_self.len());
+            let self_type = after_self[..type_end].trim();
+            if !self_type.is_empty() {
+                return Some(self_type.to_string());
+            }
+        }
+    }
+    None
+}
+
+pub fn infer_receiver_type_with_context(
+    receiver: &str,
+    content: Option<&str>,
+    position: Option<Position>,
+    store: &DocumentStore,
+) -> Option<String> {
+    if receiver == "self" {
+        if let (Some(content), Some(pos)) = (content, position) {
+            if let Some(self_type) = find_self_type_in_enclosing_function(content, pos) {
+                return Some(self_type);
+            }
+        }
+    }
+
     if receiver.contains('.') && receiver.contains('(') {
         if let Some(ty) = infer_chained_method_type_from_store(receiver, store) {
             return Some(ty);
@@ -573,6 +607,10 @@ pub fn infer_receiver_type_from_store(receiver: &str, store: &DocumentStore) -> 
     }
 
     infer_receiver_type(receiver, &store.documents)
+}
+
+pub fn infer_receiver_type_from_store(receiver: &str, store: &DocumentStore) -> Option<String> {
+    infer_receiver_type_with_context(receiver, None, None, store)
 }
 
 pub fn infer_chained_method_type_from_store(

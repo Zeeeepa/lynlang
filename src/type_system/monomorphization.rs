@@ -1,6 +1,7 @@
 use super::{TypeEnvironment, TypeInstantiator};
 use crate::ast::{AstType, Declaration, Expression, Function, Program};
 use crate::error::CompileError;
+use crate::stdlib_types::StdlibTypeRegistry;
 use crate::typechecker::TypeChecker;
 use std::collections::{HashMap, HashSet};
 
@@ -29,8 +30,6 @@ impl Monomorphizer {
     pub fn monomorphize_program(&mut self, program: &Program) -> Result<Program, CompileError> {
         let mut declarations = Vec::new();
 
-        // eprintln!("DEBUG: Starting monomorphize_program, type checking first");
-        // First, type check the program to get type information
         self.type_checker.check_program(program)?;
 
         // After type checking, update functions with inferred return types
@@ -638,7 +637,7 @@ fn type_to_string(ast_type: &AstType) -> String {
         AstType::F32 => "f32".to_string(),
         AstType::F64 => "f64".to_string(),
         AstType::Bool => "bool".to_string(),
-        AstType::Struct { name, .. } if name == "String" => "string".to_string(),
+        AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => "string".to_string(),
         AstType::Void => "void".to_string(),
         _ => "unknown".to_string(),
     }

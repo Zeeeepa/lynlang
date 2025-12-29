@@ -66,7 +66,6 @@ mod handler {
         {
             let position = params.text_document_position_params.position;
 
-            // Find the symbol at the cursor position FIRST (needed for format string check)
             if let Some(symbol_name) = find_symbol_at_position(&doc.content, position) {
                 let request_id = req.id.clone();
 
@@ -168,23 +167,19 @@ mod handler {
                     return response;
                 }
 
-                // Try to parse and infer type using compiler integration
-                if let Some(response) = handle_expression_type_inference(
+                if let Some(response) = handle_lightweight_type_inference(
                     &symbol_name,
-                    &doc,
-                    &store,
+                    &doc.content,
                     position,
                     request_id.clone(),
                 ) {
                     return response;
                 }
 
-                // If we found a symbol but couldn't provide useful hover info, show debug info
-                let debug_info = format!(
-                    "**Symbol:** `{}`\n\n**Status:** No hover information available\n\n*Checked:* symbols, stdlib, imports, builtins, type inference, compiler",
-                    symbol_name
+                return create_hover_response_from_string(
+                    request_id, 
+                    format!("```zen\n{}\n```", symbol_name)
                 );
-                return create_hover_response_from_string(request_id, debug_info);
             }
             // If no symbol found at position (empty line, whitespace, etc.), return null
         }
@@ -216,7 +211,11 @@ mod handler {
                     .take_while(|c| c.is_alphanumeric() || *c == '_')
                     .collect::<String>();
 
-                if method_name == symbol_name {
+                // symbol_name may include receiver: "gpa.default_gpa" vs just "default_gpa"
+                let is_method_hover = method_name == symbol_name 
+                    || symbol_name.ends_with(&format!(".{}", method_name));
+                
+                if is_method_hover {
                     let receiver = before_dot
                         .trim_end()
                         .rsplit(|c: char| !c.is_alphanumeric() && c != '_' && c != '.')
@@ -226,7 +225,6 @@ mod handler {
                         .to_string();
                     let full_method = format!("{}.{}", receiver, method_name);
 
-                    // Check stdlib for the full method path
                     if let Some(symbol_info) = store.stdlib_symbols.get(&full_method) {
                         return Some(response::create_hover_response(
                             request_id,
@@ -235,13 +233,23 @@ mod handler {
                         ));
                     }
 
-                    // Also check just the method name in stdlib
                     if let Some(symbol_info) = store.stdlib_symbols.get(&method_name) {
                         return Some(response::create_hover_response(
                             request_id,
                             symbol_info,
                             None,
                         ));
+                    }
+
+                    if let Some(return_type) = crate::stdlib_types::stdlib_types()
+                        .get_function_return_type(&receiver, &method_name)
+                    {
+                        let type_str = format_type(return_type);
+                        let hover_text = format!(
+                            "```zen\n{} = () {}\n```\n\n**Type:** `{}`\n\n**Module:** `{}`",
+                            method_name, type_str, type_str, receiver
+                        );
+                        return Some(create_hover_response_from_string(request_id, hover_text));
                     }
                 }
             }
@@ -474,121 +482,6 @@ mod handler {
         None
     }
 
-    fn handle_expression_type_inference(
-        symbol_name: &str,
-        doc: &Document,
-        _store: &DocumentStore,
-        position: Position,
-        request_id: lsp_server::RequestId,
-    ) -> Option<Response> {
-        // Try to parse the symbol as an expression and infer its type using compiler
-        let line = doc
-            .content
-            .lines()
-            .nth(position.line as usize)
-            .unwrap_or("");
-
-        let char_pos = position.character as usize;
-
-        // Check if we're inside a string literal (but NOT inside ${...})
-        if !is_inside_format_expression(line, char_pos) {
-            if let Some(string_literal) = extract_string_literal_from_line(line, char_pos) {
-                return Some(create_hover_response_from_string(
-                    request_id,
-                    format!("```zen\n{}\n```\n\n**Type:** `StaticString`\n\n**Literal:** String literal", string_literal)
-                ));
-            }
-        }
-
-        // Try to find the full expression containing this symbol
-        let trimmed_symbol = symbol_name.trim();
-
-        // Check if it's a string literal (with quotes)
-        if trimmed_symbol.starts_with('"') && trimmed_symbol.ends_with('"') {
-            return Some(create_hover_response_from_string(
-                request_id,
-                format!(
-                    "```zen\n{}\n```\n\n**Type:** `StaticString`\n\n**Literal:** String literal",
-                    trimmed_symbol
-                ),
-            ));
-        }
-
-        // Check if it's a number
-        if trimmed_symbol.parse::<i64>().is_ok() {
-            return Some(create_hover_response_from_string(
-                request_id,
-                format!(
-                    "```zen\n{}\n```\n\n**Type:** `i32`\n\n**Literal:** Integer literal",
-                    trimmed_symbol
-                ),
-            ));
-        }
-
-        if trimmed_symbol.parse::<f64>().is_ok() && trimmed_symbol.contains('.') {
-            return Some(create_hover_response_from_string(
-                request_id,
-                format!(
-                    "```zen\n{}\n```\n\n**Type:** `f64`\n\n**Literal:** Floating point literal",
-                    trimmed_symbol
-                ),
-            ));
-        }
-
-        // Check if it's a boolean
-        if trimmed_symbol == "true" || trimmed_symbol == "false" {
-            return Some(create_hover_response_from_string(
-                request_id,
-                format!(
-                    "```zen\n{}\n```\n\n**Type:** `bool`\n\n**Literal:** Boolean literal",
-                    trimmed_symbol
-                ),
-            ));
-        }
-
-        // Try to parse as expression and use compiler integration
-        if let Some(ast) = &doc.ast {
-            let program = Program {
-                declarations: ast.clone(),
-                statements: vec![],
-            };
-
-            let mut compiler = CompilerIntegration::new();
-
-            // Try parsing the symbol as an expression
-            if let Ok(expr_type) = compiler.infer_expression_type_from_string(&program, symbol_name)
-            {
-                return Some(create_hover_response_from_string(
-                    request_id,
-                    format!(
-                        "```zen\n{}\n```\n\n**Type:** `{}`\n\n*Inferred using compiler*",
-                        symbol_name,
-                        format_type(&expr_type)
-                    ),
-                ));
-            }
-
-            // Try to find the expression in context
-            if let Some(expr_str) = extract_expression_from_line(line, char_pos, symbol_name) {
-                if let Ok(expr_type) =
-                    compiler.infer_expression_type_from_string(&program, &expr_str)
-                {
-                    return Some(create_hover_response_from_string(
-                        request_id,
-                        format!(
-                            "```zen\n{}\n```\n\n**Type:** `{}`\n\n*Inferred using compiler*",
-                            expr_str,
-                            format_type(&expr_type)
-                        ),
-                    ));
-                }
-            }
-        }
-
-        None
-    }
-
-    /// Check if cursor is inside a format expression ${...}
     fn is_inside_format_expression(line: &str, char_pos: usize) -> bool {
         // Find the nearest ${ before the cursor
         let mut search_pos = 0;
@@ -683,19 +576,54 @@ mod handler {
         None
     }
 
-    fn extract_expression_from_line(
-        _line: &str,
-        _char_pos: usize,
+    fn handle_lightweight_type_inference(
         symbol_name: &str,
-    ) -> Option<String> {
-        // Try to extract a valid expression containing the symbol
-        // If the symbol itself looks like a literal, return it
-        if symbol_name.starts_with('"') && symbol_name.ends_with('"') {
-            return Some(symbol_name.to_string());
+        content: &str,
+        position: Position,
+        request_id: lsp_server::RequestId,
+    ) -> Option<Response> {
+        let line = content.lines().nth(position.line as usize).unwrap_or("");
+        let char_pos = position.character as usize;
+        let trimmed = symbol_name.trim();
+
+        if trimmed.starts_with('"') && trimmed.ends_with('"') {
+            return Some(create_hover_response_from_string(
+                request_id,
+                format!("```zen\n{}\n```\n\n**Type:** `StaticString`", trimmed),
+            ));
         }
 
-        // For now, just return the symbol itself - the parser will handle it
-        Some(symbol_name.to_string())
+        if trimmed.parse::<i64>().is_ok() {
+            return Some(create_hover_response_from_string(
+                request_id,
+                format!("```zen\n{}\n```\n\n**Type:** `i32`", trimmed),
+            ));
+        }
+
+        if trimmed.parse::<f64>().is_ok() && trimmed.contains('.') {
+            return Some(create_hover_response_from_string(
+                request_id,
+                format!("```zen\n{}\n```\n\n**Type:** `f64`", trimmed),
+            ));
+        }
+
+        if trimmed == "true" || trimmed == "false" {
+            return Some(create_hover_response_from_string(
+                request_id,
+                format!("```zen\n{}\n```\n\n**Type:** `bool`", trimmed),
+            ));
+        }
+
+        if !is_inside_format_expression(line, char_pos) {
+            if let Some(string_literal) = extract_string_literal_from_line(line, char_pos) {
+                return Some(create_hover_response_from_string(
+                    request_id,
+                    format!("```zen\n{}\n```\n\n**Type:** `StaticString`", string_literal),
+                ));
+            }
+        }
+
+        None
     }
 
     fn create_hover_response_from_string(id: lsp_server::RequestId, content: String) -> Response {

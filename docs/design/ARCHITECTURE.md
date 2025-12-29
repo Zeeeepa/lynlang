@@ -1,4 +1,7 @@
-# Zen Compiler Architecture: LLVM Primitives vs Zen-Level Features
+# Zen Compiler Architecture
+
+This document covers the separation between LLVM primitives and Zen-level features,
+including decision trees for where to implement new functionality and concrete examples.
 
 ---
 
@@ -9,7 +12,18 @@ The Zen compiler has a clear separation between:
 1. **LLVM Primitives** - Low-level operations that generate direct LLVM IR
 2. **Zen-Level Features** - High-level language constructs built on top of primitives
 
-This document clarifies which is which and why the distinction matters.
+---
+
+## Quick Decision: Primitive or Feature?
+
+| Question | Answer | → |
+|----------|--------|---|
+| Does it call malloc/free/libc? | YES | LLVM Primitive |
+| Does it need LLVM GEP/sizeof? | YES | LLVM Primitive |
+| Can it be implemented with existing primitives/types? | YES | Zen Feature |
+| Is it a data structure (Vec, String, Ptr)? | YES | Zen Feature |
+| Is it a wrapper around a primitive? | YES | Zen Feature |
+| Is it purely a type definition (enum, struct)? | YES | Zen Feature |
 
 ---
 
@@ -480,4 +494,139 @@ test_vec_push = () void {
 
 ---
 
-**Questions?** Check the specific implementation files listed above.
+## Common Mistakes
+
+❌ **Mistake 1**: Implementing in Zen when it needs libc
+```zen
+file_read = (path: string) string {
+    // ERROR: Can't call C functions from Zen
+    fopen(path)  // Won't work
+}
+```
+✅ **Fix**: Make it an LLVM primitive, optionally wrap in Zen
+
+---
+
+❌ **Mistake 2**: Making an LLVM primitive when Zen would work
+```rust
+// src/stdlib_metadata/string.rs - WRONG
+pub fn compile_string_reverse(...) {
+    // Complex LLVM IR generation
+    // When it could be in Zen!
+}
+```
+✅ **Fix**: Implement in `stdlib/string.zen`
+
+---
+
+❌ **Mistake 3**: Mixing concerns (primitives exposed in Zen)
+```zen
+main = () {
+    // Accessing raw primitives directly
+    alloc = compiler.raw_allocate(100)  // Should use GPA instead
+    compiler.raw_deallocate(alloc, 100)
+}
+```
+✅ **Fix**: Use safe wrappers
+```zen
+main = () {
+    alloc = gpa.default_gpa()
+    ptr = alloc.allocate(100)  // Safe wrapper
+}
+```
+
+---
+
+## Checklist for Adding a New Primitive
+
+If you determine something MUST be an LLVM primitive:
+
+- [ ] Add declaration in `src/stdlib_metadata/my_module.rs` with `is_builtin: true`
+- [ ] Add code generation in `src/codegen/llvm/stdlib_codegen/my_module.rs`
+- [ ] Register function call routing in `src/codegen/llvm/stdlib_codegen/mod.rs`
+- [ ] Add tests in `tests/`
+- [ ] Document in `docs/INTRINSICS_REFERENCE.md`
+- [ ] Add example usage in `examples/`
+- [ ] Consider: Can this be wrapped in Zen for safety?
+
+---
+
+## Code Examples
+
+### Example: raw_allocate (LLVM Primitive)
+
+**Declaration**: `src/stdlib_metadata/compiler.rs`
+```rust
+functions.insert(
+    "raw_allocate".to_string(),
+    StdFunction {
+        name: "raw_allocate".to_string(),
+        params: vec![("size".to_string(), AstType::Usize)],
+        return_type: AstType::Ptr(Box::new(AstType::U8)),
+        is_builtin: true,  // ← Marks as LLVM primitive
+    },
+);
+```
+
+**Why LLVM Primitive?** Must call C `malloc()` function, requires external libc linkage.
+
+### Example: GPA.allocate (Zen Feature wrapping Primitive)
+
+**Implementation**: `stdlib/memory/gpa.zen`
+```zen
+GPA: {
+    allocate: (self, size: usize) Option<*u8> {
+        compiler.raw_allocate(size)  // Calls LLVM primitive
+    },
+    deallocate: (self, ptr: *u8, size: usize) void {
+        compiler.raw_deallocate(ptr, size)  // Calls LLVM primitive
+    },
+}
+```
+
+**Why Zen Feature?** No special code generation needed, simple wrapper around primitives.
+
+### Example: Vec<T> (Zen Feature with Generics)
+
+```zen
+Vec<T>: {
+    data: Ptr<T>,
+    len: usize,
+    capacity: usize,
+    allocator: Allocator,
+}
+
+vec_push = (vec: *Vec<T>, elem: T) {
+    if vec.len >= vec.capacity {
+        vec_grow(vec)
+    }
+
+    // Calculate offset using sizeof (LLVM primitive)
+    offset = vec.len * compiler.sizeof(T)
+    addr = compiler.gep(vec.data.addr as *u8, offset)
+    store_value(addr, elem)
+    vec.len = vec.len + 1
+}
+```
+
+**Why Zen Feature?** Generic container logic using sizeof for type-aware offsets.
+
+---
+
+## Summary Table
+
+| Feature | Location | LLVM Direct? | Can Be Zen? |
+|---------|----------|--------------|-------------|
+| raw_allocate | src/stdlib_metadata/compiler.rs | Yes (malloc) | No |
+| gep | src/stdlib_metadata/compiler.rs | Yes (GEP inst) | No |
+| sizeof | src/stdlib_metadata/compiler.rs | Yes (layout) | No |
+| io.println | src/stdlib_metadata/io.rs | Yes (printf) | No |
+| GPA | stdlib/memory/gpa.zen | No | Yes |
+| Ptr<T> | stdlib/core/ptr.zen | No | Yes |
+| String | stdlib/string.zen | No | Yes |
+| Vec<T> | stdlib/vec.zen | No | Yes |
+| Option<T> | stdlib/core/option.zen | No | Yes |
+
+---
+
+**Remember**: The fewer LLVM primitives, the closer to self-hosting.

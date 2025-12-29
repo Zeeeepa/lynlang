@@ -176,6 +176,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
         Token::Symbol('.') => super::literals::parse_shorthand_enum_variant(parser),
         Token::AtStd => super::literals::parse_special_identifier_with_ufc(parser, "@std"),
         Token::AtThis => super::literals::parse_special_identifier_with_ufc(parser, "@this"),
+        Token::AtBuiltin => super::literals::parse_special_identifier_with_ufc(parser, "@builtin"),
         Token::Identifier(name) => {
             let name = name.clone();
             parser.next_token();
@@ -194,7 +195,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
             }
 
             // Check for Vec<T, size>() constructor vs Vec<T> { ... } struct literal vs Vec<T>.method()
-            if well_known().is_vec(&name) && parser.current_token == Token::Operator("<".to_string()) {
+            if name == "Vec" && parser.current_token == Token::Operator("<".to_string()) {
                 // Look ahead to see what follows Vec<...>
                 let saved_state = parser.lexer.save_state();
                 let saved_current_token = parser.current_token.clone();
@@ -234,7 +235,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
             }
 
             // Check for DynVec<T>() or DynVec<T1, T2, ...>() constructor
-            if well_known().is_dyn_vec(&name) && parser.current_token == Token::Operator("<".to_string()) {
+            if name == "DynVec" && parser.current_token == Token::Operator("<".to_string()) {
                 return super::collections::parse_dynvec_constructor(parser);
             }
 

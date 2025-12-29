@@ -4,11 +4,10 @@
 use crate::ast::AstType;
 use crate::well_known::well_known;
 
-/// Infer return type for string methods
 pub fn infer_string_method_type(method: &str, is_string_struct: bool) -> Option<AstType> {
     let wk = well_known();
     match method {
-        "len" => Some(AstType::I64),
+        "len" => Some(AstType::Usize),
         "to_i32" => Some(AstType::Generic {
             name: wk.option_name().to_string(),
             type_args: vec![AstType::I32],
@@ -55,16 +54,15 @@ pub fn infer_string_method_type(method: &str, is_string_struct: bool) -> Option<
             })
         }
         "contains" | "starts_with" | "ends_with" => Some(AstType::Bool),
-        "index_of" => Some(AstType::I64),
+        "index_of" => Some(AstType::Usize),
         _ => None,
     }
 }
 
-/// Infer return type for HashMap methods
 pub fn infer_hashmap_method_type(method: &str, type_args: &[AstType]) -> Option<AstType> {
     let wk = well_known();
     match method {
-        "size" | "len" => Some(AstType::I64),
+        "size" | "len" => Some(AstType::Usize),
         "is_empty" => Some(AstType::Bool),
         "clear" => Some(AstType::Void),
         "contains" => Some(AstType::Bool),
@@ -95,10 +93,9 @@ pub fn infer_hashmap_method_type(method: &str, type_args: &[AstType]) -> Option<
     }
 }
 
-/// Infer return type for HashSet methods
 pub fn infer_hashset_method_type(method: &str) -> Option<AstType> {
     match method {
-        "size" | "len" => Some(AstType::I64),
+        "size" | "len" => Some(AstType::Usize),
         "is_empty" => Some(AstType::Bool),
         "clear" => Some(AstType::Void),
         "contains" => Some(AstType::Bool),

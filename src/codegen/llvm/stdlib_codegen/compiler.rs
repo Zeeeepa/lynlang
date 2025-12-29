@@ -764,3 +764,598 @@ pub fn compile_int_to_ptr<'ctx>(
         .build_int_to_ptr(int_val, ptr_type, "int_to_ptr")?;
     Ok(ptr_val.into())
 }
+
+/// Compile compiler.sizeof<T>() - Get size of type in bytes
+/// Returns the size of type T in bytes at compile time
+pub fn compile_sizeof<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    type_arg: Option<&crate::ast::AstType>,
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    // Get the type to measure
+    let size: u64 = if let Some(ty) = type_arg {
+        // Calculate size based on type
+        match ty {
+            crate::ast::AstType::I8 | crate::ast::AstType::U8 => 1,
+            crate::ast::AstType::I16 | crate::ast::AstType::U16 => 2,
+            crate::ast::AstType::I32 | crate::ast::AstType::U32 | crate::ast::AstType::F32 => 4,
+            crate::ast::AstType::I64
+            | crate::ast::AstType::U64
+            | crate::ast::AstType::F64
+            | crate::ast::AstType::Usize => 8,
+            crate::ast::AstType::Bool => 1,
+            crate::ast::AstType::Void => 0,
+            // Pointers are 8 bytes on 64-bit
+            t if t.is_ptr_type() => 8,
+            // For structs, calculate based on fields
+            crate::ast::AstType::Struct { fields, .. } => {
+                let mut total: u64 = 0;
+                for (_name, field_ty) in fields {
+                    // Simple alignment - real impl would need proper alignment
+                    total += match field_ty {
+                        crate::ast::AstType::I8 | crate::ast::AstType::U8 => 1,
+                        crate::ast::AstType::I16 | crate::ast::AstType::U16 => 2,
+                        crate::ast::AstType::I32
+                        | crate::ast::AstType::U32
+                        | crate::ast::AstType::F32 => 4,
+                        _ => 8,
+                    };
+                }
+                total
+            }
+            // Default for unknown types
+            _ => 8,
+        }
+    } else {
+        // Default to pointer size if no type specified
+        8
+    };
+
+    Ok(compiler.context.i64_type().const_int(size, false).into())
+}
+
+/// Compile compiler.memset() - Fill memory with a byte value
+pub fn compile_memset<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[crate::ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 3 {
+        return Err(CompileError::TypeError(
+            format!(
+                "compiler.memset expects 3 arguments (dest, value, size), got {}",
+                args.len()
+            ),
+            None,
+        ));
+    }
+
+    let dest = compiler.compile_expression(&args[0])?;
+    let value = compiler.compile_expression(&args[1])?;
+    let size = compiler.compile_expression(&args[2])?;
+
+    // Convert value to i8 if needed
+    let value_i8 = if value.is_int_value() {
+        let int_val = value.into_int_value();
+        if int_val.get_type().get_bit_width() != 8 {
+            compiler
+                .builder
+                .build_int_truncate(int_val, compiler.context.i8_type(), "value_i8")?
+        } else {
+            int_val
+        }
+    } else {
+        return Err(CompileError::TypeError(
+            "compiler.memset value must be an integer".to_string(),
+            None,
+        ));
+    };
+
+    // Convert size to i64 if needed
+    let size_i64 = if size.is_int_value() {
+        let int_val = size.into_int_value();
+        if int_val.get_type().get_bit_width() != 64 {
+            compiler.builder.build_int_z_extend(
+                int_val,
+                compiler.context.i64_type(),
+                "size_i64",
+            )?
+        } else {
+            int_val
+        }
+    } else {
+        return Err(CompileError::TypeError(
+            "compiler.memset size must be an integer".to_string(),
+            None,
+        ));
+    };
+
+    // Get or declare memset
+    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
+    let memset_fn = compiler.module.get_function("memset").unwrap_or_else(|| {
+        let i8_type = compiler.context.i8_type();
+        let i64_type = compiler.context.i64_type();
+        let fn_type = ptr_type.fn_type(&[ptr_type.into(), i8_type.into(), i64_type.into()], false);
+        compiler
+            .module
+            .add_function("memset", fn_type, Some(Linkage::External))
+    });
+
+    compiler.builder.build_call(
+        memset_fn,
+        &[dest.into(), value_i8.into(), size_i64.into()],
+        "memset_call",
+    )?;
+
+    // Return void
+    Ok(compiler.context.i32_type().const_zero().into())
+}
+
+/// Compile compiler.memcpy() - Copy memory from src to dest
+pub fn compile_memcpy<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[crate::ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 3 {
+        return Err(CompileError::TypeError(
+            format!(
+                "compiler.memcpy expects 3 arguments (dest, src, size), got {}",
+                args.len()
+            ),
+            None,
+        ));
+    }
+
+    let dest = compiler.compile_expression(&args[0])?;
+    let src = compiler.compile_expression(&args[1])?;
+    let size = compiler.compile_expression(&args[2])?;
+
+    // Convert size to i64 if needed
+    let size_i64 = if size.is_int_value() {
+        let int_val = size.into_int_value();
+        if int_val.get_type().get_bit_width() != 64 {
+            compiler.builder.build_int_z_extend(
+                int_val,
+                compiler.context.i64_type(),
+                "size_i64",
+            )?
+        } else {
+            int_val
+        }
+    } else {
+        return Err(CompileError::TypeError(
+            "compiler.memcpy size must be an integer".to_string(),
+            None,
+        ));
+    };
+
+    // Get or declare memcpy
+    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
+    let memcpy_fn = compiler.module.get_function("memcpy").unwrap_or_else(|| {
+        let i64_type = compiler.context.i64_type();
+        let fn_type =
+            ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
+        compiler
+            .module
+            .add_function("memcpy", fn_type, Some(Linkage::External))
+    });
+
+    compiler.builder.build_call(
+        memcpy_fn,
+        &[dest.into(), src.into(), size_i64.into()],
+        "memcpy_call",
+    )?;
+
+    // Return void
+    Ok(compiler.context.i32_type().const_zero().into())
+}
+
+/// Compile compiler.memmove() - Copy memory (handles overlapping regions)
+pub fn compile_memmove<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[crate::ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 3 {
+        return Err(CompileError::TypeError(
+            format!(
+                "compiler.memmove expects 3 arguments (dest, src, size), got {}",
+                args.len()
+            ),
+            None,
+        ));
+    }
+
+    let dest = compiler.compile_expression(&args[0])?;
+    let src = compiler.compile_expression(&args[1])?;
+    let size = compiler.compile_expression(&args[2])?;
+
+    // Convert size to i64 if needed
+    let size_i64 = if size.is_int_value() {
+        let int_val = size.into_int_value();
+        if int_val.get_type().get_bit_width() != 64 {
+            compiler.builder.build_int_z_extend(
+                int_val,
+                compiler.context.i64_type(),
+                "size_i64",
+            )?
+        } else {
+            int_val
+        }
+    } else {
+        return Err(CompileError::TypeError(
+            "compiler.memmove size must be an integer".to_string(),
+            None,
+        ));
+    };
+
+    // Get or declare memmove
+    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
+    let memmove_fn = compiler.module.get_function("memmove").unwrap_or_else(|| {
+        let i64_type = compiler.context.i64_type();
+        let fn_type =
+            ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
+        compiler
+            .module
+            .add_function("memmove", fn_type, Some(Linkage::External))
+    });
+
+    compiler.builder.build_call(
+        memmove_fn,
+        &[dest.into(), src.into(), size_i64.into()],
+        "memmove_call",
+    )?;
+
+    // Return void
+    Ok(compiler.context.i32_type().const_zero().into())
+}
+
+/// Compile compiler.memcmp() - Compare memory regions
+pub fn compile_memcmp<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[crate::ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 3 {
+        return Err(CompileError::TypeError(
+            format!(
+                "compiler.memcmp expects 3 arguments (ptr1, ptr2, size), got {}",
+                args.len()
+            ),
+            None,
+        ));
+    }
+
+    let ptr1 = compiler.compile_expression(&args[0])?;
+    let ptr2 = compiler.compile_expression(&args[1])?;
+    let size = compiler.compile_expression(&args[2])?;
+
+    // Convert size to i64 if needed
+    let size_i64 = if size.is_int_value() {
+        let int_val = size.into_int_value();
+        if int_val.get_type().get_bit_width() != 64 {
+            compiler.builder.build_int_z_extend(
+                int_val,
+                compiler.context.i64_type(),
+                "size_i64",
+            )?
+        } else {
+            int_val
+        }
+    } else {
+        return Err(CompileError::TypeError(
+            "compiler.memcmp size must be an integer".to_string(),
+            None,
+        ));
+    };
+
+    // Get or declare memcmp
+    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
+    let i32_type = compiler.context.i32_type();
+    let memcmp_fn = compiler.module.get_function("memcmp").unwrap_or_else(|| {
+        let i64_type = compiler.context.i64_type();
+        let fn_type =
+            i32_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
+        compiler
+            .module
+            .add_function("memcmp", fn_type, Some(Linkage::External))
+    });
+
+    let result = compiler
+        .builder
+        .build_call(
+            memcmp_fn,
+            &[ptr1.into(), ptr2.into(), size_i64.into()],
+            "memcmp_call",
+        )?
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| {
+            CompileError::InternalError("memcmp should return an integer".to_string(), None)
+        })?;
+
+    Ok(result)
+}
+
+// =============================================================================
+// BITWISE INTRINSICS
+// =============================================================================
+
+/// Compile compiler.bswap16() - Byte swap for 16-bit integers
+pub fn compile_bswap16<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[crate::ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 1 {
+        return Err(CompileError::TypeError(
+            format!("bswap16 expects 1 argument, got {}", args.len()),
+            None,
+        ));
+    }
+
+    let value = compiler.compile_expression(&args[0])?;
+    let int_val = value.into_int_value();
+
+    // LLVM intrinsic for bswap
+    let i16_type = compiler.context.i16_type();
+    let intrinsic = inkwell::intrinsics::Intrinsic::find("llvm.bswap.i16")
+        .ok_or_else(|| CompileError::InternalError("bswap intrinsic not found".to_string(), None))?;
+    let intrinsic_fn = intrinsic
+        .get_declaration(&compiler.module, &[i16_type.into()])
+        .ok_or_else(|| {
+            CompileError::InternalError("Failed to get bswap declaration".to_string(), None)
+        })?;
+
+    // Truncate to i16 if needed
+    let val_i16 = if int_val.get_type().get_bit_width() != 16 {
+        compiler
+            .builder
+            .build_int_truncate(int_val, i16_type, "trunc_i16")?
+    } else {
+        int_val
+    };
+
+    let result = compiler
+        .builder
+        .build_call(intrinsic_fn, &[val_i16.into()], "bswap16")?
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| {
+            CompileError::InternalError("bswap16 should return a value".to_string(), None)
+        })?;
+
+    Ok(result)
+}
+
+/// Compile compiler.bswap32() - Byte swap for 32-bit integers
+pub fn compile_bswap32<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[crate::ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 1 {
+        return Err(CompileError::TypeError(
+            format!("bswap32 expects 1 argument, got {}", args.len()),
+            None,
+        ));
+    }
+
+    let value = compiler.compile_expression(&args[0])?;
+    let int_val = value.into_int_value();
+
+    let i32_type = compiler.context.i32_type();
+    let intrinsic = inkwell::intrinsics::Intrinsic::find("llvm.bswap.i32")
+        .ok_or_else(|| CompileError::InternalError("bswap intrinsic not found".to_string(), None))?;
+    let intrinsic_fn = intrinsic
+        .get_declaration(&compiler.module, &[i32_type.into()])
+        .ok_or_else(|| {
+            CompileError::InternalError("Failed to get bswap declaration".to_string(), None)
+        })?;
+
+    // Convert to i32 if needed
+    let val_i32 = if int_val.get_type().get_bit_width() != 32 {
+        if int_val.get_type().get_bit_width() < 32 {
+            compiler
+                .builder
+                .build_int_z_extend(int_val, i32_type, "zext_i32")?
+        } else {
+            compiler
+                .builder
+                .build_int_truncate(int_val, i32_type, "trunc_i32")?
+        }
+    } else {
+        int_val
+    };
+
+    let result = compiler
+        .builder
+        .build_call(intrinsic_fn, &[val_i32.into()], "bswap32")?
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| {
+            CompileError::InternalError("bswap32 should return a value".to_string(), None)
+        })?;
+
+    Ok(result)
+}
+
+/// Compile compiler.bswap64() - Byte swap for 64-bit integers
+pub fn compile_bswap64<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[crate::ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 1 {
+        return Err(CompileError::TypeError(
+            format!("bswap64 expects 1 argument, got {}", args.len()),
+            None,
+        ));
+    }
+
+    let value = compiler.compile_expression(&args[0])?;
+    let int_val = value.into_int_value();
+
+    let i64_type = compiler.context.i64_type();
+    let intrinsic = inkwell::intrinsics::Intrinsic::find("llvm.bswap.i64")
+        .ok_or_else(|| CompileError::InternalError("bswap intrinsic not found".to_string(), None))?;
+    let intrinsic_fn = intrinsic
+        .get_declaration(&compiler.module, &[i64_type.into()])
+        .ok_or_else(|| {
+            CompileError::InternalError("Failed to get bswap declaration".to_string(), None)
+        })?;
+
+    // Convert to i64 if needed
+    let val_i64 = if int_val.get_type().get_bit_width() != 64 {
+        compiler
+            .builder
+            .build_int_z_extend(int_val, i64_type, "zext_i64")?
+    } else {
+        int_val
+    };
+
+    let result = compiler
+        .builder
+        .build_call(intrinsic_fn, &[val_i64.into()], "bswap64")?
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| {
+            CompileError::InternalError("bswap64 should return a value".to_string(), None)
+        })?;
+
+    Ok(result)
+}
+
+/// Compile compiler.ctlz() - Count leading zeros
+pub fn compile_ctlz<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[crate::ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 1 {
+        return Err(CompileError::TypeError(
+            format!("ctlz expects 1 argument, got {}", args.len()),
+            None,
+        ));
+    }
+
+    let value = compiler.compile_expression(&args[0])?;
+    let int_val = value.into_int_value();
+
+    let i64_type = compiler.context.i64_type();
+    let intrinsic = inkwell::intrinsics::Intrinsic::find("llvm.ctlz.i64")
+        .ok_or_else(|| CompileError::InternalError("ctlz intrinsic not found".to_string(), None))?;
+    let intrinsic_fn = intrinsic
+        .get_declaration(&compiler.module, &[i64_type.into()])
+        .ok_or_else(|| {
+            CompileError::InternalError("Failed to get ctlz declaration".to_string(), None)
+        })?;
+
+    // Convert to i64 if needed
+    let val_i64 = if int_val.get_type().get_bit_width() != 64 {
+        compiler
+            .builder
+            .build_int_z_extend(int_val, i64_type, "zext_i64")?
+    } else {
+        int_val
+    };
+
+    // Second arg is is_zero_poison (false = returns bit width for 0 input)
+    let is_zero_poison = compiler.context.bool_type().const_zero();
+
+    let result = compiler
+        .builder
+        .build_call(intrinsic_fn, &[val_i64.into(), is_zero_poison.into()], "ctlz")?
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| {
+            CompileError::InternalError("ctlz should return a value".to_string(), None)
+        })?;
+
+    Ok(result)
+}
+
+/// Compile compiler.cttz() - Count trailing zeros
+pub fn compile_cttz<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[crate::ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 1 {
+        return Err(CompileError::TypeError(
+            format!("cttz expects 1 argument, got {}", args.len()),
+            None,
+        ));
+    }
+
+    let value = compiler.compile_expression(&args[0])?;
+    let int_val = value.into_int_value();
+
+    let i64_type = compiler.context.i64_type();
+    let intrinsic = inkwell::intrinsics::Intrinsic::find("llvm.cttz.i64")
+        .ok_or_else(|| CompileError::InternalError("cttz intrinsic not found".to_string(), None))?;
+    let intrinsic_fn = intrinsic
+        .get_declaration(&compiler.module, &[i64_type.into()])
+        .ok_or_else(|| {
+            CompileError::InternalError("Failed to get cttz declaration".to_string(), None)
+        })?;
+
+    // Convert to i64 if needed
+    let val_i64 = if int_val.get_type().get_bit_width() != 64 {
+        compiler
+            .builder
+            .build_int_z_extend(int_val, i64_type, "zext_i64")?
+    } else {
+        int_val
+    };
+
+    // Second arg is is_zero_poison (false = returns bit width for 0 input)
+    let is_zero_poison = compiler.context.bool_type().const_zero();
+
+    let result = compiler
+        .builder
+        .build_call(intrinsic_fn, &[val_i64.into(), is_zero_poison.into()], "cttz")?
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| {
+            CompileError::InternalError("cttz should return a value".to_string(), None)
+        })?;
+
+    Ok(result)
+}
+
+/// Compile compiler.ctpop() - Count population (number of 1 bits)
+pub fn compile_ctpop<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[crate::ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 1 {
+        return Err(CompileError::TypeError(
+            format!("ctpop expects 1 argument, got {}", args.len()),
+            None,
+        ));
+    }
+
+    let value = compiler.compile_expression(&args[0])?;
+    let int_val = value.into_int_value();
+
+    let i64_type = compiler.context.i64_type();
+    let intrinsic = inkwell::intrinsics::Intrinsic::find("llvm.ctpop.i64")
+        .ok_or_else(|| CompileError::InternalError("ctpop intrinsic not found".to_string(), None))?;
+    let intrinsic_fn = intrinsic
+        .get_declaration(&compiler.module, &[i64_type.into()])
+        .ok_or_else(|| {
+            CompileError::InternalError("Failed to get ctpop declaration".to_string(), None)
+        })?;
+
+    // Convert to i64 if needed
+    let val_i64 = if int_val.get_type().get_bit_width() != 64 {
+        compiler
+            .builder
+            .build_int_z_extend(int_val, i64_type, "zext_i64")?
+    } else {
+        int_val
+    };
+
+    let result = compiler
+        .builder
+        .build_call(intrinsic_fn, &[val_i64.into()], "ctpop")?
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| {
+            CompileError::InternalError("ctpop should return a value".to_string(), None)
+        })?;
+
+    Ok(result)
+}

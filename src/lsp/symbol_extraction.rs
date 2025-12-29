@@ -157,6 +157,42 @@ pub fn extract_symbols_static(
                     },
                 );
             }
+            Declaration::TraitImplementation(impl_block) => {
+                for method in &impl_block.methods {
+                    let method_name = format!("{}.{}", impl_block.type_name, method.name);
+                    let detail = format!(
+                        "{}.{} = ({}) {}",
+                        impl_block.type_name,
+                        method.name,
+                        method
+                            .args
+                            .iter()
+                            .map(|(name, ty)| format!("{}: {}", name, format_type(ty)))
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                        format_type(&method.return_type)
+                    );
+
+                    symbols.insert(
+                        method_name.clone(),
+                        SymbolInfo {
+                            name: method.name.clone(),
+                            kind: SymbolKind::METHOD,
+                            range: range.clone(),
+                            selection_range: range.clone(),
+                            detail: Some(detail),
+                            documentation: Some(format!(
+                                "Method from {}.implements({})",
+                                impl_block.type_name, impl_block.trait_name
+                            )),
+                            type_info: Some(method.return_type.clone()),
+                            definition_uri: None,
+                            references: Vec::new(),
+                            enum_variants: None,
+                        },
+                    );
+                }
+            }
             _ => {}
         }
     }
@@ -312,6 +348,42 @@ pub fn extract_symbols_with_path(
                             enum_variants: None,
                         },
                     );
+                }
+                Declaration::TraitImplementation(impl_block) => {
+                    for method in &impl_block.methods {
+                        let method_name = format!("{}.{}", impl_block.type_name, method.name);
+                        let detail = format!(
+                            "{}.{} = ({}) {}",
+                            impl_block.type_name,
+                            method.name,
+                            method
+                                .args
+                                .iter()
+                                .map(|(name, ty)| format!("{}: {}", name, format_type(ty)))
+                                .collect::<Vec<_>>()
+                                .join(", "),
+                            format_type(&method.return_type)
+                        );
+
+                        symbols.insert(
+                            method_name.clone(),
+                            SymbolInfo {
+                                name: method.name.clone(),
+                                kind: SymbolKind::METHOD,
+                                range: range.clone(),
+                                selection_range: range.clone(),
+                                detail: Some(detail),
+                                documentation: Some(format!(
+                                    "Method from {}.implements({})",
+                                    impl_block.type_name, impl_block.trait_name
+                                )),
+                                type_info: Some(method.return_type.clone()),
+                                definition_uri: None,
+                                references: Vec::new(),
+                                enum_variants: None,
+                            },
+                        );
+                    }
                 }
                 _ => {}
             }

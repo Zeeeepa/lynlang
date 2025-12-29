@@ -15,6 +15,7 @@ pub enum Token {
     AtThis,     // @this
     AtMeta,     // @meta (for compile-time metaprogramming)
     AtExport,   // @export
+    AtBuiltin,  // @builtin (raw compiler intrinsics)
     Pub,        // pub (for public visibility)
     #[allow(dead_code)]
     InterpolationStart, // Start of ${...}
@@ -138,7 +139,7 @@ impl<'a> Lexer<'a> {
                 let ident = self.input[ident_start..self.position].to_string();
 
                 // Check for special @ tokens
-                // Support @std, @this, @meta, and @export
+                // Support @std, @this, @meta, @export, and @builtin
                 if ident == "std" {
                     Token::AtStd
                 } else if ident == "this" {
@@ -147,6 +148,8 @@ impl<'a> Lexer<'a> {
                     Token::AtMeta
                 } else if ident == "export" {
                     Token::AtExport
+                } else if ident == "builtin" {
+                    Token::AtBuiltin
                 } else {
                     // For other @ identifiers, return as regular identifier with @
                     Token::Identifier(self.input[start..self.position].to_string())

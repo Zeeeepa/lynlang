@@ -49,10 +49,10 @@ cargo test --all
 - **[docs/QUICK_START.md](./docs/QUICK_START.md)** - Getting started guide
 - **[docs/INTRINSICS_REFERENCE.md](./docs/INTRINSICS_REFERENCE.md)** - Compiler intrinsics reference
 
-**For contributors**, see the `design/` folder:
+**For contributors**, see the `docs/design/` folder:
 - `ARCHITECTURE.md` - LLVM primitives vs Zen-level features
-- `PRIMITIVES_VS_FEATURES.md` - Decision tree for where to implement
-- `PRIMITIVE_EXAMPLES.md` - Real examples from codebase
+- `STDLIB_DESIGN.md` - Standard library architecture
+- `SAFE_POINTERS_DESIGN.md` - Ptr<T> type-safety design
 
 ## Language Features by Example
 
@@ -357,13 +357,11 @@ The Zen compiler itself is built using **Cargo** (Rust's build system) with a **
 
 **The compiler is built with `cargo` and `make`. The `build.zen` system is a future, self-hosted goal and is not yet functional.**
 
-See the `design/` folder for architecture details.
+See the `docs/design/` folder for architecture details.
 
 ### Future: Self-Hosted build.zen
 
 The long-term vision is a self-hosted build system written in Zen. Example `build.zen` files exist in `tools/` and `examples/` as **demonstrations only**, but the compiler cannot yet execute them. This is a future goal, not current functionality.
-
-**Note**: The `design/bootstrap.sh` script is aspirational placeholder code for Phase 3 and is not currently functional.
 
 ## Implementation Status
 
@@ -378,7 +376,7 @@ Run tests with `cargo test --all`. See `tests/` for integration tests and `tests
 - `/stdlib/` - Standard library modules (Zen code)
 - `/tests/` - Integration and unit tests
 - `/examples/` - Example programs including showcase.zen
-- `/design/` - Architecture and design documentation
+- `/docs/` - Documentation (including design/ subfolder)
 - `/tools/` - Future self-hosted tooling (non-functional)
 
 ### Working Features
@@ -399,22 +397,30 @@ Run tests with `cargo test --all`. See `tests/` for integration tests and `tests
 - ✅ **Option<T>** - Some/None with pattern matching
 - ✅ **Result<T,E>** - Ok/Err with basic support
 - ✅ **Error propagation** - `.raise()` extracts values correctly
-- ✅ **Collections** - DynVec<T>, HashMap<K,V>, HashSet<T>
-- ✅ **Allocator-based async** - GPA (sync) and AsyncPool (async) allocators
+- ✅ **Vec<T>** - Growable vector with push/pop/get
+- ✅ **Allocator system** - GPA allocator with Allocator trait
 - ✅ **Behaviors system** - Structural contracts without keywords
+- ✅ **Core intrinsics (13)** - Memory allocation, pointer arithmetic, enum operations
 
 ### Partially Working  
 - ⚠️ **Generic instantiation** - Basic Result/Option work, complex nested types need work
 - ⚠️ **Result<T,E> returns** - Pattern matching works, function returns have type mismatch
 
-### Not Yet Implemented
-- ❌ **Metaprogramming** - Compile-time AST manipulation
-- ❌ **Pointer types** - Ptr<T>, MutPtr<T>, RawPtr<T> (partial)
-- ❌ **Actor model** - Message passing concurrency (design in stdlib)
-- ❌ **Channels** - CSP-style concurrency (design in stdlib)
-- ❌ **Module exports** - module.exports/import
+### Partially Implemented
+- ⚠️ **Pointer wrappers** - Ptr<T>, MutPtr<T>, RawPtr<T> defined but need more testing
+- ⚠️ **comptime blocks** - Parsed and executed, but don't generate code
+
+### Not Yet Implemented (Stubs Only)
+- ❌ **Collections** - HashMap, Set, Queue, Stack are stubs with TODO placeholders
+- ❌ **inline_c()** - Returns void, needs Clang integration
+- ❌ **Dynamic FFI** - load_library/get_symbol return errors
+- ❌ **Atomic operations** - Defined but no LLVM codegen
+- ❌ **sizeof/alignof** - Compile-time only, sizeof hardcoded to 8
+- ❌ **Actor model** - Message passing concurrency (design only)
+- ❌ **Channels** - CSP-style concurrency (design only)
+- ❌ **Module exports** - module.exports/import syntax
 - ❌ **Build system** - Self-hosted build.zen
-- ❌ **Full FFI** - inline.c() partially works
+- ❌ **Iterator trait** - Manual index loops required
 
 ## Contributing
 

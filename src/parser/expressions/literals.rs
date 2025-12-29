@@ -186,7 +186,12 @@ pub fn parse_shorthand_enum_variant(parser: &mut Parser) -> Result<Expression> {
 
 pub fn parse_special_identifier_with_ufc(parser: &mut Parser, name: &str) -> Result<Expression> {
     parser.next_token();
-    let mut expr = Expression::Identifier(name.to_string());
+    // Use the appropriate reference type based on the identifier
+    let mut expr = match name {
+        "@std" => Expression::StdReference,
+        "@builtin" => Expression::BuiltinReference,
+        _ => Expression::Identifier(name.to_string()),
+    };
 
     loop {
         match &parser.current_token {
@@ -204,12 +209,21 @@ pub fn parse_special_identifier_with_ufc(parser: &mut Parser, name: &str) -> Res
                 };
                 parser.next_token();
 
+                // Check for generic type arguments like sizeof<i32>
+                let method_name = if parser.current_token == Token::Operator("<".to_string()) {
+                    // Parse generic type arguments and append to method name
+                    let type_args = parse_generic_type_args_to_string(parser)?;
+                    format!("{}<{}>", member, type_args)
+                } else {
+                    member
+                };
+
                 if parser.current_token == Token::Symbol('(') {
-                    return super::calls::parse_call_expression_with_object(parser, expr, member);
+                    return super::calls::parse_call_expression_with_object(parser, expr, method_name);
                 } else {
                     expr = Expression::MemberAccess {
                         object: Box::new(expr),
-                        member,
+                        member: method_name,
                     };
                 }
             }

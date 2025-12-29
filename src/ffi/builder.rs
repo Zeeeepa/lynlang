@@ -10,6 +10,7 @@ use super::library::Library;
 use super::platform::{Platform, PlatformConfig};
 use super::types::{CallingConvention, FnSignature, FunctionSafety, LoadFlags, TypeMapping};
 use crate::ast::AstType;
+use crate::stdlib_types::StdlibTypeRegistry;
 
 /// Validation rule for FFI configuration
 pub struct ValidationRule {
@@ -583,7 +584,7 @@ impl LibBuilder {
             | AstType::F32
             | AstType::F64 => true,
             t if t.is_ptr_type() => true,
-            AstType::Struct { name, .. } if name == "String" => true,
+            AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => true,
             AstType::Array { .. } => true,
             AstType::FixedArray { .. } => true,
             AstType::FunctionPointer { .. } => true,

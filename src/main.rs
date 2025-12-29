@@ -16,6 +16,7 @@ mod lexer;
 mod module_system;
 mod parser;
 mod stdlib_metadata;
+mod stdlib_types;
 mod type_system;
 mod typechecker;
 mod well_known;
@@ -155,7 +156,6 @@ fn run_repl() -> std::io::Result<()> {
 }
 
 fn run_file(file_path: &str) -> std::io::Result<()> {
-    // Read the file
     let source = std::fs::read_to_string(file_path).map_err(|e| {
         io::Error::new(
             io::ErrorKind::NotFound,
@@ -166,19 +166,16 @@ fn run_file(file_path: &str) -> std::io::Result<()> {
     let context = Context::create();
     let compiler = Compiler::new(&context);
 
-    // Parse the source
     let lexer = Lexer::new(&source);
     let mut parser = Parser::new(lexer);
     let program = parser
         .parse_program()
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Parse error: {}", e)))?;
 
-    // Get the LLVM module
     let module = compiler
         .get_module(&program)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Compilation error: {}", e)))?;
 
-    // Create execution engine and run
     let execution_engine = module
         .create_jit_execution_engine(OptimizationLevel::None)
         .map_err(|e| {
@@ -188,7 +185,6 @@ fn run_file(file_path: &str) -> std::io::Result<()> {
             )
         })?;
 
-    // Find and run main function
     let exit_code = match execution_engine.get_function_value("main") {
         Ok(main_fn) => {
             let main_type = main_fn.get_type();

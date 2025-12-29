@@ -2,7 +2,6 @@ use super::super::{symbols, LLVMCompiler};
 use crate::ast::{AstType, Expression};
 use crate::error::CompileError;
 use crate::stdlib_metadata::compiler as compiler_intrinsics;
-use crate::well_known::well_known;
 
 pub fn infer_expression_type(
     compiler: &LLVMCompiler,
@@ -183,8 +182,10 @@ pub fn infer_expression_type(
             }
         }
         Expression::FunctionCall { name, .. } => {
-            if name.starts_with("compiler.") {
-                let method = &name[9..];
+            // Handle both "compiler." and "builtin." prefixes for intrinsics
+            if name.starts_with("compiler.") || name.starts_with("builtin.") {
+                let prefix_len = if name.starts_with("compiler.") { 9 } else { 8 };
+                let method = &name[prefix_len..];
                 let base_method = if let Some(angle_pos) = method.find('<') {
                     &method[..angle_pos]
                 } else {
@@ -197,7 +198,7 @@ pub fn infer_expression_type(
                 }
             }
 
-            if name.contains('<') && name.contains('>') && !name.starts_with("compiler.") {
+            if name.contains('<') && name.contains('>') && !name.starts_with("compiler.") && !name.starts_with("builtin.") {
                 if let Some(angle_pos) = name.find('<') {
                     let base_type = &name[..angle_pos];
                     let type_params_str = &name[angle_pos + 1..name.len() - 1];
@@ -357,12 +358,12 @@ pub fn infer_expression_type(
                         let option_name = compiler.well_known.get_variant_parent_name(compiler.well_known.some_name()).unwrap_or(compiler.well_known.option_name());
                         if let Ok(object_type) = compiler.infer_expression_type(object) {
                             if let AstType::Generic { name, type_args } = object_type {
-                                if well_known().is_hash_map(&name) && type_args.len() >= 2 {
+                                if name == "HashMap" && type_args.len() >= 2 {
                                     return Ok(AstType::Generic {
                                         name: option_name.to_string(),
                                         type_args: vec![type_args[1].clone()],
                                     });
-                                } else if well_known().is_hash_set(&name) && !type_args.is_empty() {
+                                } else if name == "HashSet" && !type_args.is_empty() {
                                     if method == "remove" {
                                         return Ok(AstType::Bool);
                                     }
@@ -375,7 +376,7 @@ pub fn infer_expression_type(
                                             type_args: vec![type_args[0].clone()],
                                         });
                                     }
-                                } else if well_known().is_vec_type(&name)
+                                } else if matches!(name.as_str(), "Vec" | "DynVec")
                                     && !type_args.is_empty()
                                 {
                                     return Ok(AstType::Generic {

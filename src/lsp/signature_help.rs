@@ -59,14 +59,14 @@ pub fn handle_signature_help(req: Request, store: &Arc<Mutex<DocumentStore>>) ->
     let position = params.text_document_position_params.position;
     let function_call = find_function_call_at_position(&doc.content, position);
 
-    eprintln!(
+    log::debug!(
         "[LSP] Signature help at {}:{} - function_call: {:?}",
         position.line, position.character, function_call
     );
 
     let signature_help = match function_call {
         Some((function_name, active_param)) => {
-            eprintln!(
+            log::debug!(
                 "[LSP] Looking for function '{}' in {} doc symbols",
                 function_name,
                 doc.symbols.len()
@@ -77,7 +77,7 @@ pub fn handle_signature_help(req: Request, store: &Arc<Mutex<DocumentStore>>) ->
 
             // Check document symbols first (highest priority)
             if let Some(symbol) = doc.symbols.get(&function_name) {
-                eprintln!("[LSP] Found '{}' in document symbols", function_name);
+                log::debug!("[LSP] Found '{}' in document symbols", function_name);
                 signature_info = Some(create_signature_info(symbol));
             }
 

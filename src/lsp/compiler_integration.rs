@@ -8,6 +8,7 @@ use crate::ast::{AstType, Declaration, Program};
 use crate::error::Result;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
+use crate::stdlib_types::StdlibTypeRegistry;
 use crate::typechecker::TypeChecker;
 use std::collections::HashMap;
 
@@ -15,15 +16,9 @@ use std::collections::HashMap;
 // COMPILER INTEGRATION STRUCT
 // ============================================================================
 
-/// Compiler integration for LSP queries
 pub struct CompilerIntegration {
-    /// Type checker instance for type queries
-    type_checker: TypeChecker,
-    /// Parsed stdlib programs indexed by path
     stdlib_programs: HashMap<String, Program>,
-    /// Function signatures from stdlib
     stdlib_functions: HashMap<String, FunctionSignature>,
-    /// Index of receiver type -> list of method keys ("Receiver::name") for fast lookup
     method_index: HashMap<String, Vec<String>>,
 }
 
@@ -36,10 +31,8 @@ pub struct FunctionSignature {
 }
 
 impl CompilerIntegration {
-    /// Create a new compiler integration instance
     pub fn new() -> Self {
         Self {
-            type_checker: TypeChecker::new(),
             stdlib_programs: HashMap::new(),
             stdlib_functions: HashMap::new(),
             method_index: HashMap::new(),
@@ -144,19 +137,22 @@ impl CompilerIntegration {
         out
     }
 
-    /// Get the return type of a method call
     pub fn get_method_return_type(
         &self,
         receiver_type: &str,
         method_name: &str,
     ) -> Option<AstType> {
-        // Try direct lookup first
+        use crate::stdlib_types::stdlib_types;
+        
+        if let Some(return_type) = stdlib_types().get_method_return_type(receiver_type, method_name) {
+            return Some(return_type.clone());
+        }
+
         let method_key = format!("{}::{}", receiver_type, method_name);
         if let Some(sig) = self.stdlib_functions.get(&method_key) {
             return Some(sig.return_type.clone());
         }
 
-        // Try looking up by function name and check if receiver matches
         if let Some(sig) = self.stdlib_functions.get(method_name) {
             if let Some(recv) = &sig.receiver_type {
                 if recv == receiver_type || recv.starts_with(&format!("{}<", receiver_type)) {
@@ -321,7 +317,7 @@ fn format_type(ty: &AstType) -> String {
         AstType::F32 => "f32".to_string(),
         AstType::F64 => "f64".to_string(),
         AstType::Bool => "bool".to_string(),
-        AstType::Struct { name, .. } if name == "String" => "String".to_string(),
+        AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => "String".to_string(),
         AstType::StaticString => "StaticString".to_string(),
         AstType::Void => "void".to_string(),
         AstType::Generic { name, type_args } => {

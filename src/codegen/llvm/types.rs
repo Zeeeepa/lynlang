@@ -1,7 +1,7 @@
 use super::{symbols, LLVMCompiler, StructTypeInfo, Type};
 use crate::ast::{self, AstType};
 use crate::error::CompileError;
-use crate::well_known::well_known;
+use crate::stdlib_types::StdlibTypeRegistry;
 use inkwell::{
     types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum},
     AddressSpace,
@@ -33,10 +33,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             AstType::StaticLiteral | AstType::StaticString => Ok(Type::Basic(
                 self.context.ptr_type(AddressSpace::default()).into(),
             )),
-            AstType::Struct { name, .. } if name == "String" => {
-                // String is a struct with: data (ptr), len (u64), capacity (u64), allocator (ptr)
-                // For now, treat it as a pointer until we properly implement struct type resolution
-                // TODO: Return proper struct type once String struct is registered
+            AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => {
                 Ok(Type::Basic(
                     self.context.ptr_type(AddressSpace::default()).into(),
                 ))
@@ -370,6 +367,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     return Ok(Type::Struct(hashset_struct_type));
                 }
 
+                // Special handling for String type (dynamic string from stdlib)
+                // String is defined in stdlib/string.zen - resolve it from there
+                if name == "String" && type_args.is_empty() {
+                    let string_type = crate::stdlib_types::stdlib_types().get_string_type();
+                    // Now convert the resolved struct type to LLVM
+                    return self.to_llvm_type(&string_type);
+                }
+
                 // Special handling for Option<T> and Result<T,E> types
                 // These are registered as enum types in the symbol table
                 if self.well_known.is_option(name) || self.well_known.is_result(name) {
@@ -398,9 +403,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 {
                     // Check if it's an enum type that was parsed as Generic
                     Ok(Type::Struct(enum_info.llvm_type))
-                } else if well_known().is_dyn_vec(name) && type_args.len() == 1 {
-                    // Convert Generic DynVec to proper DynVec type
-                    // This happens when type parsing creates Generic instead of DynVec
+                } else if name == "DynVec" && type_args.len() == 1 {
                     let dynvec_type = AstType::DynVec {
                         element_types: type_args.clone(),
                         allocator_type: None,
@@ -594,7 +597,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     .context
                     .ptr_type(AddressSpace::default())
                     .as_basic_type_enum(),
-                AstType::Struct { name, .. } if name == "String" => self
+                AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => self
                     .context
                     .ptr_type(AddressSpace::default())
                     .as_basic_type_enum(),
@@ -688,7 +691,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         AstType::I32 | AstType::U32 | AstType::F32 => 32,
                         AstType::I64 | AstType::U64 | AstType::F64 | AstType::Usize => 64,
                         AstType::StaticLiteral | AstType::StaticString => 64,
-                        AstType::Struct { name, .. } if name == "String" => 64,
+                        AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => 64,
                         t if t.is_ptr_type() => 64,
                         AstType::Struct { .. } | AstType::Generic { .. } => 64,
                         AstType::Void => 0,

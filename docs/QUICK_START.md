@@ -57,8 +57,8 @@ vec.vec_free(&numbers)
 
 ## Files You Should Read (In Order)
 
-1. **NEXT_STEPS.md** - What's done, what's pending
-2. **DOCUMENTATION_INDEX.md** - Navigation hub
+1. **design/NEXT_STEPS.md** - What's done, what's pending
+2. **README.md** - Navigation hub
 3. **design/SAFE_POINTERS_DESIGN.md** - Why Ptr<T> is better than raw pointers
 4. **INTRINSICS_REFERENCE.md** - Compiler primitives you can use
 
@@ -218,14 +218,29 @@ compiler.set_payload(&my_enum, data)
 
 ---
 
-## What's NOT Implemented Yet
+## What Works
 
-- [ ] Iterators for Vec/String
-- [ ] HashMap, Set, Queue, Stack
-- [ ] String formatting/methods
-- [ ] FFI (C interop)
-- [ ] Inline assembly
-- [ ] Advanced allocators
+- ✅ **Core types** - Option<T>, Result<T,E> with pattern matching
+- ✅ **Vec<T>** - Growable vector with push/pop/get
+- ✅ **String** - Dynamic string with push/len/at
+- ✅ **GPA allocator** - Memory allocation via malloc/free
+- ✅ **Core intrinsics** - raw_allocate, raw_deallocate, gep, load, store, discriminant
+
+## What's Partially Working
+
+- ⚠️ **Ptr<T>/MutPtr<T>/RawPtr<T>** - Defined in stdlib, intrinsics work, needs more testing
+- ⚠️ **comptime blocks** - Parsed and executed, but don't generate code
+
+## What's NOT Implemented (Stubs Only)
+
+- ❌ **HashMap, Set, Queue, Stack** - Defined but are stubs with TODO placeholders
+- ❌ **inline_c()** - Returns void, does nothing (needs Clang integration)
+- ❌ **Dynamic FFI** - load_library/get_symbol return errors
+- ❌ **Atomic operations** - Defined but no LLVM codegen
+- ❌ **sizeof<T>()** - Hardcoded to return 8 bytes
+- ❌ **Iterators** - Manual index loops required
+- ❌ **Module exports** - module.exports/import syntax
+- ❌ **Actor/Channel** - Design only
 
 ---
 
@@ -266,8 +281,8 @@ if option == Some(x) { }  // Won't compile
 After this, read these in order:
 1. `design/SAFE_POINTERS_DESIGN.md` - Deep dive on Ptr vs Ref
 2. `INTRINSICS_REFERENCE.md` - All compiler primitives
-3. `design/STDLIB_WORK_BREAKDOWN.md` - Implementation details
-4. Look at `stdlib/` folder for actual code
+3. `design/STDLIB_DESIGN.md` - Stdlib architecture
+4. Look at `../stdlib/` folder for actual code
 
 ---
 
@@ -372,4 +387,4 @@ You can't accidentally crash on null. The compiler won't allow it.
 
 ---
 
-**Next**: Read NEXT_STEPS.md for current development focus
+**Next**: Read design/NEXT_STEPS.md for current development focus

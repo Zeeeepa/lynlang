@@ -1,4 +1,5 @@
 use crate::ast::AstType;
+use crate::stdlib_types::StdlibTypeRegistry;
 use crate::well_known::well_known;
 
 /// Check if two types are compatible (for assignment, parameter passing, etc.)
@@ -34,12 +35,12 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
         (AstType::StaticLiteral, AstType::StaticString) => return true,
 
         // StaticString -> String struct is ok (will need allocator at runtime)
-        (AstType::Struct { name, .. }, AstType::StaticString) if name == "String" => return true,
-        (AstType::Struct { name, .. }, AstType::StaticLiteral) if name == "String" => return true, // Internal literal -> dynamic is ok
+        (AstType::Struct { name, .. }, AstType::StaticString) if StdlibTypeRegistry::is_string_type(name) => return true,
+        (AstType::Struct { name, .. }, AstType::StaticLiteral) if StdlibTypeRegistry::is_string_type(name) => return true, // Internal literal -> dynamic is ok
 
         // String struct -> StaticString is NOT ok (would lose allocator)
-        (AstType::StaticString, AstType::Struct { name, .. }) if name == "String" => return false,
-        (AstType::StaticLiteral, AstType::Struct { name, .. }) if name == "String" => return false,
+        (AstType::StaticString, AstType::Struct { name, .. }) if StdlibTypeRegistry::is_string_type(name) => return false,
+        (AstType::StaticLiteral, AstType::Struct { name, .. }) if StdlibTypeRegistry::is_string_type(name) => return false,
         _ => {}
     }
 
@@ -286,7 +287,7 @@ pub fn can_be_indexed(type_: &AstType) -> Option<AstType> {
     match type_ {
         AstType::Array(elem_type) => Some((**elem_type).clone()),
         AstType::FixedArray { element_type, .. } => Some((**element_type).clone()),
-        AstType::Struct { name, .. } if name == "String" => Some(AstType::U8), // Indexing string gives bytes
+        AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => Some(AstType::U8), // Indexing string gives bytes
         _ => None,
     }
 }

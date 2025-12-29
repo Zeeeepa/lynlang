@@ -8,25 +8,11 @@ use std::fmt;
 /// struct String {
 ///     data: Ptr<u8>
 ///     len: u64
-///     capacity: u64
+///     capacity: usize
 ///     allocator: Allocator
 /// }
 pub fn resolve_string_struct_type() -> AstType {
-    AstType::Struct {
-        name: "String".to_string(),
-        fields: vec![
-            ("data".to_string(), AstType::ptr(AstType::U8)),
-            ("len".to_string(), AstType::U64),
-            ("capacity".to_string(), AstType::U64),
-            (
-                "allocator".to_string(),
-                AstType::Generic {
-                    name: "Allocator".to_string(),
-                    type_args: vec![],
-                },
-            ),
-        ],
-    }
+    crate::stdlib_types::stdlib_types().get_string_type()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

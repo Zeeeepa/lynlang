@@ -13,9 +13,11 @@ pub fn handle_definition(
     req: Request,
     store: &std::sync::Arc<std::sync::Mutex<DocumentStore>>,
 ) -> Response {
+    log::debug!("[LSP DEFINITION] Starting definition request");
     let params: GotoDefinitionParams = match serde_json::from_value(req.params) {
         Ok(p) => p,
-        Err(_) => {
+        Err(e) => {
+            log::debug!("[LSP DEFINITION] Failed to parse params: {:?}", e);
             return Response {
                 id: req.id,
                 result: Some(Value::Null),
@@ -24,9 +26,15 @@ pub fn handle_definition(
         }
     };
 
+    log::debug!("[LSP DEFINITION] Waiting for store lock...");
+    let lock_start = std::time::Instant::now();
     let store = match store.lock() {
-        Ok(s) => s,
-        Err(_) => {
+        Ok(s) => {
+            log::debug!("[LSP DEFINITION] Got store lock in {:?}", lock_start.elapsed());
+            s
+        },
+        Err(e) => {
+            log::debug!("[LSP DEFINITION] Failed to get store lock: {:?}", e);
             return Response {
                 id: req.id,
                 result: Some(Value::Null),
@@ -57,7 +65,7 @@ pub fn handle_definition(
 
         // Find the symbol at the cursor position
         if let Some(symbol_name) = find_symbol_at_position(&doc.content, position) {
-            eprintln!("[LSP] Go-to-definition for: '{}'", symbol_name);
+            log::debug!("[LSP] Go-to-definition for: '{}'", symbol_name);
 
             // Check if clicking on @std.text or similar module path
             if symbol_name.starts_with("@std.") {
@@ -198,7 +206,7 @@ pub fn handle_definition(
 
             // Check if this is an imported symbol (e.g., { io } = @std)
             if let Some(import_info) = find_import_info(&doc.content, &symbol_name, position) {
-                eprintln!(
+                log::debug!(
                     "[LSP] Found import: {} from {}",
                     symbol_name, import_info.source
                 );
@@ -327,15 +335,61 @@ pub fn handle_definition(
                             }
                         }
 
-                        // Try to find the symbol within the module file
+                        // Use stdlib_resolver to find the actual file path
+                        if let Some(file_path) =
+                            store.stdlib_resolver.resolve_module_path(&import_info.source)
+                        {
+                            if let Ok(module_uri) = Url::from_file_path(&file_path) {
+                                // Check if we have this document open
+                                if let Some(stdlib_doc) = store.documents.get(&module_uri) {
+                                    if let Some(symbol_info) = stdlib_doc.symbols.get(&symbol_name)
+                                    {
+                                        return Response {
+                                            id: req.id,
+                                            result: Some(
+                                                serde_json::to_value(
+                                                    GotoDefinitionResponse::Scalar(Location {
+                                                        uri: module_uri,
+                                                        range: symbol_info.range.clone(),
+                                                    }),
+                                                )
+                                                .unwrap_or(Value::Null),
+                                            ),
+                                            error: None,
+                                        };
+                                    }
+                                }
+
+                                // File exists but not indexed - search it directly
+                                if file_path.exists() {
+                                    if let Ok(content) = std::fs::read_to_string(&file_path) {
+                                        if let Some(range) = find_symbol_definition_in_content(
+                                            &content,
+                                            &symbol_name,
+                                        ) {
+                                            return Response {
+                                                id: req.id,
+                                                result: Some(
+                                                    serde_json::to_value(
+                                                        GotoDefinitionResponse::Scalar(Location {
+                                                            uri: module_uri,
+                                                            range,
+                                                        }),
+                                                    )
+                                                    .unwrap_or(Value::Null),
+                                                ),
+                                                error: None,
+                                            };
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Fallback: search all stdlib documents
                         for (uri, stdlib_doc) in &store.documents {
                             let uri_path = uri.path();
-                            if uri_path.contains("stdlib")
-                                && (uri_path
-                                    .ends_with(&format!("{}/{}.zen", module_name, module_name))
-                                    || uri_path
-                                        .contains(&format!("{}/{}", module_name, module_name)))
-                            {
+                            if uri_path.contains("stdlib") {
                                 if let Some(symbol_info) = stdlib_doc.symbols.get(&symbol_name) {
                                     return Response {
                                         id: req.id,
@@ -359,7 +413,7 @@ pub fn handle_definition(
 
             // Check local document symbols (from AST) - prioritize same file
             if let Some(symbol_info) = doc.symbols.get(&symbol_name) {
-                eprintln!(
+                log::debug!(
                     "[LSP] Found in document symbols at line {}",
                     symbol_info.range.start.line
                 );
@@ -464,9 +518,9 @@ pub fn handle_definition(
             }
 
             // Fallback: text search within current document
-            eprintln!("[LSP] Trying text search fallback for: '{}'", symbol_name);
+            log::debug!("[LSP] Trying text search fallback for: '{}'", symbol_name);
             if let Some(range) = find_symbol_definition_in_content(&doc.content, &symbol_name) {
-                eprintln!("[LSP] Found via text search at line {}", range.start.line);
+                log::debug!("[LSP] Found via text search at line {}", range.start.line);
                 let location = Location {
                     uri: params
                         .text_document_position_params
@@ -485,7 +539,7 @@ pub fn handle_definition(
                 };
             }
 
-            eprintln!("[LSP] No definition found for: '{}'", symbol_name);
+            log::debug!("[LSP] No definition found for: '{}'", symbol_name);
         }
     }
 

@@ -1,5 +1,6 @@
 use crate::ast::{AstType, BinaryOperator, Expression};
 use crate::error::{CompileError, Result};
+use crate::stdlib_types::StdlibTypeRegistry;
 use crate::typechecker::{EnumInfo, StructInfo, TypeChecker};
 use crate::well_known::well_known;
 use std::collections::HashMap;
@@ -89,10 +90,10 @@ pub fn infer_binary_op_type(
             // All string types can be concatenated
             let is_left_string =
                 matches!(&left_type, AstType::StaticLiteral | AstType::StaticString)
-                    || matches!(&left_type, AstType::Struct { name, .. } if name == "String");
+                    || matches!(&left_type, AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name));
             let is_right_string =
                 matches!(&right_type, AstType::StaticLiteral | AstType::StaticString)
-                    || matches!(&right_type, AstType::Struct { name, .. } if name == "String");
+                    || matches!(&right_type, AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name));
             if is_left_string && is_right_string {
                 // Result is always String (dynamic) when concatenating
                 Ok(crate::ast::resolve_string_struct_type())
@@ -312,9 +313,9 @@ fn types_comparable(left: &AstType, right: &AstType) -> bool {
     }
 
     let is_left_string = matches!(left, AstType::StaticString | AstType::StaticLiteral)
-        || matches!(left, AstType::Struct { ref name, .. } if name == "String");
+        || matches!(left, AstType::Struct { ref name, .. } if StdlibTypeRegistry::is_string_type(name));
     let is_right_string = matches!(right, AstType::StaticString | AstType::StaticLiteral)
-        || matches!(right, AstType::Struct { ref name, .. } if name == "String");
+        || matches!(right, AstType::Struct { ref name, .. } if StdlibTypeRegistry::is_string_type(name));
     if is_left_string && is_right_string {
         return true;
     }
@@ -387,6 +388,7 @@ pub fn infer_function_call_type(
     args: &[Expression],
 ) -> Result<AstType> {
     use super::intrinsics;
+    use crate::stdlib_types::stdlib_types;
 
     if name.contains('.') {
         let parts: Vec<&str> = name.splitn(2, '.').collect();
@@ -417,6 +419,10 @@ pub fn infer_function_call_type(
                     }
                 }
                 return result;
+            }
+
+            if let Some(return_type) = stdlib_types().get_function_return_type(module, base_func) {
+                return Ok(return_type.clone());
             }
 
             if let Some(return_type) = intrinsics::check_stdlib_function(module, base_func) {
@@ -675,9 +681,21 @@ pub fn infer_method_call_type(
     method: &str,
 ) -> Result<AstType> {
     use super::method_types;
+    use crate::stdlib_types::stdlib_types;
 
-    // Special handling for collection .new() static methods
     if let Expression::Identifier(name) = object {
+        let base_name = name.split('<').next().unwrap_or(name);
+        
+        // Check for methods (Type.method style like String.len)
+        if let Some(return_type) = stdlib_types().get_method_return_type(base_name, method) {
+            return Ok(return_type.clone());
+        }
+        
+        // Check for module functions (module.function style like gpa.default_gpa)
+        if let Some(return_type) = stdlib_types().get_function_return_type(base_name, method) {
+            return Ok(return_type.clone());
+        }
+
         if method == "new" {
             if name == "Array" {
                 return Ok(AstType::Generic {
@@ -700,7 +718,6 @@ pub fn infer_method_call_type(
 
     let effective_type = dereferenced_type.as_ref().unwrap_or(&object_type);
 
-    // Try UFC - find function in scope
     if let Some(func_type) = checker.get_function_signatures().get(method) {
         if !func_type.params.is_empty() {
             let (_, first_param_type) = &func_type.params[0];
@@ -710,9 +727,20 @@ pub fn infer_method_call_type(
         }
     }
 
-    // String methods
+    let receiver_type_name = match effective_type {
+        AstType::Struct { name, .. } => Some(name.as_str()),
+        AstType::Generic { name, .. } => Some(name.as_str()),
+        AstType::Enum { name, .. } => Some(name.as_str()),
+        _ => None,
+    };
+    if let Some(type_name) = receiver_type_name {
+        if let Some(return_type) = stdlib_types().get_method_return_type(type_name, method) {
+            return Ok(return_type.clone());
+        }
+    }
+
     let is_string_struct =
-        matches!(effective_type, AstType::Struct { name, .. } if name == "String");
+        matches!(effective_type, AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name));
     if is_string_struct
         || *effective_type == AstType::StaticString
         || *effective_type == AstType::StaticLiteral
@@ -740,7 +768,7 @@ pub fn infer_method_call_type(
             if let Some(return_type) = method_types::infer_result_method_type(method, type_args) {
                 return Ok(return_type);
             }
-        } else if well_known().is_vec_type(name) && !type_args.is_empty() {
+        } else if matches!(name.as_str(), "Vec" | "DynVec") && !type_args.is_empty() {
             if let Some(return_type) = method_types::infer_vec_method_type(method, &type_args[0]) {
                 return Ok(return_type);
             }

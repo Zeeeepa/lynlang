@@ -1,60 +1,35 @@
-// Inlay Hints Module for Zen LSP
-// Handles textDocument/inlayHint requests
-
-use lsp_server::Request;
-use lsp_server::Response;
+use lsp_server::{Request, Response};
 use lsp_types::*;
 use serde_json::Value;
 use std::sync::{Arc, Mutex};
 
-use crate::ast::{Declaration, Expression, Statement};
+use crate::ast::{AstType, Declaration, Expression, Statement};
+use crate::stdlib_types::stdlib_types;
 
 use super::document_store::DocumentStore;
 use super::types::Document;
-
-// ============================================================================
-// PUBLIC HANDLER FUNCTION
-// ============================================================================
+use super::utils::format_type;
 
 pub fn handle_inlay_hints(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Response {
     let params: InlayHintParams = match serde_json::from_value(req.params) {
         Ok(p) => p,
-        Err(_) => {
-            return Response {
-                id: req.id,
-                result: Some(Value::Null),
-                error: None,
-            };
-        }
+        Err(_) => return empty_response(req.id),
     };
 
     let store = match store.lock() {
         Ok(s) => s,
-        Err(_) => {
-            return Response {
-                id: req.id,
-                result: Some(
-                    serde_json::to_value(Vec::<InlayHint>::new())
-                        .unwrap_or(serde_json::Value::Null),
-                ),
-                error: None,
-            };
-        }
+        Err(_) => return empty_response(req.id),
     };
+
     let doc = match store.documents.get(&params.text_document.uri) {
         Some(d) => d,
-        None => {
-            return Response {
-                id: req.id,
-                result: Some(Value::Null),
-                error: None,
-            };
-        }
+        None => return empty_response(req.id),
     };
 
-    let mut hints = Vec::with_capacity(20); // Pre-allocate for common case
+    let mut hints = Vec::new();
+    
+    collect_hints_from_content(&doc.content, &mut hints);
 
-    // Parse the AST and extract variable declarations with position tracking
     if let Some(ast) = &doc.ast {
         for decl in ast {
             if let Declaration::Function(func) = decl {
@@ -70,9 +45,184 @@ pub fn handle_inlay_hints(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Re
     }
 }
 
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
+fn empty_response(id: lsp_server::RequestId) -> Response {
+    Response {
+        id,
+        result: Some(serde_json::to_value(Vec::<InlayHint>::new()).unwrap_or(Value::Null)),
+        error: None,
+    }
+}
+
+fn collect_hints_from_content(content: &str, hints: &mut Vec<InlayHint>) {
+    let mut seen: std::collections::HashSet<(u32, u32)> = std::collections::HashSet::new();
+    
+    for (line_num, line) in content.lines().enumerate() {
+        if let Some(hint) = try_create_hint_for_line(line, line_num as u32, &mut seen) {
+            hints.push(hint);
+        }
+    }
+}
+
+fn try_create_hint_for_line(
+    line: &str, 
+    line_num: u32,
+    seen: &mut std::collections::HashSet<(u32, u32)>,
+) -> Option<InlayHint> {
+    let trimmed = line.trim();
+    
+    if trimmed.is_empty() 
+        || trimmed.starts_with("//")
+        || trimmed.starts_with('{')
+        || trimmed.starts_with('}')
+        || trimmed.starts_with('|')
+        || trimmed.contains("= (")
+        || trimmed.contains("= @")
+    {
+        return None;
+    }
+
+    let (var_name, var_end_pos, has_explicit_type, rhs) = parse_var_decl(line)?;
+    
+    if has_explicit_type {
+        return None;
+    }
+
+    let key = (line_num, var_end_pos);
+    if seen.contains(&key) {
+        return None;
+    }
+
+    let inferred = infer_type(&rhs)?;
+    seen.insert(key);
+
+    Some(InlayHint {
+        position: Position { line: line_num, character: var_end_pos },
+        label: InlayHintLabel::String(format!(": {}", inferred)),
+        kind: Some(InlayHintKind::TYPE),
+        text_edits: None,
+        tooltip: None,
+        padding_left: None,
+        padding_right: None,
+        data: None,
+    })
+}
+
+fn parse_var_decl(line: &str) -> Option<(String, u32, bool, String)> {
+    let trimmed = line.trim();
+    
+    if trimmed.is_empty() || trimmed.starts_with("//") {
+        return None;
+    }
+    
+    let (eq_pos, eq_char_count) = if let Some(pos) = trimmed.find(" ::= ") {
+        (pos, 5)
+    } else if let Some(pos) = trimmed.find("::=") {
+        (pos, 3)
+    } else if let Some(pos) = trimmed.find(" = ") {
+        (pos, 3)
+    } else {
+        return None;
+    };
+    
+    let before_eq = &trimmed[..eq_pos];
+    let after_eq = &trimmed[eq_pos + eq_char_count..];
+
+    let has_explicit_type = if before_eq.contains("::") {
+        let parts: Vec<&str> = before_eq.splitn(2, "::").collect();
+        parts.len() == 2 && !parts[1].trim().is_empty()
+    } else if before_eq.contains(':') {
+        let colon_pos = before_eq.find(':')?;
+        let after_colon = before_eq[colon_pos + 1..].trim();
+        !after_colon.is_empty()
+    } else {
+        false
+    };
+
+    let var_name = if before_eq.contains("::") {
+        before_eq.split("::").next()?.trim()
+    } else if before_eq.contains(':') {
+        before_eq.split(':').next()?.trim()
+    } else {
+        before_eq.trim()
+    };
+
+    if var_name.is_empty() 
+        || var_name.contains('(')
+        || var_name.contains(')')
+        || var_name.contains('.')
+        || var_name.contains(' ')
+        || var_name.chars().next()?.is_uppercase()
+    {
+        return None;
+    }
+
+    let var_start = line.find(var_name)?;
+    let var_end_pos = (var_start + var_name.len()) as u32;
+
+    Some((var_name.to_string(), var_end_pos, has_explicit_type, after_eq.trim().to_string()))
+}
+
+fn infer_type(rhs: &str) -> Option<String> {
+    let rhs = rhs.trim();
+    
+    if rhs.starts_with('"') || rhs.starts_with('\'') {
+        return Some("StaticString".to_string());
+    }
+    
+    if rhs == "true" || rhs == "false" {
+        return Some("bool".to_string());
+    }
+    
+    if let Ok(v) = rhs.parse::<i64>() {
+        return Some(if v >= i32::MIN as i64 && v <= i32::MAX as i64 { "i32" } else { "i64" }.to_string());
+    }
+    
+    if !rhs.contains('(') && rhs.parse::<f64>().is_ok() && rhs.contains('.') {
+        return Some("f64".to_string());
+    }
+    
+    if let Some(paren_pos) = rhs.find('(') {
+        let call = rhs[..paren_pos].trim();
+        return infer_from_call(call);
+    }
+    
+    if let Some(brace_pos) = rhs.find('{') {
+        let type_name = rhs[..brace_pos].trim();
+        if type_name.chars().next()?.is_uppercase() {
+            return Some(type_name.to_string());
+        }
+    }
+    
+    None
+}
+
+fn infer_from_call(call: &str) -> Option<String> {
+    if let Some(dot_pos) = call.rfind('.') {
+        let receiver = call[..dot_pos].trim();
+        let method = call[dot_pos + 1..].trim();
+        
+        if receiver.chars().next()?.is_uppercase() {
+            if matches!(method, "new" | "init" | "create" | "default" | "from") {
+                return Some(receiver.to_string());
+            }
+            if let Some(ret) = stdlib_types().get_method_return_type(receiver, method) {
+                return Some(format_type(ret));
+            }
+        }
+        
+        if let Some(ret) = stdlib_types().get_function_return_type(receiver, method) {
+            return Some(format_type(ret));
+        }
+        
+        if let Some(ret) = stdlib_types().get_method_return_type(receiver, method) {
+            return Some(format_type(ret));
+        }
+    } else if call.chars().next()?.is_uppercase() {
+        return Some(call.to_string());
+    }
+    
+    None
+}
 
 fn collect_hints_from_statements(
     statements: &[Statement],
@@ -83,21 +233,14 @@ fn collect_hints_from_statements(
 ) {
     for stmt in statements {
         match stmt {
-            Statement::VariableDeclaration {
-                name,
-                type_,
-                initializer,
-                ..
-            } => {
-                // Only add hints for variables without explicit type annotations
+            Statement::VariableDeclaration { name, type_, initializer, .. } => {
                 if type_.is_none() {
                     if let Some(init) = initializer {
-                        if let Some(inferred_type) = infer_expression_type(init, doc, store) {
-                            // Find the position of this variable declaration in the source
-                            if let Some(position) = find_variable_position(content, name) {
+                        if let Some(inferred) = infer_expr_type(init, doc, store) {
+                            if let Some(pos) = find_var_pos(content, name) {
                                 hints.push(InlayHint {
-                                    position,
-                                    label: InlayHintLabel::String(format!(": {}", inferred_type)),
+                                    position: pos,
+                                    label: InlayHintLabel::String(format!(": {}", inferred)),
                                     kind: Some(InlayHintKind::TYPE),
                                     text_edits: None,
                                     tooltip: None,
@@ -107,19 +250,8 @@ fn collect_hints_from_statements(
                                 });
                             }
                         }
-
-                        // Also collect parameter hints from function calls in initializer
-                        collect_param_hints_from_expression(init, content, doc, store, hints);
                     }
                 }
-            }
-            Statement::Expression { expr, .. } => {
-                // Collect parameter hints from standalone expressions
-                collect_param_hints_from_expression(expr, content, doc, store, hints);
-            }
-            Statement::Return { expr, .. } => {
-                // Collect parameter hints from return expressions
-                collect_param_hints_from_expression(expr, content, doc, store, hints);
             }
             Statement::Loop { body, .. } => {
                 collect_hints_from_statements(body, content, doc, store, hints);
@@ -129,52 +261,23 @@ fn collect_hints_from_statements(
     }
 }
 
-fn find_variable_position(content: &str, var_name: &str) -> Option<Position> {
-    // Optimized: iterate lines directly without collecting
+fn find_var_pos(content: &str, var_name: &str) -> Option<Position> {
     for (line_num, line) in content.lines().enumerate() {
-        // Look for Zen variable declaration patterns:
-        // "var_name = " or "var_name := " or "var_name ::= " or "var_name : Type ="
-
-        // First, check if line contains the variable name
-        if let Some(name_pos) = line.find(var_name) {
-            // Check if this is actually a variable declaration
-            // Must be at start of line or after whitespace - optimized: use byte indexing
-            let before_ok = name_pos == 0 || {
-                line.as_bytes()
-                    .get(name_pos.saturating_sub(1))
-                    .map(|&b| b < 128 && (b as char).is_whitespace())
-                    .unwrap_or(true)
-            };
-
-            if before_ok {
-                // Check what comes after the variable name
-                let after_name = &line[name_pos + var_name.len()..].trim_start();
-
-                // Check for Zen assignment patterns
-                if after_name.starts_with("=")
-                    || after_name.starts_with(":=")
-                    || after_name.starts_with("::=")
-                    || after_name.starts_with(":")
-                {
-                    // Position after the variable name (where type hint should go)
-                    let char_pos = name_pos + var_name.len();
-                    return Some(Position {
-                        line: line_num as u32,
-                        character: char_pos as u32,
-                    });
-                }
+        if let Some(pos) = line.find(var_name) {
+            let before = pos == 0 || line.as_bytes().get(pos - 1).map(|&b| b.is_ascii_whitespace()).unwrap_or(true);
+            let after = &line[pos + var_name.len()..].trim_start();
+            if before && (after.starts_with('=') || after.starts_with(':')) {
+                return Some(Position {
+                    line: line_num as u32,
+                    character: (pos + var_name.len()) as u32,
+                });
             }
         }
     }
-
     None
 }
 
-fn infer_expression_type(
-    expr: &Expression,
-    doc: &Document,
-    store: &DocumentStore,
-) -> Option<String> {
+fn infer_expr_type(expr: &Expression, doc: &Document, store: &DocumentStore) -> Option<String> {
     match expr {
         Expression::Integer32(_) => Some("i32".to_string()),
         Expression::Integer64(_) => Some("i64".to_string()),
@@ -182,263 +285,103 @@ fn infer_expression_type(
         Expression::Float64(_) => Some("f64".to_string()),
         Expression::String(_) => Some("StaticString".to_string()),
         Expression::Boolean(_) => Some("bool".to_string()),
+        
         Expression::BinaryOp { left, right, .. } => {
-            // Simple type inference for binary operations
-            let left_type = infer_expression_type(left, doc, store)?;
-            let right_type = infer_expression_type(right, doc, store)?;
-
-            if left_type == "f64" || right_type == "f64" {
-                Some("f64".to_string())
-            } else if left_type == "i64" || right_type == "i64" {
-                Some("i64".to_string())
-            } else {
-                Some("i32".to_string())
-            }
+            let l = infer_expr_type(left, doc, store)?;
+            let r = infer_expr_type(right, doc, store)?;
+            Some(if l == "f64" || r == "f64" { "f64" } 
+                 else if l == "i64" || r == "i64" { "i64" } 
+                 else { "i32" }.to_string())
         }
+        
         Expression::FunctionCall { name, .. } => {
-            // Look up function return type from document symbols
-            if let Some(symbol) = doc.symbols.get(name) {
-                // Extract return type from function signature like "add = (a: i32, b: i32) i32"
-                if let Some(detail) = &symbol.detail {
-                    return extract_return_type_from_signature(detail);
+            if let Some(dot_pos) = name.rfind('.') {
+                let receiver = &name[..dot_pos];
+                let method = &name[dot_pos + 1..];
+                
+                if let Some(ret) = stdlib_types().get_function_return_type(receiver, method) {
+                    return Some(format_type(ret));
+                }
+                if let Some(ret) = stdlib_types().get_method_return_type(receiver, method) {
+                    return Some(format_type(ret));
                 }
             }
-
-            // Check stdlib and workspace symbols
-            if let Some(symbol) = store.stdlib_symbols.get(name) {
-                if let Some(detail) = &symbol.detail {
-                    return extract_return_type_from_signature(detail);
-                }
-            }
-            if let Some(symbol) = store.workspace_symbols.get(name) {
-                if let Some(detail) = &symbol.detail {
-                    return extract_return_type_from_signature(detail);
-                }
-            }
-            None
-        }
-        Expression::StructLiteral { name, .. } => {
-            // Struct literals have the type of the struct
-            Some(name.clone())
-        }
-        Expression::ArrayLiteral(elements) => {
-            // Infer array element type from first element
-            if let Some(first) = elements.first() {
-                if let Some(elem_type) = infer_expression_type(first, doc, store) {
-                    return Some(format!("[{}]", elem_type));
+            
+            for symbols in [&doc.symbols, &store.stdlib_symbols, &store.workspace_symbols] {
+                if let Some(sym) = symbols.get(name) {
+                    if let Some(ref ti) = sym.type_info {
+                        if let AstType::Function { return_type, .. } = ti {
+                            return Some(format_type(return_type));
+                        }
+                    }
+                    if let Some(ref detail) = sym.detail {
+                        if let Some(ret) = extract_return_type(detail) {
+                            return Some(ret);
+                        }
+                    }
                 }
             }
             None
         }
-        Expression::Identifier(var_name) => {
-            // Look up variable type from document symbols
-            if let Some(symbol) = doc.symbols.get(var_name) {
-                if let Some(detail) = &symbol.detail {
-                    return Some(detail.clone());
-                }
+        
+        Expression::StructLiteral { name, .. } => Some(name.clone()),
+        
+        Expression::MethodCall { object, method, .. } => {
+            let recv_type = infer_expr_type(object, doc, store)?;
+            if let Some(ret) = stdlib_types().get_method_return_type(&recv_type, method) {
+                return Some(format_type(ret));
             }
             None
         }
+        
+        Expression::Identifier(name) => {
+            if let Some(sym) = doc.symbols.get(name) {
+                if let Some(ref ti) = sym.type_info {
+                    return Some(format_type(ti));
+                }
+                if let Some(ref detail) = sym.detail {
+                    if let Some(colon_pos) = detail.find(':') {
+                        let type_part = detail[colon_pos + 1..].trim();
+                        if !type_part.is_empty() {
+                            return Some(type_part.to_string());
+                        }
+                    }
+                }
+            }
+            find_variable_type_in_content(&doc.content, name)
+        }
+        
         _ => None,
     }
 }
 
-fn extract_return_type_from_signature(signature: &str) -> Option<String> {
-    // Parse signature like "function_name = (params) ReturnType"
-    // Find the closing paren, then take everything after it
-    if let Some(close_paren) = signature.rfind(')') {
-        let return_type = signature[close_paren + 1..].trim();
-        if !return_type.is_empty() {
-            return Some(return_type.to_string());
-        }
-    }
-    None
+fn extract_return_type(sig: &str) -> Option<String> {
+    let close = sig.rfind(')')?;
+    let ret = sig[close + 1..].trim();
+    if ret.is_empty() || ret == "{" { None } else { Some(ret.split_whitespace().next()?.to_string()) }
 }
 
-fn collect_param_hints_from_expression(
-    expr: &Expression,
-    content: &str,
-    doc: &Document,
-    store: &DocumentStore,
-    hints: &mut Vec<InlayHint>,
-) {
-    match expr {
-        Expression::FunctionCall { name, args } => {
-            // Look up function signature to get parameter names
-            if let Some(param_names) = get_function_param_names(name, doc, store) {
-                // Add parameter name hints for each argument (if we have enough names)
-                for (idx, arg) in args.iter().enumerate() {
-                    if let Some(param_name) = param_names.get(idx) {
-                        // Find the position of this argument in the source
-                        if let Some(arg_pos) = find_function_arg_position(content, name, idx) {
-                            hints.push(InlayHint {
-                                position: arg_pos,
-                                label: InlayHintLabel::String(format!("{}: ", param_name)),
-                                kind: Some(InlayHintKind::PARAMETER),
-                                text_edits: None,
-                                tooltip: None,
-                                padding_left: None,
-                                padding_right: Some(true),
-                                data: None,
-                            });
-                        }
+fn find_variable_type_in_content(content: &str, var_name: &str) -> Option<String> {
+    for line in content.lines() {
+        let trimmed = line.trim();
+        
+        let pattern = format!("{} = ", var_name);
+        let pattern2 = format!("{} ::= ", var_name);
+        
+        if trimmed.starts_with(&pattern) || trimmed.starts_with(&pattern2) {
+            let eq_pos = trimmed.find('=').unwrap();
+            let rhs = trimmed[eq_pos + 1..].trim().trim_start_matches('=').trim();
+            
+            if let Some(dot_pos) = rhs.find('.') {
+                let type_name = &rhs[..dot_pos];
+                if type_name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                    let method = rhs[dot_pos + 1..].split('(').next().unwrap_or("");
+                    if matches!(method, "new" | "init" | "create" | "default" | "from" | "with_capacity") {
+                        return Some(type_name.to_string());
                     }
-
-                    // Recursively collect from nested function calls
-                    collect_param_hints_from_expression(arg, content, doc, store, hints);
-                }
-            }
-        }
-        Expression::BinaryOp { left, right, .. } => {
-            collect_param_hints_from_expression(left, content, doc, store, hints);
-            collect_param_hints_from_expression(right, content, doc, store, hints);
-        }
-        Expression::QuestionMatch { scrutinee, arms } => {
-            collect_param_hints_from_expression(scrutinee, content, doc, store, hints);
-            for arm in arms {
-                collect_param_hints_from_expression(&arm.body, content, doc, store, hints);
-            }
-        }
-        Expression::StructLiteral { fields, .. } => {
-            for (_, field_expr) in fields {
-                collect_param_hints_from_expression(field_expr, content, doc, store, hints);
-            }
-        }
-        Expression::ArrayLiteral(elements) => {
-            for elem in elements {
-                collect_param_hints_from_expression(elem, content, doc, store, hints);
-            }
-        }
-        _ => {}
-    }
-}
-
-fn get_function_param_names(
-    func_name: &str,
-    doc: &Document,
-    store: &DocumentStore,
-) -> Option<Vec<String>> {
-    // First, try to find function in the document's AST
-    if let Some(ast) = &doc.ast {
-        for decl in ast {
-            if let Declaration::Function(func) = decl {
-                if &func.name == func_name {
-                    return Some(func.args.iter().map(|(name, _)| name.clone()).collect());
                 }
             }
         }
     }
-
-    // Check stdlib symbols
-    if let Some(symbol) = store.stdlib_symbols.get(func_name) {
-        if let Some(detail) = &symbol.detail {
-            return extract_param_names_from_signature(detail);
-        }
-    }
-
-    // Check workspace symbols
-    if let Some(symbol) = store.workspace_symbols.get(func_name) {
-        if let Some(detail) = &symbol.detail {
-            return extract_param_names_from_signature(detail);
-        }
-    }
-
-    None
-}
-
-fn extract_param_names_from_signature(signature: &str) -> Option<Vec<String>> {
-    // Parse signature like "function_name = (a: i32, b: i32) ReturnType"
-    let open_paren = signature.find('(')?;
-    let close_paren = signature.find(')')?;
-
-    let params_str = &signature[open_paren + 1..close_paren];
-    if params_str.trim().is_empty() {
-        return Some(vec![]);
-    }
-
-    let param_names: Vec<String> = params_str
-        .split(',')
-        .filter_map(|param| {
-            // Each param is like "name: Type"
-            let parts: Vec<&str> = param.trim().split(':').collect();
-            if !parts.is_empty() {
-                Some(parts[0].trim().to_string())
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    Some(param_names)
-}
-
-fn find_function_arg_position(
-    content: &str,
-    func_name: &str,
-    arg_index: usize,
-) -> Option<Position> {
-    // Optimized: iterate lines directly without collecting
-    for (line_num, line) in content.lines().enumerate() {
-        // Look for function call pattern: "func_name("
-        if let Some(func_pos) = line.find(func_name) {
-            // Check if this is actually a function call (followed by '(')
-            let after_func = &line[func_pos + func_name.len()..].trim_start();
-            if after_func.starts_with('(') {
-                // Find the opening paren position
-                let paren_pos = func_pos
-                    + func_name.len()
-                    + (line[func_pos + func_name.len()..].find('(').unwrap_or(0));
-
-                // Find the nth argument by counting commas - optimized: use byte indexing
-                let mut current_arg = 0;
-                let mut depth = 0;
-                let mut i = paren_pos + 1;
-                let bytes = line.as_bytes();
-
-                while i < line.len() {
-                    // Optimized: use byte indexing for ASCII characters
-                    let c = if let Some(&b) = bytes.get(i) {
-                        if b < 128 {
-                            b as char
-                        } else {
-                            // Fallback to char iteration for non-ASCII
-                            line.chars().nth(i).unwrap_or('\0')
-                        }
-                    } else {
-                        break;
-                    };
-
-                    if c == '(' {
-                        depth += 1;
-                    } else if c == ')' {
-                        if depth == 0 {
-                            break;
-                        }
-                        depth -= 1;
-                    } else if c == ',' && depth == 0 {
-                        if current_arg == arg_index {
-                            // Found the position of the argument
-                            return Some(Position {
-                                line: line_num as u32,
-                                character: (i + 1) as u32, // After the comma
-                            });
-                        }
-                        current_arg += 1;
-                    }
-
-                    i += 1;
-                }
-
-                // If we're looking for the first argument and there are no commas before it
-                if arg_index == 0 && current_arg == 0 {
-                    return Some(Position {
-                        line: line_num as u32,
-                        character: (paren_pos + 1) as u32,
-                    });
-                }
-            }
-        }
-    }
-
     None
 }

@@ -1,11 +1,247 @@
-// Variable type inference for hover
-
 use lsp_types::Url;
 use std::collections::HashMap;
 
 use super::super::types::*;
 use super::super::utils::format_type;
 use super::structs;
+use crate::stdlib_types::stdlib_types;
+
+pub fn infer_variable_type_enhanced(
+    content: &str,
+    var_name: &str,
+    local_symbols: &HashMap<String, SymbolInfo>,
+    stdlib_symbols: &HashMap<String, SymbolInfo>,
+    workspace_symbols: &HashMap<String, SymbolInfo>,
+    documents: Option<&HashMap<Url, Document>>,
+) -> Option<String> {
+    let var_eq = format!("{} =", var_name);
+    let var_mut = format!("{} ::=", var_name);
+    let var_mut2 = format!("{}::=", var_name);
+    
+    for line in content.lines() {
+        let trimmed = line.trim();
+        
+        if !trimmed.starts_with(var_name) {
+            continue;
+        }
+        
+        let is_mutable = trimmed.starts_with(&var_mut) || trimmed.starts_with(&var_mut2);
+        let is_immutable = trimmed.starts_with(&var_eq);
+        
+        if !is_mutable && !is_immutable {
+            continue;
+        }
+        
+        let mutability = if is_mutable { "::" } else { "" };
+        
+        if let Some(eq_pos) = line.find('=') {
+            let before_eq = &line[..eq_pos];
+            if let Some(colon_pos) = before_eq.rfind(':') {
+                let after_colon = before_eq[colon_pos + 1..].trim();
+                let after_colon = after_colon.trim_start_matches(':').trim();
+                if !after_colon.is_empty() && !after_colon.starts_with('=') {
+                    return Some(format!(
+                        "```zen\n{}{}: {} = ...\n```\n\n**Type:** `{}`",
+                        var_name, mutability, after_colon, after_colon
+                    ));
+                }
+            }
+            
+            let rhs = line[eq_pos + 1..].trim();
+            
+            if let Some((type_str, value_info)) = infer_type_from_rhs_fast(rhs, stdlib_symbols) {
+                let value_part = value_info
+                    .map(|v| format!("\n\n**Value:** `{}` *(compile-time)*", v))
+                    .unwrap_or_default();
+                
+                return Some(format!(
+                    "```zen\n{}{}: {} = {}\n```\n\n**Type:** `{}`{}",
+                    var_name, mutability, type_str, rhs, type_str, value_part
+                ));
+            }
+        }
+    }
+    
+    None
+}
+
+fn infer_type_from_rhs_fast(rhs: &str, stdlib_symbols: &HashMap<String, SymbolInfo>) -> Option<(String, Option<String>)> {
+    let rhs = rhs.trim();
+    
+    if rhs.starts_with('"') {
+        return Some(("StaticString".to_string(), Some(rhs.to_string())));
+    }
+    
+    if rhs == "true" || rhs == "false" {
+        return Some(("bool".to_string(), Some(rhs.to_string())));
+    }
+    
+    if let Ok(val) = rhs.parse::<i64>() {
+        let type_str = if val >= i32::MIN as i64 && val <= i32::MAX as i64 { "i32" } else { "i64" };
+        return Some((type_str.to_string(), Some(rhs.to_string())));
+    }
+    
+    if rhs.contains('.') && !rhs.contains('(') && rhs.parse::<f64>().is_ok() {
+        return Some(("f64".to_string(), Some(rhs.to_string())));
+    }
+    
+    if let Some(paren_pos) = rhs.find('(') {
+        let call_expr = rhs[..paren_pos].trim();
+        
+        if let Some(dot_pos) = call_expr.rfind('.') {
+            let receiver = call_expr[..dot_pos].trim();
+            let method = call_expr[dot_pos + 1..].trim();
+            
+            if receiver.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                if method == "new" || method == "init" || method == "create" || method == "default" {
+                    return Some((receiver.to_string(), None));
+                }
+            }
+            
+            if let Some(ret_type) = stdlib_types().get_function_return_type(receiver, method) {
+                return Some((format_type(ret_type), None));
+            }
+            
+            if let Some(ret_type) = stdlib_types().get_method_return_type(receiver, method) {
+                return Some((format_type(ret_type), None));
+            }
+            
+            let full_name = format!("{}.{}", receiver, method);
+            if let Some(info) = stdlib_symbols.get(&full_name) {
+                if let Some(detail) = &info.detail {
+                    if let Some(ret) = extract_return_type_simple(detail) {
+                        return Some((ret, None));
+                    }
+                }
+            }
+        }
+        
+        if call_expr.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+            return Some((call_expr.to_string(), None));
+        }
+    }
+    
+    if let Some(brace_pos) = rhs.find('{') {
+        let type_name = rhs[..brace_pos].trim();
+        if type_name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+            return Some((type_name.to_string(), None));
+        }
+    }
+    
+    None
+}
+
+fn extract_return_type_simple(sig: &str) -> Option<String> {
+    sig.rfind(')').map(|pos| {
+        let ret = sig[pos + 1..].trim();
+        ret.split_whitespace().next().map(|s| s.to_string())
+    }).flatten()
+}
+
+fn infer_type_from_rhs(
+    rhs: &str,
+    _var_name: &str,
+    local_symbols: &HashMap<String, SymbolInfo>,
+    stdlib_symbols: &HashMap<String, SymbolInfo>,
+    workspace_symbols: &HashMap<String, SymbolInfo>,
+    documents: Option<&HashMap<Url, Document>>,
+) -> Option<(String, Option<String>)> {
+    let rhs = rhs.trim();
+    
+    if rhs.starts_with('"') || rhs.starts_with('\'') {
+        return Some(("StaticString".to_string(), Some(rhs.to_string())));
+    }
+    
+    if let Ok(val) = rhs.parse::<i64>() {
+        if val >= i32::MIN as i64 && val <= i32::MAX as i64 {
+            return Some(("i32".to_string(), Some(val.to_string())));
+        }
+        return Some(("i64".to_string(), Some(val.to_string())));
+    }
+    
+    if rhs.contains('.') && !rhs.contains('(') {
+        if rhs.parse::<f64>().is_ok() {
+            return Some(("f64".to_string(), Some(rhs.to_string())));
+        }
+    }
+    
+    if rhs == "true" || rhs == "false" {
+        return Some(("bool".to_string(), Some(rhs.to_string())));
+    }
+    
+    if let Some(paren_pos) = rhs.find('(') {
+        let call_expr = rhs[..paren_pos].trim();
+        
+        if let Some(dot_pos) = call_expr.rfind('.') {
+            let receiver = call_expr[..dot_pos].trim();
+            let method = call_expr[dot_pos + 1..].trim();
+            
+            if receiver.chars().next().is_some_and(|c| c.is_uppercase()) && method == "new" {
+                return Some((receiver.to_string(), None));
+            }
+            
+            if let Some(return_type) = stdlib_types().get_method_return_type(receiver, method) {
+                return Some((format_type(return_type), None));
+            }
+            
+            if let Some(return_type) = stdlib_types().get_function_return_type(receiver, method) {
+                return Some((format_type(return_type), None));
+            }
+            
+            let full_name = format!("{}.{}", receiver, method);
+            if let Some(info) = stdlib_symbols.get(&full_name) {
+                if let Some(detail) = &info.detail {
+                    if let Some(ret_type) = extract_return_type(detail) {
+                        return Some((ret_type, None));
+                    }
+                }
+            }
+        }
+        
+        if let Some(info) = local_symbols.get(call_expr)
+            .or_else(|| stdlib_symbols.get(call_expr))
+            .or_else(|| workspace_symbols.get(call_expr))
+        {
+            if let Some(type_info) = &info.type_info {
+                return Some((format_type(type_info), None));
+            }
+            if let Some(detail) = &info.detail {
+                if let Some(ret_type) = extract_return_type(detail) {
+                    return Some((ret_type, None));
+                }
+            }
+        }
+        
+        if call_expr.chars().next().is_some_and(|c| c.is_uppercase()) {
+            return Some((call_expr.to_string(), None));
+        }
+    }
+    
+    if let Some(brace_pos) = rhs.find('{') {
+        let type_name = rhs[..brace_pos].trim();
+        if type_name.chars().next().is_some_and(|c| c.is_uppercase()) {
+            if let Some(docs) = documents {
+                if let Some(struct_def) = structs::find_struct_definition_in_documents(type_name, docs) {
+                    return Some((type_name.to_string(), None));
+                }
+            }
+            return Some((type_name.to_string(), None));
+        }
+    }
+    
+    None
+}
+
+fn extract_return_type(signature: &str) -> Option<String> {
+    if let Some(close_paren) = signature.rfind(')') {
+        let return_part = signature[close_paren + 1..].trim();
+        let return_part = return_part.trim_start_matches('{').trim();
+        if !return_part.is_empty() && return_part != "void" {
+            return Some(return_part.split_whitespace().next()?.to_string());
+        }
+    }
+    None
+}
 
 /// Extract type from a definition line
 pub fn extract_type_from_line(line: &str) -> Option<String> {
@@ -98,7 +334,7 @@ pub fn infer_variable_type(
                 // Check for constructor calls (Type { ... } or Type(...))
                 if let Some(brace_pos) = rhs.find('{') {
                     let type_name = rhs[..brace_pos].trim();
-                    if !type_name.is_empty() && type_name.chars().next().unwrap().is_uppercase() {
+                    if type_name.chars().next().is_some_and(|c| c.is_uppercase()) {
                         // Try to find the struct definition to show its fields
                         let type_display = if let Some(docs) = documents {
                             if let Some(struct_def) =
@@ -117,11 +353,32 @@ pub fn infer_variable_type(
                         return Some(type_display);
                     }
                 }
-                // Also check for constructor calls with parentheses: Type(...)
                 if let Some(paren_pos) = rhs.find('(') {
-                    let type_name = rhs[..paren_pos].trim();
-                    if !type_name.is_empty() && type_name.chars().next().unwrap().is_uppercase() {
-                        // Try to find the struct definition to show its fields
+                    let call_expr = rhs[..paren_pos].trim();
+                    
+                    if let Some(dot_pos) = call_expr.find('.') {
+                        let receiver = &call_expr[..dot_pos];
+                        let method = &call_expr[dot_pos + 1..];
+                        
+                        if let Some(return_type) = stdlib_types().get_method_return_type(receiver, method) {
+                            let type_str = format_type(return_type);
+                            return Some(format!(
+                                "```zen\n{}: {}\n```\n\n**Type:** `{}`\n\n**Inferred from:** `{}.{}()` return type",
+                                var_name, type_str, type_str, receiver, method
+                            ));
+                        }
+                        
+                        if let Some(return_type) = stdlib_types().get_function_return_type(receiver, method) {
+                            let type_str = format_type(return_type);
+                            return Some(format!(
+                                "```zen\n{}: {}\n```\n\n**Type:** `{}`\n\n**Inferred from:** `{}.{}()` return type",
+                                var_name, type_str, type_str, receiver, method
+                            ));
+                        }
+                    }
+                    
+                    let type_name = call_expr;
+                    if type_name.chars().next().is_some_and(|c| c.is_uppercase()) {
                         let type_display = if let Some(docs) = documents {
                             if let Some(struct_def) =
                                 structs::find_struct_definition_in_documents(type_name, docs)
