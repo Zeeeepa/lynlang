@@ -82,7 +82,7 @@ pub fn handle_definition(
                                         serde_json::to_value(GotoDefinitionResponse::Scalar(
                                             Location {
                                                 uri: uri.clone(),
-                                                range: symbol_info.range.clone(),
+                                                range: symbol_info.range,
                                             },
                                         ))
                                         .unwrap_or(Value::Null),
@@ -123,72 +123,69 @@ pub fn handle_definition(
                 .lines()
                 .nth(position.line as usize)
                 .unwrap_or("");
-            if symbol_name == "@std"
+            if (symbol_name == "@std"
                 || symbol_name == "std"
-                || (symbol_name.starts_with("@std") && symbol_name.contains('.'))
+                || (symbol_name.starts_with("@std") && symbol_name.contains('.')))
+                && line.contains('=')
+                && (line.contains("@std") || line.contains("= @std"))
             {
-                if line.contains('=') && (line.contains("@std") || line.contains("= @std")) {
-                    let module_path = if symbol_name == "@std" || symbol_name == "std" {
-                        "@std"
-                    } else {
-                        &symbol_name
-                    };
+                let module_path = if symbol_name == "@std" || symbol_name == "std" {
+                    "@std"
+                } else {
+                    &symbol_name
+                };
 
-                    if let Some(file_path) = store.stdlib_resolver.resolve_module_path(module_path)
-                    {
-                        if let Ok(uri) = Url::from_file_path(&file_path) {
-                            if let Some(_doc) = store.documents.get(&uri) {
-                                let location = Location {
-                                    uri: uri.clone(),
-                                    range: Range {
-                                        start: Position {
-                                            line: 0,
-                                            character: 0,
-                                        },
-                                        end: Position {
-                                            line: 0,
-                                            character: 0,
-                                        },
+                if let Some(file_path) = store.stdlib_resolver.resolve_module_path(module_path) {
+                    if let Ok(uri) = Url::from_file_path(&file_path) {
+                        if let Some(_doc) = store.documents.get(&uri) {
+                            let location = Location {
+                                uri: uri.clone(),
+                                range: Range {
+                                    start: Position {
+                                        line: 0,
+                                        character: 0,
                                     },
-                                };
-                                return Response {
-                                    id: req.id,
-                                    result: Some(
-                                        serde_json::to_value(GotoDefinitionResponse::Scalar(
-                                            location,
-                                        ))
+                                    end: Position {
+                                        line: 0,
+                                        character: 0,
+                                    },
+                                },
+                            };
+                            return Response {
+                                id: req.id,
+                                result: Some(
+                                    serde_json::to_value(GotoDefinitionResponse::Scalar(location))
                                         .unwrap_or(Value::Null),
-                                    ),
-                                    error: None,
-                                };
-                            } else if let Some(workspace_root) = &store.workspace_root {
-                                if let Ok(workspace_path) = workspace_root.to_file_path() {
-                                    if file_path.strip_prefix(&workspace_path).is_ok() {
-                                        if let Ok(uri) = Url::from_file_path(&file_path) {
-                                            let location = Location {
-                                                uri,
-                                                range: Range {
-                                                    start: Position {
-                                                        line: 0,
-                                                        character: 0,
-                                                    },
-                                                    end: Position {
-                                                        line: 0,
-                                                        character: 0,
-                                                    },
+                                ),
+                                error: None,
+                            };
+                        } else if let Some(workspace_root) = &store.workspace_root {
+                            if let Ok(workspace_path) = workspace_root.to_file_path() {
+                                if file_path.strip_prefix(&workspace_path).is_ok() {
+                                    if let Ok(uri) = Url::from_file_path(&file_path) {
+                                        let location = Location {
+                                            uri,
+                                            range: Range {
+                                                start: Position {
+                                                    line: 0,
+                                                    character: 0,
                                                 },
-                                            };
-                                            return Response {
-                                                id: req.id,
-                                                result: Some(
-                                                    serde_json::to_value(
-                                                        GotoDefinitionResponse::Scalar(location),
-                                                    )
-                                                    .unwrap_or(Value::Null),
-                                                ),
-                                                error: None,
-                                            };
-                                        }
+                                                end: Position {
+                                                    line: 0,
+                                                    character: 0,
+                                                },
+                                            },
+                                        };
+                                        return Response {
+                                            id: req.id,
+                                            result: Some(
+                                                serde_json::to_value(
+                                                    GotoDefinitionResponse::Scalar(location),
+                                                )
+                                                .unwrap_or(Value::Null),
+                                            ),
+                                            error: None,
+                                        };
                                     }
                                 }
                             }
@@ -223,7 +220,7 @@ pub fn handle_definition(
                             if let Some(uri) = &symbol_info.definition_uri {
                                 let location = Location {
                                     uri: uri.clone(),
-                                    range: symbol_info.range.clone(),
+                                    range: symbol_info.range,
                                 };
                                 return Response {
                                     id: req.id,
@@ -313,7 +310,7 @@ pub fn handle_definition(
                             if let Some(uri) = &symbol_info.definition_uri {
                                 let location = Location {
                                     uri: uri.clone(),
-                                    range: symbol_info.range.clone(),
+                                    range: symbol_info.range,
                                 };
                                 return Response {
                                     id: req.id,
@@ -343,7 +340,7 @@ pub fn handle_definition(
                                                 serde_json::to_value(
                                                     GotoDefinitionResponse::Scalar(Location {
                                                         uri: module_uri,
-                                                        range: symbol_info.range.clone(),
+                                                        range: symbol_info.range,
                                                     }),
                                                 )
                                                 .unwrap_or(Value::Null),
@@ -390,7 +387,7 @@ pub fn handle_definition(
                                             serde_json::to_value(GotoDefinitionResponse::Scalar(
                                                 Location {
                                                     uri: uri.clone(),
-                                                    range: symbol_info.range.clone(),
+                                                    range: symbol_info.range,
                                                 },
                                             ))
                                             .unwrap_or(Value::Null),
@@ -416,7 +413,7 @@ pub fn handle_definition(
                         .text_document
                         .uri
                         .clone(),
-                    range: symbol_info.range.clone(),
+                    range: symbol_info.range,
                 };
                 return Response {
                     id: req.id,
@@ -433,7 +430,7 @@ pub fn handle_definition(
                 if let Some(uri) = &symbol_info.definition_uri {
                     let location = Location {
                         uri: uri.clone(),
-                        range: symbol_info.range.clone(),
+                        range: symbol_info.range,
                     };
                     return Response {
                         id: req.id,
@@ -463,11 +460,11 @@ pub fn handle_definition(
                         || uri_str.contains("test_");
 
                     if is_test {
-                        test_match = Some((uri.clone(), symbol_info.range.clone()));
+                        test_match = Some((uri.clone(), symbol_info.range));
                     } else {
                         let location = Location {
                             uri: uri.clone(),
-                            range: symbol_info.range.clone(),
+                            range: symbol_info.range,
                         };
                         return Response {
                             id: req.id,

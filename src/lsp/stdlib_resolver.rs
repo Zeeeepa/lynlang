@@ -242,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_resolve_simple_module() {
-        let mut resolver = StdlibResolver::new(None);
+        let resolver = StdlibResolver::new(None);
         // This test would need actual stdlib files to work
         // Just testing the logic structure
     }

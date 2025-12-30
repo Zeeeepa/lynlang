@@ -348,25 +348,21 @@ pub fn infer_expression_type(
                 // Handle pointer to struct types
                 t if t.is_ptr_type() => {
                     // Recursively infer member type from inner type
-                    if let Some(inner) = t.ptr_inner() {
-                        if let AstType::Struct { name, .. } = inner {
-                            if let Some(struct_info) = compiler.struct_types.get(name) {
-                                if let Some((_index, field_type)) = struct_info.fields.get(member) {
-                                    Ok(field_type.clone())
-                                } else {
-                                    Err(CompileError::TypeError(
-                                        format!("Struct '{}' has no field '{}'", name, member),
-                                        None,
-                                    ))
-                                }
+                    if let Some(AstType::Struct { name, .. }) = t.ptr_inner() {
+                        if let Some(struct_info) = compiler.struct_types.get(name) {
+                            if let Some((_index, field_type)) = struct_info.fields.get(member) {
+                                Ok(field_type.clone())
                             } else {
                                 Err(CompileError::TypeError(
-                                    format!("Unknown struct type: {}", name),
+                                    format!("Struct '{}' has no field '{}'", name, member),
                                     None,
                                 ))
                             }
                         } else {
-                            Ok(AstType::Void)
+                            Err(CompileError::TypeError(
+                                format!("Unknown struct type: {}", name),
+                                None,
+                            ))
                         }
                     } else {
                         Ok(AstType::Void)

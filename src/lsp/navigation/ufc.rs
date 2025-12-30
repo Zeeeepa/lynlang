@@ -127,7 +127,7 @@ fn find_stdlib_location(
             if let Some(symbol) = doc.symbols.get(method_name) {
                 return Some(Location {
                     uri: uri.clone(),
-                    range: symbol.range.clone(),
+                    range: symbol.range,
                 });
             }
             
@@ -137,7 +137,7 @@ fn find_stdlib_location(
                 if let Some(symbol) = doc.symbols.get(&qualified_name) {
                     return Some(Location {
                         uri: uri.clone(),
-                        range: symbol.range.clone(),
+                        range: symbol.range,
                     });
                 }
             }
@@ -155,7 +155,7 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
         if let Some(def_uri) = &symbol.definition_uri {
             return Some(Location {
                 uri: def_uri.clone(),
-                range: symbol.range.clone(),
+                range: symbol.range,
             });
         }
     }
@@ -174,7 +174,7 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
             if let Some(def_uri) = &symbol.definition_uri {
                 return Some(Location {
                     uri: def_uri.clone(),
-                    range: symbol.range.clone(),
+                    range: symbol.range,
                 });
             }
         }
@@ -236,7 +236,7 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
                                         if first_param.contains(receiver_type) {
                                             return Some(Location {
                                                 uri: uri.clone(),
-                                                range: symbol.range.clone(),
+                                                range: symbol.range,
                                             });
                                         }
                                     }
@@ -247,7 +247,7 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
                 }
                 return Some(Location {
                     uri: uri.clone(),
-                    range: symbol.range.clone(),
+                    range: symbol.range,
                 });
             }
         }
@@ -259,7 +259,7 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
             {
                 return Some(Location {
                     uri: uri.clone(),
-                    range: symbol.range.clone(),
+                    range: symbol.range,
                 });
             }
 
@@ -273,7 +273,7 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
                 {
                     return Some(Location {
                         uri: uri.clone(),
-                        range: symbol.range.clone(),
+                        range: symbol.range,
                     });
                 }
             }

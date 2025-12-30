@@ -615,22 +615,20 @@ pub fn compile_raise_expression<'ctx>(
             // Update generic context BEFORE building the branch
             // If we just extracted a nested generic type, update the context immediately
             // so that subsequent raise() calls will see the correct type
-            if let Some(ref ast_type) = extracted_type {
-                if let AstType::Generic { name, type_args } = ast_type {
-                    if compiler.well_known.is_result(name) && type_args.len() == 2 {
-                        // We're extracting a Result<T,E>, update context for next raise()
-                        compiler
-                            .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                        compiler.track_generic_type(
-                            "Result_Err_Type".to_string(),
-                            type_args[1].clone(),
-                        );
-                    } else if compiler.well_known.is_option(name) && type_args.len() == 1 {
-                        compiler.track_generic_type(
-                            "Option_Some_Type".to_string(),
-                            type_args[0].clone(),
-                        );
-                    }
+            if let Some(AstType::Generic { name, type_args }) = extracted_type.as_ref() {
+                if compiler.well_known.is_result(name) && type_args.len() == 2 {
+                    // We're extracting a Result<T,E>, update context for next raise()
+                    compiler
+                        .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                    compiler.track_generic_type(
+                        "Result_Err_Type".to_string(),
+                        type_args[1].clone(),
+                    );
+                } else if compiler.well_known.is_option(name) && type_args.len() == 1 {
+                    compiler.track_generic_type(
+                        "Option_Some_Type".to_string(),
+                        type_args[0].clone(),
+                    );
                 }
             }
 

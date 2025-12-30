@@ -406,7 +406,7 @@ pub fn format_type(ast_type: &AstType) -> String {
                 "fn({}) {}",
                 param_types
                     .iter()
-                    .map(|p| format_type(p))
+                    .map(format_type)
                     .collect::<Vec<_>>()
                     .join(", "),
                 format_type(return_type)
@@ -440,7 +440,7 @@ pub fn format_type(ast_type: &AstType) -> String {
                     name,
                     type_args
                         .iter()
-                        .map(|p| format_type(p))
+                        .map(format_type)
                         .collect::<Vec<_>>()
                         .join(", ")
                 )
@@ -450,7 +450,7 @@ pub fn format_type(ast_type: &AstType) -> String {
             format!(
                 "({}) {}",
                 args.iter()
-                    .map(|p| format_type(p))
+                    .map(format_type)
                     .collect::<Vec<_>>()
                     .join(", "),
                 format_type(return_type)

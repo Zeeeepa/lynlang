@@ -167,7 +167,7 @@ pub fn compile_io_println<'ctx>(
         }
         _ => {
             return Err(CompileError::TypeError(
-                format!("io.println cannot print this type"),
+                "io.println cannot print this type".to_string(),
                 None,
             ));
         }
@@ -486,7 +486,7 @@ pub fn compile_io_eprintln<'ctx>(
         }
         _ => {
             return Err(CompileError::TypeError(
-                format!("io.eprintln cannot print this type"),
+                "io.eprintln cannot print this type".to_string(),
                 None,
             ));
         }

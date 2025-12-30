@@ -142,14 +142,12 @@ fn format_file(path: &PathBuf, stdout: bool) -> Result<(), String> {
 
             if stdout {
                 print!("{}", formatted);
+            } else if formatted != content {
+                fs::write(path, formatted)
+                    .map_err(|e| format!("Failed to write file: {}", e))?;
+                println!("✓ Formatted {}", path.display());
             } else {
-                if formatted != content {
-                    fs::write(path, formatted)
-                        .map_err(|e| format!("Failed to write file: {}", e))?;
-                    println!("✓ Formatted {}", path.display());
-                } else {
-                    println!("✓ {} is already formatted", path.display());
-                }
+                println!("✓ {} is already formatted", path.display());
             }
             Ok(())
         }

@@ -7,7 +7,6 @@ use inkwell::values::{BasicValueEnum, PointerValue};
 /// Vec, DynVec, Array are now implemented in Zen stdlib using compiler intrinsics.
 /// Use: `Vec.new(allocator)` instead of `Vec<T, size>()`
 /// See: stdlib/vec.zen, stdlib/compiler/compiler.zen
-
 pub fn compile_array_literal<'ctx>(
     _compiler: &mut LLVMCompiler<'ctx>,
     _expr: &Expression,

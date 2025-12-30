@@ -113,7 +113,7 @@ pub fn compile_loop<'ctx>(
                     compiler
                         .builder
                         .build_unconditional_branch(loop_body)
-                        .map_err(|e| CompileError::from(e))?;
+                        .map_err(CompileError::from)?;
                     compiler.builder.position_at_end(loop_body);
 
                     // Compile body
@@ -127,7 +127,7 @@ pub fn compile_loop<'ctx>(
                         compiler
                             .builder
                             .build_unconditional_branch(loop_body)
-                            .map_err(|e| CompileError::from(e))?;
+                            .map_err(CompileError::from)?;
                     }
 
                     compiler.loop_stack.pop();
@@ -152,7 +152,7 @@ pub fn compile_loop<'ctx>(
                     compiler
                         .builder
                         .build_unconditional_branch(loop_header)
-                        .map_err(|e| CompileError::from(e))?;
+                        .map_err(CompileError::from)?;
                     compiler.builder.position_at_end(loop_header);
 
                     // Evaluate condition
@@ -162,7 +162,7 @@ pub fn compile_loop<'ctx>(
                             compiler
                                 .builder
                                 .build_conditional_branch(int_val, loop_body, after_loop_block)
-                                .map_err(|e| CompileError::from(e))?;
+                                .map_err(CompileError::from)?;
                         } else {
                             let zero = int_val.get_type().const_zero();
                             let condition = compiler
@@ -173,11 +173,11 @@ pub fn compile_loop<'ctx>(
                                     zero,
                                     "loop_condition",
                                 )
-                                .map_err(|e| CompileError::from(e))?;
+                                .map_err(CompileError::from)?;
                             compiler
                                 .builder
                                 .build_conditional_branch(condition, loop_body, after_loop_block)
-                                .map_err(|e| CompileError::from(e))?;
+                                .map_err(CompileError::from)?;
                         }
                     } else {
                         return Err(CompileError::TypeError(
@@ -198,7 +198,7 @@ pub fn compile_loop<'ctx>(
                         compiler
                             .builder
                             .build_unconditional_branch(loop_header)
-                            .map_err(|e| CompileError::from(e))?;
+                            .map_err(CompileError::from)?;
                     }
 
                     compiler.loop_stack.pop();
@@ -219,7 +219,7 @@ pub fn compile_break<'ctx>(compiler: &mut LLVMCompiler<'ctx>) -> Result<(), Comp
         compiler
             .builder
             .build_unconditional_branch(*break_target)
-            .map_err(|e| CompileError::from(e))?;
+            .map_err(CompileError::from)?;
         Ok(())
     } else {
         Err(CompileError::TypeError(
@@ -234,7 +234,7 @@ pub fn compile_continue<'ctx>(compiler: &mut LLVMCompiler<'ctx>) -> Result<(), C
         compiler
             .builder
             .build_unconditional_branch(*continue_target)
-            .map_err(|e| CompileError::from(e))?;
+            .map_err(CompileError::from)?;
         Ok(())
     } else {
         Err(CompileError::TypeError(

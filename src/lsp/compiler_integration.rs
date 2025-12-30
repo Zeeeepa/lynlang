@@ -283,7 +283,7 @@ impl CompilerIntegration {
                 for stmt in &func.body {
                     if let Statement::VariableDeclaration { name, type_, .. } = stmt {
                         if name == var_name {
-                            return type_.as_ref().map(|t| format_type(t));
+                            return type_.as_ref().map(format_type);
                         }
                     }
                 }

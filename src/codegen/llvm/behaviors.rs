@@ -154,7 +154,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     }
                     _ => {
                         return Err(CompileError::UnsupportedFeature(
-                            format!("Unsupported parameter type in impl block method"),
+                            "Unsupported parameter type in impl block method".to_string(),
                             None,
                         ))
                     }
@@ -179,7 +179,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     }
                     _ => {
                         return Err(CompileError::UnsupportedFeature(
-                            format!("Unsupported return type in impl block method"),
+                            "Unsupported return type in impl block method".to_string(),
                             None,
                         ));
                     }
@@ -188,7 +188,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 struct_type.fn_type(&param_types, false)
             } else {
                 return Err(CompileError::UnsupportedFeature(
-                    format!("Unsupported return type in impl block method"),
+                    "Unsupported return type in impl block method".to_string(),
                     None,
                 ));
             };

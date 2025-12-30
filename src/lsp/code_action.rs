@@ -137,7 +137,7 @@ fn create_allocator_fix_action(diagnostic: &Diagnostic, uri: &Url, content: &str
         // No parentheses - add full call
         (
             "(get_default_allocator())".to_string(),
-            diagnostic.range.clone(),
+            diagnostic.range,
         )
     };
 
@@ -199,7 +199,7 @@ fn create_string_conversion_action(
     };
 
     let text_edit = TextEdit {
-        range: diagnostic.range.clone(),
+        range: diagnostic.range,
         new_text,
     };
 
@@ -357,7 +357,7 @@ fn create_extract_variable_action(range: &Range, uri: &Url, content: &str) -> Op
 
     // Replace selected expression with variable name
     changes.push(TextEdit {
-        range: range.clone(),
+        range: *range,
         new_text: var_name.clone(),
     });
 
@@ -491,7 +491,7 @@ fn create_extract_function_action(range: &Range, uri: &Url, content: &str) -> Op
 
     // Replace selected code with function call
     changes.push(TextEdit {
-        range: range.clone(),
+        range: *range,
         new_text: format!("{}()", func_name),
     });
 

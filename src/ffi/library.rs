@@ -127,7 +127,7 @@ impl Library {
         let lib_result = if self.load_flags.lazy_binding {
             unsafe {
                 use libloading::os::unix::{Library as UnixLib, RTLD_LAZY};
-                UnixLib::open(Some(&self.path), RTLD_LAZY).map(|lib| DynLib::from(lib))
+                UnixLib::open(Some(&self.path), RTLD_LAZY).map(DynLib::from)
             }
         } else {
             unsafe { DynLib::new(&self.path) }

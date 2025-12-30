@@ -519,7 +519,7 @@ pub fn find_stdlib_location(
             if let Some(symbol) = doc.symbols.get(method_name) {
                 return Some(Location {
                     uri: uri.clone(),
-                    range: symbol.range.clone(),
+                    range: symbol.range,
                 });
             }
         }

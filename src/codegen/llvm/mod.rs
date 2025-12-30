@@ -328,7 +328,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         self.builder
             .build_store(ptr, value)
-            .map_err(|e| CompileError::from(e))?;
+            .map_err(CompileError::from)?;
         Ok(())
     }
 
@@ -351,13 +351,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Truncate
                     self.builder
                         .build_int_truncate(int_val, expected_int_type, "trunc")
-                        .map_err(|e| CompileError::from(e))?
+                        .map_err(CompileError::from)?
                         .into()
                 } else if val_bits < expected_bits {
                     // Zero-extend
                     self.builder
                         .build_int_z_extend(int_val, expected_int_type, "zext")
-                        .map_err(|e| CompileError::from(e))?
+                        .map_err(CompileError::from)?
                         .into()
                 } else {
                     value
@@ -371,7 +371,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         self.builder
             .build_store(ptr, final_value)
-            .map_err(|e| CompileError::from(e))?;
+            .map_err(CompileError::from)?;
         Ok(final_value)
     }
 
@@ -388,7 +388,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         self.builder
             .build_load(expected_type, ptr, &name)
-            .map_err(|e| CompileError::from(e))
+            .map_err(CompileError::from)
     }
 
     /// Debug helper: Print type information for troubleshooting IR generation issues
@@ -423,22 +423,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
         }
 
         // Then check the SymbolTable (used in trait methods and other contexts)
-        if let Some(symbol) = self.symbols.lookup(name) {
-            if let symbols::Symbol::Variable(ptr) = symbol {
-                // We don't have type info in symbols, so use a generic type
-                // This is primarily for 'self' in trait methods
-                let ty = if name == "self" {
-                    // For 'self', we should have the struct type
-                    // This is a workaround - ideally we'd store the type in symbols
-                    AstType::Struct {
-                        name: String::new(), // Will be resolved in context
-                        fields: vec![],
-                    }
-                } else {
-                    AstType::Void // Generic fallback
-                };
-                return Ok((*ptr, ty));
-            }
+        if let Some(symbols::Symbol::Variable(ptr)) = self.symbols.lookup(name) {
+            // We don't have type info in symbols, so use a generic type
+            // This is primarily for 'self' in trait methods
+            let ty = if name == "self" {
+                // For 'self', we should have the struct type
+                // This is a workaround - ideally we'd store the type in symbols
+                AstType::Struct {
+                    name: String::new(), // Will be resolved in context
+                    fields: vec![],
+                }
+            } else {
+                AstType::Void // Generic fallback
+            };
+            return Ok((*ptr, ty));
         }
 
         // Check if it's a function

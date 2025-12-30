@@ -209,7 +209,7 @@ fn check_pattern_exhaustiveness_wrapper(
         diagnostics,
         content,
         |expr| infer_expression_type_string(expr, documents),
-        |content, scrutinee| find_pattern_match_position(content, scrutinee),
+        find_pattern_match_position,
         |scrutinee_type, arms| {
             find_missing_variants(
                 scrutinee_type,

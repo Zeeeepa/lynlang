@@ -18,7 +18,7 @@ pub fn parse_generic_type(type_str: &str) -> (String, Vec<String>) {
             crate::ast::AstType::Generic { name, type_args } => {
                 let args = type_args
                     .iter()
-                    .map(|t| super::utils::format_type(t))
+                    .map(super::utils::format_type)
                     .collect::<Vec<_>>();
                 return (name, args);
             }
@@ -513,7 +513,7 @@ pub fn find_stdlib_location(
             if let Some(symbol) = doc.symbols.get(method_name) {
                 return Some(Location {
                     uri: uri.clone(),
-                    range: symbol.range.clone(),
+                    range: symbol.range,
                 });
             }
         }

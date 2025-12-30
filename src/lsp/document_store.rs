@@ -90,8 +90,8 @@ impl DocumentStore {
                 SymbolInfo {
                     name: name.to_string(),
                     kind: SymbolKind::TYPE_PARAMETER, // Use TYPE_PARAMETER for primitive types
-                    range: dummy_range.clone(),
-                    selection_range: dummy_range.clone(),
+                    range: dummy_range,
+                    selection_range: dummy_range,
                     detail: Some(format!("{} - Built-in primitive type", name)),
                     documentation: Some(format!(
                         "Built-in primitive type `{}`. Always available, no import needed.",
@@ -130,8 +130,8 @@ impl DocumentStore {
                 SymbolInfo {
                     name: name.to_string(),
                     kind: SymbolKind::ENUM,
-                    range: dummy_range.clone(),
-                    selection_range: dummy_range.clone(),
+                    range: dummy_range,
+                    selection_range: dummy_range,
                     detail: Some(format!("{}<T> - Built-in generic type", name)),
                     documentation: Some(format!(
                         "Built-in generic type `{}`. Always available, no import needed.",
@@ -233,8 +233,8 @@ impl DocumentStore {
                     SymbolInfo {
                         name: name.to_string(),
                         kind: SymbolKind::FUNCTION,
-                        range: dummy_range.clone(),
-                        selection_range: dummy_range.clone(),
+                        range: *dummy_range,
+                        selection_range: *dummy_range,
                         detail: Some(detail.clone()),
                         documentation: Some(full_doc.clone()),
                         type_info: Some(func.return_type.clone()),
@@ -249,8 +249,8 @@ impl DocumentStore {
                     SymbolInfo {
                         name: name.to_string(),
                         kind: SymbolKind::FUNCTION,
-                        range: dummy_range.clone(),
-                        selection_range: dummy_range.clone(),
+                        range: *dummy_range,
+                        selection_range: *dummy_range,
                         detail: Some(detail),
                         documentation: Some(full_doc),
                         type_info: Some(func.return_type),
@@ -553,7 +553,7 @@ impl DocumentStore {
                             SymbolInfo {
                                 name: func.name.clone(),
                                 kind: SymbolKind::FUNCTION,
-                                range: range.clone(),
+                                range,
                                 selection_range: range,
                                 detail: Some(detail),
                                 documentation: None,
@@ -576,7 +576,7 @@ impl DocumentStore {
                             SymbolInfo {
                                 name: struct_def.name.clone(),
                                 kind: SymbolKind::STRUCT,
-                                range: range.clone(),
+                                range,
                                 selection_range: range,
                                 detail: Some(detail),
                                 documentation: None,
@@ -602,7 +602,7 @@ impl DocumentStore {
                             SymbolInfo {
                                 name: enum_def.name.clone(),
                                 kind: SymbolKind::ENUM,
-                                range: range.clone(),
+                                range,
                                 selection_range: range,
                                 detail: Some(detail),
                                 documentation: None,
@@ -621,8 +621,8 @@ impl DocumentStore {
                                 SymbolInfo {
                                     name: variant.name.clone(),
                                     kind: SymbolKind::ENUM_MEMBER,
-                                    range: range.clone(),
-                                    selection_range: range.clone(),
+                                    range,
+                                    selection_range: range,
                                     detail: Some(format!("{}::{}", enum_def.name, variant.name)),
                                     documentation: None,
                                     type_info: None,
@@ -639,9 +639,9 @@ impl DocumentStore {
                             SymbolInfo {
                                 name: name.clone(),
                                 kind: SymbolKind::CONSTANT,
-                                range: range.clone(),
+                                range,
                                 selection_range: range,
-                                detail: type_.as_ref().map(|t| format_type(t)),
+                                detail: type_.as_ref().map(format_type),
                                 documentation: None,
                                 type_info: type_.clone(),
                                 definition_uri: None,
@@ -720,36 +720,35 @@ impl DocumentStore {
                         && before_colon
                             .chars()
                             .all(|c| c.is_alphanumeric() || c == '_')
+                        && trimmed[colon_pos + 1..].trim().starts_with('{')
                     {
-                        if trimmed[colon_pos + 1..].trim().starts_with('{') {
-                            // Found struct definition
-                            let char_pos = line.find(before_colon).unwrap_or(0);
-                            let range = Range {
-                                start: Position {
-                                    line: line_num as u32,
-                                    character: char_pos as u32,
-                                },
-                                end: Position {
-                                    line: line_num as u32,
-                                    character: (char_pos + before_colon.len()) as u32,
-                                },
-                            };
-                            symbols.insert(
-                                before_colon.to_string(),
-                                SymbolInfo {
-                                    name: before_colon.to_string(),
-                                    kind: SymbolKind::STRUCT,
-                                    range: range.clone(),
-                                    selection_range: range,
-                                    detail: Some(format!("{} struct", before_colon)),
-                                    documentation: None,
-                                    type_info: None,
-                                    definition_uri: None,
-                                    references: Vec::new(),
-                                    enum_variants: None,
-                                },
-                            );
-                        }
+                        // Found struct definition
+                        let char_pos = line.find(before_colon).unwrap_or(0);
+                        let range = Range {
+                            start: Position {
+                                line: line_num as u32,
+                                character: char_pos as u32,
+                            },
+                            end: Position {
+                                line: line_num as u32,
+                                character: (char_pos + before_colon.len()) as u32,
+                            },
+                        };
+                        symbols.insert(
+                            before_colon.to_string(),
+                            SymbolInfo {
+                                name: before_colon.to_string(),
+                                kind: SymbolKind::STRUCT,
+                                range,
+                                selection_range: range,
+                                detail: Some(format!("{} struct", before_colon)),
+                                documentation: None,
+                                type_info: None,
+                                definition_uri: None,
+                                references: Vec::new(),
+                                enum_variants: None,
+                            },
+                        );
                     }
                 }
 
@@ -758,36 +757,35 @@ impl DocumentStore {
                     let before_eq = trimmed[..eq_pos].trim();
                     if !before_eq.is_empty()
                         && before_eq.chars().all(|c| c.is_alphanumeric() || c == '_')
+                        && trimmed[eq_pos + 1..].trim().starts_with('(')
                     {
-                        if trimmed[eq_pos + 1..].trim().starts_with('(') {
-                            // Found function definition
-                            let char_pos = line.find(before_eq).unwrap_or(0);
-                            let range = Range {
-                                start: Position {
-                                    line: line_num as u32,
-                                    character: char_pos as u32,
-                                },
-                                end: Position {
-                                    line: line_num as u32,
-                                    character: (char_pos + before_eq.len()) as u32,
-                                },
-                            };
-                            symbols.insert(
-                                before_eq.to_string(),
-                                SymbolInfo {
-                                    name: before_eq.to_string(),
-                                    kind: SymbolKind::FUNCTION,
-                                    range: range.clone(),
-                                    selection_range: range,
-                                    detail: Some(format!("{} = (...) ...", before_eq)),
-                                    documentation: None,
-                                    type_info: None,
-                                    definition_uri: None,
-                                    references: Vec::new(),
-                                    enum_variants: None,
-                                },
-                            );
-                        }
+                        // Found function definition
+                        let char_pos = line.find(before_eq).unwrap_or(0);
+                        let range = Range {
+                            start: Position {
+                                line: line_num as u32,
+                                character: char_pos as u32,
+                            },
+                            end: Position {
+                                line: line_num as u32,
+                                character: (char_pos + before_eq.len()) as u32,
+                            },
+                        };
+                        symbols.insert(
+                            before_eq.to_string(),
+                            SymbolInfo {
+                                name: before_eq.to_string(),
+                                kind: SymbolKind::FUNCTION,
+                                range,
+                                selection_range: range,
+                                detail: Some(format!("{} = (...) ...", before_eq)),
+                                documentation: None,
+                                type_info: None,
+                                definition_uri: None,
+                                references: Vec::new(),
+                                enum_variants: None,
+                            },
+                        );
                     }
                 }
             }
@@ -842,7 +840,7 @@ impl DocumentStore {
                         SymbolInfo {
                             name: func.name.clone(),
                             kind: SymbolKind::FUNCTION,
-                            range: range.clone(),
+                            range,
                             selection_range: range,
                             detail: Some(detail),
                             documentation: None,
@@ -865,7 +863,7 @@ impl DocumentStore {
                         SymbolInfo {
                             name: struct_def.name.clone(),
                             kind: SymbolKind::STRUCT,
-                            range: range.clone(),
+                            range,
                             selection_range: range,
                             detail: Some(detail),
                             documentation: None,
@@ -891,7 +889,7 @@ impl DocumentStore {
                         SymbolInfo {
                             name: enum_def.name.clone(),
                             kind: SymbolKind::ENUM,
-                            range: range.clone(),
+                            range,
                             selection_range: range,
                             detail: Some(detail),
                             documentation: None,
@@ -909,8 +907,8 @@ impl DocumentStore {
                             SymbolInfo {
                                 name: variant.name.clone(),
                                 kind: SymbolKind::ENUM_MEMBER,
-                                range: range.clone(),
-                                selection_range: range.clone(),
+                                range,
+                                selection_range: range,
                                 detail: Some(format!("{}::{}", enum_def.name, variant.name)),
                                 documentation: None,
                                 type_info: None,
@@ -927,9 +925,9 @@ impl DocumentStore {
                         SymbolInfo {
                             name: name.clone(),
                             kind: SymbolKind::CONSTANT,
-                            range: range.clone(),
+                            range,
                             selection_range: range,
-                            detail: type_.as_ref().map(|t| format_type(t)),
+                            detail: type_.as_ref().map(format_type),
                             documentation: None,
                             type_info: type_.clone(),
                             definition_uri: None,
@@ -1294,7 +1292,7 @@ impl DocumentStore {
                             SymbolInfo {
                                 name: name.clone(),
                                 kind: SymbolKind::VARIABLE,
-                                range: range.clone(),
+                                range,
                                 selection_range: range,
                                 detail,
                                 documentation: None,

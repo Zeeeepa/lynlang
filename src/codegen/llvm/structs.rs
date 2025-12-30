@@ -96,18 +96,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Special handling for identifiers
         if let Expression::Identifier(name) = struct_ {
             // First check if this is an enum type (GameEntity.Player syntax)
-            if let Some(symbol) = self.symbols.lookup(name) {
-                if let symbols::Symbol::EnumType(enum_info) = symbol {
-                    // This is an enum variant creation, not a struct field access
-                    if enum_info.variant_indices.contains_key(field) {
-                        // Create the enum variant
-                        return self.compile_enum_variant(name, field, &None);
-                    } else {
-                        return Err(CompileError::TypeError(
-                            format!("Unknown variant '{}' for enum '{}'", field, name),
-                            None,
-                        ));
-                    }
+            if let Some(symbols::Symbol::EnumType(enum_info)) = self.symbols.lookup(name) {
+                // This is an enum variant creation, not a struct field access
+                if enum_info.variant_indices.contains_key(field) {
+                    // Create the enum variant
+                    return self.compile_enum_variant(name, field, &None);
+                } else {
+                    return Err(CompileError::TypeError(
+                        format!("Unknown variant '{}' for enum '{}'", field, name),
+                        None,
+                    ));
                 }
             }
 
@@ -150,7 +148,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 }
                             } else {
                                 return Err(CompileError::TypeError(
-                                    format!("Cannot determine type of 'self' in trait method"),
+                                    "Cannot determine type of 'self' in trait method".to_string(),
                                     None,
                                 ));
                             }
@@ -515,7 +513,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                     } else {
                         return Err(CompileError::TypeError(
-                            format!("Cannot infer struct type for nested access"),
+                            "Cannot infer struct type for nested access".to_string(),
                             self.get_current_span(),
                         ));
                     };
@@ -949,21 +947,21 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 AstType::Struct { name, .. } => name.clone(),
                                 _ => {
                                     return Err(CompileError::TypeError(
-                                        format!("Cannot infer struct type from MemberAccess expression"),
+                                        "Cannot infer struct type from MemberAccess expression".to_string(),
                                         None,
                                     ))
                                 }
                             }
                         } else {
                             return Err(CompileError::TypeError(
-                                format!("Cannot infer struct type from MemberAccess expression"),
+                                "Cannot infer struct type from MemberAccess expression".to_string(),
                                 None,
                             ))
                         }
                     }
                     _ => {
                         return Err(CompileError::TypeError(
-                            format!("Cannot infer struct type from MemberAccess expression"),
+                            "Cannot infer struct type from MemberAccess expression".to_string(),
                             None,
                         ))
                     }
@@ -1010,7 +1008,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Expression::StructField { .. } => {
                 // This shouldn't be called for struct field access
                 Err(CompileError::TypeError(
-                    format!("Cannot infer struct type from StructField expression"),
+                    "Cannot infer struct type from StructField expression".to_string(),
                     None,
                 ))
             }
@@ -1040,7 +1038,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 }
                             } else {
                                 Err(CompileError::TypeError(
-                                    format!("Cannot dereference non-pointer type"),
+                                    "Cannot dereference non-pointer type".to_string(),
                                     None,
                                 ))
                             }
@@ -1052,9 +1050,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                     }
                     _ => Err(CompileError::TypeError(
-                        format!(
-                            "Complex pointer dereference not yet supported in struct field access"
-                        ),
+                        "Complex pointer dereference not yet supported in struct field access".to_string(),
                         None,
                     )),
                 }
@@ -1100,7 +1096,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let field_ptr = self
             .builder
             .build_struct_gep(struct_type, struct_alloca, field_index as u32, "field_ptr")
-            .map_err(|e| CompileError::from(e))?;
+            .map_err(CompileError::from)?;
 
         // Get the expected field type for coercion
         let field_type = struct_type_info
@@ -1116,7 +1112,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // For other types, use direct store
                 self.builder
                     .build_store(field_ptr, value)
-                    .map_err(|e| CompileError::from(e))?;
+                    .map_err(CompileError::from)?;
                 return Ok(());
             }
         };

@@ -61,7 +61,7 @@ pub fn extract_symbols_static(
                     SymbolInfo {
                         name: func.name.clone(),
                         kind: SymbolKind::FUNCTION,
-                        range: range.clone(),
+                        range,
                         selection_range: range,
                         detail: Some(detail),
                         documentation: None,
@@ -84,7 +84,7 @@ pub fn extract_symbols_static(
                     SymbolInfo {
                         name: struct_def.name.clone(),
                         kind: SymbolKind::STRUCT,
-                        range: range.clone(),
+                        range,
                         selection_range: range,
                         detail: Some(detail),
                         documentation: None,
@@ -109,7 +109,7 @@ pub fn extract_symbols_static(
                     SymbolInfo {
                         name: enum_def.name.clone(),
                         kind: SymbolKind::ENUM,
-                        range: range.clone(),
+                        range,
                         selection_range: range,
                         detail: Some(detail),
                         documentation: None,
@@ -128,8 +128,8 @@ pub fn extract_symbols_static(
                         SymbolInfo {
                             name: variant_name.clone(),
                             kind: SymbolKind::ENUM_MEMBER,
-                            range: range.clone(),
-                            selection_range: range.clone(),
+                            range,
+                            selection_range: range,
                             detail: Some(full_name),
                             documentation: None,
                             type_info: None,
@@ -146,9 +146,9 @@ pub fn extract_symbols_static(
                     SymbolInfo {
                         name: name.clone(),
                         kind: SymbolKind::CONSTANT,
-                        range: range.clone(),
+                        range,
                         selection_range: range,
-                        detail: type_.as_ref().map(|t| format_type(t)),
+                        detail: type_.as_ref().map(format_type),
                         documentation: None,
                         type_info: type_.clone(),
                         definition_uri: None,
@@ -178,8 +178,8 @@ pub fn extract_symbols_static(
                         SymbolInfo {
                             name: method.name.clone(),
                             kind: SymbolKind::METHOD,
-                            range: range.clone(),
-                            selection_range: range.clone(),
+                            range,
+                            selection_range: range,
                             detail: Some(detail),
                             documentation: Some(format!(
                                 "Method from {}.implements({})",
@@ -252,7 +252,7 @@ pub fn extract_symbols_with_path(
                         SymbolInfo {
                             name: func.name.clone(),
                             kind: SymbolKind::FUNCTION,
-                            range: range.clone(),
+                            range,
                             selection_range: range,
                             detail: Some(detail),
                             documentation: None,
@@ -275,7 +275,7 @@ pub fn extract_symbols_with_path(
                         SymbolInfo {
                             name: struct_def.name.clone(),
                             kind: SymbolKind::STRUCT,
-                            range: range.clone(),
+                            range,
                             selection_range: range,
                             detail: Some(detail),
                             documentation: None,
@@ -301,7 +301,7 @@ pub fn extract_symbols_with_path(
                         SymbolInfo {
                             name: enum_def.name.clone(),
                             kind: SymbolKind::ENUM,
-                            range: range.clone(),
+                            range,
                             selection_range: range,
                             detail: Some(detail),
                             documentation: None,
@@ -320,8 +320,8 @@ pub fn extract_symbols_with_path(
                             SymbolInfo {
                                 name: variant.name.clone(),
                                 kind: SymbolKind::ENUM_MEMBER,
-                                range: range.clone(),
-                                selection_range: range.clone(),
+                                range,
+                                selection_range: range,
                                 detail: Some(format!("{}::{}", enum_def.name, variant.name)),
                                 documentation: None,
                                 type_info: None,
@@ -338,9 +338,9 @@ pub fn extract_symbols_with_path(
                         SymbolInfo {
                             name: name.clone(),
                             kind: SymbolKind::CONSTANT,
-                            range: range.clone(),
+                            range,
                             selection_range: range,
-                            detail: type_.as_ref().map(|t| format_type(t)),
+                            detail: type_.as_ref().map(format_type),
                             documentation: None,
                             type_info: type_.clone(),
                             definition_uri: None,
@@ -370,8 +370,8 @@ pub fn extract_symbols_with_path(
                             SymbolInfo {
                                 name: method.name.clone(),
                                 kind: SymbolKind::METHOD,
-                                range: range.clone(),
-                                selection_range: range.clone(),
+                                range,
+                                selection_range: range,
                                 detail: Some(detail),
                                 documentation: Some(format!(
                                     "Method from {}.implements({})",

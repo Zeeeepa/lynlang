@@ -17,12 +17,11 @@ pub fn determine_symbol_scope(
                 if let Some(func_range) = find_function_range(&doc.content, &func.name) {
                     if position.line >= func_range.start.line
                         && position.line <= func_range.end.line
+                        && is_local_symbol_in_function(func, symbol_name)
                     {
-                        if is_local_symbol_in_function(func, symbol_name) {
-                            return SymbolScope::Local {
-                                function_name: func.name.clone(),
-                            };
-                        }
+                        return SymbolScope::Local {
+                            function_name: func.name.clone(),
+                        };
                     }
                 }
             }

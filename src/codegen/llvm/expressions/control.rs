@@ -39,7 +39,7 @@ pub fn compile_loop<'ctx>(
         compiler
             .builder
             .build_unconditional_branch(loop_body)
-            .map_err(|e| CompileError::from(e))?;
+            .map_err(CompileError::from)?;
         compiler.builder.position_at_end(loop_body);
 
         // Compile actual body (unwrapped from closure)
@@ -51,7 +51,7 @@ pub fn compile_loop<'ctx>(
             compiler
                 .builder
                 .build_unconditional_branch(loop_body)
-                .map_err(|e| CompileError::from(e))?;
+                .map_err(CompileError::from)?;
         }
 
         compiler.loop_stack.pop();
@@ -102,7 +102,7 @@ pub fn compile_break<'ctx>(
         compiler
             .builder
             .build_unconditional_branch(break_target)
-            .map_err(|e| CompileError::from(e))?;
+            .map_err(CompileError::from)?;
 
         // Return the break value (though we've already branched)
         Ok(break_value)
@@ -136,7 +136,7 @@ pub fn compile_continue<'ctx>(
         compiler
             .builder
             .build_unconditional_branch(continue_target)
-            .map_err(|e| CompileError::from(e))?;
+            .map_err(CompileError::from)?;
 
         // Return void (though we've already branched)
         Ok(compiler.context.i64_type().const_zero().into())

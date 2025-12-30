@@ -64,8 +64,8 @@ pub fn handle_prepare_call_hierarchy(
                             .text_document
                             .uri
                             .clone(),
-                        range: symbol_info.range.clone(),
-                        selection_range: symbol_info.selection_range.clone(),
+                        range: symbol_info.range,
+                        selection_range: symbol_info.selection_range,
                         data: None,
                     };
 
@@ -91,8 +91,8 @@ pub fn handle_prepare_call_hierarchy(
                             tags: None,
                             detail: symbol_info.detail.clone(),
                             uri: uri.clone(),
-                            range: symbol_info.range.clone(),
-                            selection_range: symbol_info.selection_range.clone(),
+                            range: symbol_info.range,
+                            selection_range: symbol_info.selection_range,
                             data: None,
                         };
 
@@ -162,7 +162,7 @@ pub fn handle_incoming_calls(
                     tags: None,
                     detail: None,
                     uri: uri.clone(),
-                    range: range.clone(),
+                    range,
                     selection_range: range,
                     data: None,
                 },
@@ -234,8 +234,8 @@ pub fn handle_outgoing_calls(
                         tags: None,
                         detail: symbol_info.detail.clone(),
                         uri: target_uri.clone(),
-                        range: symbol_info.range.clone(),
-                        selection_range: symbol_info.selection_range.clone(),
+                        range: symbol_info.range,
+                        selection_range: symbol_info.selection_range,
                         data: None,
                     },
                     from_ranges: ranges,

@@ -309,7 +309,7 @@ pub fn compile_variable_declaration<'ctx>(
     let alloca = compiler
         .builder
         .build_alloca(basic_type, name)
-        .map_err(|e| CompileError::from(e))?;
+        .map_err(CompileError::from)?;
 
     if let Some(init_expr) = initializer {
         // Use the saved value if we already compiled it for type inference
@@ -330,7 +330,7 @@ pub fn compile_variable_declaration<'ctx>(
                         compiler
                             .builder
                             .build_store(alloca, func_ptr)
-                            .map_err(|e| CompileError::from(e))?;
+                            .map_err(CompileError::from)?;
                         compiler.variables.insert(
                             name.clone(),
                             crate::codegen::llvm::VariableInfo {
@@ -358,7 +358,7 @@ pub fn compile_variable_declaration<'ctx>(
                 compiler
                     .builder
                     .build_store(alloca, value)
-                    .map_err(|e| CompileError::from(e))?;
+                    .map_err(CompileError::from)?;
                 compiler.variables.insert(
                     name.clone(),
                     crate::codegen::llvm::VariableInfo {
@@ -384,7 +384,7 @@ pub fn compile_variable_declaration<'ctx>(
                 compiler
                     .builder
                     .build_store(alloca, ptr_value)
-                    .map_err(|e| CompileError::from(e))?;
+                    .map_err(CompileError::from)?;
                 compiler.variables.insert(
                     name.clone(),
                     crate::codegen::llvm::VariableInfo {
@@ -454,7 +454,7 @@ pub fn compile_variable_declaration<'ctx>(
         compiler
             .builder
             .build_store(alloca, zero)
-            .map_err(|e| CompileError::from(e))?;
+            .map_err(CompileError::from)?;
 
         if let Some(type_) = type_ {
             compiler.variables.insert(

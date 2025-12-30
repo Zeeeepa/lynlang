@@ -309,10 +309,8 @@ fn infer_expr_type(expr: &Expression, doc: &Document, store: &DocumentStore) -> 
             
             for symbols in [&doc.symbols, &store.stdlib_symbols, &store.workspace_symbols] {
                 if let Some(sym) = symbols.get(name) {
-                    if let Some(ref ti) = sym.type_info {
-                        if let AstType::Function { return_type, .. } = ti {
-                            return Some(format_type(return_type));
-                        }
+                    if let Some(AstType::Function { return_type, .. }) = sym.type_info.as_ref() {
+                        return Some(format_type(return_type));
                     }
                     if let Some(ref detail) = sym.detail {
                         if let Some(ret) = extract_return_type(detail) {

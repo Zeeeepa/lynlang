@@ -76,7 +76,7 @@ pub fn handle_type_definition(
 
                             let location = Location {
                                 uri: uri.clone(),
-                                range: type_symbol.range.clone(),
+                                range: type_symbol.range,
                             };
 
                             return Response {
@@ -106,7 +106,7 @@ pub fn handle_type_definition(
 
                 let location = Location {
                     uri: uri.clone(),
-                    range: symbol_info.range.clone(),
+                    range: symbol_info.range,
                 };
 
                 return Response {

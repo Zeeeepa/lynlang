@@ -29,10 +29,7 @@ use zen::parser::Parser;
 fn main() -> std::io::Result<()> {
     // Initialize LLVM
     Target::initialize_native(&inkwell::targets::InitializationConfig::default()).map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::Other,
-            format!("LLVM initialization failed: {}", e),
-        )
+        io::Error::other(format!("LLVM initialization failed: {}", e))
     })?;
 
     // CRITICAL: Force MCJIT linkage to prevent LTO dead code elimination.
@@ -170,20 +167,15 @@ fn run_file(file_path: &str) -> std::io::Result<()> {
     let mut parser = Parser::new(lexer);
     let program = parser
         .parse_program()
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Parse error: {}", e)))?;
+        .map_err(|e| io::Error::other(format!("Parse error: {}", e)))?;
 
     let module = compiler
         .get_module(&program)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Compilation error: {}", e)))?;
+        .map_err(|e| io::Error::other(format!("Compilation error: {}", e)))?;
 
     let execution_engine = module
         .create_jit_execution_engine(OptimizationLevel::None)
-        .map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("Failed to create execution engine: {}", e),
-            )
-        })?;
+        .map_err(|e| io::Error::other(format!("Failed to create execution engine: {}", e)))?;
 
     let exit_code = match execution_engine.get_function_value("main") {
         Ok(main_fn) => {
@@ -258,12 +250,8 @@ fn compile_file(args: &[String]) -> std::io::Result<()> {
 
     // Ensure target directory exists
     if let Some(parent) = Path::new(&output_file).parent() {
-        std::fs::create_dir_all(parent).map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("Failed to create output directory: {}", e),
-            )
-        })?;
+        std::fs::create_dir_all(parent)
+            .map_err(|e| io::Error::other(format!("Failed to create output directory: {}", e)))?;
     }
 
     // Read the source file
@@ -282,12 +270,12 @@ fn compile_file(args: &[String]) -> std::io::Result<()> {
     let mut parser = Parser::new(lexer);
     let program = parser
         .parse_program()
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Parse error: {}", e)))?;
+        .map_err(|e| io::Error::other(format!("Parse error: {}", e)))?;
 
     // Get the LLVM module
     let module = compiler
         .get_module(&program)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Compilation error: {}", e)))?;
+        .map_err(|e| io::Error::other(format!("Compilation error: {}", e)))?;
 
     // Debug: Print LLVM IR if DEBUG_LLVM is set
     if std::env::var("DEBUG_LLVM").is_ok() {
@@ -296,9 +284,8 @@ fn compile_file(args: &[String]) -> std::io::Result<()> {
 
     // Get target machine
     let target_triple = TargetMachine::get_default_triple();
-    let target = Target::from_triple(&target_triple).map_err(|e| {
-        io::Error::new(io::ErrorKind::Other, format!("Failed to get target: {}", e))
-    })?;
+    let target = Target::from_triple(&target_triple)
+        .map_err(|e| io::Error::other(format!("Failed to get target: {}", e)))?;
 
     let target_machine = target
         .create_target_machine(
@@ -309,18 +296,13 @@ fn compile_file(args: &[String]) -> std::io::Result<()> {
             RelocMode::Default,
             CodeModel::Default,
         )
-        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Failed to create target machine"))?;
+        .ok_or_else(|| io::Error::other("Failed to create target machine"))?;
 
     // Write object file
     let obj_path = format!("{}.o", output_file);
     target_machine
         .write_to_file(&module, FileType::Object, Path::new(&obj_path))
-        .map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("Failed to write object file: {}", e),
-            )
-        })?;
+        .map_err(|e| io::Error::other(format!("Failed to write object file: {}", e)))?;
 
     // Link with system libraries to create executable
     let mut cmd = Command::new("cc");
@@ -332,10 +314,10 @@ fn compile_file(args: &[String]) -> std::io::Result<()> {
 
     let status = cmd
         .status()
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to link: {}", e)))?;
+        .map_err(|e| io::Error::other(format!("Failed to link: {}", e)))?;
 
     if !status.success() {
-        return Err(io::Error::new(io::ErrorKind::Other, "Linking failed"));
+        return Err(io::Error::other("Linking failed"));
     }
 
     // Clean up object file

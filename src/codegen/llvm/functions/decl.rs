@@ -232,12 +232,12 @@ pub fn compile_function_body<'ctx>(
         let alloca = compiler
             .builder
             .build_alloca(compiler.context.i64_type(), &name)
-            .map_err(|e| CompileError::from(e))?;
+            .map_err(CompileError::from)?;
 
         compiler
             .builder
             .build_store(alloca, compiler.context.i64_type().const_int(marker, false))
-            .map_err(|e| CompileError::from(e))?;
+            .map_err(CompileError::from)?;
 
         compiler.variables.insert(
             name.clone(),

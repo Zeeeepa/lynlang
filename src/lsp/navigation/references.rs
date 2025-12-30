@@ -164,7 +164,7 @@ pub fn handle_references(
                 if let Some(symbol_info) = doc.symbols.get(&symbol_name) {
                     locations.push(Location {
                         uri: params.text_document_position.text_document.uri.clone(),
-                        range: symbol_info.range.clone(),
+                        range: symbol_info.range,
                     });
                 }
             }
