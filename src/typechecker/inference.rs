@@ -625,56 +625,6 @@ pub fn infer_raise_type(checker: &mut TypeChecker, expr: &Expression) -> Result<
     }
 }
 
-pub fn infer_inline_c_type(
-    checker: &mut TypeChecker,
-    code: &str,
-    interpolations: &[(String, Expression)],
-) -> Result<AstType> {
-    if code.trim().is_empty() {
-        return Err(CompileError::TypeError(
-            "compiler.inline_c() requires non-empty C code".to_string(),
-            None,
-        ));
-    }
-
-    for (var_name, expr) in interpolations {
-        if !var_name.chars().all(|c| c.is_alphanumeric() || c == '_') {
-            return Err(CompileError::TypeError(
-                format!(
-                    "Invalid C variable name in inline_c interpolation: '{}'",
-                    var_name
-                ),
-                None,
-            ));
-        }
-
-        let expr_type = checker.infer_expression_type(expr)?;
-        match expr_type {
-            AstType::I8
-            | AstType::I16
-            | AstType::I32
-            | AstType::I64
-            | AstType::U8
-            | AstType::U16
-            | AstType::U32
-            | AstType::U64
-            | AstType::Usize
-            | AstType::F32
-            | AstType::F64
-            | AstType::Bool => {}
-            t if t.is_ptr_type() => {}
-            _ => {
-                eprintln!(
-                    "Warning: Using complex type {:?} in inline_c() - ensure C compatibility",
-                    expr_type
-                );
-            }
-        }
-    }
-
-    Ok(AstType::Void)
-}
-
 pub fn infer_method_call_type(
     checker: &mut TypeChecker,
     object: &Expression,

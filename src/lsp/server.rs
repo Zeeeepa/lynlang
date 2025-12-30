@@ -534,24 +534,6 @@ impl ZenLanguageServer {
         Ok(())
     }
 
-    fn main_loop(&mut self) -> Result<(), Box<dyn Error>> {
-        for msg in &self.connection.receiver {
-            match msg {
-                Message::Request(req) => {
-                    if self.connection.handle_shutdown(&req)? {
-                        return Ok(());
-                    }
-                    self.handle_request(req)?;
-                }
-                Message::Notification(notif) => {
-                    self.handle_notification(notif)?;
-                }
-                Message::Response(_) => {}
-            }
-        }
-        Ok(())
-    }
-
     fn handle_request(&self, req: Request) -> Result<(), Box<dyn Error>> {
         // Handling request - optimized: avoid unnecessary clones by matching on method first
         let method = req.method.as_str();

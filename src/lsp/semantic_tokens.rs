@@ -197,7 +197,6 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                 // Track string parts and format expressions
                 let mut string_part_start = string_start_char_idx;
                 let mut in_format_expr = false;
-                let mut format_expr_start = 0;
 
                 if is_triple {
                     // Triple-quoted string: read until we find """
@@ -265,7 +264,7 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                                     // Skip ${ and parse the format expression
                                     chars.next(); // Skip '{'
                                     char_idx += after_dollar.len_utf8();
-                                    format_expr_start = peek_pos;
+                                    let format_expr_start = peek_pos;
                                     in_format_expr = true;
 
                                     // Find the closing }

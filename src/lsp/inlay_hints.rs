@@ -81,7 +81,7 @@ fn try_create_hint_for_line(
         return None;
     }
 
-    let (var_name, var_end_pos, has_explicit_type, rhs) = parse_var_decl(line)?;
+    let (_var_name, var_end_pos, has_explicit_type, rhs) = parse_var_decl(line)?;
     
     if has_explicit_type {
         return None;

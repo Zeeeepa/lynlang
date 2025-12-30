@@ -255,10 +255,6 @@ impl TypeChecker {
         declaration_checking::check_declaration(self, declaration)
     }
 
-    fn check_function(&mut self, function: &Function) -> Result<()> {
-        function_checking::check_function(self, function)
-    }
-
     fn check_statement(&mut self, statement: &Statement) -> Result<()> {
         statement_checking::check_statement(self, statement)
     }
@@ -719,10 +715,6 @@ impl TypeChecker {
                 // @this.defer() returns unit/void
                 Ok(AstType::Void)
             }
-            Expression::InlineC {
-                code,
-                interpolations,
-            } => inference::infer_inline_c_type(self, code, interpolations),
         }
     }
 
@@ -754,16 +746,6 @@ impl TypeChecker {
 
     fn declare_variable(&mut self, name: &str, type_: AstType, is_mutable: bool) -> Result<()> {
         scope::declare_variable(self, name, type_, is_mutable, None)
-    }
-
-    fn declare_variable_with_span(
-        &mut self,
-        name: &str,
-        type_: AstType,
-        is_mutable: bool,
-        span: Option<Span>,
-    ) -> Result<()> {
-        scope::declare_variable(self, name, type_, is_mutable, span)
     }
 
     fn declare_variable_with_init(

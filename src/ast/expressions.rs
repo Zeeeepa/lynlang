@@ -168,11 +168,6 @@ pub enum Expression {
     Block(Vec<super::statements::Statement>),
     // Return expression - for early returns in pattern match arms
     Return(Box<Expression>),
-    // Inline C code compilation: compiler.inline_c("""C code with ${interpolation}""")
-    InlineC {
-        code: String, // The C code string (with interpolations resolved)
-        interpolations: Vec<(String, Expression)>, // Variable names and their expressions for interpolation
-    },
     // Type cast expression: expr as Type
     TypeCast {
         expr: Box<Expression>,

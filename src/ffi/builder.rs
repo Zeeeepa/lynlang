@@ -265,7 +265,7 @@ impl LibBuilder {
         let lib_name = lib_name.to_string();
         self.validation_rules.push(ValidationRule {
             name: format!("requires_{}", lib_name),
-            validator: Arc::new(move |builder| {
+            validator: Arc::new(move |_builder| {
                 let lib_path = Self::default_lib_path(&lib_name);
                 let search_paths = Self::default_search_paths();
 

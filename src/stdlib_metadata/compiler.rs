@@ -59,17 +59,6 @@ pub fn get_intrinsic_return_type(func_name: &str) -> Option<AstType> {
         .map(|f| f.return_type)
 }
 
-/// Get full intrinsic function info (params + return type)
-/// Returns None if not a compiler intrinsic
-pub fn get_intrinsic_info(func_name: &str) -> Option<StdFunction> {
-    get_compiler_module().get_function(func_name)
-}
-
-/// Check if a function name is a compiler intrinsic
-pub fn is_compiler_intrinsic(func_name: &str) -> bool {
-    get_compiler_module().functions.contains_key(func_name)
-}
-
 /// Validate intrinsic call and return its type
 /// Returns Err if wrong number of arguments, Ok(type) if valid, None if not an intrinsic
 pub fn check_intrinsic_call(

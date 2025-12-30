@@ -172,28 +172,6 @@ impl StdlibTypeRegistry {
         }
     }
 
-    fn string_to_ast_type(s: &str) -> AstType {
-        match s {
-            "i8" => AstType::I8,
-            "i16" => AstType::I16,
-            "i32" => AstType::I32,
-            "i64" => AstType::I64,
-            "u8" => AstType::U8,
-            "u16" => AstType::U16,
-            "u32" => AstType::U32,
-            "u64" => AstType::U64,
-            "usize" => AstType::Usize,
-            "f32" => AstType::F32,
-            "f64" => AstType::F64,
-            "bool" => AstType::Bool,
-            "void" => AstType::Void,
-            other => AstType::Struct {
-                name: other.to_string(),
-                fields: vec![],
-            },
-        }
-    }
-
     fn struct_def_to_ast_type(&self, struct_def: &StructDefinition) -> AstType {
         let fields: Vec<(String, AstType)> = struct_def
             .fields
@@ -205,14 +183,6 @@ impl StdlibTypeRegistry {
             name: struct_def.name.clone(),
             fields,
         }
-    }
-
-    pub fn get_struct(&self, name: &str) -> Option<&StructDefinition> {
-        self.structs.get(name)
-    }
-
-    pub fn get_type(&self, name: &str) -> Option<&AstType> {
-        self.struct_types.get(name)
     }
 
     pub fn get_string_type(&self) -> AstType {
@@ -240,24 +210,8 @@ impl StdlibTypeRegistry {
         }
     }
 
-    pub fn is_stdlib_type(&self, name: &str) -> bool {
-        self.structs.contains_key(name)
-    }
-
-    pub fn is_collection_type(name: &str) -> bool {
-        matches!(name, "Vec" | "DynVec" | "HashMap" | "HashSet" | "Stack" | "Queue")
-    }
-
     pub fn is_string_type(name: &str) -> bool {
         name == "String"
-    }
-
-    pub fn is_allocator_type(name: &str) -> bool {
-        matches!(name, "Allocator" | "GPA" | "AsyncPool")
-    }
-
-    pub fn get_allocator_type(&self) -> Option<&AstType> {
-        self.struct_types.get("Allocator")
     }
 
     pub fn get_method_signature(&self, receiver: &str, method: &str) -> Option<&MethodSignature> {
@@ -268,13 +222,6 @@ impl StdlibTypeRegistry {
     pub fn get_method_return_type(&self, receiver: &str, method: &str) -> Option<&AstType> {
         self.get_method_signature(receiver, method)
             .map(|sig| &sig.return_type)
-    }
-
-    pub fn get_methods_for_type(&self, receiver: &str) -> Vec<&MethodSignature> {
-        self.methods
-            .values()
-            .filter(|sig| sig.receiver_type == receiver)
-            .collect()
     }
 
     pub fn get_function_signature(&self, module: &str, func_name: &str) -> Option<&FunctionSignature> {

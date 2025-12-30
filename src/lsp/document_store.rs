@@ -508,10 +508,6 @@ impl DocumentStore {
         analyzer::infer_type_from_expression(expr, &self.documents, &self.compiler)
     }
 
-    fn find_text_position(&self, text: &str, content: &str) -> Option<Position> {
-        analyzer::find_text_position(text, content)
-    }
-
     fn extract_symbols(&self, content: &str) -> HashMap<String, SymbolInfo> {
         let mut symbols = HashMap::new();
 

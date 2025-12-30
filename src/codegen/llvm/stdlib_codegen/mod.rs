@@ -24,8 +24,7 @@ pub use fs::{
     compile_fs_write_file,
 };
 
-// Re-export helpers
-pub use helpers::{create_result_err, create_result_ok, create_result_ok_void};
+// Note: helpers module functions are used via direct path (helpers::create_result_ok, etc.)
 
 // Re-export collections functions
 pub use collections::{compile_dynvec_new, compile_hashmap_new, compile_hashset_new};

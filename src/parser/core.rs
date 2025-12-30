@@ -30,31 +30,6 @@ impl<'a> Parser<'a> {
         self.peek_span = token_with_span.span;
     }
 
-    /// Peek at the token after peek_token (two tokens ahead)
-    /// This is a simplified version - in a full implementation we'd cache this
-    pub fn peek_peek_token(&mut self) -> Option<Token> {
-        // Save current state (including line/column for accurate error reporting)
-        let saved_pos = self.lexer.position;
-        let saved_read_pos = self.lexer.read_position;
-        let saved_char = self.lexer.current_char;
-        let saved_line = self.lexer.line;
-        let saved_column = self.lexer.column;
-
-        // Advance past current and peek tokens
-        let _ = self.lexer.next_token_with_span();
-        let _ = self.lexer.next_token_with_span();
-        let next_next = self.lexer.next_token_with_span();
-
-        // Restore state
-        self.lexer.position = saved_pos;
-        self.lexer.read_position = saved_read_pos;
-        self.lexer.current_char = saved_char;
-        self.lexer.line = saved_line;
-        self.lexer.column = saved_column;
-
-        Some(next_next.token)
-    }
-
     // ========================================================================
     // PARSER HELPER METHODS - Reduce duplication across parser modules
     // ========================================================================
@@ -116,15 +91,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Get identifier from current token without consuming, or return error
-    pub fn get_identifier(&self, context: &str) -> crate::error::Result<String> {
-        if let Token::Identifier(name) = &self.current_token {
-            Ok(name.clone())
-        } else {
-            Err(self.syntax_error(format!("Expected {} (identifier), got {:?}", context, self.current_token)))
-        }
-    }
-
     /// Check if current token is a specific identifier keyword
     pub fn is_keyword(&self, keyword: &str) -> bool {
         matches!(&self.current_token, Token::Identifier(id) if id == keyword)
@@ -140,35 +106,4 @@ impl<'a> Parser<'a> {
         }
     }
 
-    // ========================================================================
-    // END PARSER HELPER METHODS
-    // ========================================================================
-
-    /// Check if an expression is an import expression
-    pub fn is_import_expression(&self, expr: &crate::ast::Expression) -> bool {
-        use crate::ast::Expression;
-
-        match expr {
-            Expression::MemberAccess { object, member } => {
-                // Check if it's @std.something or build.import()
-                if member == "import" {
-                    return true;
-                }
-                if let Expression::Identifier(name) = &**object {
-                    name == "@std" || name.starts_with("@std")
-                } else {
-                    false
-                }
-            }
-            Expression::FunctionCall { name, .. } => {
-                // Check for .import() calls
-                name == "import" || name.ends_with(".import")
-            }
-            Expression::Identifier(name) => {
-                // Check for direct @std references
-                name == "@std" || name.starts_with("@std")
-            }
-            _ => false,
-        }
-    }
 }

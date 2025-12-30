@@ -124,17 +124,6 @@ impl WellKnownTypes {
         self.get_type(name) == Some(WellKnownType::RawPtr)
     }
 
-    /// Get the pointer type kind if this is a pointer type
-    #[inline]
-    pub fn get_ptr_type(&self, name: &str) -> Option<WellKnownType> {
-        match self.get_type(name) {
-            Some(t @ (WellKnownType::Ptr | WellKnownType::MutPtr | WellKnownType::RawPtr)) => {
-                Some(t)
-            }
-            _ => None,
-        }
-    }
-
     /// Check if a type name is Option or Result (types with success/failure variants)
     #[inline]
     pub fn is_option_or_result(&self, name: &str) -> bool {
@@ -188,24 +177,6 @@ impl WellKnownTypes {
     #[inline]
     pub fn is_err(&self, name: &str) -> bool {
         matches!(self.get_variant(name), Some((_, WellKnownVariant::Err)))
-    }
-
-    /// Check if a variant is a "success" variant (Some or Ok)
-    #[inline]
-    pub fn is_success_variant(&self, name: &str) -> bool {
-        matches!(
-            self.get_variant(name),
-            Some((_, WellKnownVariant::Some | WellKnownVariant::Ok))
-        )
-    }
-
-    /// Check if a variant is a "failure" variant (None or Err)
-    #[inline]
-    pub fn is_failure_variant(&self, name: &str) -> bool {
-        matches!(
-            self.get_variant(name),
-            Some((_, WellKnownVariant::None | WellKnownVariant::Err))
-        )
     }
 
     /// Get the parent type for a variant
@@ -286,16 +257,6 @@ impl WellKnownTypes {
     #[inline]
     pub fn err_name(&self) -> &'static str {
         "Err"
-    }
-
-    // ========================================================================
-    // Combined checks (useful for common patterns)
-    // ========================================================================
-
-    /// Check if name is a well-known type or variant
-    #[inline]
-    pub fn is_well_known(&self, name: &str) -> bool {
-        self.types.contains_key(name) || self.variants.contains_key(name)
     }
 
     /// Get discriminant tag for a variant (for codegen)
