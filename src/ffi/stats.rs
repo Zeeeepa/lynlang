@@ -24,26 +24,6 @@ impl CallStatistics {
         }
     }
 
-    pub fn get_success_count(&self, function: &str) -> usize {
-        self.calls
-            .get(function)
-            .map(|(success, _)| *success)
-            .unwrap_or(0)
-    }
-
-    pub fn get_failure_count(&self, function: &str) -> usize {
-        self.calls
-            .get(function)
-            .map(|(_, failure)| *failure)
-            .unwrap_or(0)
-    }
-
-    pub fn get_total_calls(&self, function: &str) -> usize {
-        self.calls
-            .get(function)
-            .map(|(success, failure)| success + failure)
-            .unwrap_or(0)
-    }
 }
 
 impl Default for CallStatistics {

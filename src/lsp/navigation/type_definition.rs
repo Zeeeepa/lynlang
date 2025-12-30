@@ -1,6 +1,6 @@
 // Type definition handler
 
-use super::super::document_store::DocumentStore;
+use crate::lsp::document_store::DocumentStore;
 use super::utils::find_symbol_at_position;
 use lsp_server::{Request, Response};
 use lsp_types::*;

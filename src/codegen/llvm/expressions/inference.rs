@@ -1,4 +1,4 @@
-use super::super::{symbols, LLVMCompiler};
+use crate::codegen::llvm::{symbols, LLVMCompiler};
 use crate::ast::{AstType, Expression};
 use crate::error::CompileError;
 use crate::stdlib_metadata::compiler as compiler_intrinsics;
@@ -47,140 +47,7 @@ pub fn infer_expression_type(
             enum_name,
             variant,
             payload,
-        } => {
-            let wk = &compiler.well_known;
-            if wk.is_option(enum_name) {
-                let parent_name = wk.get_variant_parent_name(variant).unwrap_or(wk.option_name());
-                if wk.is_some(variant) && payload.is_some() {
-                    if let Some(ref p) = payload {
-                        let inner_type = infer_expression_type(compiler, p)?;
-                        Ok(AstType::Generic {
-                            name: parent_name.to_string(),
-                            type_args: vec![inner_type],
-                        })
-                    } else {
-                        Ok(AstType::Generic {
-                            name: parent_name.to_string(),
-                            type_args: vec![AstType::Generic {
-                                name: "T".to_string(),
-                                type_args: vec![],
-                            }],
-                        })
-                    }
-                } else {
-                    if let Some(t) = compiler.generic_type_context.get("Option_Some_Type") {
-                        Ok(AstType::Generic {
-                            name: parent_name.to_string(),
-                            type_args: vec![t.clone()],
-                        })
-                    } else {
-                        Ok(AstType::Generic {
-                            name: parent_name.to_string(),
-                            type_args: vec![AstType::Generic {
-                                name: "T".to_string(),
-                                type_args: vec![],
-                            }],
-                        })
-                    }
-                }
-            } else if wk.is_result(enum_name) {
-                let parent_name = wk.get_variant_parent_name(variant).unwrap_or(wk.result_name());
-                if wk.is_ok(variant) && payload.is_some() {
-                    if let Some(ref p) = payload {
-                        let inner_type = infer_expression_type(compiler, p)?;
-                        let err_type = compiler
-                            .generic_type_context
-                            .get("Result_Err_Type")
-                            .cloned()
-                            .unwrap_or(AstType::StaticString);
-                        Ok(AstType::Generic {
-                            name: parent_name.to_string(),
-                            type_args: vec![inner_type, err_type],
-                        })
-                    } else {
-                        Ok(AstType::Generic {
-                            name: parent_name.to_string(),
-                            type_args: vec![
-                                AstType::Generic {
-                                    name: "T".to_string(),
-                                    type_args: vec![],
-                                },
-                                AstType::Generic {
-                                    name: "E".to_string(),
-                                    type_args: vec![],
-                                },
-                            ],
-                        })
-                    }
-                } else if wk.is_err(variant) && payload.is_some() {
-                    if let Some(ref p) = payload {
-                        let inner_type = infer_expression_type(compiler, p)?;
-                        let ok_type = compiler
-                            .generic_type_context
-                            .get("Result_Ok_Type")
-                            .cloned()
-                            .unwrap_or(AstType::Void);
-                        Ok(AstType::Generic {
-                            name: parent_name.to_string(),
-                            type_args: vec![ok_type, inner_type],
-                        })
-                    } else {
-                        Ok(AstType::Generic {
-                            name: parent_name.to_string(),
-                            type_args: vec![
-                                AstType::Generic {
-                                    name: "T".to_string(),
-                                    type_args: vec![],
-                                },
-                                AstType::Generic {
-                                    name: "E".to_string(),
-                                    type_args: vec![],
-                                },
-                            ],
-                        })
-                    }
-                } else {
-                    let ok_type = compiler
-                        .generic_type_context
-                        .get("Result_Ok_Type")
-                        .cloned()
-                        .unwrap_or(AstType::Void);
-                    let err_type = compiler
-                        .generic_type_context
-                        .get("Result_Err_Type")
-                        .cloned()
-                        .unwrap_or(AstType::Void);
-                    Ok(AstType::Generic {
-                        name: parent_name.to_string(),
-                        type_args: vec![ok_type, err_type],
-                    })
-                }
-            } else {
-                // Custom enum - look it up in symbol table
-                if let Some(symbols::Symbol::EnumType(enum_info)) =
-                    compiler.symbols.lookup(enum_name)
-                {
-                    // Found the custom enum - create an Enum type for it
-                    let variants = enum_info
-                        .variants
-                        .iter()
-                        .map(|v| crate::ast::EnumVariant {
-                            name: v.name.clone(),
-                            payload: v.payload.clone(),
-                        })
-                        .collect();
-                    Ok(AstType::Enum {
-                        name: enum_name.to_string(),
-                        variants,
-                    })
-                } else {
-                    // For unknown custom enums, use EnumType
-                    Ok(AstType::EnumType {
-                        name: enum_name.to_string(),
-                    })
-                }
-            }
-        }
+        } => infer_enum_variant_type(compiler, enum_name, variant, payload),
         Expression::FunctionCall { name, .. } => {
             // Handle both "compiler." and "builtin." prefixes for intrinsics
             if name.starts_with("compiler.") || name.starts_with("builtin.") {
@@ -241,215 +108,7 @@ pub fn infer_expression_type(
             Ok(AstType::Void)
         }
         Expression::MethodCall { object, method, .. } => {
-            if let Expression::Identifier(name) = &**object {
-                if name == "compiler" {
-                    let base_method = if let Some(angle_pos) = method.find('<') {
-                        &method[..angle_pos]
-                    } else {
-                        method.as_str()
-                    };
-                    if let Some(return_type) =
-                        compiler_intrinsics::get_intrinsic_return_type(base_method)
-                    {
-                        return Ok(return_type);
-                    }
-                }
-            }
-
-            if method == "raise" {
-                let object_type = compiler.infer_expression_type(object)?;
-                if let AstType::Generic { name, type_args } = &object_type {
-                    if compiler.well_known.is_result(name) && type_args.len() == 2 {
-                        return Ok(type_args[0].clone());
-                    }
-                }
-                Ok(AstType::Void)
-            } else if method == "new" || method == "init" {
-                // Collection constructors and init methods return the type
-                if let Expression::Identifier(name) = &**object {
-                    // Check if this is a generic type constructor (e.g., HashMap<K,V>.new())
-                    if name.contains('<') {
-                        // Parse the generic type from the name
-                        if let Some(angle_pos) = name.find('<') {
-                            let base_type = &name[..angle_pos];
-
-                            // Parse type arguments - handle nested generics
-                            let args_str = &name[angle_pos + 1..name.len() - 1]; // Remove < and >
-                            let type_args =
-                                super::utils::parse_type_args_string(compiler, args_str)?;
-
-                            return Ok(AstType::Generic {
-                                name: base_type.to_string(),
-                                type_args,
-                            });
-                        }
-                    }
-
-                    // Non-generic collection constructors
-                    match name.as_str() {
-                        "Array" => Ok(AstType::Generic {
-                            name: "Array".to_string(),
-                            type_args: vec![AstType::I32], // Default element type
-                        }),
-                        "HashMap" => Ok(AstType::Generic {
-                            name: "HashMap".to_string(),
-                            type_args: vec![crate::ast::resolve_string_struct_type(), AstType::I32], // Default K,V types
-                        }),
-                        "HashSet" => Ok(AstType::Generic {
-                            name: "HashSet".to_string(),
-                            type_args: vec![AstType::I32], // Default element type
-                        }),
-                        "DynVec" => Ok(AstType::Generic {
-                            name: "DynVec".to_string(),
-                            type_args: vec![AstType::I32], // Default element type
-                        }),
-                        "Vec" => Ok(AstType::Generic {
-                            name: "Vec".to_string(),
-                            type_args: vec![AstType::I32], // Default element type
-                        }),
-                        "GPA" => Ok(AstType::Struct {
-                            name: "GPA".to_string(),
-                            fields: vec![],
-                        }),
-                        "AsyncPool" => Ok(AstType::Struct {
-                            name: "AsyncPool".to_string(),
-                            fields: vec![],
-                        }),
-                        "String" => Ok(AstType::Struct {
-                            name: "String".to_string(),
-                            fields: vec![],
-                        }),
-                        _ => Ok(AstType::Void),
-                    }
-                } else {
-                    Ok(AstType::Void)
-                }
-            } else {
-                // For other common methods, try to infer return type
-                match method.as_str() {
-                    // Numeric methods - return same type as input
-                    "abs" | "min" | "max" => {
-                        // These methods return the same type as the object
-                        compiler.infer_expression_type(object)
-                    }
-                    "len" | "size" | "length" => Ok(AstType::I64),
-                    "is_empty" => Ok(AstType::Bool),
-                    "to_i32" => Ok(AstType::Generic {
-                        name: compiler.well_known.get_variant_parent_name(compiler.well_known.some_name()).unwrap_or(compiler.well_known.option_name()).to_string(),
-                        type_args: vec![AstType::I32],
-                    }),
-                    "to_i64" => Ok(AstType::Generic {
-                        name: compiler.well_known.get_variant_parent_name(compiler.well_known.some_name()).unwrap_or(compiler.well_known.option_name()).to_string(),
-                        type_args: vec![AstType::I64],
-                    }),
-                    "to_f64" => Ok(AstType::Generic {
-                        name: compiler.well_known.get_variant_parent_name(compiler.well_known.some_name()).unwrap_or(compiler.well_known.option_name()).to_string(),
-                        type_args: vec![AstType::F64],
-                    }),
-                    "contains" | "starts_with" | "ends_with" => Ok(AstType::Bool),
-                    "index_of" => Ok(AstType::I64),
-                    "substr" | "trim" | "to_upper" | "to_lower" => Ok(AstType::StaticString),
-                    "split" => Ok(AstType::Generic {
-                        name: "Array".to_string(),
-                        type_args: vec![AstType::StaticString],
-                    }),
-                    "char_at" => Ok(AstType::I32),
-                    "get" | "remove" | "insert" | "pop" => {
-                        let option_name = compiler.well_known.get_variant_parent_name(compiler.well_known.some_name()).unwrap_or(compiler.well_known.option_name());
-                        if let Ok(object_type) = compiler.infer_expression_type(object) {
-                            if let AstType::Generic { name, type_args } = object_type {
-                                if name == "HashMap" && type_args.len() >= 2 {
-                                    return Ok(AstType::Generic {
-                                        name: option_name.to_string(),
-                                        type_args: vec![type_args[1].clone()],
-                                    });
-                                } else if name == "HashSet" && !type_args.is_empty() {
-                                    if method == "remove" {
-                                        return Ok(AstType::Bool);
-                                    }
-                                } else if name == "Array" && !type_args.is_empty() {
-                                    if method == "get" {
-                                        return Ok(type_args[0].clone());
-                                    } else if method == "pop" {
-                                        return Ok(AstType::Generic {
-                                            name: option_name.to_string(),
-                                            type_args: vec![type_args[0].clone()],
-                                        });
-                                    }
-                                } else if matches!(name.as_str(), "Vec" | "DynVec")
-                                    && !type_args.is_empty()
-                                {
-                                    return Ok(AstType::Generic {
-                                        name: option_name.to_string(),
-                                        type_args: vec![type_args[0].clone()],
-                                    });
-                                }
-                            }
-                        }
-
-                        let object_type = compiler.infer_expression_type(object)?;
-                        if let AstType::DynVec { element_types, .. } = &object_type {
-                            if !element_types.is_empty() && (method == "get" || method == "pop") {
-                                return Ok(AstType::Generic {
-                                    name: option_name.to_string(),
-                                    type_args: vec![element_types[0].clone()],
-                                });
-                            }
-                        }
-
-                        Ok(AstType::Void)
-                    }
-                    "push" | "set" | "clear" => {
-                        // Array/Vec/DynVec mutation methods return void
-                        Ok(AstType::Void)
-                    }
-                    "add" => {
-                        // HashSet.add returns bool (whether the element was actually added)
-                        Ok(AstType::Bool)
-                    }
-                    "union" | "intersection" | "difference" | "symmetric_difference" => {
-                        // HashSet operations return a new HashSet
-                        if let Ok(object_type) = compiler.infer_expression_type(object) {
-                            if let AstType::Generic { name, type_args } = object_type {
-                                if name == "HashSet" {
-                                    return Ok(AstType::Generic {
-                                        name: "HashSet".to_string(),
-                                        type_args,
-                                    });
-                                }
-                            }
-                        }
-                        Ok(AstType::Void)
-                    }
-                    "is_subset" | "is_superset" | "is_disjoint" => {
-                        // HashSet comparison methods return bool
-                        Ok(AstType::Bool)
-                    }
-                    _ => {
-                        // Try qualified method name first (Type.method format)
-                        let object_type = infer_expression_type(compiler, object)?;
-                        let type_name = match &object_type {
-                            AstType::Struct { name, .. } => Some(name.clone()),
-                            AstType::Generic { name, .. } => Some(name.clone()),
-                            _ => None,
-                        };
-                        
-                        if let Some(type_name) = type_name {
-                            let qualified_name = format!("{}.{}", type_name, method);
-                            if let Some(func_return_type) = compiler.function_types.get(&qualified_name) {
-                                return Ok(func_return_type.clone());
-                            }
-                        }
-                        
-                        // Fall back to plain UFC
-                        if let Some(func_return_type) = compiler.function_types.get(method) {
-                            Ok(func_return_type.clone())
-                        } else {
-                            Ok(AstType::Void)
-                        }
-                    }
-                }
-            }
+            infer_method_call_type(compiler, object, method)
         }
         Expression::PatternMatch { arms, .. } => {
             // Pattern match takes the type of its first arm's body
@@ -873,5 +532,427 @@ pub fn infer_closure_return_type(
             }
         }
         _ => infer_expression_type(compiler, body),
+    }
+}
+
+// ============================================================================
+// HELPER FUNCTIONS FOR TYPE INFERENCE
+// ============================================================================
+
+/// Infer type for enum variant expressions (Option, Result, custom enums)
+fn infer_enum_variant_type(
+    compiler: &LLVMCompiler,
+    enum_name: &str,
+    variant: &str,
+    payload: &Option<Box<Expression>>,
+) -> Result<AstType, CompileError> {
+    let wk = &compiler.well_known;
+
+    if wk.is_option(enum_name) {
+        infer_option_variant_type(compiler, variant, payload)
+    } else if wk.is_result(enum_name) {
+        infer_result_variant_type(compiler, variant, payload)
+    } else {
+        infer_custom_enum_type(compiler, enum_name)
+    }
+}
+
+/// Infer type for Option variants (Some/None)
+fn infer_option_variant_type(
+    compiler: &LLVMCompiler,
+    variant: &str,
+    payload: &Option<Box<Expression>>,
+) -> Result<AstType, CompileError> {
+    let wk = &compiler.well_known;
+    let parent_name = wk.get_variant_parent_name(variant).unwrap_or(wk.option_name());
+
+    if wk.is_some(variant) && payload.is_some() {
+        if let Some(ref p) = payload {
+            let inner_type = infer_expression_type(compiler, p)?;
+            Ok(AstType::Generic {
+                name: parent_name.to_string(),
+                type_args: vec![inner_type],
+            })
+        } else {
+            Ok(make_generic_option(parent_name))
+        }
+    } else {
+        // None variant or Some without payload - try to get from context
+        if let Some(t) = compiler.generic_type_context.get("Option_Some_Type") {
+            Ok(AstType::Generic {
+                name: parent_name.to_string(),
+                type_args: vec![t.clone()],
+            })
+        } else {
+            Ok(make_generic_option(parent_name))
+        }
+    }
+}
+
+/// Infer type for Result variants (Ok/Err)
+fn infer_result_variant_type(
+    compiler: &LLVMCompiler,
+    variant: &str,
+    payload: &Option<Box<Expression>>,
+) -> Result<AstType, CompileError> {
+    let wk = &compiler.well_known;
+    let parent_name = wk.get_variant_parent_name(variant).unwrap_or(wk.result_name());
+
+    if wk.is_ok(variant) && payload.is_some() {
+        if let Some(ref p) = payload {
+            let inner_type = infer_expression_type(compiler, p)?;
+            let err_type = compiler
+                .generic_type_context
+                .get("Result_Err_Type")
+                .cloned()
+                .unwrap_or(AstType::StaticString);
+            Ok(AstType::Generic {
+                name: parent_name.to_string(),
+                type_args: vec![inner_type, err_type],
+            })
+        } else {
+            Ok(make_generic_result(parent_name))
+        }
+    } else if wk.is_err(variant) && payload.is_some() {
+        if let Some(ref p) = payload {
+            let inner_type = infer_expression_type(compiler, p)?;
+            let ok_type = compiler
+                .generic_type_context
+                .get("Result_Ok_Type")
+                .cloned()
+                .unwrap_or(AstType::Void);
+            Ok(AstType::Generic {
+                name: parent_name.to_string(),
+                type_args: vec![ok_type, inner_type],
+            })
+        } else {
+            Ok(make_generic_result(parent_name))
+        }
+    } else {
+        // Get types from context or use defaults
+        let ok_type = compiler
+            .generic_type_context
+            .get("Result_Ok_Type")
+            .cloned()
+            .unwrap_or(AstType::Void);
+        let err_type = compiler
+            .generic_type_context
+            .get("Result_Err_Type")
+            .cloned()
+            .unwrap_or(AstType::Void);
+        Ok(AstType::Generic {
+            name: parent_name.to_string(),
+            type_args: vec![ok_type, err_type],
+        })
+    }
+}
+
+/// Infer type for custom enum variants
+fn infer_custom_enum_type(
+    compiler: &LLVMCompiler,
+    enum_name: &str,
+) -> Result<AstType, CompileError> {
+    if let Some(symbols::Symbol::EnumType(enum_info)) = compiler.symbols.lookup(enum_name) {
+        let variants = enum_info
+            .variants
+            .iter()
+            .map(|v| crate::ast::EnumVariant {
+                name: v.name.clone(),
+                payload: v.payload.clone(),
+            })
+            .collect();
+        Ok(AstType::Enum {
+            name: enum_name.to_string(),
+            variants,
+        })
+    } else {
+        Ok(AstType::EnumType {
+            name: enum_name.to_string(),
+        })
+    }
+}
+
+/// Create a generic Option<T> type placeholder
+fn make_generic_option(parent_name: &str) -> AstType {
+    AstType::Generic {
+        name: parent_name.to_string(),
+        type_args: vec![AstType::Generic {
+            name: "T".to_string(),
+            type_args: vec![],
+        }],
+    }
+}
+
+/// Create a generic Result<T, E> type placeholder
+fn make_generic_result(parent_name: &str) -> AstType {
+    AstType::Generic {
+        name: parent_name.to_string(),
+        type_args: vec![
+            AstType::Generic {
+                name: "T".to_string(),
+                type_args: vec![],
+            },
+            AstType::Generic {
+                name: "E".to_string(),
+                type_args: vec![],
+            },
+        ],
+    }
+}
+
+/// Infer type for method call expressions
+fn infer_method_call_type(
+    compiler: &LLVMCompiler,
+    object: &Expression,
+    method: &str,
+) -> Result<AstType, CompileError> {
+    // Check for compiler intrinsics
+    if let Expression::Identifier(name) = object {
+        if name == "compiler" {
+            let base_method = if let Some(angle_pos) = method.find('<') {
+                &method[..angle_pos]
+            } else {
+                method
+            };
+            if let Some(return_type) = compiler_intrinsics::get_intrinsic_return_type(base_method) {
+                return Ok(return_type);
+            }
+        }
+    }
+
+    // Handle raise method
+    if method == "raise" {
+        return infer_raise_method_type(compiler, object);
+    }
+
+    // Handle constructors
+    if method == "new" || method == "init" {
+        return infer_constructor_type(compiler, object);
+    }
+
+    // Handle common methods by name
+    infer_common_method_type(compiler, object, method)
+}
+
+/// Infer type for raise method (unwraps Result)
+fn infer_raise_method_type(
+    compiler: &LLVMCompiler,
+    object: &Expression,
+) -> Result<AstType, CompileError> {
+    let object_type = compiler.infer_expression_type(object)?;
+    if let AstType::Generic { name, type_args } = &object_type {
+        if compiler.well_known.is_result(name) && type_args.len() == 2 {
+            return Ok(type_args[0].clone());
+        }
+    }
+    Ok(AstType::Void)
+}
+
+/// Infer type for constructor methods (new/init)
+fn infer_constructor_type(
+    compiler: &LLVMCompiler,
+    object: &Expression,
+) -> Result<AstType, CompileError> {
+    if let Expression::Identifier(name) = object {
+        // Check for generic type constructor (e.g., HashMap<K,V>.new())
+        if name.contains('<') {
+            if let Some(angle_pos) = name.find('<') {
+                let base_type = &name[..angle_pos];
+                let args_str = &name[angle_pos + 1..name.len() - 1];
+                let type_args = super::utils::parse_type_args_string(compiler, args_str)?;
+                return Ok(AstType::Generic {
+                    name: base_type.to_string(),
+                    type_args,
+                });
+            }
+        }
+
+        // Non-generic constructors
+        return Ok(match name.as_str() {
+            "Array" => AstType::Generic {
+                name: "Array".to_string(),
+                type_args: vec![AstType::I32],
+            },
+            "HashMap" => AstType::Generic {
+                name: "HashMap".to_string(),
+                type_args: vec![crate::ast::resolve_string_struct_type(), AstType::I32],
+            },
+            "HashSet" => AstType::Generic {
+                name: "HashSet".to_string(),
+                type_args: vec![AstType::I32],
+            },
+            "DynVec" => AstType::Generic {
+                name: "DynVec".to_string(),
+                type_args: vec![AstType::I32],
+            },
+            "Vec" => AstType::Generic {
+                name: "Vec".to_string(),
+                type_args: vec![AstType::I32],
+            },
+            "GPA" => AstType::Struct {
+                name: "GPA".to_string(),
+                fields: vec![],
+            },
+            "AsyncPool" => AstType::Struct {
+                name: "AsyncPool".to_string(),
+                fields: vec![],
+            },
+            "String" => AstType::Struct {
+                name: "String".to_string(),
+                fields: vec![],
+            },
+            _ => AstType::Void,
+        });
+    }
+    Ok(AstType::Void)
+}
+
+/// Infer type for common methods by name
+fn infer_common_method_type(
+    compiler: &LLVMCompiler,
+    object: &Expression,
+    method: &str,
+) -> Result<AstType, CompileError> {
+    let option_name = compiler
+        .well_known
+        .get_variant_parent_name(compiler.well_known.some_name())
+        .unwrap_or(compiler.well_known.option_name());
+
+    match method {
+        // Numeric methods - return same type as input
+        "abs" | "min" | "max" => compiler.infer_expression_type(object),
+
+        // Size methods
+        "len" | "size" | "length" => Ok(AstType::I64),
+        "is_empty" => Ok(AstType::Bool),
+
+        // Conversion methods
+        "to_i32" => Ok(AstType::Generic {
+            name: option_name.to_string(),
+            type_args: vec![AstType::I32],
+        }),
+        "to_i64" => Ok(AstType::Generic {
+            name: option_name.to_string(),
+            type_args: vec![AstType::I64],
+        }),
+        "to_f64" => Ok(AstType::Generic {
+            name: option_name.to_string(),
+            type_args: vec![AstType::F64],
+        }),
+
+        // String methods
+        "contains" | "starts_with" | "ends_with" => Ok(AstType::Bool),
+        "index_of" => Ok(AstType::I64),
+        "substr" | "trim" | "to_upper" | "to_lower" => Ok(AstType::StaticString),
+        "split" => Ok(AstType::Generic {
+            name: "Array".to_string(),
+            type_args: vec![AstType::StaticString],
+        }),
+        "char_at" => Ok(AstType::I32),
+
+        // Collection access methods
+        "get" | "remove" | "insert" | "pop" => {
+            infer_collection_access_type(compiler, object, method, option_name)
+        }
+
+        // Collection mutation methods
+        "push" | "set" | "clear" => Ok(AstType::Void),
+        "add" => Ok(AstType::Bool), // HashSet.add
+
+        // Set operations
+        "union" | "intersection" | "difference" | "symmetric_difference" => {
+            infer_set_operation_type(compiler, object)
+        }
+        "is_subset" | "is_superset" | "is_disjoint" => Ok(AstType::Bool),
+
+        // Default: try UFC lookup
+        _ => infer_ufc_method_type(compiler, object, method),
+    }
+}
+
+/// Infer type for collection access methods (get, pop, etc.)
+fn infer_collection_access_type(
+    compiler: &LLVMCompiler,
+    object: &Expression,
+    method: &str,
+    option_name: &str,
+) -> Result<AstType, CompileError> {
+    if let Ok(object_type) = compiler.infer_expression_type(object) {
+        if let AstType::Generic { name, type_args } = object_type {
+            if name == "HashMap" && type_args.len() >= 2 {
+                return Ok(AstType::Generic {
+                    name: option_name.to_string(),
+                    type_args: vec![type_args[1].clone()],
+                });
+            } else if name == "HashSet" && !type_args.is_empty() && method == "remove" {
+                return Ok(AstType::Bool);
+            } else if name == "Array" && !type_args.is_empty() {
+                if method == "get" {
+                    return Ok(type_args[0].clone());
+                } else if method == "pop" {
+                    return Ok(AstType::Generic {
+                        name: option_name.to_string(),
+                        type_args: vec![type_args[0].clone()],
+                    });
+                }
+            } else if matches!(name.as_str(), "Vec" | "DynVec") && !type_args.is_empty() {
+                return Ok(AstType::Generic {
+                    name: option_name.to_string(),
+                    type_args: vec![type_args[0].clone()],
+                });
+            }
+        } else if let AstType::DynVec { element_types, .. } = &object_type {
+            if !element_types.is_empty() && (method == "get" || method == "pop") {
+                return Ok(AstType::Generic {
+                    name: option_name.to_string(),
+                    type_args: vec![element_types[0].clone()],
+                });
+            }
+        }
+    }
+    Ok(AstType::Void)
+}
+
+/// Infer type for set operations (union, intersection, etc.)
+fn infer_set_operation_type(
+    compiler: &LLVMCompiler,
+    object: &Expression,
+) -> Result<AstType, CompileError> {
+    if let Ok(AstType::Generic { name, type_args }) = compiler.infer_expression_type(object) {
+        if name == "HashSet" {
+            return Ok(AstType::Generic {
+                name: "HashSet".to_string(),
+                type_args,
+            });
+        }
+    }
+    Ok(AstType::Void)
+}
+
+/// Infer type via Uniform Function Call (UFC) lookup
+fn infer_ufc_method_type(
+    compiler: &LLVMCompiler,
+    object: &Expression,
+    method: &str,
+) -> Result<AstType, CompileError> {
+    let object_type = infer_expression_type(compiler, object)?;
+    let type_name = match &object_type {
+        AstType::Struct { name, .. } => Some(name.clone()),
+        AstType::Generic { name, .. } => Some(name.clone()),
+        _ => None,
+    };
+
+    if let Some(type_name) = type_name {
+        let qualified_name = format!("{}.{}", type_name, method);
+        if let Some(func_return_type) = compiler.function_types.get(&qualified_name) {
+            return Ok(func_return_type.clone());
+        }
+    }
+
+    // Fall back to plain UFC
+    if let Some(func_return_type) = compiler.function_types.get(method) {
+        Ok(func_return_type.clone())
+    } else {
+        Ok(AstType::Void)
     }
 }

@@ -124,7 +124,10 @@ fn register_compiler_module(checker: &mut TypeChecker, alias: &str) {
             raw_ptr_u8.clone(),
         ),
         ("unload_library", vec![raw_ptr_u8.clone()], AstType::Void),
+        ("dlerror", vec![], raw_ptr_u8.clone()),
         ("null_ptr", vec![], raw_ptr_u8.clone()),
+        // Helper functions
+        ("is_null", vec![raw_ptr_u8.clone()], AstType::Bool),
         // GEP intrinsics
         (
             "gep",

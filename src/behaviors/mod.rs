@@ -232,16 +232,6 @@ impl BehaviorRegistry {
         Ok(())
     }
 
-    /// Get implementation of a behavior for a type
-    pub fn get_implementation(
-        &self,
-        type_name: &str,
-        behavior_name: &str,
-    ) -> Option<&BehaviorImplementation> {
-        self.implementations
-            .get(&(type_name.to_string(), behavior_name.to_string()))
-    }
-
     /// Check if a type implements a behavior
     pub fn implements(&self, type_name: &str, behavior_name: &str) -> bool {
         self.implementations
@@ -319,26 +309,6 @@ impl BehaviorRegistry {
 
         Ok(())
     }
-}
-
-/// Helper to create behavior instances for generic functions
-pub fn create_behavior_instance<T>(
-    _behavior_name: &str,
-    compare_fn: impl Fn(&T, &T) -> i32 + Send + Sync + 'static,
-) -> Arc<dyn Fn(&T, &T) -> i32 + Send + Sync> {
-    Arc::new(compare_fn)
-}
-
-/// Example usage of behaviors in generic functions
-pub fn sort_with_behavior<T>(
-    items: &mut [T],
-    comparable: Arc<dyn Fn(&T, &T) -> i32 + Send + Sync>,
-) {
-    items.sort_by(|a, b| match comparable(a, b) {
-        x if x < 0 => std::cmp::Ordering::Less,
-        x if x > 0 => std::cmp::Ordering::Greater,
-        _ => std::cmp::Ordering::Equal,
-    });
 }
 
 #[cfg(test)]

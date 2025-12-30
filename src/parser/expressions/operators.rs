@@ -1,4 +1,4 @@
-use super::super::core::Parser;
+use crate::parser::core::Parser;
 use crate::ast::{BinaryOperator, Expression};
 use crate::error::Result;
 use crate::lexer::Token;

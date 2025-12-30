@@ -6,43 +6,27 @@ use crate::lexer::Token;
 impl<'a> Parser<'a> {
     pub fn parse_struct(&mut self) -> Result<StructDefinition> {
         // Struct name
-        let name = if let Token::Identifier(name) = &self.current_token {
-            name.clone()
-        } else {
-            return Err(CompileError::SyntaxError(
-                "Expected struct name".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        };
-        self.next_token();
+        let name = self.expect_identifier("struct name")?;
 
         // Parse generics if present: <T: Trait1 + Trait2, U, ...>
         let type_params = self.parse_type_parameters()?;
 
         // Expect and consume ':' for type definition
-        if self.current_token != Token::Symbol(':') {
-            return Err(CompileError::SyntaxError(
-                "Expected ':' after struct name for type definition".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol(':')?;
 
         // Check if they're trying to use enum syntax (comma-separated) for a struct
         if matches!(&self.current_token, Token::Identifier(_))
             || self.current_token == Token::Symbol('.')
         {
-            return Err(CompileError::SyntaxError(
-                "Structs use curly braces for fields, not comma-separated variants. Use `MyStruct: { field1: Type1, field2: Type2 }` instead of `MyStruct: Field1, Field2`".to_string(),
-                Some(self.current_span.clone()),
+            return Err(self.syntax_error(
+                "Structs use curly braces for fields, not comma-separated variants. Use `MyStruct: { field1: Type1, field2: Type2 }` instead of `MyStruct: Field1, Field2`"
             ));
         }
 
         // Opening brace
         if self.current_token != Token::Symbol('{') {
-            return Err(CompileError::SyntaxError(
-                "Expected '{' for struct fields. Structs use curly braces: `MyStruct: { field: Type }`".to_string(),
-                Some(self.current_span.clone()),
+            return Err(self.syntax_error(
+                "Expected '{' for struct fields. Structs use curly braces: `MyStruct: { field: Type }`"
             ));
         }
         self.next_token();
@@ -52,43 +36,26 @@ impl<'a> Parser<'a> {
         // Parse fields
         while self.current_token != Token::Symbol('}') {
             if self.current_token == Token::Eof {
-                return Err(CompileError::SyntaxError(
-                    "Unexpected end of file in struct definition".to_string(),
-                    Some(self.current_span.clone()),
-                ));
+                return Err(self.syntax_error("Unexpected end of file in struct definition"));
             }
 
             // Field name
-            let field_name = if let Token::Identifier(name) = &self.current_token {
-                name.clone()
-            } else {
-                return Err(CompileError::SyntaxError(
-                    "Expected field name".to_string(),
-                    Some(self.current_span.clone()),
-                ));
-            };
-            self.next_token();
+            let field_name = self.expect_identifier("field name")?;
 
             // Check for mutability modifier (:: for mutable) or regular type annotation (:)
-            let is_mutable = if self.current_token == Token::Operator("::".to_string()) {
-                self.next_token();
+            let is_mutable = if self.try_consume_operator("::") {
                 true
-            } else if self.current_token == Token::Symbol(':') {
-                self.next_token();
+            } else if self.try_consume_symbol(':') {
                 false
             } else {
-                return Err(CompileError::SyntaxError(
-                    "Expected ':' or '::' after field name".to_string(),
-                    Some(self.current_span.clone()),
-                ));
+                return Err(self.syntax_error("Expected ':' or '::' after field name"));
             };
 
             // Field type
             let field_type = self.parse_type()?;
 
             // Optional default value
-            let default_value = if self.current_token == Token::Operator("=".to_string()) {
-                self.next_token();
+            let default_value = if self.try_consume_operator("=") {
                 Some(self.parse_expression()?)
             } else {
                 None
@@ -102,13 +69,8 @@ impl<'a> Parser<'a> {
             });
 
             // Comma separator (except for last field)
-            if self.current_token == Token::Symbol(',') {
-                self.next_token();
-            } else if self.current_token != Token::Symbol('}') {
-                return Err(CompileError::SyntaxError(
-                    "Expected ',' or '}' after field".to_string(),
-                    Some(self.current_span.clone()),
-                ));
+            if !self.try_consume_symbol(',') && self.current_token != Token::Symbol('}') {
+                return Err(self.syntax_error("Expected ',' or '}' after field"));
             }
         }
 

@@ -2,9 +2,9 @@
 
 use std::collections::HashMap;
 
-use super::super::document_store::DocumentStore;
-use super::super::types::*;
-use super::super::utils::format_type;
+use crate::lsp::document_store::DocumentStore;
+use crate::lsp::types::*;
+use crate::lsp::utils::format_type;
 use crate::ast::{AstType, Declaration};
 
 /// Format struct definition with fields for display

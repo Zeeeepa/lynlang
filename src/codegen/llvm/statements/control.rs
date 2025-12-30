@@ -1,4 +1,4 @@
-use super::super::LLVMCompiler;
+use crate::codegen::llvm::LLVMCompiler;
 use crate::ast::{LoopKind, Statement};
 use crate::error::CompileError;
 use inkwell::values::BasicValueEnum;
@@ -244,35 +244,3 @@ pub fn compile_continue<'ctx>(compiler: &mut LLVMCompiler<'ctx>) -> Result<(), C
     }
 }
 
-pub fn compile_if<'ctx>(
-    _compiler: &mut LLVMCompiler<'ctx>,
-    _statement: &Statement,
-) -> Result<(), CompileError> {
-    // If statements are handled as expressions in Zen
-    Err(CompileError::InternalError(
-        "If statements should be handled as expressions".to_string(),
-        None,
-    ))
-}
-
-pub fn compile_while<'ctx>(
-    _compiler: &mut LLVMCompiler<'ctx>,
-    _statement: &Statement,
-) -> Result<(), CompileError> {
-    // While loops are handled as Loop statements with Condition
-    Err(CompileError::InternalError(
-        "While loops should be handled as Loop statements".to_string(),
-        None,
-    ))
-}
-
-pub fn compile_block<'ctx>(
-    _compiler: &mut LLVMCompiler<'ctx>,
-    _statement: &Statement,
-) -> Result<(), CompileError> {
-    // Blocks are handled inline in compile_statement
-    Err(CompileError::InternalError(
-        "Blocks should be handled inline".to_string(),
-        None,
-    ))
-}

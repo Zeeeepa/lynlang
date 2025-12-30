@@ -1,54 +1,33 @@
 // Code Lens Module for Zen LSP
 // Handles textDocument/codeLens requests
 
-use lsp_server::Request;
-use lsp_server::Response;
+use lsp_server::{Request, Response};
 use lsp_types::*;
-use serde_json::Value;
 use std::sync::{Arc, Mutex};
 
 use crate::ast::Declaration;
 
 use super::document_store::DocumentStore;
-// use super::types::Document; // unused
+use super::helpers::{null_response, success_response, try_lock, try_parse_params};
 
 // ============================================================================
 // PUBLIC HANDLER FUNCTION
 // ============================================================================
 
 pub fn handle_code_lens(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Response {
-    let params: CodeLensParams = match serde_json::from_value(req.params) {
+    let params: CodeLensParams = match try_parse_params(&req) {
         Ok(p) => p,
-        Err(_) => {
-            return Response {
-                id: req.id,
-                result: Some(Value::Null),
-                error: None,
-            };
-        }
+        Err(resp) => return resp,
     };
 
-    let store = match store.lock() {
+    let store = match try_lock(store.as_ref(), &req) {
         Ok(s) => s,
-        Err(_) => {
-            return Response {
-                id: req.id,
-                result: Some(
-                    serde_json::to_value(Vec::<CodeLens>::new()).unwrap_or(serde_json::Value::Null),
-                ),
-                error: None,
-            };
-        }
+        Err(_) => return success_response(&req, Vec::<CodeLens>::new()),
     };
+
     let doc = match store.documents.get(&params.text_document.uri) {
         Some(d) => d,
-        None => {
-            return Response {
-                id: req.id,
-                result: Some(Value::Null),
-                error: None,
-            };
-        }
+        None => return null_response(&req),
     };
 
     let mut lenses = Vec::new();
@@ -95,11 +74,7 @@ pub fn handle_code_lens(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Resp
         }
     }
 
-    Response {
-        id: req.id,
-        result: serde_json::to_value(lenses).ok(),
-        error: None,
-    }
+    success_response(&req, lenses)
 }
 
 // ============================================================================

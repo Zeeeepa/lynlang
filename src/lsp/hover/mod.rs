@@ -14,13 +14,12 @@ use lsp_server::{Request, Response};
 use lsp_types::*;
 use serde_json::Value;
 
-use super::compiler_integration::CompilerIntegration;
 use super::document_store::DocumentStore;
 use super::navigation::find_symbol_at_position;
 use super::navigation::find_symbol_definition_in_content;
 use super::types::*;
 use super::utils::{format_symbol_kind, format_type};
-use crate::ast::{AstType, Program};
+use crate::ast::AstType;
 
 pub use expressions::*;
 pub use format_string::*;

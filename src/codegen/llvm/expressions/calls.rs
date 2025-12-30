@@ -1,10 +1,8 @@
-use super::super::functions::calls as function_calls;
-use super::super::LLVMCompiler;
-use super::super::Type;
-use super::super::VariableInfo;
 use crate::ast::{AstType, Expression};
+use crate::codegen::llvm::functions::calls as function_calls;
+use crate::codegen::llvm::{LLVMCompiler, Type, VariableInfo};
 use crate::error::CompileError;
-use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
+use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::values::BasicValueEnum;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -66,43 +64,18 @@ pub fn compile_closure<'ctx>(
                 .map(|(_, opt_type)| opt_type.clone().unwrap_or(AstType::I32))
                 .collect();
 
-            let param_basic_types: Result<Vec<BasicTypeEnum>, CompileError> = param_types
-                .iter()
-                .map(|t| {
-                    compiler
-                        .to_llvm_type(t)
-                        .and_then(|zen_type| compiler.expect_basic_type(zen_type))
-                })
-                .collect();
+            // Convert param types to LLVM metadata types
+            let mut param_metadata: Vec<BasicMetadataTypeEnum> = Vec::with_capacity(param_types.len());
+            for t in &param_types {
+                let llvm_ty = compiler.to_llvm_type(t)?;
+                let basic = compiler.expect_basic_type(llvm_ty)?;
+                param_metadata.push(basic.into());
+            }
 
-            let param_metadata: Vec<BasicMetadataTypeEnum> = param_basic_types?
-                .into_iter()
-                .map(|ty| match ty {
-                    BasicTypeEnum::ArrayType(t) => t.into(),
-                    BasicTypeEnum::FloatType(t) => t.into(),
-                    BasicTypeEnum::IntType(t) => t.into(),
-                    BasicTypeEnum::PointerType(t) => t.into(),
-                    BasicTypeEnum::StructType(t) => t.into(),
-                    BasicTypeEnum::VectorType(t) => t.into(),
-                    BasicTypeEnum::ScalableVectorType(t) => t.into(),
-                })
-                .collect();
-
+            // Build function type using shared helper
             let function_type = match llvm_ret_type {
-                Type::Basic(b) => match b {
-                    BasicTypeEnum::ArrayType(t) => t.fn_type(&param_metadata, false),
-                    BasicTypeEnum::FloatType(t) => t.fn_type(&param_metadata, false),
-                    BasicTypeEnum::IntType(t) => t.fn_type(&param_metadata, false),
-                    BasicTypeEnum::PointerType(t) => t.fn_type(&param_metadata, false),
-                    BasicTypeEnum::StructType(t) => t.fn_type(&param_metadata, false),
-                    BasicTypeEnum::VectorType(t) => t.fn_type(&param_metadata, false),
-                    BasicTypeEnum::ScalableVectorType(t) => t.fn_type(&param_metadata, false),
-                },
                 Type::Function(f) => f,
-                Type::Void => compiler.context.void_type().fn_type(&param_metadata, false),
-                Type::Pointer(_) | Type::Struct(_) => {
-                    compiler.context.i32_type().fn_type(&param_metadata, false)
-                }
+                _ => function_calls::build_fn_type_from_ret(compiler, llvm_ret_type, &param_metadata)?,
             };
 
             let closure_fn = compiler

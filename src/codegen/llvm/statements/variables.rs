@@ -1,5 +1,5 @@
-use super::super::LLVMCompiler;
-use super::super::Type;
+use crate::codegen::llvm::LLVMCompiler;
+use crate::codegen::llvm::Type;
 use crate::ast::{AstType, Expression, Statement, VariableDeclarationType};
 use crate::error::CompileError;
 use inkwell::{types::BasicTypeEnum, values::BasicValueEnum};
@@ -333,7 +333,7 @@ pub fn compile_variable_declaration<'ctx>(
                             .map_err(|e| CompileError::from(e))?;
                         compiler.variables.insert(
                             name.clone(),
-                            super::super::VariableInfo {
+                            crate::codegen::llvm::VariableInfo {
                                 pointer: alloca,
                                 ast_type: type_.clone(),
                                 is_mutable: *is_mutable,
@@ -361,7 +361,7 @@ pub fn compile_variable_declaration<'ctx>(
                     .map_err(|e| CompileError::from(e))?;
                 compiler.variables.insert(
                     name.clone(),
-                    super::super::VariableInfo {
+                    crate::codegen::llvm::VariableInfo {
                         pointer: alloca,
                         ast_type: type_.clone(),
                         is_mutable: *is_mutable,
@@ -387,7 +387,7 @@ pub fn compile_variable_declaration<'ctx>(
                     .map_err(|e| CompileError::from(e))?;
                 compiler.variables.insert(
                     name.clone(),
-                    super::super::VariableInfo {
+                    crate::codegen::llvm::VariableInfo {
                         pointer: alloca,
                         ast_type: type_.clone(),
                         is_mutable: *is_mutable,
@@ -433,7 +433,7 @@ pub fn compile_variable_declaration<'ctx>(
 
         compiler.variables.insert(
             name.clone(),
-            super::super::VariableInfo {
+            crate::codegen::llvm::VariableInfo {
                 pointer: alloca,
                 ast_type: ast_type_to_store,
                 is_mutable: *is_mutable,
@@ -459,7 +459,7 @@ pub fn compile_variable_declaration<'ctx>(
         if let Some(type_) = type_ {
             compiler.variables.insert(
                 name.clone(),
-                super::super::VariableInfo {
+                crate::codegen::llvm::VariableInfo {
                     pointer: alloca,
                     ast_type: type_.clone(),
                     is_mutable: *is_mutable,
@@ -471,7 +471,7 @@ pub fn compile_variable_declaration<'ctx>(
             // For inferred types without initializer, default to i64
             compiler.variables.insert(
                 name.clone(),
-                super::super::VariableInfo {
+                crate::codegen::llvm::VariableInfo {
                     pointer: alloca,
                     ast_type: AstType::I64,
                     is_mutable: *is_mutable,
@@ -538,8 +538,8 @@ pub fn compile_assignment<'ctx>(
                             let val = compiler.compile_expression(value)?;
                             let inner_llvm_type = compiler.to_llvm_type(inner)?;
                             let expected_type = match inner_llvm_type {
-                                super::super::Type::Basic(ty) => ty,
-                                super::super::Type::Struct(st) => st.into(),
+                                crate::codegen::llvm::Type::Basic(ty) => ty,
+                                crate::codegen::llvm::Type::Struct(st) => st.into(),
                                 _ => {
                                     compiler
                                         .builder

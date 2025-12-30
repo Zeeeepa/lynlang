@@ -1,6 +1,6 @@
 //! Helper functions for stdlib codegen - Result creation helpers
 
-use super::super::LLVMCompiler;
+use crate::codegen::llvm::LLVMCompiler;
 use crate::error::CompileError;
 use inkwell::values::BasicValueEnum;
 

@@ -8,7 +8,7 @@ use std::os::raw::c_void;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use super::builder::{CallbackDefinition, LibBuilder};
+use super::builder::CallbackDefinition;
 use super::errors::FFIError;
 use super::stats::CallStatistics;
 use super::types::{
@@ -280,23 +280,6 @@ impl Library {
         self.handle.is_some()
     }
 
-    /// Get call statistics
-    pub fn get_stats(&self) -> CallStatistics {
-        self.call_stats.lock().unwrap().clone()
-    }
-
-    /// Call a function with automatic marshalling
-    pub unsafe fn call_function<T>(
-        &self,
-        name: &str,
-        _args: &[*const c_void],
-    ) -> Result<T, FFIError> {
-        let _func_ptr = self.get_function(name)?;
-        Err(FFIError::InvalidSymbolName(
-            "Direct calling not yet implemented".to_string(),
-        ))
-    }
-
     // Accessor methods
     pub fn name(&self) -> &str {
         &self.name
@@ -322,45 +305,8 @@ impl Library {
     pub fn version_requirement(&self) -> Option<&str> {
         self.version_requirement.as_deref()
     }
-    pub fn callbacks(&self) -> &HashMap<String, CallbackDefinition> {
-        &self.callbacks
-    }
-    pub fn load_flags(&self) -> &LoadFlags {
-        &self.load_flags
-    }
     pub fn lazy_loading(&self) -> bool {
         self.lazy_loading
-    }
-
-    pub fn search_paths(&self) -> Vec<PathBuf> {
-        LibBuilder::default_search_paths()
-    }
-
-    /// Register a callback function
-    pub fn register_callback(
-        &mut self,
-        name: &str,
-        callback: Box<dyn Fn(&[u8]) -> Vec<u8>>,
-    ) -> Result<(), FFIError> {
-        if let Some(def) = self.callbacks.get(name) {
-            if self.safety_checks {
-                eprintln!("Callback {} registered with safety checks enabled", name);
-            }
-
-            eprintln!(
-                "Successfully registered callback {} with signature {:?}",
-                name, def.signature
-            );
-
-            drop(callback);
-
-            Ok(())
-        } else {
-            Err(FFIError::InvalidSymbolName(format!(
-                "Unknown callback: {}",
-                name
-            )))
-        }
     }
 }
 

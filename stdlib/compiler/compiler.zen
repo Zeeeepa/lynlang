@@ -181,3 +181,39 @@ allocate_zeroed = (size: usize) RawPtr<u8> {
     memset(ptr, 0, size)
     return ptr
 }
+
+// =============================================================================
+// DYNAMIC LIBRARY LOADING (FFI)
+// =============================================================================
+// These intrinsics provide platform-native dynamic library operations:
+// - Unix: dlopen/dlsym/dlclose/dlerror
+// - Windows: LoadLibrary/GetProcAddress/FreeLibrary (future)
+
+// Load a dynamic library by path
+// Returns a handle (opaque pointer) or null on failure
+// Example: lib = load_library("libm.so")
+load_library = (path: str) RawPtr<u8> {
+    return @builtin.load_library(path)
+}
+
+// Get a symbol (function/variable) from a loaded library
+// Returns a pointer to the symbol or null if not found
+// Example: sin_fn = get_symbol(lib, "sin")
+get_symbol = (lib_handle: RawPtr<u8>, symbol_name: str) RawPtr<u8> {
+    return @builtin.get_symbol(lib_handle, symbol_name)
+}
+
+// Unload a dynamic library
+// After this call, the handle is invalid
+// Example: unload_library(lib)
+unload_library = (lib_handle: RawPtr<u8>) void {
+    @builtin.unload_library(lib_handle)
+}
+
+// Get the last dynamic loading error message
+// Returns a pointer to error string or null if no error
+// Call immediately after a failed load_library/get_symbol
+// Example: err_msg = dlerror()
+dlerror = () RawPtr<u8> {
+    return @builtin.dlerror()
+}

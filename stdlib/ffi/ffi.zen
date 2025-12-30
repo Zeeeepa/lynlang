@@ -1,8 +1,18 @@
 // Zen Standard Library: FFI (Foreign Function Interface)
 // C interoperability and dynamic loading
+//
+// STATUS: This module provides high-level wrappers but has known issues
+// with struct/Result type compilation. For working FFI, use @std.compiler
+// directly (see examples/ffi_demo.zen).
+//
+// TODO: Fix struct return type handling in codegen to enable this module.
 
 { compiler } = @std
 { Result } = @std.core.result
+
+// =============================================================================
+// TYPES
+// =============================================================================
 
 // C function pointer type wrapper
 CFuncPtr: {
@@ -15,29 +25,68 @@ CLibrary: {
     path: String
 }
 
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+// Check if pointer is null (inline to avoid cross-module dependency)
+ptr_is_null = (ptr: RawPtr<u8>) bool {
+    addr = compiler.ptr_to_int(ptr)
+    return addr == 0
+}
+
+// Get error message from dlerror (returns static string for now)
+// TODO: Convert C string from dlerror() to Zen String
+get_last_error = () String {
+    return "Library loading error"
+}
+
+// =============================================================================
+// LIBRARY LOADING
+// =============================================================================
+
 // Load a C library dynamically
+// Returns Result with CLibrary handle or error message from dlerror
 load_library = (path: String) Result<CLibrary, String> {
     handle = compiler.load_library(path)
-    null_ptr = compiler.int_to_ptr(0)
 
-    handle == null_ptr ?
-        | true { Result.Err("Failed to load library") }
-        | false { Result.Ok(CLibrary { handle: handle, path: path }) }
+    ptr_is_null(handle) ?
+    | true {
+        err_msg = get_last_error()
+        return Result.Err(err_msg)
+    }
+    | false {
+        return Result.Ok(CLibrary { handle: handle, path: path })
+    }
 }
 
 // Get function pointer from library
+// Returns Result with CFuncPtr or error message
 get_function = (lib: CLibrary, symbol: String) Result<CFuncPtr, String> {
     ptr = compiler.get_symbol(lib.handle, symbol)
-    null_ptr = compiler.int_to_ptr(0)
 
-    ptr == null_ptr ?
-        | true { Result.Err("Symbol not found") }
-        | false { Result.Ok(CFuncPtr { ptr: ptr }) }
+    ptr_is_null(ptr) ?
+    | true {
+        err_msg = get_last_error()
+        return Result.Err(err_msg)
+    }
+    | false {
+        return Result.Ok(CFuncPtr { ptr: ptr })
+    }
 }
 
-// Call C function pointer
-call_cfunc = (func: CFuncPtr, args: RawPtr<u8>) RawPtr<u8> {
-    return compiler.call_external(func.ptr, args)
+// Get raw symbol pointer from library (no wrapper)
+get_symbol = (lib: CLibrary, symbol: String) Result<RawPtr<u8>, String> {
+    ptr = compiler.get_symbol(lib.handle, symbol)
+
+    ptr_is_null(ptr) ?
+    | true {
+        err_msg = get_last_error()
+        return Result.Err(err_msg)
+    }
+    | false {
+        return Result.Ok(ptr)
+    }
 }
 
 // Unload library
@@ -45,7 +94,20 @@ unload_library = (lib: CLibrary) void {
     compiler.unload_library(lib.handle)
 }
 
-// Inline C code compilation
-inline_c = (code: String) void {
-    compiler.inline_c(code)
-}
+// =============================================================================
+// FUNCTION CALLING (NOT YET IMPLEMENTED)
+// =============================================================================
+// Note: call_cfunc requires call_external which is not yet implemented.
+// For now, you can get function pointers but calling them requires inline C.
+//
+// Future API:
+//   result = ffi.call_cfunc(func, args)
+//
+// Current workaround: use compiler.inline_c() for direct C calls
+
+// =============================================================================
+// INLINE C (STUB - NOT YET IMPLEMENTED)
+// =============================================================================
+// Note: inline_c requires a string literal and must be called directly:
+//   compiler.inline_c("your C code here")
+// It cannot be wrapped in a function due to compile-time requirements.

@@ -1,6 +1,6 @@
 //! File system module codegen - read_file, write_file, etc.
 
-use super::super::LLVMCompiler;
+use crate::codegen::llvm::LLVMCompiler;
 use super::helpers;
 use crate::ast;
 use crate::error::CompileError;

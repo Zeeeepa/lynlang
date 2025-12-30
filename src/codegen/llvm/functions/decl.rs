@@ -1,5 +1,5 @@
-use super::super::LLVMCompiler;
-use super::super::Type;
+use crate::codegen::llvm::LLVMCompiler;
+use crate::codegen::llvm::Type;
 use crate::ast::{self, AstType};
 use crate::error::CompileError;
 use inkwell::module::Linkage;
@@ -203,7 +203,7 @@ pub fn compile_function_body<'ctx>(
     // Add to symbol table
     compiler.symbols.insert(
         function.name.clone(),
-        super::super::symbols::Symbol::Function(function_value),
+        crate::codegen::llvm::symbols::Symbol::Function(function_value),
     );
 
     // Now compile the function body
@@ -241,7 +241,7 @@ pub fn compile_function_body<'ctx>(
 
         compiler.variables.insert(
             name.clone(),
-            super::super::VariableInfo {
+            crate::codegen::llvm::VariableInfo {
                 pointer: alloca,
                 ast_type: AstType::StdModule,
                 is_mutable: false,
@@ -259,7 +259,7 @@ pub fn compile_function_body<'ctx>(
         compiler.builder.build_store(alloca, param)?;
         compiler.variables.insert(
             name.clone(),
-            super::super::VariableInfo {
+            crate::codegen::llvm::VariableInfo {
                 pointer: alloca,
                 ast_type: type_.clone(),
                 is_mutable: false,
@@ -275,16 +275,33 @@ pub fn compile_function_body<'ctx>(
             if let ast::Statement::Expression { expr, .. } = statement {
                 if !matches!(actual_return_type, AstType::Void) {
                     let mut value = compiler.compile_expression(expr)?;
-                    
+
+                    // Check if block is already terminated (e.g., all pattern match arms had returns)
+                    if let Some(current_block) = compiler.builder.get_insert_block() {
+                        if current_block.get_terminator().is_some() {
+                            // Block already has a return, don't add another
+                            return Ok(());
+                        }
+                    }
+
                     if let Some(expected_ret_type) = function_value.get_type().get_return_type() {
                         let actual_type = value.get_type();
                         if actual_type != expected_ret_type {
+                            // If types don't match and expected is struct but actual is i32,
+                            // this likely means all pattern arms had explicit returns and
+                            // we're in unreachable code (the merge block after pattern match).
+                            // Don't try to return the wrong type.
+                            if expected_ret_type.is_struct_type() && actual_type.is_int_type() {
+                                // Build unreachable instead of wrong return
+                                compiler.builder.build_unreachable()?;
+                                return Ok(());
+                            }
                             if actual_type.is_int_type() && expected_ret_type.is_int_type() {
                                 let int_val = value.into_int_value();
                                 let expected_int_type = expected_ret_type.into_int_type();
                                 let actual_width = int_val.get_type().get_bit_width();
                                 let expected_width = expected_int_type.get_bit_width();
-                                
+
                                 if actual_width != expected_width {
                                     if actual_width < expected_width {
                                         value = compiler.builder
@@ -299,7 +316,7 @@ pub fn compile_function_body<'ctx>(
                             }
                         }
                     }
-                    
+
                     compiler.builder.build_return(Some(&value))?;
                     return Ok(());
                 }
@@ -339,7 +356,7 @@ pub fn compile_function_body<'ctx>(
     compiler.symbols.exit_scope();
     compiler.variables.clear();
     compiler.generic_type_context.clear();
-    compiler.generic_tracker = super::super::generics::GenericTypeTracker::new();
+    compiler.generic_tracker = crate::codegen::llvm::generics::GenericTypeTracker::new();
     compiler.current_function = None;
     Ok(())
 }

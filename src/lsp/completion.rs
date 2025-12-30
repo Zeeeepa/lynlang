@@ -3,11 +3,11 @@
 
 use lsp_server::{Request, Response};
 use lsp_types::*;
-use serde_json::Value;
 use std::collections::HashMap;
 
 // Import from other LSP modules
 use super::document_store::DocumentStore;
+use super::helpers::{success_response, try_lock, try_parse_params};
 use super::stdlib_resolver::StdlibResolver;
 use super::type_inference::infer_receiver_type_with_context;
 use super::types::{SymbolInfo, ZenCompletionContext};
@@ -23,28 +23,15 @@ pub fn handle_completion(
     req: Request,
     store: &std::sync::Arc<std::sync::Mutex<DocumentStore>>,
 ) -> Response {
-    let store_guard = match store.lock() {
+    let store_guard = match try_lock(store.as_ref(), &req) {
         Ok(guard) => guard,
-        Err(_) => {
-            // Return an empty completion response rather than panicking on poisoned lock
-            let empty = CompletionResponse::Array(Vec::new());
-            return Response {
-                id: req.id,
-                result: Some(serde_json::to_value(empty).unwrap_or(Value::Null)),
-                error: None,
-            };
-        }
+        Err(_) => return success_response(&req, CompletionResponse::Array(Vec::new())),
     };
     let store = &*store_guard;
-    let params: CompletionParams = match serde_json::from_value(req.params) {
+
+    let params: CompletionParams = match try_parse_params(&req) {
         Ok(p) => p,
-        Err(_) => {
-            return Response {
-                id: req.id,
-                result: Some(Value::Null),
-                error: None,
-            };
-        }
+        Err(resp) => return resp,
     };
 
     // Check if we're completing after a dot (UFC method call)
@@ -72,23 +59,12 @@ pub fn handle_completion(
                         completions.extend(get_ufc_method_completions(&receiver_type, store));
                     }
 
-                    let response = CompletionResponse::Array(completions);
-                    return Response {
-                        id: req.id,
-                        result: Some(serde_json::to_value(response).unwrap_or(Value::Null)),
-                        error: None,
-                    };
+                    return success_response(&req, CompletionResponse::Array(completions));
                 }
                 ZenCompletionContext::ModulePath { base } => {
                     // Provide module path completions (e.g., @std.io, @std.types)
                     let completions = get_module_path_completions(&base, store);
-
-                    let response = CompletionResponse::Array(completions);
-                    return Response {
-                        id: req.id,
-                        result: Some(serde_json::to_value(response).unwrap_or(Value::Null)),
-                        error: None,
-                    };
+                    return success_response(&req, CompletionResponse::Array(completions));
                 }
                 ZenCompletionContext::General => {
                     // Fall through to provide general completions
@@ -336,13 +312,7 @@ pub fn handle_completion(
         }
     }
 
-    let response = CompletionResponse::Array(completions);
-
-    Response {
-        id: req.id,
-        result: Some(serde_json::to_value(response).unwrap_or(Value::Null)),
-        error: None,
-    }
+    success_response(&req, CompletionResponse::Array(completions))
 }
 
 // ============================================================================

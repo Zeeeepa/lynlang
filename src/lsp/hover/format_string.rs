@@ -3,9 +3,9 @@
 use lsp_types::Position;
 use std::collections::HashMap;
 
-use super::super::document_store::DocumentStore;
-use super::super::types::*;
-use super::super::utils::format_type;
+use crate::lsp::document_store::DocumentStore;
+use crate::lsp::types::*;
+use crate::lsp::utils::format_type;
 use super::expressions::analyze_expression_hover;
 use super::structs::{extract_struct_name_from_type, find_struct_definition_in_documents};
 use crate::ast::AstType;

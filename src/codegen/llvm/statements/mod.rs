@@ -1,6 +1,5 @@
 pub mod control;
 pub mod deferred;
-pub mod expressions;
 pub mod variables;
 
 use super::LLVMCompiler;
@@ -12,7 +11,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         match statement {
             Statement::Expression { expr, span } => {
                 self.set_span(span.clone());
-                expressions::compile_expression_statement(self, expr)
+                variables::compile_expression_statement(self, expr)
             }
             Statement::Return { expr, span } => {
                 self.set_span(span.clone());

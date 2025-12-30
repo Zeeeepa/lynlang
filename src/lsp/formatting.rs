@@ -1,47 +1,25 @@
-use lsp_server::{ErrorCode, Request, Response, ResponseError};
+use lsp_server::{Request, Response};
 use lsp_types::*;
 use serde_json::Value;
 use std::sync::{Arc, Mutex};
 
 use super::document_store::DocumentStore;
+use super::helpers::{null_response, success_response, try_lock, try_parse_params_with_error};
 
 pub fn handle_formatting(req: Request, store: Arc<Mutex<DocumentStore>>) -> Response {
-    let params: DocumentFormattingParams = match serde_json::from_value(req.params) {
+    let params: DocumentFormattingParams = match try_parse_params_with_error(&req) {
         Ok(p) => p,
-        Err(_) => {
-            return Response {
-                id: req.id,
-                result: Some(Value::Null),
-                error: Some(ResponseError {
-                    code: ErrorCode::InvalidParams as i32,
-                    message: "Invalid parameters".to_string(),
-                    data: None,
-                }),
-            }
-        }
+        Err(resp) => return resp,
     };
 
-    let store = match store.lock() {
+    let store = match try_lock(store.as_ref(), &req) {
         Ok(s) => s,
-        Err(_) => {
-            return Response {
-                id: req.id,
-                result: Some(
-                    serde_json::to_value(Vec::<TextEdit>::new()).unwrap_or(serde_json::Value::Null),
-                ),
-                error: None,
-            };
-        }
+        Err(_) => return success_response(&req, Vec::<TextEdit>::new()),
     };
+
     let doc = match store.documents.get(&params.text_document.uri) {
         Some(doc) => doc,
-        None => {
-            return Response {
-                id: req.id,
-                result: Some(Value::Null),
-                error: None,
-            }
-        }
+        None => return null_response(&req),
     };
 
     // Format the document

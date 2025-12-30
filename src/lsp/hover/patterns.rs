@@ -3,7 +3,7 @@
 use lsp_types::Position;
 use std::collections::HashMap;
 
-use super::super::types::*;
+use crate::lsp::types::*;
 
 /// Get hover information for pattern match variables
 pub fn get_pattern_match_hover(
@@ -12,9 +12,9 @@ pub fn get_pattern_match_hover(
     symbol_name: &str,
     _local_symbols: &HashMap<String, SymbolInfo>,
     _stdlib_symbols: &HashMap<String, SymbolInfo>,
-    all_docs: &HashMap<lsp_types::Url, super::super::types::Document>,
+    all_docs: &HashMap<lsp_types::Url, crate::lsp::types::Document>,
 ) -> Option<String> {
-    use super::super::type_inference::infer_function_return_types;
+    use crate::lsp::type_inference::infer_function_return_types;
 
     let lines: Vec<&str> = content.lines().collect();
     if position.line as usize >= lines.len() {

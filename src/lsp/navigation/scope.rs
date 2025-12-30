@@ -1,6 +1,6 @@
 // Scope-related helper functions for references
 
-use super::super::types::{Document, SymbolScope};
+use crate::lsp::types::{Document, SymbolScope};
 use super::utils::find_function_range;
 use crate::ast::{Function, Statement};
 use lsp_types::*;

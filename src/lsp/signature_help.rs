@@ -1,13 +1,12 @@
 // Signature Help Module for Zen LSP
 // Handles textDocument/signatureHelp requests
 
-use lsp_server::Request;
-use lsp_server::Response;
+use lsp_server::{Request, Response};
 use lsp_types::*;
-use serde_json::Value;
 use std::sync::{Arc, Mutex};
 
 use super::document_store::DocumentStore;
+use super::helpers::{null_response, success_response, try_lock, try_parse_params};
 use super::types::SymbolInfo;
 
 // ============================================================================
@@ -15,44 +14,28 @@ use super::types::SymbolInfo;
 // ============================================================================
 
 pub fn handle_signature_help(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Response {
-    let params: SignatureHelpParams = match serde_json::from_value(req.params) {
+    let params: SignatureHelpParams = match try_parse_params(&req) {
         Ok(p) => p,
-        Err(_) => {
-            return Response {
-                id: req.id,
-                result: Some(Value::Null),
-                error: None,
-            };
-        }
+        Err(resp) => return resp,
     };
 
-    let store = match store.lock() {
-        Ok(s) => s,
-        Err(_) => {
-            let empty = SignatureHelp {
-                signatures: vec![],
-                active_signature: None,
-                active_parameter: None,
-            };
-            return Response {
-                id: req.id,
-                result: Some(serde_json::to_value(empty).unwrap_or(serde_json::Value::Null)),
-                error: None,
-            };
-        }
+    let empty_help = SignatureHelp {
+        signatures: vec![],
+        active_signature: None,
+        active_parameter: None,
     };
+
+    let store = match try_lock(store.as_ref(), &req) {
+        Ok(s) => s,
+        Err(_) => return success_response(&req, empty_help),
+    };
+
     let doc = match store
         .documents
         .get(&params.text_document_position_params.text_document.uri)
     {
         Some(d) => d,
-        None => {
-            return Response {
-                id: req.id,
-                result: Some(Value::Null),
-                error: None,
-            };
-        }
+        None => return null_response(&req),
     };
 
     // Find function call at cursor position

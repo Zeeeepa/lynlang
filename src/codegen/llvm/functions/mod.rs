@@ -1,7 +1,6 @@
 pub mod arrays;
 pub mod calls;
 pub mod decl;
-pub mod runtime;
 
 use super::LLVMCompiler;
 use crate::ast;
@@ -119,14 +118,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
         }
         let array_val = self.compile_expression(&args[0])?;
         arrays::compile_array_pop(self, array_val)
-    }
-
-    // Runtime functions
-    pub fn get_or_create_runtime_function(
-        &mut self,
-        name: &str,
-    ) -> Result<FunctionValue<'ctx>, CompileError> {
-        runtime::get_or_create_runtime_function(self, name)
     }
 
     // Function declaration/definition

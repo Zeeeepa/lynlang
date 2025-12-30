@@ -1,4 +1,4 @@
-use super::{GenericInstance, TypeSubstitution};
+use super::GenericInstance;
 use crate::ast::{AstType, EnumDefinition, Function, StructDefinition, TypeParameter};
 use crate::error::CompileError;
 use std::collections::HashMap;
@@ -10,15 +10,6 @@ pub struct TypeEnvironment {
     generic_structs: HashMap<String, StructDefinition>,
     generic_enums: HashMap<String, EnumDefinition>,
     instantiated_types: HashMap<String, Vec<GenericInstance>>,
-    type_aliases: HashMap<String, AstType>,
-    current_scope: Vec<TypeScope>,
-}
-
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-struct TypeScope {
-    type_params: Vec<TypeParameter>,
-    substitutions: TypeSubstitution,
 }
 
 impl TypeEnvironment {
@@ -29,11 +20,6 @@ impl TypeEnvironment {
             generic_structs: HashMap::new(),
             generic_enums: HashMap::new(),
             instantiated_types: HashMap::new(),
-            type_aliases: HashMap::new(),
-            current_scope: vec![TypeScope {
-                type_params: Vec::new(),
-                substitutions: TypeSubstitution::new(),
-            }],
         }
     }
 
@@ -60,39 +46,6 @@ impl TypeEnvironment {
     }
 
     #[allow(dead_code)]
-    pub fn push_scope(&mut self, type_params: Vec<TypeParameter>) {
-        self.current_scope.push(TypeScope {
-            type_params,
-            substitutions: TypeSubstitution::new(),
-        });
-    }
-
-    #[allow(dead_code)]
-    pub fn pop_scope(&mut self) {
-        if self.current_scope.len() > 1 {
-            self.current_scope.pop();
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn add_substitution(&mut self, param: String, concrete: AstType) {
-        if let Some(scope) = self.current_scope.last_mut() {
-            scope.substitutions.add(param, concrete);
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn resolve_type(&self, ast_type: &AstType) -> AstType {
-        for scope in self.current_scope.iter().rev() {
-            let resolved = scope.substitutions.apply(ast_type);
-            if resolved != *ast_type {
-                return resolved;
-            }
-        }
-        ast_type.clone()
-    }
-
-    #[allow(dead_code)]
     pub fn get_generic_function(&self, name: &str) -> Option<&Function> {
         self.generic_functions.get(name)
     }
@@ -105,41 +58,6 @@ impl TypeEnvironment {
     #[allow(dead_code)]
     pub fn get_generic_enum(&self, name: &str) -> Option<&EnumDefinition> {
         self.generic_enums.get(name)
-    }
-
-    #[allow(dead_code)]
-    pub fn record_instantiation(
-        &mut self,
-        base_name: String,
-        type_args: Vec<AstType>,
-        specialized: AstType,
-    ) {
-        let instance = GenericInstance {
-            base_name: base_name.clone(),
-            type_args,
-            specialized_type: specialized,
-        };
-
-        self.instantiated_types
-            .entry(base_name)
-            .or_insert_with(Vec::new)
-            .push(instance);
-    }
-
-    #[allow(dead_code)]
-    pub fn get_instantiation(&self, base_name: &str, type_args: &[AstType]) -> Option<&AstType> {
-        self.instantiated_types
-            .get(base_name)?
-            .iter()
-            .find(|inst| inst.type_args == type_args)
-            .map(|inst| &inst.specialized_type)
-    }
-
-    #[allow(dead_code)]
-    pub fn is_type_parameter(&self, name: &str) -> bool {
-        self.current_scope
-            .iter()
-            .any(|scope| scope.type_params.iter().any(|param| param.name == name))
     }
 
     #[allow(dead_code)]

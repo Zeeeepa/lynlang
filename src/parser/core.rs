@@ -30,52 +30,6 @@ impl<'a> Parser<'a> {
         self.peek_span = token_with_span.span;
     }
 
-    #[allow(dead_code)]
-    pub fn debug_current_token(&self) -> &Token {
-        &self.current_token
-    }
-
-    #[allow(dead_code)]
-    pub fn debug_peek_token(&self) -> &Token {
-        &self.peek_token
-    }
-
-    /// Check if the current position looks like an import statement
-    #[allow(dead_code)]
-    pub fn is_import_statement(&self) -> bool {
-        // Check for @std or @builtin imports
-        if self.current_token == Token::AtStd || self.current_token == Token::AtBuiltin {
-            return true;
-        }
-
-        // Check for identifiers that might be followed by := @std or .import()
-        if let Token::Identifier(_) = self.current_token {
-            if self.peek_token == Token::Symbol(':') {
-                // Might be := @std style import
-                return true;
-            }
-        }
-
-        false
-    }
-
-    /// Check if a statement contains an import
-    #[allow(dead_code)]
-    pub fn is_import_in_statement(&self, stmt: &crate::ast::Statement) -> bool {
-        use crate::ast::Statement;
-
-        match stmt {
-            Statement::VariableDeclaration { initializer, .. } => {
-                if let Some(expr) = initializer {
-                    self.is_import_expression(expr)
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-
     /// Peek at the token after peek_token (two tokens ahead)
     /// This is a simplified version - in a full implementation we'd cache this
     pub fn peek_peek_token(&mut self) -> Option<Token> {
@@ -100,6 +54,95 @@ impl<'a> Parser<'a> {
 
         Some(next_next.token)
     }
+
+    // ========================================================================
+    // PARSER HELPER METHODS - Reduce duplication across parser modules
+    // ========================================================================
+
+    /// Create a syntax error with the current span
+    #[inline]
+    pub fn syntax_error(&self, message: impl Into<String>) -> crate::error::CompileError {
+        crate::error::CompileError::SyntaxError(message.into(), Some(self.current_span.clone()))
+    }
+
+    /// Expect current token to be a specific symbol, return error if not
+    pub fn expect_symbol(&mut self, expected: char) -> crate::error::Result<()> {
+        if self.current_token == Token::Symbol(expected) {
+            self.next_token();
+            Ok(())
+        } else {
+            Err(self.syntax_error(format!("Expected '{}', got {:?}", expected, self.current_token)))
+        }
+    }
+
+    /// Expect current token to be a specific operator, return error if not
+    pub fn expect_operator(&mut self, expected: &str) -> crate::error::Result<()> {
+        if self.current_token == Token::Operator(expected.to_string()) {
+            self.next_token();
+            Ok(())
+        } else {
+            Err(self.syntax_error(format!("Expected '{}', got {:?}", expected, self.current_token)))
+        }
+    }
+
+    /// Try to consume a symbol if present, return true if consumed
+    pub fn try_consume_symbol(&mut self, symbol: char) -> bool {
+        if self.current_token == Token::Symbol(symbol) {
+            self.next_token();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Try to consume an operator if present, return true if consumed
+    pub fn try_consume_operator(&mut self, op: &str) -> bool {
+        if self.current_token == Token::Operator(op.to_string()) {
+            self.next_token();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Extract identifier from current token, or return error
+    pub fn expect_identifier(&mut self, context: &str) -> crate::error::Result<String> {
+        if let Token::Identifier(name) = &self.current_token {
+            let name = name.clone();
+            self.next_token();
+            Ok(name)
+        } else {
+            Err(self.syntax_error(format!("Expected {} (identifier), got {:?}", context, self.current_token)))
+        }
+    }
+
+    /// Get identifier from current token without consuming, or return error
+    pub fn get_identifier(&self, context: &str) -> crate::error::Result<String> {
+        if let Token::Identifier(name) = &self.current_token {
+            Ok(name.clone())
+        } else {
+            Err(self.syntax_error(format!("Expected {} (identifier), got {:?}", context, self.current_token)))
+        }
+    }
+
+    /// Check if current token is a specific identifier keyword
+    pub fn is_keyword(&self, keyword: &str) -> bool {
+        matches!(&self.current_token, Token::Identifier(id) if id == keyword)
+    }
+
+    /// Consume a keyword if it matches, return true if consumed
+    pub fn try_consume_keyword(&mut self, keyword: &str) -> bool {
+        if self.is_keyword(keyword) {
+            self.next_token();
+            true
+        } else {
+            false
+        }
+    }
+
+    // ========================================================================
+    // END PARSER HELPER METHODS
+    // ========================================================================
 
     /// Check if an expression is an import expression
     pub fn is_import_expression(&self, expr: &crate::ast::Expression) -> bool {

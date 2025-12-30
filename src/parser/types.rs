@@ -1,6 +1,6 @@
 use super::core::Parser;
 use crate::ast::AstType;
-use crate::error::{CompileError, Result};
+use crate::error::Result;
 use crate::lexer::Token;
 use crate::well_known::well_known;
 
@@ -12,17 +12,9 @@ impl<'a> Parser<'a> {
                 self.next_token();
 
                 // Check for member access in type names (e.g., FFI.Library)
-                while self.current_token == Token::Symbol('.') {
-                    self.next_token(); // consume '.'
-                    if let Token::Identifier(member) = &self.current_token {
-                        type_name = format!("{}.{}", type_name, member);
-                        self.next_token();
-                    } else {
-                        return Err(CompileError::SyntaxError(
-                            "Expected identifier after '.' in type name".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
-                    }
+                while self.try_consume_symbol('.') {
+                    let member = self.expect_identifier("identifier after '.' in type name")?;
+                    type_name = format!("{}.{}", type_name, member);
                 }
 
                 match type_name.as_str() {
@@ -51,16 +43,9 @@ impl<'a> Parser<'a> {
                     // Well-known pointer types (Ptr, MutPtr, RawPtr)
                     _ if well_known().is_ptr(&type_name) => {
                         let wk = well_known();
-                        if self.current_token == Token::Operator("<".to_string()) {
-                            self.next_token();
+                        if self.try_consume_operator("<") {
                             let inner_type = self.parse_type()?;
-                            if self.current_token != Token::Operator(">".to_string()) {
-                                return Err(CompileError::SyntaxError(
-                                    format!("Expected '>' after {} type argument", type_name),
-                                    Some(self.current_span.clone()),
-                                ));
-                            }
-                            self.next_token();
+                            self.expect_operator(">")?;
                             if wk.is_immutable_ptr(&type_name) {
                                 Ok(AstType::ptr(inner_type))
                             } else if wk.is_mutable_ptr(&type_name) {
@@ -69,136 +54,94 @@ impl<'a> Parser<'a> {
                                 Ok(AstType::raw_ptr(inner_type))
                             }
                         } else {
-                            return Err(CompileError::SyntaxError(
-                                format!("{} type requires type argument: {}<T>", type_name, type_name),
-                                Some(self.current_span.clone()),
-                            ));
+                            Err(self.syntax_error(format!("{} type requires type argument: {}<T>", type_name, type_name)))
                         }
                     }
                     "Vec" => {
                         // Vec<T> - Generic vector type OR Vec<T, size> - fixed-size array
-                        if self.current_token == Token::Operator("<".to_string()) {
-                            self.next_token();
-
-                            // Parse element type
-                            let element_type = self.parse_type()?;
-
-                            // Check if it's Vec<T> (generic) or Vec<T, size> (fixed-size)
-                            if self.current_token == Token::Operator(">".to_string()) {
-                                // Vec<T> - generic vector, treat as user-defined generic type
-                                self.next_token();
-                                return Ok(AstType::Generic {
-                                    name: "Vec".to_string(),
-                                    type_args: vec![element_type],
-                                });
-                            }
-
-                            // Expect comma for Vec<T, size>
-                            if self.current_token != Token::Symbol(',') {
-                                return Err(CompileError::SyntaxError(
-                                    "Expected '>' or ',' in Vec type".to_string(),
-                                    Some(self.current_span.clone()),
-                                ));
-                            }
-                            self.next_token();
-
-                            // Parse size (must be integer literal)
-                            let size = match &self.current_token {
-                                Token::Integer(size_str) => {
-                                    size_str.parse::<usize>().map_err(|_| {
-                                        CompileError::SyntaxError(
-                                            format!("Invalid Vec size: {}", size_str),
-                                            Some(self.current_span.clone()),
-                                        )
-                                    })?
-                                }
-                                _ => {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected integer literal for Vec size".to_string(),
-                                        Some(self.current_span.clone()),
-                                    ));
-                                }
-                            };
-                            self.next_token();
-
-                            if self.current_token != Token::Operator(">".to_string()) {
-                                return Err(CompileError::SyntaxError(
-                                    "Expected '>' after Vec size".to_string(),
-                                    Some(self.current_span.clone()),
-                                ));
-                            }
-                            self.next_token();
-
-                            Ok(AstType::Vec {
-                                element_type: Box::new(element_type),
-                                size,
-                            })
-                        } else {
-                            return Err(CompileError::SyntaxError(
-                                "Vec type requires type arguments: Vec<T, size>".to_string(),
-                                Some(self.current_span.clone()),
-                            ));
+                        if !self.try_consume_operator("<") {
+                            return Err(self.syntax_error("Vec type requires type arguments: Vec<T, size>"));
                         }
+
+                        // Parse element type
+                        let element_type = self.parse_type()?;
+
+                        // Check if it's Vec<T> (generic) or Vec<T, size> (fixed-size)
+                        if self.try_consume_operator(">") {
+                            // Vec<T> - generic vector, treat as user-defined generic type
+                            return Ok(AstType::Generic {
+                                name: "Vec".to_string(),
+                                type_args: vec![element_type],
+                            });
+                        }
+
+                        // Expect comma for Vec<T, size>
+                        if !self.try_consume_symbol(',') {
+                            return Err(self.syntax_error("Expected '>' or ',' in Vec type"));
+                        }
+
+                        // Parse size (must be integer literal)
+                        let size = match &self.current_token {
+                            Token::Integer(size_str) => {
+                                size_str.parse::<usize>().map_err(|_| {
+                                    self.syntax_error(format!("Invalid Vec size: {}", size_str))
+                                })?
+                            }
+                            _ => {
+                                return Err(self.syntax_error("Expected integer literal for Vec size"));
+                            }
+                        };
+                        self.next_token();
+
+                        self.expect_operator(">")?;
+
+                        Ok(AstType::Vec {
+                            element_type: Box::new(element_type),
+                            size,
+                        })
                     }
                     "DynVec" => {
                         // DynVec<T> or DynVec<T1, T2, ...> - Dynamic vector with optional mixed types
-                        if self.current_token == Token::Operator("<".to_string()) {
-                            self.next_token();
-                            let mut element_types = Vec::new();
-
-                            loop {
-                                element_types.push(self.parse_type()?);
-
-                                if self.current_token == Token::Operator(">".to_string()) {
-                                    self.next_token();
-                                    break;
-                                } else if self.current_token == Token::Symbol(',') {
-                                    self.next_token();
-                                } else {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected ',' or '>' in DynVec type arguments".to_string(),
-                                        Some(self.current_span.clone()),
-                                    ));
-                                }
-                            }
-
-                            Ok(AstType::DynVec {
-                                element_types,
-                                allocator_type: None, // Allocator is specified at construction time
-                            })
-                        } else {
-                            return Err(CompileError::SyntaxError(
-                                "DynVec type requires type arguments: DynVec<T> or DynVec<T1, T2, ...>".to_string(),
-                                Some(self.current_span.clone()),
+                        if !self.try_consume_operator("<") {
+                            return Err(self.syntax_error(
+                                "DynVec type requires type arguments: DynVec<T> or DynVec<T1, T2, ...>"
                             ));
                         }
+                        let mut element_types = Vec::new();
+
+                        loop {
+                            element_types.push(self.parse_type()?);
+
+                            if self.try_consume_operator(">") {
+                                break;
+                            } else if !self.try_consume_symbol(',') {
+                                return Err(self.syntax_error("Expected ',' or '>' in DynVec type arguments"));
+                            }
+                        }
+
+                        Ok(AstType::DynVec {
+                            element_types,
+                            allocator_type: None, // Allocator is specified at construction time
+                        })
                     }
                     "string" => {
                         // Provide helpful error for common mistake
-                        return Err(CompileError::SyntaxError(
-                            "Use 'StaticString' for static strings or 'String' for dynamic strings (lowercase 'string' is not a valid type)".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
+                        Err(self.syntax_error(
+                            "Use 'StaticString' for static strings or 'String' for dynamic strings (lowercase 'string' is not a valid type)"
+                        ))
                     }
                     _ => {
                         // Check for generic type instantiation (e.g., List<T>)
-                        if self.current_token == Token::Operator("<".to_string()) {
-                            self.next_token();
+                        if self.try_consume_operator("<") {
                             let mut type_args = Vec::new();
 
                             loop {
                                 type_args.push(self.parse_type()?);
 
-                                if self.current_token == Token::Operator(">".to_string()) {
-                                    self.next_token();
+                                if self.try_consume_operator(">") {
                                     break;
-                                } else if self.current_token == Token::Symbol(',') {
-                                    self.next_token();
-                                } else {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected ',' or '>' in type arguments".to_string(),
-                                        Some(self.current_span.clone()),
-                                    ));
+                                } else if !self.try_consume_symbol(',') {
+                                    return Err(self.syntax_error("Expected ',' or '>' in type arguments"));
                                 }
                             }
 
@@ -222,127 +165,39 @@ impl<'a> Parser<'a> {
                 let element_type = self.parse_type()?;
 
                 // Check for semicolon to determine if it's a fixed-size array
-                if self.current_token == Token::Symbol(';') {
-                    self.next_token();
-
+                if self.try_consume_symbol(';') {
                     // Parse the size (must be an integer literal for now)
                     match &self.current_token {
                         Token::Integer(size_str) => {
                             let size = size_str.parse::<usize>().map_err(|_| {
-                                CompileError::SyntaxError(
-                                    format!("Invalid array size: {}", size_str),
-                                    Some(self.current_span.clone()),
-                                )
+                                self.syntax_error(format!("Invalid array size: {}", size_str))
                             })?;
                             self.next_token();
 
-                            if self.current_token != Token::Symbol(']') {
-                                return Err(CompileError::SyntaxError(
-                                    "Expected ']' after array size".to_string(),
-                                    Some(self.current_span.clone()),
-                                ));
-                            }
-                            self.next_token();
+                            self.expect_symbol(']')?;
                             Ok(AstType::FixedArray {
                                 element_type: Box::new(element_type),
                                 size,
                             })
                         }
-                        _ => Err(CompileError::SyntaxError(
-                            "Expected integer literal for array size".to_string(),
-                            Some(self.current_span.clone()),
-                        )),
+                        _ => Err(self.syntax_error("Expected integer literal for array size")),
                     }
-                } else if self.current_token == Token::Symbol(']') {
+                } else if self.try_consume_symbol(']') {
                     // Dynamic array [T]
-                    self.next_token();
                     Ok(AstType::Array(Box::new(element_type)))
                 } else {
-                    Err(CompileError::SyntaxError(
-                        "Expected ']' or ';' in array type".to_string(),
-                        Some(self.current_span.clone()),
-                    ))
+                    Err(self.syntax_error("Expected ']' or ';' in array type"))
                 }
             }
             Token::Symbol('*') => {
                 // Pointer type: *T or function pointer *(params) return_type
                 self.next_token();
-
-                // Check if it's a function pointer
-                if self.current_token == Token::Symbol('(') {
-                    // Function pointer: *(param_types) return_type
-                    self.next_token();
-                    let mut param_types = Vec::new();
-
-                    // Parse parameter types
-                    while self.current_token != Token::Symbol(')') {
-                        param_types.push(self.parse_type()?);
-
-                        if self.current_token == Token::Symbol(',') {
-                            self.next_token();
-                        } else if self.current_token != Token::Symbol(')') {
-                            return Err(CompileError::SyntaxError(
-                                "Expected ',' or ')' in function pointer parameters".to_string(),
-                                Some(self.current_span.clone()),
-                            ));
-                        }
-                    }
-
-                    // Skip ')'
-                    self.next_token();
-
-                    // Parse return type
-                    let return_type = self.parse_type()?;
-
-                    Ok(AstType::FunctionPointer {
-                        param_types,
-                        return_type: Box::new(return_type),
-                    })
-                } else {
-                    // Regular pointer
-                    let pointee_type = self.parse_type()?;
-                    Ok(AstType::ptr(pointee_type))
-                }
+                self.parse_pointer_or_function_pointer()
             }
             Token::Operator(op) if op == "*" => {
                 // Pointer type: *T (operator version)
                 self.next_token();
-
-                // Check if it's a function pointer
-                if self.current_token == Token::Symbol('(') {
-                    // Function pointer: *(param_types) return_type
-                    self.next_token();
-                    let mut param_types = Vec::new();
-
-                    // Parse parameter types
-                    while self.current_token != Token::Symbol(')') {
-                        param_types.push(self.parse_type()?);
-
-                        if self.current_token == Token::Symbol(',') {
-                            self.next_token();
-                        } else if self.current_token != Token::Symbol(')') {
-                            return Err(CompileError::SyntaxError(
-                                "Expected ',' or ')' in function pointer parameters".to_string(),
-                                Some(self.current_span.clone()),
-                            ));
-                        }
-                    }
-
-                    // Skip ')'
-                    self.next_token();
-
-                    // Parse return type
-                    let return_type = self.parse_type()?;
-
-                    Ok(AstType::FunctionPointer {
-                        param_types,
-                        return_type: Box::new(return_type),
-                    })
-                } else {
-                    // Regular pointer
-                    let pointee_type = self.parse_type()?;
-                    Ok(AstType::ptr(pointee_type))
-                }
+                self.parse_pointer_or_function_pointer()
             }
             Token::Symbol('(') => {
                 // Function type: (params) ReturnType (for behaviors)
@@ -359,14 +214,12 @@ impl<'a> Parser<'a> {
                         if name == "self" {
                             self.next_token();
                             // "self" is implicitly the type being defined
-                            // For now, use a generic type that will be resolved later
                             param_types.push(AstType::Generic {
                                 name: "Self".to_string(),
                                 type_args: vec![],
                             });
                         } else {
                             // Look ahead to see if this is "name: Type" or just "Type"
-                            // Save state for potential rollback
                             let saved_state = self.lexer.save_state();
                             let saved_current_token = self.current_token.clone();
                             let saved_peek_token = self.peek_token.clone();
@@ -375,8 +228,7 @@ impl<'a> Parser<'a> {
                             self.next_token();
 
                             // Check if next token is colon (named parameter)
-                            if self.current_token == Token::Symbol(':') {
-                                self.next_token();
+                            if self.try_consume_symbol(':') {
                                 param_types.push(self.parse_type()?);
                             } else {
                                 // Not a named parameter, restore and parse as type
@@ -392,18 +244,12 @@ impl<'a> Parser<'a> {
                         param_types.push(self.parse_type()?);
                     }
 
-                    if self.current_token == Token::Symbol(',') {
-                        self.next_token();
-                    } else if self.current_token != Token::Symbol(')') {
-                        return Err(CompileError::SyntaxError(
-                            "Expected ',' or ')' in function type parameters".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
+                    if !self.try_consume_symbol(',') && self.current_token != Token::Symbol(')') {
+                        return Err(self.syntax_error("Expected ',' or ')' in function type parameters"));
                     }
                 }
 
-                // Skip ')'
-                self.next_token();
+                self.next_token(); // Skip ')'
 
                 // Parse return type
                 let return_type = self.parse_type()?;
@@ -427,45 +273,23 @@ impl<'a> Parser<'a> {
 
                 while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
                     // Parse field name
-                    let field_name = if let Token::Identifier(name) = &self.current_token {
-                        name.clone()
-                    } else {
-                        return Err(CompileError::SyntaxError(
-                            "Expected field name in anonymous struct type".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
-                    };
-                    self.next_token();
+                    let field_name = self.expect_identifier("field name in anonymous struct type")?;
 
                     // Expect ':'
-                    if self.current_token != Token::Symbol(':') {
-                        return Err(CompileError::SyntaxError(
-                            "Expected ':' after field name in anonymous struct type".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
-                    }
-                    self.next_token();
+                    self.expect_symbol(':')?;
 
                     // Parse field type
                     let field_type = self.parse_type()?;
                     fields.push((field_name, field_type));
 
                     // Check for comma or end of struct
-                    if self.current_token == Token::Symbol(',') {
-                        self.next_token();
-                    } else if self.current_token != Token::Symbol('}') {
-                        return Err(CompileError::SyntaxError(
-                            "Expected ',' or '}' in anonymous struct type".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
+                    if !self.try_consume_symbol(',') && self.current_token != Token::Symbol('}') {
+                        return Err(self.syntax_error("Expected ',' or '}' in anonymous struct type"));
                     }
                 }
 
                 if self.current_token != Token::Symbol('}') {
-                    return Err(CompileError::SyntaxError(
-                        "Expected '}' to close anonymous struct type".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
+                    return Err(self.syntax_error("Expected '}' to close anonymous struct type"));
                 }
                 self.next_token(); // consume '}'
 
@@ -474,10 +298,39 @@ impl<'a> Parser<'a> {
                     fields,
                 })
             }
-            _ => Err(CompileError::SyntaxError(
-                format!("Unexpected token in type: {:?}", self.current_token),
-                Some(self.current_span.clone()),
-            )),
+            _ => Err(self.syntax_error(format!("Unexpected token in type: {:?}", self.current_token))),
+        }
+    }
+
+    /// Helper for parsing pointer or function pointer types
+    fn parse_pointer_or_function_pointer(&mut self) -> Result<AstType> {
+        // Check if it's a function pointer
+        if self.current_token == Token::Symbol('(') {
+            self.next_token();
+            let mut param_types = Vec::new();
+
+            // Parse parameter types
+            while self.current_token != Token::Symbol(')') {
+                param_types.push(self.parse_type()?);
+
+                if !self.try_consume_symbol(',') && self.current_token != Token::Symbol(')') {
+                    return Err(self.syntax_error("Expected ',' or ')' in function pointer parameters"));
+                }
+            }
+
+            self.next_token(); // Skip ')'
+
+            // Parse return type
+            let return_type = self.parse_type()?;
+
+            Ok(AstType::FunctionPointer {
+                param_types,
+                return_type: Box::new(return_type),
+            })
+        } else {
+            // Regular pointer
+            let pointee_type = self.parse_type()?;
+            Ok(AstType::ptr(pointee_type))
         }
     }
 
@@ -488,56 +341,28 @@ impl<'a> Parser<'a> {
         self.next_token();
 
         // Get alias name
-        let name = if let Token::Identifier(name) = &self.current_token {
-            name.clone()
-        } else {
-            return Err(CompileError::SyntaxError(
-                "Expected type alias name".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        };
-        self.next_token();
+        let name = self.expect_identifier("type alias name")?;
 
         // Parse optional generic type parameters
         let mut type_params = Vec::new();
-        if self.current_token == Token::Operator("<".to_string()) {
-            self.next_token();
+        if self.try_consume_operator("<") {
             loop {
-                if let Token::Identifier(param_name) = &self.current_token {
-                    type_params.push(TypeParameter {
-                        name: param_name.clone(),
-                        constraints: Vec::new(),
-                    });
-                    self.next_token();
+                let param_name = self.expect_identifier("type parameter name")?;
+                type_params.push(TypeParameter {
+                    name: param_name,
+                    constraints: Vec::new(),
+                });
 
-                    if self.current_token == Token::Operator(">".to_string()) {
-                        self.next_token();
-                        break;
-                    } else if self.current_token == Token::Symbol(',') {
-                        self.next_token();
-                    } else {
-                        return Err(CompileError::SyntaxError(
-                            "Expected ',' or '>' in type parameters".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
-                    }
-                } else {
-                    return Err(CompileError::SyntaxError(
-                        "Expected type parameter name".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
+                if self.try_consume_operator(">") {
+                    break;
+                } else if !self.try_consume_symbol(',') {
+                    return Err(self.syntax_error("Expected ',' or '>' in type parameters"));
                 }
             }
         }
 
         // Expect ':' for type definition
-        if self.current_token != Token::Symbol(':') {
-            return Err(CompileError::SyntaxError(
-                "Expected ':' in type alias definition".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol(':')?;
 
         // Parse the target type
         let target_type = self.parse_type()?;

@@ -1,8 +1,8 @@
 use lsp_types::Url;
 use std::collections::HashMap;
 
-use super::super::types::*;
-use super::super::utils::format_type;
+use crate::lsp::types::*;
+use crate::lsp::utils::format_type;
 use super::structs;
 use crate::stdlib_types::stdlib_types;
 

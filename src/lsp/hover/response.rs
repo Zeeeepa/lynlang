@@ -4,8 +4,8 @@ use lsp_server::{RequestId, Response};
 use lsp_types::*;
 use serde_json::Value;
 
-use super::super::types::SymbolInfo;
-use super::super::utils::format_type;
+use crate::lsp::types::SymbolInfo;
+use crate::lsp::utils::format_type;
 
 /// Create a hover response from symbol info
 pub fn create_hover_response(

@@ -1,8 +1,8 @@
 // UFC (Uniform Function Call) method resolution helpers
 
-use super::super::document_store::DocumentStore;
-use super::super::type_inference::infer_receiver_type_from_store;
-use super::super::types::UfcMethodInfo;
+use crate::lsp::document_store::DocumentStore;
+use crate::lsp::type_inference::infer_receiver_type_from_store;
+use crate::lsp::types::UfcMethodInfo;
 use crate::well_known::well_known;
 use lsp_types::*;
 

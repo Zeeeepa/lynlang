@@ -2,7 +2,7 @@ use crate::ast::{
     AstType as Type, BehaviorDefinition, BehaviorMethod, ImplBlock, Parameter, TraitConstraint,
     TraitDefinition, TraitImplementation, TraitMethod, TraitRequirement, TypeParameter,
 };
-use crate::error::{CompileError, Result};
+use crate::error::Result;
 use crate::lexer::Token;
 use crate::parser::core::Parser;
 
@@ -30,46 +30,28 @@ impl<'a> Parser<'a> {
                             self.next_token();
 
                             // Parse additional constraints with '+' operator
-                            while self.current_token == Token::Operator("+".to_string()) {
-                                self.next_token(); // consume '+'
-                                if let Token::Identifier(trait_name) = &self.current_token {
-                                    constraints.push(TraitConstraint {
-                                        trait_name: trait_name.clone(),
-                                    });
-                                    self.next_token();
-                                } else {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected trait name after '+'".to_string(),
-                                        Some(self.current_span.clone()),
-                                    ));
-                                }
+                            while self.try_consume_operator("+") {
+                                let constraint_name = self.expect_identifier("trait name after '+'")?;
+                                constraints.push(TraitConstraint {
+                                    trait_name: constraint_name,
+                                });
                             }
                         } else {
-                            return Err(CompileError::SyntaxError(
-                                "Expected trait name after ':'".to_string(),
-                                Some(self.current_span.clone()),
-                            ));
+                            return Err(self.syntax_error("Expected trait name after ':'"));
                         }
                     }
 
                     type_params.push(TypeParameter { name, constraints });
 
-                    if self.current_token == Token::Operator(">".to_string()) {
-                        self.next_token();
+                    if self.try_consume_operator(">") {
                         break;
-                    } else if self.current_token == Token::Symbol(',') {
-                        self.next_token();
+                    } else if self.try_consume_symbol(',') {
+                        // continue to next parameter
                     } else {
-                        return Err(CompileError::SyntaxError(
-                            "Expected ',' or '>' in generic parameters".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
+                        return Err(self.syntax_error("Expected ',' or '>' in generic parameters"));
                     }
                 } else {
-                    return Err(CompileError::SyntaxError(
-                        "Expected generic parameter name".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
+                    return Err(self.syntax_error("Expected generic parameter name"));
                 }
             }
         }
@@ -78,23 +60,10 @@ impl<'a> Parser<'a> {
 
     fn parse_parameter(&mut self) -> Result<Parameter> {
         // Check for mutability
-        let is_mutable = if self.current_token == Token::Identifier("mut".to_string()) {
-            self.next_token();
-            true
-        } else {
-            false
-        };
+        let is_mutable = self.try_consume_keyword("mut");
 
         // Parse parameter name
-        let name = if let Token::Identifier(n) = &self.current_token {
-            n.clone()
-        } else {
-            return Err(CompileError::SyntaxError(
-                format!("Expected parameter name, got {:?}", self.current_token),
-                Some(self.current_span.clone()),
-            ));
-        };
-        self.next_token();
+        let name = self.expect_identifier("parameter name")?;
 
         // Special handling for 'self' parameter - type is optional
         let type_ = if name == "self" && self.current_token != Token::Symbol(':') {
@@ -106,17 +75,7 @@ impl<'a> Parser<'a> {
             }
         } else {
             // Expect ':' for type annotation
-            if self.current_token != Token::Symbol(':') {
-                return Err(CompileError::SyntaxError(
-                    format!(
-                        "Expected ':' after parameter name, got {:?}",
-                        self.current_token
-                    ),
-                    Some(self.current_span.clone()),
-                ));
-            }
-            self.next_token();
-
+            self.expect_symbol(':')?;
             // Parse parameter type
             self.parse_type()?
         };
@@ -130,58 +89,21 @@ impl<'a> Parser<'a> {
 
     pub fn parse_behavior(&mut self) -> Result<BehaviorDefinition> {
         // Parse behavior name
-        let name = if let Token::Identifier(n) = &self.current_token {
-            n.clone()
-        } else {
-            return Err(CompileError::SyntaxError(
-                format!("Expected behavior name, got {:?}", self.current_token),
-                Some(self.current_span.clone()),
-            ));
-        };
-        self.next_token();
+        let name = self.expect_identifier("behavior name")?;
 
         // Parse optional type parameters
-        let type_params = if self.current_token == Token::Operator("<".to_string()) {
-            self.parse_type_parameters()?
-        } else {
-            Vec::new()
-        };
+        let type_params = self.parse_type_parameters()?;
 
         // Expect ':' for type definition
-        if self.current_token != Token::Symbol(':') {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Expected ':' after behavior name for type definition, got {:?}",
-                    self.current_token
-                ),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol(':')?;
 
         // Expect 'behavior' identifier
-        if !matches!(&self.current_token, Token::Identifier(name) if name == "behavior") {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Expected 'behavior' identifier, got {:?}",
-                    self.current_token
-                ),
-                Some(self.current_span.clone()),
-            ));
+        if !self.try_consume_keyword("behavior") {
+            return Err(self.syntax_error("Expected 'behavior' identifier"));
         }
-        self.next_token();
 
         // Expect '{'
-        if self.current_token != Token::Symbol('{') {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Expected '{{' after 'behavior', got {:?}",
-                    self.current_token
-                ),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol('{')?;
 
         // Parse behavior methods
         let mut methods = Vec::new();
@@ -191,17 +113,12 @@ impl<'a> Parser<'a> {
             methods.push(method);
 
             // Handle comma separator
-            if self.current_token == Token::Symbol(',') {
-                self.next_token();
-            }
+            self.try_consume_symbol(',');
         }
 
         // Expect '}'
         if self.current_token != Token::Symbol('}') {
-            return Err(CompileError::SyntaxError(
-                "Expected '}' to close behavior definition".to_string(),
-                Some(self.current_span.clone()),
-            ));
+            return Err(self.syntax_error("Expected '}' to close behavior definition"));
         }
         self.next_token();
 
@@ -214,36 +131,13 @@ impl<'a> Parser<'a> {
 
     fn parse_behavior_method(&mut self) -> Result<BehaviorMethod> {
         // Parse method name
-        let name = if let Token::Identifier(n) = &self.current_token {
-            n.clone()
-        } else {
-            return Err(CompileError::SyntaxError(
-                format!("Expected method name, got {:?}", self.current_token),
-                Some(self.current_span.clone()),
-            ));
-        };
-        self.next_token();
+        let name = self.expect_identifier("method name")?;
 
         // Expect ':' for method type definition
-        if self.current_token != Token::Symbol(':') {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Expected ':' after method name for type definition, got {:?}",
-                    self.current_token
-                ),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol(':')?;
 
         // Expect '('
-        if self.current_token != Token::Symbol('(') {
-            return Err(CompileError::SyntaxError(
-                format!("Expected '(' after '=', got {:?}", self.current_token),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol('(')?;
 
         // Parse parameters
         let mut params = Vec::new();
@@ -253,22 +147,14 @@ impl<'a> Parser<'a> {
                 let param = self.parse_parameter()?;
                 params.push(param);
 
-                if self.current_token == Token::Symbol(',') {
-                    self.next_token();
-                } else {
+                if !self.try_consume_symbol(',') {
                     break;
                 }
             }
         }
 
         // Expect ')'
-        if self.current_token != Token::Symbol(')') {
-            return Err(CompileError::SyntaxError(
-                "Expected ')' after parameters".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol(')')?;
 
         // Parse return type
         let return_type = self.parse_type()?;
@@ -283,43 +169,16 @@ impl<'a> Parser<'a> {
     pub fn parse_trait(&mut self) -> Result<TraitDefinition> {
         let start_span = self.current_span.clone();
 
-        let name = if let Token::Identifier(n) = &self.current_token {
-            n.clone()
-        } else {
-            return Err(CompileError::SyntaxError(
-                format!("Expected trait name, got {:?}", self.current_token),
-                Some(self.current_span.clone()),
-            ));
-        };
-        self.next_token();
+        let name = self.expect_identifier("trait name")?;
 
         // Parse optional type parameters
-        let type_params = if self.current_token == Token::Operator("<".to_string()) {
-            self.parse_type_parameters()?
-        } else {
-            Vec::new()
-        };
+        let type_params = self.parse_type_parameters()?;
 
         // Expect ':' for type definition
-        if self.current_token != Token::Symbol(':') {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Expected ':' after trait name for type definition, got {:?}",
-                    self.current_token
-                ),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol(':')?;
 
         // Expect '{'
-        if self.current_token != Token::Symbol('{') {
-            return Err(CompileError::SyntaxError(
-                format!("Expected '{{' after ':', got {:?}", self.current_token),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol('{')?;
 
         // Parse trait methods
         let mut methods = Vec::new();
@@ -329,17 +188,12 @@ impl<'a> Parser<'a> {
             methods.push(method);
 
             // Handle comma separator
-            if self.current_token == Token::Symbol(',') {
-                self.next_token();
-            }
+            self.try_consume_symbol(',');
         }
 
         // Expect '}'
         if self.current_token != Token::Symbol('}') {
-            return Err(CompileError::SyntaxError(
-                "Expected '}' to close trait definition".to_string(),
-                Some(self.current_span.clone()),
-            ));
+            return Err(self.syntax_error("Expected '}' to close trait definition"));
         }
         self.next_token();
 
@@ -353,36 +207,13 @@ impl<'a> Parser<'a> {
 
     fn parse_trait_method(&mut self) -> Result<TraitMethod> {
         // Parse method name
-        let name = if let Token::Identifier(n) = &self.current_token {
-            n.clone()
-        } else {
-            return Err(CompileError::SyntaxError(
-                format!("Expected method name, got {:?}", self.current_token),
-                Some(self.current_span.clone()),
-            ));
-        };
-        self.next_token();
+        let name = self.expect_identifier("method name")?;
 
         // Expect ':' for method type definition
-        if self.current_token != Token::Symbol(':') {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Expected ':' after method name for type definition, got {:?}",
-                    self.current_token
-                ),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol(':')?;
 
         // Expect '('
-        if self.current_token != Token::Symbol('(') {
-            return Err(CompileError::SyntaxError(
-                format!("Expected '(' after ':', got {:?}", self.current_token),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol('(')?;
 
         // Parse parameters
         let mut params = Vec::new();
@@ -392,22 +223,14 @@ impl<'a> Parser<'a> {
                 let param = self.parse_parameter()?;
                 params.push(param);
 
-                if self.current_token == Token::Symbol(',') {
-                    self.next_token();
-                } else {
+                if !self.try_consume_symbol(',') {
                     break;
                 }
             }
         }
 
         // Expect ')'
-        if self.current_token != Token::Symbol(')') {
-            return Err(CompileError::SyntaxError(
-                "Expected ')' after parameters".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol(')')?;
 
         // Parse return type
         let return_type = self.parse_type()?;
@@ -427,27 +250,13 @@ impl<'a> Parser<'a> {
         let type_params = self.parse_type_parameters()?;
 
         // Parameters
-        if self.current_token != Token::Symbol('(') {
-            return Err(CompileError::SyntaxError(
-                "Expected '(' for function parameters".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol('(')?;
 
         let mut args = vec![];
         if self.current_token != Token::Symbol(')') {
             loop {
                 // Parameter name
-                let param_name = if let Token::Identifier(name) = &self.current_token {
-                    name.clone()
-                } else {
-                    return Err(CompileError::SyntaxError(
-                        "Expected parameter name".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
-                };
-                self.next_token();
+                let param_name = self.expect_identifier("parameter name")?;
 
                 // Parameter type - special handling for 'self'
                 let param_type = if param_name == "self" && self.current_token != Token::Symbol(':')
@@ -458,14 +267,7 @@ impl<'a> Parser<'a> {
                         type_args: Vec::new(),
                     }
                 } else {
-                    if self.current_token != Token::Symbol(':') {
-                        return Err(CompileError::SyntaxError(
-                            "Expected ':' after parameter name".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
-                    }
-                    self.next_token();
-
+                    self.expect_symbol(':')?;
                     self.parse_type()?
                 };
                 args.push((param_name, param_type));
@@ -473,13 +275,9 @@ impl<'a> Parser<'a> {
                 if self.current_token == Token::Symbol(')') {
                     break;
                 }
-                if self.current_token != Token::Symbol(',') {
-                    return Err(CompileError::SyntaxError(
-                        "Expected ',' or ')' in parameter list".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
+                if !self.try_consume_symbol(',') {
+                    return Err(self.syntax_error("Expected ',' or ')' in parameter list"));
                 }
-                self.next_token();
             }
         }
         self.next_token(); // consume ')'
@@ -494,13 +292,7 @@ impl<'a> Parser<'a> {
         };
 
         // Function body
-        if self.current_token != Token::Symbol('{') {
-            return Err(CompileError::SyntaxError(
-                "Expected '{' for function body".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol('{')?;
 
         let mut body = vec![];
         while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
@@ -508,10 +300,7 @@ impl<'a> Parser<'a> {
         }
 
         if self.current_token != Token::Symbol('}') {
-            return Err(CompileError::SyntaxError(
-                "Expected '}' to close function body".to_string(),
-                Some(self.current_span.clone()),
-            ));
+            return Err(self.syntax_error("Expected '}' to close function body"));
         }
         self.next_token();
 
@@ -536,50 +325,22 @@ impl<'a> Parser<'a> {
         use crate::ast::Function;
 
         // Function name
-        let name = if let Token::Identifier(name) = &self.current_token {
-            name.clone()
-        } else {
-            return Err(CompileError::SyntaxError(
-                "Expected function name".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        };
-        self.next_token();
+        let name = self.expect_identifier("function name")?;
 
         // Parse generic type parameters if present: <T: Constraint, U, ...>
         let type_params = self.parse_type_parameters()?;
 
         // Expect '=' (function signature separator)
-        if self.current_token != Token::Operator("=".to_string()) {
-            return Err(CompileError::SyntaxError(
-                "Expected '=' after function name".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_operator("=")?;
 
         // Parameters
-        if self.current_token != Token::Symbol('(') {
-            return Err(CompileError::SyntaxError(
-                "Expected '(' for function parameters".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol('(')?;
 
         let mut args = vec![];
         if self.current_token != Token::Symbol(')') {
             loop {
                 // Parameter name
-                let param_name = if let Token::Identifier(name) = &self.current_token {
-                    name.clone()
-                } else {
-                    return Err(CompileError::SyntaxError(
-                        "Expected parameter name".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
-                };
-                self.next_token();
+                let param_name = self.expect_identifier("parameter name")?;
 
                 // Parameter type - special handling for 'self'
                 let param_type = if param_name == "self" && self.current_token != Token::Symbol(':')
@@ -590,14 +351,7 @@ impl<'a> Parser<'a> {
                         type_args: Vec::new(),
                     }
                 } else {
-                    if self.current_token != Token::Symbol(':') {
-                        return Err(CompileError::SyntaxError(
-                            "Expected ':' after parameter name".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
-                    }
-                    self.next_token();
-
+                    self.expect_symbol(':')?;
                     self.parse_type()?
                 };
                 args.push((param_name, param_type));
@@ -605,13 +359,9 @@ impl<'a> Parser<'a> {
                 if self.current_token == Token::Symbol(')') {
                     break;
                 }
-                if self.current_token != Token::Symbol(',') {
-                    return Err(CompileError::SyntaxError(
-                        "Expected ',' or ')' in parameter list".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
+                if !self.try_consume_symbol(',') {
+                    return Err(self.syntax_error("Expected ',' or ')' in parameter list"));
                 }
-                self.next_token();
             }
         }
         self.next_token(); // consume ')'
@@ -626,13 +376,7 @@ impl<'a> Parser<'a> {
         };
 
         // Function body
-        if self.current_token != Token::Symbol('{') {
-            return Err(CompileError::SyntaxError(
-                "Expected '{' for function body".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol('{')?;
 
         let mut body = vec![];
         while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
@@ -640,10 +384,7 @@ impl<'a> Parser<'a> {
         }
 
         if self.current_token != Token::Symbol('}') {
-            return Err(CompileError::SyntaxError(
-                "Expected '}' to close function body".to_string(),
-                Some(self.current_span.clone()),
-            ));
+            return Err(self.syntax_error("Expected '}' to close function body"));
         }
         self.next_token();
 
@@ -664,111 +405,42 @@ impl<'a> Parser<'a> {
     pub fn parse_trait_implementation(&mut self, type_name: String) -> Result<TraitImplementation> {
         // Parse: Type.implements(Trait, { methods })
         // Current token is '(' after 'implements'
-        if self.current_token != Token::Symbol('(') {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Expected '(' after 'implements', got {:?}",
-                    self.current_token
-                ),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token(); // consume '('
+        self.expect_symbol('(')?;
 
         // Parse trait name
-        let trait_name = if let Token::Identifier(name) = &self.current_token {
-            name.clone()
-        } else {
-            return Err(CompileError::SyntaxError(
-                format!("Expected trait name, got {:?}", self.current_token),
-                Some(self.current_span.clone()),
-            ));
-        };
-        self.next_token(); // consume trait name
+        let trait_name = self.expect_identifier("trait name")?;
 
         // Expect comma
-        if self.current_token != Token::Symbol(',') {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Expected ',' after trait name, got {:?}",
-                    self.current_token
-                ),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token(); // consume ','
+        self.expect_symbol(',')?;
 
         // Expect opening brace for methods
-        if self.current_token != Token::Symbol('{') {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Expected '{{' for trait methods, got {:?}",
-                    self.current_token
-                ),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token(); // consume '{'
+        self.expect_symbol('{')?;
 
         // Parse methods
         let mut methods = Vec::new();
         while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
             // Parse method: name = (params) return_type { body }
-            let method_name = if let Token::Identifier(name) = &self.current_token {
-                name.clone()
-            } else {
-                return Err(CompileError::SyntaxError(
-                    format!("Expected method name, got {:?}", self.current_token),
-                    Some(self.current_span.clone()),
-                ));
-            };
-            self.next_token(); // consume method name
+            let method_name = self.expect_identifier("method name")?;
 
             // Expect '='
-            if self.current_token != Token::Operator("=".to_string()) {
-                return Err(CompileError::SyntaxError(
-                    format!(
-                        "Expected '=' after method name, got {:?}",
-                        self.current_token
-                    ),
-                    Some(self.current_span.clone()),
-                ));
-            }
-            self.next_token(); // consume '='
+            self.expect_operator("=")?;
 
             // Parse method as a function (name has already been parsed)
             let func = self.parse_impl_function_with_name(method_name)?;
             methods.push(func);
 
             // Check for comma between methods
-            if self.current_token == Token::Symbol(',') {
-                self.next_token();
-            }
+            self.try_consume_symbol(',');
         }
 
         // Expect closing brace
         if self.current_token != Token::Symbol('}') {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Expected '}}' to close trait methods, got {:?}",
-                    self.current_token
-                ),
-                Some(self.current_span.clone()),
-            ));
+            return Err(self.syntax_error("Expected '}' to close trait methods"));
         }
         self.next_token(); // consume '}'
 
         // Expect closing parenthesis
-        if self.current_token != Token::Symbol(')') {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Expected ')' to close implements call, got {:?}",
-                    self.current_token
-                ),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token(); // consume ')'
+        self.expect_symbol(')')?;
 
         Ok(TraitImplementation {
             type_name,
@@ -781,16 +453,7 @@ impl<'a> Parser<'a> {
     pub fn parse_impl_block(&mut self, type_name: String) -> Result<ImplBlock> {
         // Parse: Type.impl = { methods }
         // Current token is '{' after '='
-        if self.current_token != Token::Symbol('{') {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Expected '{{' for impl methods, got {:?}",
-                    self.current_token
-                ),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token(); // consume '{'
+        self.expect_symbol('{')?;
 
         // Parse methods (type parameters are parsed from the type_name itself, e.g., Option<T>)
         let type_params = Vec::new(); // Type params come from the type_name, not here
@@ -799,47 +462,22 @@ impl<'a> Parser<'a> {
         let mut methods = Vec::new();
         while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
             // Parse method: name = (params) return_type { body }
-            let method_name = if let Token::Identifier(name) = &self.current_token {
-                name.clone()
-            } else {
-                return Err(CompileError::SyntaxError(
-                    format!("Expected method name, got {:?}", self.current_token),
-                    Some(self.current_span.clone()),
-                ));
-            };
-            self.next_token(); // consume method name
+            let method_name = self.expect_identifier("method name")?;
 
             // Expect '='
-            if self.current_token != Token::Operator("=".to_string()) {
-                return Err(CompileError::SyntaxError(
-                    format!(
-                        "Expected '=' after method name, got {:?}",
-                        self.current_token
-                    ),
-                    Some(self.current_span.clone()),
-                ));
-            }
-            self.next_token(); // consume '='
+            self.expect_operator("=")?;
 
             // Parse method as a function (name has already been parsed)
             let func = self.parse_impl_function_with_name(method_name)?;
             methods.push(func);
 
             // Check for comma between methods (optional)
-            if self.current_token == Token::Symbol(',') {
-                self.next_token();
-            }
+            self.try_consume_symbol(',');
         }
 
         // Expect closing brace
         if self.current_token != Token::Symbol('}') {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Expected '}}' to close impl methods, got {:?}",
-                    self.current_token
-                ),
-                Some(self.current_span.clone()),
-            ));
+            return Err(self.syntax_error("Expected '}' to close impl methods"));
         }
         self.next_token(); // consume '}'
 
@@ -853,39 +491,13 @@ impl<'a> Parser<'a> {
     pub fn parse_trait_requirement(&mut self, type_name: String) -> Result<TraitRequirement> {
         // Parse: Type.requires(Trait)
         // Current token is '(' after 'requires'
-        if self.current_token != Token::Symbol('(') {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Expected '(' after 'requires', got {:?}",
-                    self.current_token
-                ),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token(); // consume '('
+        self.expect_symbol('(')?;
 
         // Parse trait name
-        let trait_name = if let Token::Identifier(name) = &self.current_token {
-            name.clone()
-        } else {
-            return Err(CompileError::SyntaxError(
-                format!("Expected trait name, got {:?}", self.current_token),
-                Some(self.current_span.clone()),
-            ));
-        };
-        self.next_token(); // consume trait name
+        let trait_name = self.expect_identifier("trait name")?;
 
         // Expect closing parenthesis
-        if self.current_token != Token::Symbol(')') {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Expected ')' after trait name, got {:?}",
-                    self.current_token
-                ),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token(); // consume ')'
+        self.expect_symbol(')')?;
 
         Ok(TraitRequirement {
             type_name,

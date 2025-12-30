@@ -1,4 +1,4 @@
-use super::super::LLVMCompiler;
+use crate::codegen::llvm::LLVMCompiler;
 use crate::ast::Statement;
 use crate::error::CompileError;
 

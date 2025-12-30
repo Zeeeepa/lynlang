@@ -212,6 +212,22 @@ pub fn compile_unload_library<'ctx>(
 }
 
 // Delegate to compiler module
+pub fn compile_dlerror<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_dlerror(compiler, args)
+}
+
+// Delegate to compiler module - is_null helper
+pub fn compile_is_null<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compiler::compile_is_null(compiler, args)
+}
+
+// Delegate to compiler module
 pub fn compile_null_ptr<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],

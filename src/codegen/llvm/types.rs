@@ -33,11 +33,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
             AstType::StaticLiteral | AstType::StaticString => Ok(Type::Basic(
                 self.context.ptr_type(AddressSpace::default()).into(),
             )),
-            AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => {
-                Ok(Type::Basic(
-                    self.context.ptr_type(AddressSpace::default()).into(),
-                ))
-            }
+            // Note: String structs are now handled by the normal AstType::Struct branch below
+            // since String is registered in struct_types via register_builtin_enums()
             AstType::Void => Ok(Type::Void),
             // Handle all pointer types (Ptr, MutPtr, RawPtr) - they're all the same in LLVM
             t if t.is_ptr_type() => {

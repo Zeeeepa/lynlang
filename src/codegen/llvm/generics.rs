@@ -1,5 +1,4 @@
 use crate::ast::AstType;
-use crate::stdlib_types::StdlibTypeRegistry;
 use crate::well_known::well_known;
 use std::collections::HashMap;
 
@@ -45,19 +44,6 @@ impl GenericTypeTracker {
             }
         }
         None
-    }
-
-    /// Create a specialized key for nested generics
-    /// e.g., "Result<Option<T>,E>" -> "Result_0_Option_0_T"
-    pub fn create_nested_key(base_type: &str, type_path: &[usize]) -> String {
-        let mut key = base_type.to_string();
-        for (i, &index) in type_path.iter().enumerate() {
-            key.push_str(&format!("_{}", index));
-            if i < type_path.len() - 1 {
-                key.push('_');
-            }
-        }
-        key
     }
 
     /// Extract and track generic types from a complex type
@@ -126,79 +112,6 @@ impl GenericTypeTracker {
         }
     }
 
-    /// Get the current context (for debugging)
-    pub fn current_context(&self) -> Option<&HashMap<String, AstType>> {
-        self.contexts.last()
-    }
-
-    /// Merge a temporary context into the current one
-    pub fn merge_context(&mut self, other: HashMap<String, AstType>) {
-        if let Some(current) = self.contexts.last_mut() {
-            for (k, v) in other {
-                current.insert(k, v);
-            }
-        }
-    }
-
-    /// Instantiate a generic type with concrete type arguments
-    /// This is the core of monomorphization - creating concrete types from generics
-    pub fn instantiate_generic(&mut self, generic_name: &str, type_args: &[AstType]) -> String {
-        // Create a unique key for this instantiation
-        let mut key = generic_name.to_string();
-        for arg in type_args {
-            key.push('_');
-            key.push_str(&self.type_to_string(arg));
-        }
-
-        // Track this instantiation
-        self.insert(
-            format!("{}_instantiated", key),
-            AstType::Generic {
-                name: generic_name.to_string(),
-                type_args: type_args.to_vec(),
-            },
-        );
-
-        // Track individual type arguments
-        for (i, arg) in type_args.iter().enumerate() {
-            self.insert(format!("{}_T{}", key, i), arg.clone());
-        }
-
-        key
-    }
-
-    /// Convert a type to a string representation for key generation
-    fn type_to_string(&self, type_: &AstType) -> String {
-        match type_ {
-            AstType::I8 => "i8".to_string(),
-            AstType::I16 => "i16".to_string(),
-            AstType::I32 => "i32".to_string(),
-            AstType::I64 => "i64".to_string(),
-            AstType::U8 => "u8".to_string(),
-            AstType::U16 => "u16".to_string(),
-            AstType::U32 => "u32".to_string(),
-            AstType::U64 => "u64".to_string(),
-            AstType::F32 => "f32".to_string(),
-            AstType::F64 => "f64".to_string(),
-            AstType::Bool => "bool".to_string(),
-            AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => "string".to_string(),
-            AstType::Void => "void".to_string(),
-            AstType::Generic { name, type_args } => {
-                let mut s = name.clone();
-                if !type_args.is_empty() {
-                    s.push('_');
-                    for (i, arg) in type_args.iter().enumerate() {
-                        if i > 0 {
-                            s.push('_');
-                        }
-                        s.push_str(&self.type_to_string(arg));
-                    }
-                }
-                s
-            }
-            _ => "unknown".to_string(),
-        }
-    }
 }
 
 #[cfg(test)]

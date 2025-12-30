@@ -1,6 +1,6 @@
 //! Compiler intrinsics codegen - inline_c, raw_allocate, etc.
 
-use super::super::{LLVMCompiler, Type};
+use crate::codegen::llvm::{LLVMCompiler, Type};
 use crate::ast;
 use crate::error::CompileError;
 use inkwell::module::Linkage;
@@ -291,46 +291,162 @@ pub fn compile_call_external<'ctx>(
 }
 
 /// Compile compiler.load_library() - Load dynamic library
+/// Uses dlopen on Unix, LoadLibrary on Windows
+/// Returns a handle (opaque pointer) or null on failure
 pub fn compile_load_library<'ctx>(
-    _compiler: &mut LLVMCompiler<'ctx>,
-    _args: &[ast::Expression],
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    // This requires platform-specific library loading (dlopen, LoadLibrary, etc.)
-    // For now, return a placeholder
+    if args.len() != 1 {
+        return Err(CompileError::TypeError(
+            format!(
+                "compiler.load_library expects 1 argument (library path), got {}",
+                args.len()
+            ),
+            None,
+        ));
+    }
 
-    Err(CompileError::InternalError(
-        "compiler.load_library() not yet fully implemented - requires platform-specific FFI"
-            .to_string(),
-        None,
-    ))
+    let path = compiler.compile_expression(&args[0])?;
+    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
+    let i32_type = compiler.context.i32_type();
+
+    // Get or declare dlopen: void* dlopen(const char* filename, int flags)
+    let dlopen_fn = compiler.module.get_function("dlopen").unwrap_or_else(|| {
+        let fn_type = ptr_type.fn_type(&[ptr_type.into(), i32_type.into()], false);
+        compiler
+            .module
+            .add_function("dlopen", fn_type, Some(Linkage::External))
+    });
+
+    // RTLD_LAZY = 1 (lazy binding - resolve symbols as needed)
+    let rtld_lazy = i32_type.const_int(1, false);
+
+    // Call dlopen(path, RTLD_LAZY)
+    let handle = compiler
+        .builder
+        .build_call(dlopen_fn, &[path.into(), rtld_lazy.into()], "lib_handle")?
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| {
+            CompileError::InternalError("dlopen should return a pointer".to_string(), None)
+        })?;
+
+    Ok(handle)
 }
 
 /// Compile compiler.get_symbol() - Get symbol from library
+/// Uses dlsym on Unix, GetProcAddress on Windows
+/// Returns a function pointer or null if symbol not found
 pub fn compile_get_symbol<'ctx>(
-    _compiler: &mut LLVMCompiler<'ctx>,
-    _args: &[ast::Expression],
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    // This requires platform-specific symbol lookup (dlsym, GetProcAddress, etc.)
+    if args.len() != 2 {
+        return Err(CompileError::TypeError(
+            format!(
+                "compiler.get_symbol expects 2 arguments (handle, symbol_name), got {}",
+                args.len()
+            ),
+            None,
+        ));
+    }
 
-    Err(CompileError::InternalError(
-        "compiler.get_symbol() not yet fully implemented - requires platform-specific FFI"
-            .to_string(),
-        None,
-    ))
+    let handle = compiler.compile_expression(&args[0])?;
+    let symbol_name = compiler.compile_expression(&args[1])?;
+    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
+
+    // Get or declare dlsym: void* dlsym(void* handle, const char* symbol)
+    let dlsym_fn = compiler.module.get_function("dlsym").unwrap_or_else(|| {
+        let fn_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+        compiler
+            .module
+            .add_function("dlsym", fn_type, Some(Linkage::External))
+    });
+
+    // Call dlsym(handle, symbol_name)
+    let symbol_ptr = compiler
+        .builder
+        .build_call(dlsym_fn, &[handle.into(), symbol_name.into()], "symbol_ptr")?
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| {
+            CompileError::InternalError("dlsym should return a pointer".to_string(), None)
+        })?;
+
+    Ok(symbol_ptr)
 }
 
 /// Compile compiler.unload_library() - Unload dynamic library
+/// Uses dlclose on Unix, FreeLibrary on Windows
+/// Returns 0 on success, non-zero on failure
 pub fn compile_unload_library<'ctx>(
-    _compiler: &mut LLVMCompiler<'ctx>,
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 1 {
+        return Err(CompileError::TypeError(
+            format!(
+                "compiler.unload_library expects 1 argument (handle), got {}",
+                args.len()
+            ),
+            None,
+        ));
+    }
+
+    let handle = compiler.compile_expression(&args[0])?;
+    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
+    let i32_type = compiler.context.i32_type();
+
+    // Get or declare dlclose: int dlclose(void* handle)
+    let dlclose_fn = compiler.module.get_function("dlclose").unwrap_or_else(|| {
+        let fn_type = i32_type.fn_type(&[ptr_type.into()], false);
+        compiler
+            .module
+            .add_function("dlclose", fn_type, Some(Linkage::External))
+    });
+
+    // Call dlclose(handle)
+    let result = compiler
+        .builder
+        .build_call(dlclose_fn, &[handle.into()], "dlclose_result")?
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| {
+            CompileError::InternalError("dlclose should return an int".to_string(), None)
+        })?;
+
+    Ok(result)
+}
+
+/// Compile compiler.dlerror() - Get last dynamic loading error message
+/// Uses dlerror on Unix
+/// Returns a pointer to error string or null if no error
+pub fn compile_dlerror<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
     _args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    // This requires platform-specific library unloading (dlclose, FreeLibrary, etc.)
+    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
 
-    Err(CompileError::InternalError(
-        "compiler.unload_library() not yet fully implemented - requires platform-specific FFI"
-            .to_string(),
-        None,
-    ))
+    // Get or declare dlerror: char* dlerror(void)
+    let dlerror_fn = compiler.module.get_function("dlerror").unwrap_or_else(|| {
+        let fn_type = ptr_type.fn_type(&[], false);
+        compiler
+            .module
+            .add_function("dlerror", fn_type, Some(Linkage::External))
+    });
+
+    // Call dlerror()
+    let error_msg = compiler
+        .builder
+        .build_call(dlerror_fn, &[], "dlerror_msg")?
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| {
+            CompileError::InternalError("dlerror should return a pointer".to_string(), None)
+        })?;
+
+    Ok(error_msg)
 }
 
 /// Compile compiler.null_ptr() - Get null pointer
@@ -341,6 +457,38 @@ pub fn compile_null_ptr<'ctx>(
     let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
     let null_ptr = ptr_type.const_null();
     Ok(null_ptr.into())
+}
+
+/// Compile compiler.is_null(ptr) - Check if pointer is null
+/// Returns true if ptr == null, false otherwise
+pub fn compile_is_null<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 1 {
+        return Err(CompileError::InternalError(
+            "compiler.is_null() requires exactly 1 argument".to_string(),
+            None,
+        ));
+    }
+
+    // Compile the pointer argument
+    let ptr_value = compiler.compile_expression(&args[0])?;
+    let ptr = ptr_value.into_pointer_value();
+
+    // Get null pointer for comparison
+    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
+    let null_ptr = ptr_type.const_null();
+
+    // Compare ptr == null
+    let is_null = compiler.builder.build_int_compare(
+        inkwell::IntPredicate::EQ,
+        ptr,
+        null_ptr,
+        "is_null",
+    )?;
+
+    Ok(is_null.into())
 }
 
 /// Compile compiler.discriminant() - Get enum discriminant

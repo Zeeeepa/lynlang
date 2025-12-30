@@ -209,6 +209,16 @@ impl CompilerModule {
             },
         );
 
+        functions.insert(
+            "dlerror".to_string(),
+            StdFunction {
+                name: "dlerror".to_string(),
+                params: vec![],
+                return_type: AstType::raw_ptr(AstType::U8), // Error message string or null
+                is_builtin: true,
+            },
+        );
+
         // Enum intrinsics - exposed for pattern matching and enum manipulation
         functions.insert(
             "discriminant".to_string(),

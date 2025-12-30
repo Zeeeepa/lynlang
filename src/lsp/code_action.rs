@@ -1,44 +1,28 @@
 // Code Action Module for Zen LSP
 // Handles textDocument/codeAction requests
 
-use lsp_server::Request;
-use lsp_server::Response;
+use lsp_server::{Request, Response};
 use lsp_types::*;
-use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use super::document_store::DocumentStore;
+use super::helpers::{try_lock, try_parse_params, success_response};
 
 // ============================================================================
 // PUBLIC HANDLER FUNCTION
 // ============================================================================
 
 pub fn handle_code_action(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Response {
-    let params: CodeActionParams = match serde_json::from_value(req.params) {
+    let params: CodeActionParams = match try_parse_params(&req) {
         Ok(p) => p,
-        Err(_) => {
-            return Response {
-                id: req.id,
-                result: Some(Value::Null),
-                error: None,
-            };
-        }
+        Err(resp) => return resp,
     };
 
     let mut actions = Vec::new();
-    let store = match store.lock() {
+    let store = match try_lock(store.as_ref(), &req) {
         Ok(s) => s,
-        Err(_) => {
-            return Response {
-                id: req.id,
-                result: Some(
-                    serde_json::to_value(Vec::<CodeActionOrCommand>::new())
-                        .unwrap_or(serde_json::Value::Null),
-                ),
-                error: None,
-            };
-        }
+        Err(_) => return success_response(&req, Vec::<CodeActionOrCommand>::new()),
     };
 
     if let Some(doc) = store.documents.get(&params.text_document.uri) {
@@ -102,11 +86,7 @@ pub fn handle_code_action(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Re
         }
     }
 
-    Response {
-        id: req.id,
-        result: Some(serde_json::to_value(actions).unwrap_or(Value::Null)),
-        error: None,
-    }
+    success_response(&req, actions)
 }
 
 // ============================================================================

@@ -26,62 +26,7 @@ impl<'a> Parser<'a> {
                 if name == "type" {
                     declarations.push(Declaration::TypeAlias(self.parse_type_alias()?));
                 } else if name == "comptime" {
-                    self.next_token(); // consume 'comptime'
-                    if self.current_token != Token::Symbol('{') {
-                        return Err(CompileError::SyntaxError(
-                            "Expected '{' after comptime".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
-                    }
-                    self.next_token(); // consume '{'
-
-                    let mut statements = vec![];
-                    while self.current_token != Token::Symbol('}')
-                        && self.current_token != Token::Eof
-                    {
-                        let stmt = self.parse_statement()?;
-
-                        if let Statement::VariableDeclaration {
-                            initializer, name, ..
-                        } = &stmt
-                        {
-                            if let Some(expr) = initializer {
-                                let is_import = match expr {
-                                    Expression::MemberAccess { object, .. } => {
-                                        if let Expression::Identifier(id) = &**object {
-                                            id.starts_with("@std") || id == "@std"
-                                        } else {
-                                            false
-                                        }
-                                    }
-                                    Expression::FunctionCall { name, .. } => {
-                                        name.contains("import") || name == "build.import"
-                                    }
-                                    Expression::Identifier(id) => id.starts_with("@std"),
-                                    _ => false,
-                                };
-
-                                if is_import {
-                                    return Err(CompileError::SyntaxError(
-                                        format!("Import '{}' not allowed inside comptime block. Imports must be at module level.", name),
-                                        Some(self.current_span.clone()),
-                                    ));
-                                }
-                            }
-                        }
-
-                        statements.push(stmt);
-                    }
-
-                    if self.current_token != Token::Symbol('}') {
-                        return Err(CompileError::SyntaxError(
-                            "Expected '}' to close comptime block".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
-                    }
-                    self.next_token(); // consume '}'
-
-                    declarations.push(Declaration::ComptimeBlock(statements));
+                    declarations.push(self.parse_comptime_block_declaration()?);
                 } else if self.peek_token == Token::Operator(":=".to_string()) {
                     let var_name = name.clone();
                     let saved_current = self.current_token.clone();
@@ -1263,6 +1208,259 @@ impl<'a> Parser<'a> {
             span: Some(start_span),
         })
     }
+
+    // ========================================================================
+    // HELPER FUNCTIONS FOR parse_program
+    // ========================================================================
+
+    /// Parse a comptime block: comptime { statements... }
+    fn parse_comptime_block_declaration(&mut self) -> Result<Declaration> {
+        self.next_token(); // consume 'comptime'
+        if self.current_token != Token::Symbol('{') {
+            return Err(CompileError::SyntaxError(
+                "Expected '{' after comptime".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token(); // consume '{'
+
+        let mut statements = vec![];
+        while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
+            let stmt = self.parse_statement()?;
+
+            // Check for imports in comptime blocks (not allowed)
+            if let Statement::VariableDeclaration {
+                initializer, name, ..
+            } = &stmt
+            {
+                if let Some(expr) = initializer {
+                    let is_import = match expr {
+                        Expression::MemberAccess { object, .. } => {
+                            if let Expression::Identifier(id) = &**object {
+                                id.starts_with("@std") || id == "@std"
+                            } else {
+                                false
+                            }
+                        }
+                        Expression::FunctionCall { name, .. } => {
+                            name.contains("import") || name == "build.import"
+                        }
+                        Expression::Identifier(id) => id.starts_with("@std"),
+                        _ => false,
+                    };
+
+                    if is_import {
+                        return Err(CompileError::SyntaxError(
+                            format!(
+                                "Import '{}' not allowed inside comptime block. Imports must be at module level.",
+                                name
+                            ),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                }
+            }
+
+            statements.push(stmt);
+        }
+
+        if self.current_token != Token::Symbol('}') {
+            return Err(CompileError::SyntaxError(
+                "Expected '}' to close comptime block".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token(); // consume '}'
+
+        Ok(Declaration::ComptimeBlock(statements))
+    }
+
+    /// Parse type name with optional generic parameters (e.g., "Type" or "Type<T, U>")
+    /// Returns the full type name as a string.
+    fn parse_type_name_with_generics(&mut self) -> Result<String> {
+        let mut type_name = if let Token::Identifier(name) = &self.current_token {
+            name.clone()
+        } else {
+            return Err(CompileError::SyntaxError(
+                "Expected type name".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        };
+        self.next_token(); // consume name
+
+        // Check for generic parameters
+        if self.current_token == Token::Operator("<".to_string()) {
+            type_name.push('<');
+            self.next_token(); // consume '<'
+
+            loop {
+                if let Token::Identifier(param) = &self.current_token {
+                    type_name.push_str(param);
+                    self.next_token();
+                } else {
+                    break;
+                }
+
+                if self.current_token == Token::Symbol(',') {
+                    type_name.push(',');
+                    self.next_token();
+                } else if self.current_token == Token::Operator(">".to_string()) {
+                    type_name.push('>');
+                    self.next_token();
+                    break;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        Ok(type_name)
+    }
+
+    /// Parse an impl block: Type.impl = { methods... } or Type<T>.impl = { methods... }
+    fn parse_impl_block_declaration(&mut self) -> Result<Declaration> {
+        let type_name = self.parse_type_name_with_generics()?;
+
+        // Expect '.'
+        if self.current_token != Token::Symbol('.') {
+            return Err(CompileError::SyntaxError(
+                "Expected '.' after type name for impl block".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token(); // consume '.'
+
+        // Expect 'impl'
+        if !matches!(&self.current_token, Token::Identifier(name) if name == "impl") {
+            return Err(CompileError::SyntaxError(
+                "Expected 'impl' after '.'".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token(); // consume 'impl'
+
+        // Expect '='
+        if self.current_token != Token::Operator("=".to_string()) {
+            return Err(CompileError::SyntaxError(
+                "Expected '=' after 'impl'".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token(); // consume '='
+
+        Ok(Declaration::ImplBlock(self.parse_impl_block(type_name)?))
+    }
+
+    /// Parse a method definition: Type.method = (params) ReturnType { body }
+    fn parse_method_definition(&mut self) -> Result<Declaration> {
+        let type_name = self.parse_type_name_with_generics()?;
+
+        // Expect '.'
+        if self.current_token != Token::Symbol('.') {
+            return Err(CompileError::SyntaxError(
+                "Expected '.' after type name for method definition".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token(); // consume '.'
+
+        // Get method name
+        let method_name = if let Token::Identifier(name) = &self.current_token {
+            name.clone()
+        } else {
+            return Err(CompileError::SyntaxError(
+                "Expected method name after '.'".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        };
+
+        // Build full function name "Type.method"
+        let full_function_name = format!("{}.{}", type_name, method_name);
+
+        // Parse the function (current token is at method name)
+        let mut func = self.parse_function()?;
+        func.name = full_function_name;
+
+        Ok(Declaration::Function(func))
+    }
+
+    /// Parse a top-level constant: name := value
+    fn parse_top_level_constant(&mut self, name: String) -> Result<Declaration> {
+        self.next_token(); // consume ':='
+        let value = self.parse_expression()?;
+
+        // Skip optional semicolon
+        if self.current_token == Token::Symbol(';') {
+            self.next_token();
+        }
+
+        Ok(Declaration::Constant {
+            name,
+            value,
+            type_: None,
+        })
+    }
+
+    /// Parse a module import: name = @std.module or name = @std.build.import("module")
+    fn parse_module_import_declaration(&mut self, name: String) -> Result<Declaration> {
+        if let Token::Identifier(module_path) = &self.current_token {
+            let mut full_path = module_path.clone();
+            self.next_token();
+
+            // Handle member access for @std.module
+            while self.current_token == Token::Symbol('.') {
+                self.next_token(); // consume '.'
+                if let Token::Identifier(member) = &self.current_token {
+                    full_path.push('.');
+                    full_path.push_str(member);
+                    self.next_token();
+                } else {
+                    break;
+                }
+            }
+
+            // Check for .import() function call
+            if full_path.ends_with(".import") && self.current_token == Token::Symbol('(') {
+                self.next_token(); // consume '('
+                if let Token::StringLiteral(module_name) = &self.current_token {
+                    let imported_module = module_name.clone();
+                    self.next_token(); // consume string
+                    if self.current_token != Token::Symbol(')') {
+                        return Err(CompileError::SyntaxError(
+                            "Expected ')' after module name".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                    self.next_token(); // consume ')'
+
+                    return Ok(Declaration::ModuleImport {
+                        alias: name,
+                        module_path: format!("@std.{}", imported_module),
+                    });
+                } else {
+                    return Err(CompileError::SyntaxError(
+                        "Expected string literal in import()".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+            }
+
+            // Direct module import: name = @std.module
+            Ok(Declaration::ModuleImport {
+                alias: name,
+                module_path: full_path,
+            })
+        } else {
+            Err(CompileError::SyntaxError(
+                "Expected module path".to_string(),
+                Some(self.current_span.clone()),
+            ))
+        }
+    }
+
+    // ========================================================================
+    // END HELPER FUNCTIONS
+    // ========================================================================
 
     fn parse_destructuring_import(&mut self) -> Result<Statement> {
         // Parse { io, maths } = @std

@@ -1,42 +1,23 @@
 use super::core::Parser;
 use crate::ast::{EnumDefinition, EnumVariant};
-use crate::error::{CompileError, Result};
+use crate::error::Result;
 use crate::lexer::Token;
 
 impl<'a> Parser<'a> {
     pub fn parse_enum(&mut self) -> Result<EnumDefinition> {
         // Enum name
-        let name = if let Token::Identifier(name) = &self.current_token {
-            name.clone()
-        } else {
-            return Err(CompileError::SyntaxError(
-                "Expected enum name".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        };
-        self.next_token();
+        let name = self.expect_identifier("enum name")?;
 
         // Parse optional type parameters
-        let type_params = if self.current_token == Token::Operator("<".to_string()) {
-            self.parse_type_parameters()?
-        } else {
-            Vec::new()
-        };
+        let type_params = self.parse_type_parameters()?;
 
         // Expect ':' for type definition
-        if self.current_token != Token::Symbol(':') {
-            return Err(CompileError::SyntaxError(
-                "Expected ':' after enum name for type definition".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
+        self.expect_symbol(':')?;
 
         // Check if they're trying to use struct syntax (curly braces) for an enum
         if self.current_token == Token::Symbol('{') {
-            return Err(CompileError::SyntaxError(
-                "Enums use comma-separated variants, not curly braces. Use `MyEnum: Variant1, Variant2` instead of `MyEnum: { Variant1, Variant2 }`".to_string(),
-                Some(self.current_span.clone()),
+            return Err(self.syntax_error(
+                "Enums use comma-separated variants, not curly braces. Use `MyEnum: Variant1, Variant2` instead of `MyEnum: { Variant1, Variant2 }`"
             ));
         }
 
@@ -49,15 +30,12 @@ impl<'a> Parser<'a> {
             if !first_variant {
                 // Check for pipe syntax (old syntax) and provide helpful error
                 if self.current_token == Token::Pipe {
-                    return Err(CompileError::SyntaxError(
-                        "Enums use comma-separated variants, not pipes. Use `MyEnum: Variant1, Variant2` instead of `MyEnum: Variant1 | Variant2`".to_string(),
-                        Some(self.current_span.clone()),
+                    return Err(self.syntax_error(
+                        "Enums use comma-separated variants, not pipes. Use `MyEnum: Variant1, Variant2` instead of `MyEnum: Variant1 | Variant2`"
                     ));
                 }
                 // Only accept comma separator for enums
-                if self.current_token == Token::Symbol(',') {
-                    self.next_token();
-                } else {
+                if !self.try_consume_symbol(',') {
                     // No separator found, done with variants
                     break;
                 }
@@ -65,18 +43,8 @@ impl<'a> Parser<'a> {
             first_variant = false;
 
             // Check for shorthand enum variant syntax: .VariantName
-            let variant_name = if self.current_token == Token::Symbol('.') {
-                self.next_token(); // consume '.'
-                if let Token::Identifier(name) = &self.current_token {
-                    let name = name.clone();
-                    self.next_token();
-                    name
-                } else {
-                    return Err(CompileError::SyntaxError(
-                        "Expected variant name after '.'".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
-                }
+            let variant_name = if self.try_consume_symbol('.') {
+                self.expect_identifier("variant name after '.'")?
             } else if let Token::Identifier(name) = &self.current_token {
                 let name = name.clone();
                 self.next_token();
@@ -88,12 +56,9 @@ impl<'a> Parser<'a> {
 
             // Check for payload type
             // Zen standard: VariantName: Type
-            let payload = if self.current_token == Token::Symbol(':') {
-                self.next_token(); // consume ':'
-
+            let payload = if self.try_consume_symbol(':') {
                 // Parse the payload type (could be a simple type or struct type)
-                let payload_type = self.parse_type()?;
-                Some(payload_type)
+                Some(self.parse_type()?)
             } else {
                 None
             };
@@ -105,13 +70,10 @@ impl<'a> Parser<'a> {
         }
 
         if variants.is_empty() {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Enum `{}` must have at least one variant. Use `{}: Variant1, Variant2` syntax",
-                    name, name
-                ),
-                Some(self.current_span.clone()),
-            ));
+            return Err(self.syntax_error(format!(
+                "Enum `{}` must have at least one variant. Use `{}: Variant1, Variant2` syntax",
+                name, name
+            )));
         }
 
         Ok(EnumDefinition {

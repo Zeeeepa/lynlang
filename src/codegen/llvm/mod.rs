@@ -22,7 +22,6 @@ mod expressions;
 mod functions;
 mod generics;
 mod literals;
-mod patterns;
 mod pointers;
 mod statements;
 mod stdlib_codegen;
@@ -148,6 +147,29 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // If error already has a span, keep it
             other => other,
         }
+    }
+
+    // ============================================================================
+    // PATTERN MATCHING STUBS
+    // These are stub implementations for pattern matching that was removed
+    // ============================================================================
+
+    /// Stub for pattern test compilation - returns error as feature is not implemented
+    pub fn compile_pattern_test_with_type(
+        &mut self,
+        _scrutinee: &BasicValueEnum<'ctx>,
+        _pattern: &ast::Pattern,
+        _scrutinee_type: Option<&AstType>,
+    ) -> Result<(inkwell::values::IntValue<'ctx>, Vec<(String, BasicValueEnum<'ctx>)>), CompileError> {
+        Err(CompileError::UnsupportedFeature(
+            "Pattern matching is not yet implemented".to_string(),
+            self.current_span.clone(),
+        ))
+    }
+
+    /// Stub for applying pattern bindings - no-op as feature is not implemented
+    pub fn apply_pattern_bindings(&mut self, _bindings: &[(String, BasicValueEnum<'ctx>)]) {
+        // No-op - pattern matching bindings not implemented
     }
 
     /// Helper to track generic types in both old and new systems

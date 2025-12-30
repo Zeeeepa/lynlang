@@ -108,20 +108,33 @@ compiler.inline_c("""
 """)
 ```
 
-### Library Loading (Placeholder - Not Yet Implemented)
+### Dynamic Library Loading (FFI)
 
 ```zen
-// Load dynamic library
-lib = compiler.load_library(path: string) RawPtr<u8>
+// Load dynamic library (calls dlopen on Unix)
+lib = compiler.load_library(path: str) RawPtr<u8>
 
-// Get symbol from library
-func_ptr = compiler.get_symbol(lib: RawPtr<u8>, name: string) RawPtr<u8>
+// Get symbol from library (calls dlsym)
+func_ptr = compiler.get_symbol(lib: RawPtr<u8>, name: str) RawPtr<u8>
 
-// Unload library
+// Unload library (calls dlclose)
 compiler.unload_library(lib: RawPtr<u8>) void
 
-// Call external function
+// Get last error message (calls dlerror)
+err = compiler.dlerror() RawPtr<u8>
+
+// Call external function (stub - not yet implemented)
 result = compiler.call_external(func_ptr: RawPtr<u8>, args: RawPtr<u8>) RawPtr<u8>
+```
+
+For higher-level FFI with Result types, use `@std.ffi`:
+
+```zen
+{ ffi } = @std
+
+lib = ffi.load_library("libm.so.6")  // Returns Result<CLibrary, str>
+sin_fn = ffi.get_function(lib, "sin")  // Returns Result<CFuncPtr, str>
+ffi.unload_library(lib)
 ```
 
 ## Building Features in Zen
@@ -159,24 +172,26 @@ load_library = (path: string) Result<LibraryHandle, FFIError> {
 
 ## Implementation Status
 
-**13 of 57 intrinsics have working LLVM codegen.**
+**25+ intrinsics have working LLVM codegen.**
 
-✅ **Fully Implemented (13)**:
+✅ **Fully Implemented**:
 - Memory: `raw_allocate`, `raw_deallocate`, `raw_reallocate`
+- Memory Ops: `memcpy`, `memmove`, `memset`, `memcmp`
 - Pointers: `gep`, `gep_struct`, `raw_ptr_offset`, `raw_ptr_cast`, `null_ptr`
 - Conversion: `ptr_to_int`, `int_to_ptr`
 - Memory Access: `load<T>`, `store<T>`
 - Enum: `discriminant`, `set_discriminant`, `get_payload`
-
-❌ **Stubs (return void or errors)**:
-- FFI: `inline_c`, `load_library`, `get_symbol`, `unload_library`, `call_external`
-
-❌ **Defined but No Codegen (36)**:
-- Memory: `memcpy`, `memmove`, `memset`, `memcmp`
-- Atomic: `atomic_load`, `atomic_store`, `atomic_add`, `atomic_sub`, `atomic_cas`, `atomic_xchg`, `fence`
 - Bitwise: `bswap16`, `bswap32`, `bswap64`, `ctlz`, `cttz`, `ctpop`
+- Type: `sizeof<T>`
+- FFI: `load_library`, `get_symbol`, `unload_library`, `dlerror`
+
+❌ **Stubs (not yet implemented)**:
+- FFI: `inline_c`, `call_external`
+
+❌ **Defined but No Codegen**:
+- Atomic: `atomic_load`, `atomic_store`, `atomic_add`, `atomic_sub`, `atomic_cas`, `atomic_xchg`, `fence`
 - Overflow: `add_overflow`, `sub_overflow`, `mul_overflow`
-- Type: `sizeof` (hardcoded 8), `alignof`
+- Type: `alignof`
 - Debug: `unreachable`, `trap`, `debugtrap`
 
 ## Source Files
@@ -193,5 +208,6 @@ load_library = (path: string) Result<LibraryHandle, FFIError> {
 - `docs/INTRINSICS_REFERENCE.md` - Complete reference with examples
 - `stdlib/memory/gpa.zen` - GPA allocator uses raw_allocate/deallocate
 - `stdlib/core/ptr.zen` - Ptr<T> uses pointer intrinsics
-- `stdlib/ffi/ffi.zen` - FFI wrappers (stubs)
+- `stdlib/ffi/ffi.zen` - High-level FFI with Result types
+- `examples/ffi_demo.zen` - FFI usage example
 

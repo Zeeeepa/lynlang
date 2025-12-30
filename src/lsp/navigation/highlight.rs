@@ -1,10 +1,10 @@
 // Document highlight handler
 
-use super::super::document_store::DocumentStore;
+use crate::lsp::document_store::DocumentStore;
+use crate::lsp::helpers::{null_response, success_response, try_lock, try_parse_params};
 use super::utils::{find_symbol_at_position, is_word_boundary_char};
 use lsp_server::{Request, Response};
 use lsp_types::*;
-use serde_json::Value;
 
 /// Find all occurrences of a symbol in a document for highlighting
 fn find_symbol_occurrences(content: &str, symbol_name: &str) -> Vec<DocumentHighlight> {
@@ -46,26 +46,14 @@ pub fn handle_document_highlight(
     req: Request,
     store: &std::sync::Arc<std::sync::Mutex<DocumentStore>>,
 ) -> Response {
-    let params: DocumentHighlightParams = match serde_json::from_value(req.params) {
+    let params: DocumentHighlightParams = match try_parse_params(&req) {
         Ok(p) => p,
-        Err(_) => {
-            return Response {
-                id: req.id,
-                result: Some(Value::Null),
-                error: None,
-            };
-        }
+        Err(resp) => return resp,
     };
 
-    let store = match store.lock() {
+    let store = match try_lock(store.as_ref(), &req) {
         Ok(s) => s,
-        Err(_) => {
-            return Response {
-                id: req.id,
-                result: Some(Value::Null),
-                error: None,
-            };
-        }
+        Err(resp) => return resp,
     };
 
     if let Some(doc) = store
@@ -75,17 +63,9 @@ pub fn handle_document_highlight(
         let position = params.text_document_position_params.position;
         if let Some(symbol_name) = find_symbol_at_position(&doc.content, position) {
             let highlights = find_symbol_occurrences(&doc.content, &symbol_name);
-            return Response {
-                id: req.id,
-                result: Some(serde_json::to_value(highlights).unwrap_or(Value::Null)),
-                error: None,
-            };
+            return success_response(&req, highlights);
         }
     }
 
-    Response {
-        id: req.id,
-        result: Some(Value::Null),
-        error: None,
-    }
+    null_response(&req)
 }

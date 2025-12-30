@@ -18,7 +18,7 @@ Zen provides low-level intrinsics that map directly to LLVM instructions or libc
 |----------|-----------|----------------------|
 | Memory Allocation | `raw_allocate`, `raw_deallocate`, `raw_reallocate` | - |
 | Memory Operations | `memcpy`, `memmove`, `memset`, `memcmp` | - |
-| Pointer Arithmetic | `gep`, `gep_struct`, `null_ptr`, `raw_ptr_offset`, `raw_ptr_cast` | - |
+| Pointer Arithmetic | `gep`, `gep_struct`, `null_ptr`, `is_null`, `raw_ptr_offset`, `raw_ptr_cast` | - |
 | Memory Access | `load`, `store` | - |
 | Enum Operations | `discriminant`, `set_discriminant`, `get_payload` | `set_payload` (partial) |
 | Type Conversion | `ptr_to_int`, `int_to_ptr` | `trunc_*`, `sitofp_*`, `uitofp_*` |
@@ -27,7 +27,7 @@ Zen provides low-level intrinsics that map directly to LLVM instructions or libc
 | Atomic | - | `atomic_load`, `atomic_store`, `atomic_add`, `atomic_sub`, `atomic_cas`, `atomic_xchg`, `fence` |
 | Overflow | - | `add_overflow`, `sub_overflow`, `mul_overflow` |
 | Debug | - | `unreachable`, `trap`, `debugtrap` |
-| FFI | - | `inline_c` (stub), `load_library`, `get_symbol`, `unload_library` |
+| FFI | `load_library`, `get_symbol`, `unload_library`, `dlerror` | `inline_c` (stub) |
 
 ---
 
@@ -156,6 +156,17 @@ Returns a null pointer (address 0).
 
 - **Returns**: `RawPtr<u8>`
 - **Use**: Sentinel values, optional pointer fields
+
+### is_null
+
+```zen
+is_null = @std.compiler.is_null(ptr)
+```
+
+Check if a pointer is null.
+
+- **Params**: `ptr: RawPtr<u8>`
+- **Returns**: `bool` - true if ptr == null, false otherwise
 
 ### raw_ptr_offset (deprecated)
 
@@ -479,7 +490,53 @@ Triggers a debug trap (breakpoint).
 
 ## FFI (Foreign Function Interface)
 
-> ⚠️ **All FFI intrinsics are currently stubs/placeholders**
+Dynamic library loading intrinsics for runtime FFI.
+
+### load_library
+
+```zen
+lib = @std.compiler.load_library("libfoo.so")
+```
+
+Loads a dynamic library at runtime using platform-native loading (dlopen on Unix).
+
+- **Params**: `path: str` - Path to the shared library
+- **Returns**: `RawPtr<u8>` - Opaque library handle, or null on failure
+- **Flags**: Uses `RTLD_LAZY` for lazy symbol binding
+
+### get_symbol
+
+```zen
+func_ptr = @std.compiler.get_symbol(lib, "my_function")
+```
+
+Retrieves a symbol (function or variable) from a loaded library using dlsym.
+
+- **Params**: `lib_handle: RawPtr<u8>`, `symbol_name: str`
+- **Returns**: `RawPtr<u8>` - Pointer to the symbol, or null if not found
+
+### unload_library
+
+```zen
+@std.compiler.unload_library(lib)
+```
+
+Unloads a dynamic library using dlclose.
+
+- **Params**: `lib_handle: RawPtr<u8>`
+- **Returns**: `void`
+- **Safety**: Handle becomes invalid after this call
+
+### dlerror
+
+```zen
+err = @std.compiler.dlerror()
+```
+
+Gets the last dynamic loading error message.
+
+- **Returns**: `RawPtr<u8>` - Pointer to error string (C string), or null if no error
+- **Note**: Call immediately after a failed load_library/get_symbol
 
 ### inline_c
 
@@ -488,30 +545,6 @@ Triggers a debug trap (breakpoint).
 ```
 
 **Status**: ❌ STUB - Returns void, does nothing. Requires Clang integration to compile C code to LLVM IR.
-
-### load_library
-
-```zen
-lib = @std.compiler.load_library("libfoo.so")
-```
-
-**Status**: ❌ STUB - Returns error "not yet fully implemented - requires platform-specific FFI".
-
-### get_symbol
-
-```zen
-func_ptr = @std.compiler.get_symbol(lib, "my_function")
-```
-
-**Status**: ❌ STUB - Returns error "not yet fully implemented".
-
-### unload_library
-
-```zen
-@std.compiler.unload_library(lib)
-```
-
-**Status**: ❌ STUB - Returns error "not yet fully implemented".
 
 ---
 
@@ -566,6 +599,35 @@ zero_memory = (ptr: RawPtr<u8>, size: usize) void {
 ```zen
 host_to_network_u32 = (value: u32) u32 {
     return @std.compiler.bswap32(value)
+}
+```
+
+### Dynamic Library Loading
+
+```zen
+// Load libm and call sin function
+main = () void {
+    lib = @std.compiler.load_library("libm.so.6")
+    @std.compiler.is_null(lib) ? {
+        | true {
+            err = @std.compiler.dlerror()
+            // handle error
+            return
+        }
+        | false { }
+    }
+
+    sin_ptr = @std.compiler.get_symbol(lib, "sin")
+    @std.compiler.is_null(sin_ptr) ? {
+        | true {
+            // symbol not found
+        }
+        | false {
+            // Call the function via sin_ptr
+        }
+    }
+
+    @std.compiler.unload_library(lib)
 }
 ```
 
@@ -638,6 +700,7 @@ cargo test --test gep_intrinsics
 - [x] `sizeof<T>()` with actual type sizes - Type introspection
 - [x] `bswap16`, `bswap32`, `bswap64` - Endian conversion
 - [x] `ctlz`, `cttz`, `ctpop` - Bit manipulation
+- [x] `load_library`, `get_symbol`, `unload_library`, `dlerror` - Dynamic library FFI
 
 ### Medium Priority (In Progress)
 - [ ] `set_payload` with proper copying - Required for enum construction
@@ -648,5 +711,5 @@ cargo test --test gep_intrinsics
 ### Future Work
 - [ ] SIMD intrinsics (vector operations)
 - [ ] Platform-specific intrinsics (x86, ARM)
-- [ ] Full FFI implementation with Clang integration
+- [ ] `inline_c` with Clang integration - Compile C snippets to LLVM IR
 - [ ] Bounds-checked variants for development builds

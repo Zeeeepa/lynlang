@@ -1,6 +1,7 @@
 // Definition handler - go-to-definition
 
-use super::super::document_store::DocumentStore;
+use crate::lsp::document_store::DocumentStore;
+use crate::lsp::helpers::{null_response, try_parse_params};
 use super::imports::find_import_info;
 use super::ufc::{find_ufc_method_at_position, resolve_ufc_method};
 use super::utils::{find_symbol_at_position, find_symbol_definition_in_content};
@@ -14,15 +15,11 @@ pub fn handle_definition(
     store: &std::sync::Arc<std::sync::Mutex<DocumentStore>>,
 ) -> Response {
     log::debug!("[LSP DEFINITION] Starting definition request");
-    let params: GotoDefinitionParams = match serde_json::from_value(req.params) {
+    let params: GotoDefinitionParams = match try_parse_params(&req) {
         Ok(p) => p,
-        Err(e) => {
-            log::debug!("[LSP DEFINITION] Failed to parse params: {:?}", e);
-            return Response {
-                id: req.id,
-                result: Some(Value::Null),
-                error: None,
-            };
+        Err(resp) => {
+            log::debug!("[LSP DEFINITION] Failed to parse params");
+            return resp;
         }
     };
 
@@ -35,11 +32,7 @@ pub fn handle_definition(
         },
         Err(e) => {
             log::debug!("[LSP DEFINITION] Failed to get store lock: {:?}", e);
-            return Response {
-                id: req.id,
-                result: Some(Value::Null),
-                error: None,
-            };
+            return null_response(&req);
         }
     };
 

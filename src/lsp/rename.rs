@@ -1,8 +1,7 @@
 // Rename Module for Zen LSP
 // Handles textDocument/rename requests
 
-use lsp_server::Request;
-use lsp_server::Response;
+use lsp_server::{Request, Response};
 use lsp_types::*;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -11,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use crate::ast::{Declaration, Statement};
 
 use super::document_store::DocumentStore;
+use super::helpers::{null_response, success_response, try_lock, try_parse_params};
 use super::navigation::find_symbol_at_position;
 use super::types::{Document, SymbolScope};
 
@@ -19,29 +19,14 @@ use super::types::{Document, SymbolScope};
 // ============================================================================
 
 pub fn handle_rename(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Response {
-    let params: RenameParams = match serde_json::from_value(req.params) {
+    let params: RenameParams = match try_parse_params(&req) {
         Ok(p) => p,
-        Err(_) => {
-            return Response {
-                id: req.id,
-                result: Some(Value::Null),
-                error: None,
-            };
-        }
+        Err(resp) => return resp,
     };
 
-    let store = match store.lock() {
+    let store = match try_lock(store.as_ref(), &req) {
         Ok(s) => s,
-        Err(_) => {
-            return Response {
-                id: req.id,
-                result: Some(
-                    serde_json::to_value(WorkspaceEdit::default())
-                        .unwrap_or(serde_json::Value::Null),
-                ),
-                error: None,
-            };
-        }
+        Err(_) => return success_response(&req, WorkspaceEdit::default()),
     };
     let new_name = params.new_name;
     let uri = &params.text_document_position.text_document.uri;
@@ -136,11 +121,7 @@ pub fn handle_rename(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Respons
         }
     }
 
-    Response {
-        id: req.id,
-        result: Some(Value::Null),
-        error: None,
-    }
+    null_response(&req)
 }
 
 // ============================================================================

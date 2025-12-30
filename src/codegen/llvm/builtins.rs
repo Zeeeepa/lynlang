@@ -34,6 +34,46 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.symbols
             .insert("Array", symbols::Symbol::StructType(array_struct_type));
 
+        // Register String type (data: Ptr<U8>, len: Usize, capacity: Usize, allocator: ptr)
+        let string_struct_type = self.context.struct_type(
+            &[
+                self.context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .into(), // data: Ptr<U8>
+                self.context.i64_type().into(), // len: Usize
+                self.context.i64_type().into(), // capacity: Usize
+                self.context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .into(), // allocator
+            ],
+            false,
+        );
+
+        let string_info = StructTypeInfo {
+            llvm_type: string_struct_type,
+            fields: {
+                let mut fields = HashMap::new();
+                fields.insert("data".to_string(), (0, AstType::ptr(AstType::U8)));
+                fields.insert("len".to_string(), (1, AstType::Usize));
+                fields.insert("capacity".to_string(), (2, AstType::Usize));
+                fields.insert(
+                    "allocator".to_string(),
+                    (
+                        3,
+                        AstType::Generic {
+                            name: "Allocator".to_string(),
+                            type_args: vec![],
+                        },
+                    ),
+                );
+                fields
+            },
+        };
+        self.struct_types.insert("String".to_string(), string_info);
+
+        self.symbols
+            .insert("String", symbols::Symbol::StructType(string_struct_type));
+
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let enum_struct_type = self
             .context

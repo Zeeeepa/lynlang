@@ -2,6 +2,7 @@
 
 // Submodules
 pub mod analyzer;
+pub mod helpers;
 pub mod call_hierarchy;
 pub mod code_action;
 pub mod code_lens;

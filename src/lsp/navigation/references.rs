@@ -1,7 +1,7 @@
 // References handler
 
-use super::super::document_store::DocumentStore;
-use super::super::types::SymbolScope;
+use crate::lsp::document_store::DocumentStore;
+use crate::lsp::types::SymbolScope;
 use super::scope::determine_symbol_scope;
 use super::utils::{
     find_function_range, find_symbol_at_position, is_in_string_or_comment, is_word_boundary_char,

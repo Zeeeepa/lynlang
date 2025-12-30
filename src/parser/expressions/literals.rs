@@ -3,7 +3,7 @@
 
 #![allow(dead_code)]
 
-use super::super::core::Parser;
+use crate::parser::core::Parser;
 use crate::ast::Expression;
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;

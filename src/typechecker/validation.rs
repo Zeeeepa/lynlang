@@ -218,101 +218,12 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
     }
 }
 
-/// Check if a type can be implicitly converted to another
-#[allow(dead_code)]
-pub fn can_implicitly_convert(from: &AstType, to: &AstType) -> bool {
-    // Same type needs no conversion
-    if std::mem::discriminant(from) == std::mem::discriminant(to) {
-        return true;
-    }
-
-    // Numeric widening conversions
-    if from.is_numeric() && to.is_numeric() {
-        if let (Some(from_size), Some(to_size)) = (from.bit_size(), to.bit_size()) {
-            // Allow widening
-            if from_size <= to_size {
-                // Check sign compatibility
-                if from.is_unsigned_integer() && to.is_signed_integer() {
-                    // Unsigned to signed needs extra bit for sign
-                    return from_size < to_size;
-                }
-                return true;
-            }
-        }
-    }
-
-    // Array to pointer decay
-    if let Some(to_elem) = to.ptr_inner() {
-        if let AstType::Array(from_elem) = from {
-            if types_compatible(from_elem, to_elem) {
-                return true;
-            }
-        }
-        if let AstType::FixedArray { element_type: from_elem, .. } = from {
-            if types_compatible(from_elem, to_elem) {
-                return true;
-            }
-        }
-    }
-    false
-}
-
-/// Check if a type requires explicit initialization
-#[allow(dead_code)]
-pub fn requires_initialization(type_: &AstType) -> bool {
-    match type_ {
-        // References must be initialized
-        AstType::Ref(_) => true,
-        // Immutable values should be initialized
-        AstType::Struct { .. } | AstType::Enum { .. } => false,
-        // Primitives can have default values
-        _ => false,
-    }
-}
-
-/// Check if a type can be used in a loop condition
-#[allow(dead_code)]
-pub fn is_valid_condition_type(type_: &AstType) -> bool {
-    matches!(type_, AstType::Bool)
-        || type_.is_numeric()
-        || matches!(type_, AstType::Generic { name, .. } if well_known().is_option(name))
-}
-
-/// Check if a type can be indexed
-#[allow(dead_code)]
-pub fn can_be_indexed(type_: &AstType) -> Option<AstType> {
-    if let Some(inner) = type_.ptr_inner() {
-        return Some(inner.clone());
-    }
-    match type_ {
-        AstType::Array(elem_type) => Some((**elem_type).clone()),
-        AstType::FixedArray { element_type, .. } => Some((**element_type).clone()),
-        AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => Some(AstType::U8), // Indexing string gives bytes
-        _ => None,
-    }
-}
-
-/// Check if a type supports the dereference operation
-#[allow(dead_code)]
-pub fn can_be_dereferenced(type_: &AstType) -> Option<AstType> {
-    if let Some(inner) = type_.ptr_inner() {
-        return Some(inner.clone());
-    }
-    match type_ {
-        AstType::Ref(inner) => Some((**inner).clone()),
-        _ => None,
-    }
-}
-
 /// Validate that imports are not inside comptime blocks
-#[allow(dead_code)]
 pub fn validate_import_not_in_comptime(stmt: &crate::ast::Statement) -> Result<(), String> {
     use crate::ast::Statement;
 
     // Check if this is a ModuleImport statement
     if let Statement::ModuleImport { alias, module_path } = stmt {
-        // This function is called from within comptime block checking,
-        // so if we reach here with a ModuleImport, it's invalid
         return Err(format!(
             "Import statement '{}' for module '{}' cannot be inside a comptime block. \
             Imports must be at module level.",
@@ -347,8 +258,7 @@ pub fn validate_import_not_in_comptime(stmt: &crate::ast::Statement) -> Result<(
 }
 
 /// Check if an expression contains import-related patterns
-#[allow(dead_code)]
-pub fn contains_import_expression(expr: &crate::ast::Expression) -> bool {
+fn contains_import_expression(expr: &crate::ast::Expression) -> bool {
     match expr {
         crate::ast::Expression::Identifier(id) if id.starts_with("@std") => true,
         crate::ast::Expression::MemberAccess { object, .. } => {
@@ -362,3 +272,4 @@ pub fn contains_import_expression(expr: &crate::ast::Expression) -> bool {
         _ => false,
     }
 }
+

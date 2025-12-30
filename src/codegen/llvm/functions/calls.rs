@@ -1,9 +1,185 @@
-use super::super::stdlib_codegen;
-use super::super::LLVMCompiler;
-use crate::ast;
+use crate::ast::{self, AstType};
+use crate::codegen::llvm::stdlib_codegen;
+use crate::codegen::llvm::{LLVMCompiler, Type};
 use crate::error::CompileError;
-use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
-use inkwell::values::BasicValueEnum;
+use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType};
+use inkwell::values::{BasicMetadataValueEnum, BasicValueEnum};
+use inkwell::AddressSpace;
+
+/// Build a function type from parameter types and return type
+fn build_fn_type_from_params<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    param_types: &[AstType],
+    return_type: &AstType,
+) -> Result<FunctionType<'ctx>, CompileError> {
+    let mut param_types_basic = Vec::with_capacity(param_types.len());
+    for ty in param_types {
+        let llvm_ty = compiler.to_llvm_type(ty)?;
+        let basic = match llvm_ty {
+            Type::Basic(b) => b,
+            Type::Struct(s) => s.into(),
+            _ => {
+                return Err(CompileError::InternalError(
+                    format!("Unsupported function argument type: {:?}", ty),
+                    None,
+                ))
+            }
+        };
+        param_types_basic.push(basic);
+    }
+
+    let param_metadata: Vec<BasicMetadataTypeEnum> =
+        param_types_basic.iter().map(|ty| (*ty).into()).collect();
+
+    let ret_type = compiler.to_llvm_type(return_type)?;
+    build_fn_type_from_ret(compiler, ret_type, &param_metadata)
+}
+
+/// Build a function type from an LLVM return type and parameter metadata
+pub fn build_fn_type_from_ret<'ctx>(
+    compiler: &LLVMCompiler<'ctx>,
+    ret_type: Type<'ctx>,
+    param_metadata: &[BasicMetadataTypeEnum<'ctx>],
+) -> Result<FunctionType<'ctx>, CompileError> {
+    match ret_type {
+        Type::Basic(b) => Ok(match b {
+            BasicTypeEnum::IntType(t) => t.fn_type(param_metadata, false),
+            BasicTypeEnum::FloatType(t) => t.fn_type(param_metadata, false),
+            BasicTypeEnum::PointerType(t) => t.fn_type(param_metadata, false),
+            BasicTypeEnum::StructType(t) => t.fn_type(param_metadata, false),
+            BasicTypeEnum::ArrayType(t) => t.fn_type(param_metadata, false),
+            BasicTypeEnum::VectorType(t) => t.fn_type(param_metadata, false),
+            BasicTypeEnum::ScalableVectorType(t) => t.fn_type(param_metadata, false),
+        }),
+        Type::Struct(s) => Ok(s.fn_type(param_metadata, false)),
+        Type::Void => Ok(compiler.context.void_type().fn_type(param_metadata, false)),
+        _ => Err(CompileError::InternalError(
+            "Function return type must be a basic type, struct or void".to_string(),
+            None,
+        )),
+    }
+}
+
+/// Compile arguments and convert types to match expected parameter types
+fn compile_and_convert_args<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+    param_types: &[BasicMetadataTypeEnum<'ctx>],
+) -> Result<Vec<BasicMetadataValueEnum<'ctx>>, CompileError> {
+    let mut compiled_args = Vec::with_capacity(args.len());
+
+    for (i, arg) in args.iter().enumerate() {
+        let mut val = compiler.compile_expression(arg)?;
+
+        if i < param_types.len() {
+            let expected_type = param_types[i];
+
+            // Convert string literal (pointer) to String struct if needed
+            val = maybe_convert_ptr_to_string_struct(compiler, val, expected_type)?;
+
+            // Cast integer arguments to match expected parameter type
+            if let (true, BasicMetadataTypeEnum::IntType(expected_int_type)) =
+                (val.is_int_value(), expected_type)
+            {
+                let int_val = val.into_int_value();
+                let src_bits = int_val.get_type().get_bit_width();
+                let dst_bits = expected_int_type.get_bit_width();
+
+                if src_bits != dst_bits {
+                    val = if src_bits < dst_bits {
+                        compiler
+                            .builder
+                            .build_int_s_extend(int_val, expected_int_type, "extend")?
+                            .into()
+                    } else {
+                        compiler
+                            .builder
+                            .build_int_truncate(int_val, expected_int_type, "trunc")?
+                            .into()
+                    };
+                }
+            }
+        }
+
+        compiled_args.push(val);
+    }
+
+    compiled_args
+        .iter()
+        .map(|arg| {
+            BasicMetadataValueEnum::try_from(*arg).map_err(|_| {
+                CompileError::InternalError(
+                    "Failed to convert argument to metadata".to_string(),
+                    None,
+                )
+            })
+        })
+        .collect()
+}
+
+/// Extract function type and return type reference from an AST type
+fn get_function_type_from_ast<'a, 'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    var_type: &'a AstType,
+) -> Result<(FunctionType<'ctx>, Option<&'a AstType>), CompileError> {
+    match var_type {
+        AstType::Function {
+            args: param_types,
+            return_type,
+        } => {
+            let fn_type = build_fn_type_from_params(compiler, param_types, return_type)?;
+            Ok((fn_type, Some(return_type.as_ref())))
+        }
+        AstType::FunctionPointer {
+            param_types,
+            return_type,
+        } => {
+            let fn_type = build_fn_type_from_params(compiler, param_types, return_type)?;
+            Ok((fn_type, Some(return_type.as_ref())))
+        }
+        t if t.is_ptr_type()
+            && t.ptr_inner()
+                .map(|inner| matches!(inner, AstType::FunctionPointer { .. }))
+                .unwrap_or(false) =>
+        {
+            let inner = t.ptr_inner().unwrap();
+            if let AstType::FunctionPointer {
+                param_types,
+                return_type,
+            } = inner
+            {
+                let fn_type = build_fn_type_from_params(compiler, param_types, return_type)?;
+                Ok((fn_type, Some(return_type.as_ref())))
+            } else {
+                Err(CompileError::InternalError(
+                    "Expected function pointer type in pointer".to_string(),
+                    None,
+                ))
+            }
+        }
+        _ => Err(CompileError::TypeMismatch {
+            expected: "function pointer".to_string(),
+            found: format!("{:?}", var_type),
+            span: None,
+        }),
+    }
+}
+
+/// Track generic type context for Result<T, E> or Option<T> return types
+fn track_generic_return_type(compiler: &mut LLVMCompiler, return_type: &AstType) {
+    if let AstType::Generic {
+        name: type_name,
+        type_args,
+    } = return_type
+    {
+        if compiler.well_known.is_result(type_name) && type_args.len() == 2 {
+            compiler.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+            compiler.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+        } else if compiler.well_known.is_option(type_name) && type_args.len() == 1 {
+            compiler.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
+        }
+    }
+}
 
 pub fn compile_function_call<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
@@ -113,9 +289,11 @@ pub fn compile_function_call<'ctx>(
                     "unload_library" => {
                         return stdlib_codegen::compile_unload_library(compiler, args)
                     }
+                    "dlerror" => return stdlib_codegen::compile_dlerror(compiler, args),
                     "null_ptr" | "nullptr" => {
                         return stdlib_codegen::compile_null_ptr(compiler, args)
                     }
+                    "is_null" => return stdlib_codegen::compile_is_null(compiler, args),
                     "discriminant" => return stdlib_codegen::compile_discriminant(compiler, args),
                     "set_discriminant" => {
                         return stdlib_codegen::compile_set_discriminant(compiler, args)
@@ -189,88 +367,20 @@ pub fn compile_function_call<'ctx>(
 
     // First check if this is a direct function call
     if let Some(function) = compiler.module.get_function(name) {
-        // Direct function call
-        let mut compiled_args = Vec::with_capacity(args.len());
         let param_types = function.get_type().get_param_types();
+        let args_metadata = compile_and_convert_args(compiler, args, &param_types)?;
 
-        for (i, arg) in args.iter().enumerate() {
-            let mut val = compiler.compile_expression(arg)?;
-
-            // Cast integer arguments to match expected parameter type if needed
-            if i < param_types.len() {
-                let expected_type = param_types[i];
-                if val.is_int_value() && expected_type.is_int_type() {
-                    let int_val = val.into_int_value();
-                    let expected_int_type = expected_type.into_int_type();
-                    if int_val.get_type().get_bit_width() != expected_int_type.get_bit_width() {
-                        // Need to cast
-                        if int_val.get_type().get_bit_width() < expected_int_type.get_bit_width() {
-                            // Sign extend
-                            val = compiler
-                                .builder
-                                .build_int_s_extend(int_val, expected_int_type, "extend")?
-                                .into();
-                        } else {
-                            // Truncate
-                            val = compiler
-                                .builder
-                                .build_int_truncate(int_val, expected_int_type, "trunc")?
-                                .into();
-                        }
-                    }
-                }
-            }
-
-            compiled_args.push(val);
-        }
-        let args_metadata: Vec<inkwell::values::BasicMetadataValueEnum> = compiled_args
-            .iter()
-            .map(|arg| {
-                inkwell::values::BasicMetadataValueEnum::try_from(*arg).map_err(|_| {
-                    CompileError::InternalError(
-                        "Failed to convert argument to metadata".to_string(),
-                        None,
-                    )
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
         let call = compiler
             .builder
             .build_call(function, &args_metadata, "calltmp")?;
 
         // Update generic_type_context if this function returns Result<T,E> or Option<T>
-        let generic_updates = if let Some(return_type) = compiler.function_types.get(name) {
-            if let crate::ast::AstType::Generic {
-                name: type_name,
-                type_args,
-            } = return_type
-            {
-                if compiler.well_known.is_result(type_name) && type_args.len() == 2 {
-                    Some(vec![
-                        ("Result_Ok_Type".to_string(), type_args[0].clone()),
-                        ("Result_Err_Type".to_string(), type_args[1].clone()),
-                    ])
-                } else if compiler.well_known.is_option(type_name) && type_args.len() == 1 {
-                    Some(vec![("Option_Some_Type".to_string(), type_args[0].clone())])
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        if let Some(updates) = generic_updates {
-            for (key, type_) in updates {
-                compiler.track_generic_type(key, type_);
-            }
+        if let Some(return_type) = compiler.function_types.get(name).cloned() {
+            track_generic_return_type(compiler, &return_type);
         }
 
         // Check if the function returns void
         if function.get_type().get_return_type().is_none() {
-            // Return a dummy value for void functions
             Ok(compiler.context.i32_type().const_zero().into())
         } else {
             Ok(call.try_as_basic_value().left().ok_or_else(|| {
@@ -283,7 +393,7 @@ pub fn compile_function_call<'ctx>(
     } else if let Ok((alloca, var_type)) = compiler.get_variable(name) {
         // Check if this is an imported math function
         if (name == "min" || name == "max" || name == "abs")
-            && matches!(var_type, crate::ast::AstType::Function { .. })
+            && matches!(var_type, AstType::Function { .. })
         {
             return compiler.compile_math_function(name, args);
         }
@@ -293,247 +403,21 @@ pub fn compile_function_call<'ctx>(
             .builder
             .build_load(alloca.get_type(), alloca, "func_ptr")?;
 
-        // Get function type from the variable type
-        let function_type = match &var_type {
-            crate::ast::AstType::Function { args, return_type } => {
-                let param_types_basic: Result<Vec<BasicTypeEnum>, CompileError> = args
-                    .iter()
-                    .map(|ty| {
-                        let llvm_ty = compiler.to_llvm_type(ty)?;
-                        match llvm_ty {
-                            super::super::Type::Basic(b) => Ok(b),
-                            super::super::Type::Struct(s) => Ok(s.into()),
-                            _ => Err(CompileError::InternalError(
-                                format!("Unsupported function argument type: {:?}", ty),
-                                None,
-                            )),
-                        }
-                    })
-                    .collect();
-                let param_types_basic = param_types_basic?;
-                let param_metadata: Vec<BasicMetadataTypeEnum> =
-                    param_types_basic.iter().map(|ty| (*ty).into()).collect();
-                let ret_type = compiler.to_llvm_type(return_type)?;
-                match ret_type {
-                    super::super::Type::Basic(b) => match b {
-                        BasicTypeEnum::IntType(t) => t.fn_type(&param_metadata, false),
-                        BasicTypeEnum::FloatType(t) => t.fn_type(&param_metadata, false),
-                        BasicTypeEnum::PointerType(t) => t.fn_type(&param_metadata, false),
-                        BasicTypeEnum::StructType(t) => t.fn_type(&param_metadata, false),
-                        BasicTypeEnum::ArrayType(t) => t.fn_type(&param_metadata, false),
-                        BasicTypeEnum::VectorType(t) => t.fn_type(&param_metadata, false),
-                        BasicTypeEnum::ScalableVectorType(t) => t.fn_type(&param_metadata, false),
-                    },
-                    super::super::Type::Struct(s) => s.fn_type(&param_metadata, false),
-                    super::super::Type::Void => {
-                        compiler.context.void_type().fn_type(&param_metadata, false)
-                    }
-                    _ => {
-                        return Err(CompileError::InternalError(
-                            "Function return type must be a basic type, struct or void".to_string(),
-                            None,
-                        ))
-                    }
-                }
-            }
-            crate::ast::AstType::FunctionPointer {
-                param_types,
-                return_type,
-            } => {
-                let param_types_basic: Result<Vec<BasicTypeEnum>, CompileError> = param_types
-                    .iter()
-                    .map(|ty| {
-                        let llvm_ty = compiler.to_llvm_type(ty)?;
-                        match llvm_ty {
-                            super::super::Type::Basic(b) => Ok(b),
-                            super::super::Type::Struct(s) => Ok(s.into()),
-                            _ => Err(CompileError::InternalError(
-                                format!("Unsupported function argument type: {:?}", ty),
-                                None,
-                            )),
-                        }
-                    })
-                    .collect();
-                let param_types_basic = param_types_basic?;
-                let param_metadata: Vec<BasicMetadataTypeEnum> =
-                    param_types_basic.iter().map(|ty| (*ty).into()).collect();
-                let ret_type = compiler.to_llvm_type(return_type)?;
-                match ret_type {
-                    super::super::Type::Basic(b) => match b {
-                        BasicTypeEnum::IntType(t) => t.fn_type(&param_metadata, false),
-                        BasicTypeEnum::FloatType(t) => t.fn_type(&param_metadata, false),
-                        BasicTypeEnum::PointerType(t) => t.fn_type(&param_metadata, false),
-                        BasicTypeEnum::StructType(t) => t.fn_type(&param_metadata, false),
-                        BasicTypeEnum::ArrayType(t) => t.fn_type(&param_metadata, false),
-                        BasicTypeEnum::VectorType(t) => t.fn_type(&param_metadata, false),
-                        BasicTypeEnum::ScalableVectorType(t) => t.fn_type(&param_metadata, false),
-                    },
-                    super::super::Type::Struct(s) => s.fn_type(&param_metadata, false),
-                    super::super::Type::Void => {
-                        compiler.context.void_type().fn_type(&param_metadata, false)
-                    }
-                    _ => {
-                        return Err(CompileError::InternalError(
-                            "Function return type must be a basic type, struct or void".to_string(),
-                            None,
-                        ))
-                    }
-                }
-            }
-            t if t.is_ptr_type()
-                && t.ptr_inner()
-                    .map(|inner| matches!(inner, crate::ast::AstType::FunctionPointer { .. }))
-                    .unwrap_or(false) =>
-            {
-                let inner = t.ptr_inner().unwrap();
-                let inner_llvm_type = compiler.to_llvm_type(inner)?;
-                match inner_llvm_type {
-                    super::super::Type::Basic(inkwell::types::BasicTypeEnum::PointerType(
-                        _ptr_type,
-                    )) => {
-                        // For function pointers, we need to get the function type
-                        // Since we can't get it directly from the pointer type in newer LLVM,
-                        // we'll create a function type based on the AST type
-                        if let crate::ast::AstType::FunctionPointer {
-                            param_types,
-                            return_type,
-                        } = inner
-                        {
-                            let param_types_basic: Result<Vec<BasicTypeEnum>, CompileError> =
-                                param_types
-                                    .iter()
-                                    .map(|ty| {
-                                        let llvm_ty = compiler.to_llvm_type(ty)?;
-                                        match llvm_ty {
-                                            super::super::Type::Basic(b) => Ok(b),
-                                            super::super::Type::Struct(s) => Ok(s.into()),
-                                            _ => Err(CompileError::InternalError(
-                                                format!(
-                                                    "Unsupported function argument type: {:?}",
-                                                    ty
-                                                ),
-                                                None,
-                                            )),
-                                        }
-                                    })
-                                    .collect();
-                            let param_types_basic = param_types_basic?;
-                            let param_metadata: Vec<BasicMetadataTypeEnum> =
-                                param_types_basic.iter().map(|ty| (*ty).into()).collect();
-                            let ret_type = compiler.to_llvm_type(return_type.as_ref())?;
-                            match ret_type {
-                                super::super::Type::Basic(b) => match b {
-                                    BasicTypeEnum::IntType(t) => t.fn_type(&param_metadata, false),
-                                    BasicTypeEnum::FloatType(t) => {
-                                        t.fn_type(&param_metadata, false)
-                                    }
-                                    BasicTypeEnum::PointerType(t) => {
-                                        t.fn_type(&param_metadata, false)
-                                    }
-                                    BasicTypeEnum::StructType(t) => {
-                                        t.fn_type(&param_metadata, false)
-                                    }
-                                    BasicTypeEnum::ArrayType(t) => {
-                                        t.fn_type(&param_metadata, false)
-                                    }
-                                    BasicTypeEnum::VectorType(t) => {
-                                        t.fn_type(&param_metadata, false)
-                                    }
-                                    BasicTypeEnum::ScalableVectorType(t) => {
-                                        t.fn_type(&param_metadata, false)
-                                    }
-                                },
-                                super::super::Type::Struct(s) => s.fn_type(&param_metadata, false),
-                                super::super::Type::Void => {
-                                    compiler.context.void_type().fn_type(&param_metadata, false)
-                                }
-                                _ => {
-                                    return Err(CompileError::InternalError(
-                                        "Function return type must be a basic type, struct or void"
-                                            .to_string(),
-                                        None,
-                                    ))
-                                }
-                            }
-                        } else {
-                            return Err(CompileError::InternalError(
-                                "Expected function pointer type in pointer".to_string(),
-                                None,
-                            ));
-                        }
-                    }
-                    _ => {
-                        return Err(CompileError::TypeMismatch {
-                            expected: "function pointer".to_string(),
-                            found: format!("{:?}", inner_llvm_type),
-                            span: None,
-                        })
-                    }
-                }
-            }
-            _ => {
-                return Err(CompileError::TypeMismatch {
-                    expected: "function pointer".to_string(),
-                    found: format!("{:?}", var_type),
-                    span: None,
-                })
-            }
-        };
+        // Get function type and return type from the variable type
+        let (function_type, return_type_ref) = get_function_type_from_ast(compiler, &var_type)?;
 
-        // Compile arguments with type casting for function pointer calls
-        let mut compiled_args = Vec::with_capacity(args.len());
+        // Compile arguments
         let param_types = function_type.get_param_types();
-
-        for (i, arg) in args.iter().enumerate() {
-            let mut val = compiler.compile_expression(arg)?;
-
-            // Cast integer arguments to match expected parameter type if needed
-            if i < param_types.len() {
-                let expected_type = param_types[i];
-                if val.is_int_value() && expected_type.is_int_type() {
-                    let int_val = val.into_int_value();
-                    let expected_int_type = expected_type.into_int_type();
-                    if int_val.get_type().get_bit_width() != expected_int_type.get_bit_width() {
-                        // Need to cast
-                        if int_val.get_type().get_bit_width() < expected_int_type.get_bit_width() {
-                            // Sign extend
-                            val = compiler
-                                .builder
-                                .build_int_s_extend(int_val, expected_int_type, "extend")?
-                                .into();
-                        } else {
-                            // Truncate
-                            val = compiler
-                                .builder
-                                .build_int_truncate(int_val, expected_int_type, "trunc")?
-                                .into();
-                        }
-                    }
-                }
-            }
-
-            compiled_args.push(val);
-        }
-        let args_metadata: Vec<inkwell::values::BasicMetadataValueEnum> = compiled_args
-            .iter()
-            .map(|arg| {
-                inkwell::values::BasicMetadataValueEnum::try_from(*arg).map_err(|_| {
-                    CompileError::InternalError(
-                        "Failed to convert argument to metadata".to_string(),
-                        None,
-                    )
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let args_metadata = compile_and_convert_args(compiler, args, &param_types)?;
 
         // Cast the loaded pointer to the correct function type
         let casted_function_ptr = compiler.builder.build_pointer_cast(
             function_ptr.into_pointer_value(),
-            compiler.context.ptr_type(inkwell::AddressSpace::default()),
+            compiler.context.ptr_type(AddressSpace::default()),
             "casted_func_ptr",
         )?;
 
-        // Make indirect call using build_indirect_call for function pointers
+        // Make indirect call
         let call = compiler.builder.build_indirect_call(
             function_type,
             casted_function_ptr,
@@ -541,31 +425,9 @@ pub fn compile_function_call<'ctx>(
             "indirect_call",
         )?;
 
-        // Update generic_type_context based on the return type of the function pointer
-        match &var_type {
-            crate::ast::AstType::Function { return_type, .. }
-            | crate::ast::AstType::FunctionPointer { return_type, .. } => {
-                if let crate::ast::AstType::Generic {
-                    name: type_name,
-                    type_args,
-                } = return_type.as_ref()
-                {
-                    if compiler.well_known.is_result(type_name) && type_args.len() == 2 {
-                        compiler
-                            .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                        compiler.track_generic_type(
-                            "Result_Err_Type".to_string(),
-                            type_args[1].clone(),
-                        );
-                    } else if compiler.well_known.is_option(type_name) && type_args.len() == 1 {
-                        compiler.track_generic_type(
-                            "Option_Some_Type".to_string(),
-                            type_args[0].clone(),
-                        );
-                    }
-                }
-            }
-            _ => {}
+        // Update generic_type_context for Result/Option return types
+        if let Some(ret_type) = return_type_ref {
+            track_generic_return_type(compiler, ret_type);
         }
 
         // Check if the function returns void
@@ -607,7 +469,7 @@ fn compile_cast_builtin<'ctx>(
 
     // Infer the source type BEFORE compiling (so we know signedness)
     let source_type =
-        super::super::expressions::inference::infer_expression_type(compiler, &args[0])
+        crate::codegen::llvm::expressions::inference::infer_expression_type(compiler, &args[0])
             .unwrap_or(crate::ast::AstType::I32); // Default to signed i32 if inference fails
 
     // Compile the value to cast
@@ -648,7 +510,7 @@ fn compile_cast_builtin<'ctx>(
     // Get the LLVM target type
     let llvm_target_type = compiler.to_llvm_type(&target_type)?;
     let target_basic_type = match llvm_target_type {
-        super::super::Type::Basic(b) => b,
+        crate::codegen::llvm::Type::Basic(b) => b,
         _ => {
             return Err(CompileError::TypeError(
                 "cast() target must be a basic type".to_string(),
@@ -752,4 +614,104 @@ fn compile_cast_builtin<'ctx>(
             None,
         )),
     }
+}
+
+/// Convert a pointer value (e.g., string literal) to a String struct if needed.
+/// Returns the original value unchanged if conversion is not applicable.
+///
+/// This handles the case where a string literal is passed to a function expecting
+/// a String struct. The String struct layout is: { ptr (data), i64 (len), i64 (capacity), ptr (allocator) }
+fn maybe_convert_ptr_to_string_struct<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    val: BasicValueEnum<'ctx>,
+    expected_type: BasicMetadataTypeEnum<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    // Only convert if value is a pointer
+    if !val.is_pointer_value() {
+        return Ok(val);
+    }
+
+    // Convert metadata type to basic type for struct check
+    let basic_type: BasicTypeEnum = match expected_type {
+        BasicMetadataTypeEnum::ArrayType(t) => t.into(),
+        BasicMetadataTypeEnum::FloatType(t) => t.into(),
+        BasicMetadataTypeEnum::IntType(t) => t.into(),
+        BasicMetadataTypeEnum::PointerType(t) => t.into(),
+        BasicMetadataTypeEnum::StructType(t) => t.into(),
+        BasicMetadataTypeEnum::VectorType(t) => t.into(),
+        BasicMetadataTypeEnum::ScalableVectorType(t) => t.into(),
+        BasicMetadataTypeEnum::MetadataType(_) => return Ok(val),
+    };
+
+    if !basic_type.is_struct_type() {
+        return Ok(val);
+    }
+
+    let struct_type = basic_type.into_struct_type();
+
+    // Check if expected struct matches the registered String type
+    let is_string_struct = if let Some(string_info) = compiler.struct_types.get("String") {
+        string_info.llvm_type == struct_type
+    } else {
+        // Fallback: check struct layout matches String pattern (4 fields: ptr, i64, i64, ptr)
+        if struct_type.count_fields() == 4 {
+            let field_types = struct_type.get_field_types();
+            field_types.len() == 4
+                && field_types[0].is_pointer_type()
+                && field_types[1].is_int_type()
+                && field_types[2].is_int_type()
+                && field_types[3].is_pointer_type()
+        } else {
+            false
+        }
+    };
+
+    if !is_string_struct {
+        return Ok(val);
+    }
+
+    // Convert pointer to String struct
+    let ptr_val = val.into_pointer_value();
+
+    // Get or declare strlen to compute the length
+    let strlen_fn = compiler.module.get_function("strlen").unwrap_or_else(|| {
+        let i64_type = compiler.context.i64_type();
+        let ptr_type = compiler.context.ptr_type(AddressSpace::default());
+        let fn_type = i64_type.fn_type(&[ptr_type.into()], false);
+        compiler.module.add_function("strlen", fn_type, None)
+    });
+
+    // Call strlen to get the length
+    let strlen_call = compiler.builder.build_call(
+        strlen_fn,
+        &[ptr_val.into()],
+        "str_len"
+    )?;
+    let len_val = strlen_call.try_as_basic_value().left()
+        .ok_or_else(|| CompileError::InternalError(
+            "strlen should return a value".to_string(),
+            None,
+        ))?
+        .into_int_value();
+
+    // Build the String struct: { data, len, capacity, allocator }
+    let null_ptr = compiler.context.ptr_type(AddressSpace::default()).const_null();
+
+    // Allocate stack space for the struct and populate fields
+    let struct_alloca = compiler.builder.build_alloca(struct_type, "string_struct")?;
+
+    let data_ptr = compiler.builder.build_struct_gep(struct_type, struct_alloca, 0, "data_ptr")?;
+    compiler.builder.build_store(data_ptr, ptr_val)?;
+
+    let len_ptr = compiler.builder.build_struct_gep(struct_type, struct_alloca, 1, "len_ptr")?;
+    compiler.builder.build_store(len_ptr, len_val)?;
+
+    let cap_ptr = compiler.builder.build_struct_gep(struct_type, struct_alloca, 2, "cap_ptr")?;
+    compiler.builder.build_store(cap_ptr, len_val)?;
+
+    let alloc_ptr = compiler.builder.build_struct_gep(struct_type, struct_alloca, 3, "alloc_ptr")?;
+    compiler.builder.build_store(alloc_ptr, null_ptr)?;
+
+    // Load and return the complete struct
+    Ok(compiler.builder.build_load(struct_type, struct_alloca, "string_val")?)
 }

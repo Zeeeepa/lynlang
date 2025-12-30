@@ -1,6 +1,6 @@
 //! Core module codegen - assert, panic
 
-use super::super::LLVMCompiler;
+use crate::codegen::llvm::LLVMCompiler;
 use crate::ast;
 use crate::error::CompileError;
 use inkwell::values::BasicValueEnum;
