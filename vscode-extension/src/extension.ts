@@ -28,7 +28,6 @@ class ZenCodeLensProvider implements vscode.CodeLensProvider {
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            const lineObj = document.lineAt(i);
 
             // Check for main or build functions (these get both Run and Build buttons)
             if (mainPattern.test(line)) {
@@ -182,11 +181,12 @@ export function activate(context: vscode.ExtensionContext) {
                 if (stderr) outputChannel.appendLine('STDERR:\n' + stderr);
                 outputChannel.appendLine('---');
                 outputChannel.appendLine(`✓ ${functionName} completed successfully`);
-            } catch (error: any) {
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : String(error);
                 outputChannel.appendLine(`✗ Error running ${functionName}:`);
-                outputChannel.appendLine(error.message);
+                outputChannel.appendLine(message);
                 outputChannel.appendLine('---');
-                vscode.window.showErrorMessage(`Failed to run ${functionName}: ${error.message}`);
+                vscode.window.showErrorMessage(`Failed to run ${functionName}: ${message}`);
             }
         })
     );
@@ -217,11 +217,12 @@ export function activate(context: vscode.ExtensionContext) {
                 if (stderr) outputChannel.appendLine('STDERR:\n' + stderr);
                 outputChannel.appendLine('---');
                 outputChannel.appendLine(`✓ Build completed successfully`);
-            } catch (error: any) {
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : String(error);
                 outputChannel.appendLine(`✗ Build failed:`);
-                outputChannel.appendLine(error.message);
+                outputChannel.appendLine(message);
                 outputChannel.appendLine('---');
-                vscode.window.showErrorMessage(`Build failed: ${error.message}`);
+                vscode.window.showErrorMessage(`Build failed: ${message}`);
             }
         })
     );

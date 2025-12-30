@@ -4,6 +4,35 @@ use crate::error::CompileError;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
+/// Macro to reduce boilerplate when registering compiler intrinsics.
+/// Usage: register_intrinsic!(map, "name" => (param: Type, ...) -> ReturnType)
+macro_rules! register_intrinsic {
+    // Simple case: no params
+    ($map:expr, $name:literal => () -> $ret:expr) => {
+        $map.insert(
+            $name.to_string(),
+            StdFunction {
+                name: $name.to_string(),
+                params: vec![],
+                return_type: $ret,
+                is_builtin: true,
+            },
+        )
+    };
+    // With params
+    ($map:expr, $name:literal => ($($param:ident : $ptype:expr),+ $(,)?) -> $ret:expr) => {
+        $map.insert(
+            $name.to_string(),
+            StdFunction {
+                name: $name.to_string(),
+                params: vec![$((stringify!($param).to_string(), $ptype)),+],
+                return_type: $ret,
+                is_builtin: true,
+            },
+        )
+    };
+}
+
 /// The @std.compiler module provides low-level compiler intrinsics
 /// These are the ONLY primitives exposed - everything else is built in Zen
 ///
@@ -68,672 +97,107 @@ impl CompilerModule {
         let mut functions = HashMap::new();
         let types = HashMap::new();
 
-        // inline.c() - Inline C code compilation
-        functions.insert(
-            "inline_c".to_string(),
-            StdFunction {
-                name: "inline_c".to_string(),
-                params: vec![("code".to_string(), AstType::StaticString)],
-                return_type: AstType::Void,
-                is_builtin: true,
-            },
-        );
+        // Type aliases for readability
+        let ptr_u8 = AstType::ptr(AstType::U8);
+        let raw_ptr_u8 = AstType::raw_ptr(AstType::U8);
+        let raw_ptr_u64 = AstType::raw_ptr(AstType::U64);
+        let generic_t = AstType::Generic {
+            name: "T".to_string(),
+            type_args: vec![],
+        };
+        let overflow_result = AstType::Struct {
+            name: "OverflowResult".to_string(),
+            fields: vec![
+                ("result".to_string(), AstType::I64),
+                ("overflow".to_string(), AstType::Bool),
+            ],
+        };
+
+        // Inline C
+        register_intrinsic!(functions, "inline_c" => (code: AstType::StaticString) -> AstType::Void);
 
         // Memory primitives
-        functions.insert(
-            "raw_allocate".to_string(),
-            StdFunction {
-                name: "raw_allocate".to_string(),
-                params: vec![("size".to_string(), AstType::Usize)],
-                return_type: AstType::ptr(AstType::U8),
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "raw_deallocate".to_string(),
-            StdFunction {
-                name: "raw_deallocate".to_string(),
-                params: vec![
-                    ("ptr".to_string(), AstType::ptr(AstType::U8)),
-                    ("size".to_string(), AstType::Usize),
-                ],
-                return_type: AstType::Void,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "raw_reallocate".to_string(),
-            StdFunction {
-                name: "raw_reallocate".to_string(),
-                params: vec![
-                    ("ptr".to_string(), AstType::ptr(AstType::U8)),
-                    ("old_size".to_string(), AstType::Usize),
-                    ("new_size".to_string(), AstType::Usize),
-                ],
-                return_type: AstType::ptr(AstType::U8),
-                is_builtin: true,
-            },
-        );
+        register_intrinsic!(functions, "raw_allocate" => (size: AstType::Usize) -> ptr_u8.clone());
+        register_intrinsic!(functions, "raw_deallocate" => (ptr: ptr_u8.clone(), size: AstType::Usize) -> AstType::Void);
+        register_intrinsic!(functions, "raw_reallocate" => (ptr: ptr_u8.clone(), old_size: AstType::Usize, new_size: AstType::Usize) -> ptr_u8.clone());
 
         // Raw pointer operations
-        functions.insert(
-            "raw_ptr_offset".to_string(),
-            StdFunction {
-                name: "raw_ptr_offset".to_string(),
-                params: vec![
-                    ("ptr".to_string(), AstType::raw_ptr(AstType::U8)),
-                    ("offset".to_string(), AstType::I64), // Signed offset for pointer arithmetic
-                ],
-                return_type: AstType::raw_ptr(AstType::U8),
-                is_builtin: true,
-            },
-        );
+        register_intrinsic!(functions, "raw_ptr_offset" => (ptr: raw_ptr_u8.clone(), offset: AstType::I64) -> raw_ptr_u8.clone());
+        register_intrinsic!(functions, "raw_ptr_cast" => (ptr: raw_ptr_u8.clone()) -> raw_ptr_u8.clone());
 
-        functions.insert(
-            "raw_ptr_cast".to_string(),
-            StdFunction {
-                name: "raw_ptr_cast".to_string(),
-                params: vec![("ptr".to_string(), AstType::raw_ptr(AstType::U8))],
-                return_type: AstType::raw_ptr(AstType::U8), // Generic would be better
-                is_builtin: true,
-            },
-        );
-
-        // Type introspection - size of type in bytes
-        functions.insert(
-            "sizeof".to_string(),
-            StdFunction {
-                name: "sizeof".to_string(),
-                params: vec![],
-                return_type: AstType::Usize,
-                is_builtin: true,
-            },
-        );
+        // Type introspection
+        register_intrinsic!(functions, "sizeof" => () -> AstType::Usize);
+        register_intrinsic!(functions, "alignof" => () -> AstType::Usize);
 
         // Function calling primitives
-        functions.insert(
-            "call_external".to_string(),
-            StdFunction {
-                name: "call_external".to_string(),
-                params: vec![
-                    (
-                        "func_ptr".to_string(),
-                        AstType::raw_ptr(AstType::U8),
-                    ),
-                    ("args".to_string(), AstType::raw_ptr(AstType::U8)), // Args array as raw pointer
-                ],
-                return_type: AstType::raw_ptr(AstType::U8),
-                is_builtin: true,
-            },
-        );
+        register_intrinsic!(functions, "call_external" => (func_ptr: raw_ptr_u8.clone(), args: raw_ptr_u8.clone()) -> raw_ptr_u8.clone());
 
         // Library loading primitives
-        functions.insert(
-            "load_library".to_string(),
-            StdFunction {
-                name: "load_library".to_string(),
-                params: vec![("path".to_string(), AstType::StaticString)],
-                return_type: AstType::raw_ptr(AstType::U8), // Library handle
-                is_builtin: true,
-            },
-        );
+        register_intrinsic!(functions, "load_library" => (path: AstType::StaticString) -> raw_ptr_u8.clone());
+        register_intrinsic!(functions, "get_symbol" => (lib_handle: raw_ptr_u8.clone(), symbol_name: AstType::StaticString) -> raw_ptr_u8.clone());
+        register_intrinsic!(functions, "unload_library" => (lib_handle: raw_ptr_u8.clone()) -> AstType::Void);
+        register_intrinsic!(functions, "dlerror" => () -> raw_ptr_u8.clone());
 
-        functions.insert(
-            "get_symbol".to_string(),
-            StdFunction {
-                name: "get_symbol".to_string(),
-                params: vec![
-                    (
-                        "lib_handle".to_string(),
-                        AstType::raw_ptr(AstType::U8),
-                    ),
-                    ("symbol_name".to_string(), AstType::StaticString),
-                ],
-                return_type: AstType::raw_ptr(AstType::U8), // Function pointer
-                is_builtin: true,
-            },
-        );
+        // Enum intrinsics
+        register_intrinsic!(functions, "discriminant" => (enum_value: raw_ptr_u8.clone()) -> AstType::I32);
+        register_intrinsic!(functions, "set_discriminant" => (enum_ptr: raw_ptr_u8.clone(), discriminant: AstType::I32) -> AstType::Void);
+        register_intrinsic!(functions, "get_payload" => (enum_value: raw_ptr_u8.clone()) -> raw_ptr_u8.clone());
+        register_intrinsic!(functions, "set_payload" => (enum_ptr: raw_ptr_u8.clone(), payload: raw_ptr_u8.clone()) -> AstType::Void);
 
-        functions.insert(
-            "unload_library".to_string(),
-            StdFunction {
-                name: "unload_library".to_string(),
-                params: vec![(
-                    "lib_handle".to_string(),
-                    AstType::raw_ptr(AstType::U8),
-                )],
-                return_type: AstType::Void,
-                is_builtin: true,
-            },
-        );
+        // Pointer arithmetic intrinsics (GEP)
+        register_intrinsic!(functions, "gep" => (base_ptr: raw_ptr_u8.clone(), offset: AstType::I64) -> raw_ptr_u8.clone());
+        register_intrinsic!(functions, "gep_struct" => (struct_ptr: raw_ptr_u8.clone(), field_index: AstType::I32) -> raw_ptr_u8.clone());
 
-        functions.insert(
-            "dlerror".to_string(),
-            StdFunction {
-                name: "dlerror".to_string(),
-                params: vec![],
-                return_type: AstType::raw_ptr(AstType::U8), // Error message string or null
-                is_builtin: true,
-            },
-        );
+        // Memory load/store intrinsics (generic)
+        register_intrinsic!(functions, "load" => (ptr: raw_ptr_u8.clone()) -> generic_t.clone());
+        register_intrinsic!(functions, "store" => (ptr: raw_ptr_u8.clone(), value: generic_t.clone()) -> AstType::Void);
 
-        // Enum intrinsics - exposed for pattern matching and enum manipulation
-        functions.insert(
-            "discriminant".to_string(),
-            StdFunction {
-                name: "discriminant".to_string(),
-                params: vec![(
-                    "enum_value".to_string(),
-                    AstType::raw_ptr(AstType::U8),
-                )],
-                return_type: AstType::I32,
-                is_builtin: true,
-            },
-        );
+        // Pointer <-> Integer conversion
+        register_intrinsic!(functions, "ptr_to_int" => (ptr: raw_ptr_u8.clone()) -> AstType::I64);
+        register_intrinsic!(functions, "int_to_ptr" => (addr: AstType::I64) -> raw_ptr_u8.clone());
 
-        functions.insert(
-            "set_discriminant".to_string(),
-            StdFunction {
-                name: "set_discriminant".to_string(),
-                params: vec![
-                    (
-                        "enum_ptr".to_string(),
-                        AstType::raw_ptr(AstType::U8),
-                    ),
-                    ("discriminant".to_string(), AstType::I32),
-                ],
-                return_type: AstType::Void,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "get_payload".to_string(),
-            StdFunction {
-                name: "get_payload".to_string(),
-                params: vec![(
-                    "enum_value".to_string(),
-                    AstType::raw_ptr(AstType::U8),
-                )],
-                return_type: AstType::raw_ptr(AstType::U8),
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "set_payload".to_string(),
-            StdFunction {
-                name: "set_payload".to_string(),
-                params: vec![
-                    (
-                        "enum_ptr".to_string(),
-                        AstType::raw_ptr(AstType::U8),
-                    ),
-                    (
-                        "payload".to_string(),
-                        AstType::raw_ptr(AstType::U8),
-                    ),
-                ],
-                return_type: AstType::Void,
-                is_builtin: true,
-            },
-        );
-
-        // Pointer arithmetic intrinsic - GEP (GetElementPointer)
-        functions.insert(
-            "gep".to_string(),
-            StdFunction {
-                name: "gep".to_string(),
-                params: vec![
-                    (
-                        "base_ptr".to_string(),
-                        AstType::raw_ptr(AstType::U8),
-                    ),
-                    ("offset".to_string(), AstType::I64),
-                ],
-                return_type: AstType::raw_ptr(AstType::U8),
-                is_builtin: true,
-            },
-        );
-
-        // Memory load/store intrinsics - generic functions
-        functions.insert(
-            "load".to_string(),
-            StdFunction {
-                name: "load".to_string(),
-                params: vec![("ptr".to_string(), AstType::raw_ptr(AstType::U8))],
-                return_type: AstType::Generic {
-                    name: "T".to_string(),
-                    type_args: vec![],
-                },
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "store".to_string(),
-            StdFunction {
-                name: "store".to_string(),
-                params: vec![
-                    ("ptr".to_string(), AstType::raw_ptr(AstType::U8)),
-                    (
-                        "value".to_string(),
-                        AstType::Generic {
-                            name: "T".to_string(),
-                            type_args: vec![],
-                        },
-                    ),
-                ],
-                return_type: AstType::Void,
-                is_builtin: true,
-            },
-        );
-
-        // Pointer <-> Integer conversion intrinsics (replaces 'as' keyword)
-        functions.insert(
-            "ptr_to_int".to_string(),
-            StdFunction {
-                name: "ptr_to_int".to_string(),
-                params: vec![("ptr".to_string(), AstType::raw_ptr(AstType::U8))],
-                return_type: AstType::I64,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "int_to_ptr".to_string(),
-            StdFunction {
-                name: "int_to_ptr".to_string(),
-                params: vec![("addr".to_string(), AstType::I64)],
-                return_type: AstType::raw_ptr(AstType::U8),
-                is_builtin: true,
-            },
-        );
-
-        // Null pointer constant
-        functions.insert(
-            "null_ptr".to_string(),
-            StdFunction {
-                name: "null_ptr".to_string(),
-                params: vec![],
-                return_type: AstType::raw_ptr(AstType::U8),
-                is_builtin: true,
-            },
-        );
-
-        // Alias for null_ptr (common naming convention)
-        functions.insert(
-            "nullptr".to_string(),
-            StdFunction {
-                name: "nullptr".to_string(),
-                params: vec![],
-                return_type: AstType::raw_ptr(AstType::U8),
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "gep_struct".to_string(),
-            StdFunction {
-                name: "gep_struct".to_string(),
-                params: vec![
-                    (
-                        "struct_ptr".to_string(),
-                        AstType::raw_ptr(AstType::U8),
-                    ),
-                    ("field_index".to_string(), AstType::I32),
-                ],
-                return_type: AstType::raw_ptr(AstType::U8),
-                is_builtin: true,
-            },
-        );
+        // Null pointer constants
+        register_intrinsic!(functions, "null_ptr" => () -> raw_ptr_u8.clone());
+        register_intrinsic!(functions, "nullptr" => () -> raw_ptr_u8.clone());
 
         // Memory operations
-        functions.insert(
-            "memcpy".to_string(),
-            StdFunction {
-                name: "memcpy".to_string(),
-                params: vec![
-                    ("dest".to_string(), AstType::raw_ptr(AstType::U8)),
-                    ("src".to_string(), AstType::raw_ptr(AstType::U8)),
-                    ("size".to_string(), AstType::Usize),
-                ],
-                return_type: AstType::Void,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "memmove".to_string(),
-            StdFunction {
-                name: "memmove".to_string(),
-                params: vec![
-                    ("dest".to_string(), AstType::raw_ptr(AstType::U8)),
-                    ("src".to_string(), AstType::raw_ptr(AstType::U8)),
-                    ("size".to_string(), AstType::Usize),
-                ],
-                return_type: AstType::Void,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "memset".to_string(),
-            StdFunction {
-                name: "memset".to_string(),
-                params: vec![
-                    ("dest".to_string(), AstType::raw_ptr(AstType::U8)),
-                    ("value".to_string(), AstType::U8),
-                    ("size".to_string(), AstType::Usize),
-                ],
-                return_type: AstType::Void,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "memcmp".to_string(),
-            StdFunction {
-                name: "memcmp".to_string(),
-                params: vec![
-                    ("ptr1".to_string(), AstType::raw_ptr(AstType::U8)),
-                    ("ptr2".to_string(), AstType::raw_ptr(AstType::U8)),
-                    ("size".to_string(), AstType::Usize),
-                ],
-                return_type: AstType::I32,
-                is_builtin: true,
-            },
-        );
+        register_intrinsic!(functions, "memcpy" => (dest: raw_ptr_u8.clone(), src: raw_ptr_u8.clone(), size: AstType::Usize) -> AstType::Void);
+        register_intrinsic!(functions, "memmove" => (dest: raw_ptr_u8.clone(), src: raw_ptr_u8.clone(), size: AstType::Usize) -> AstType::Void);
+        register_intrinsic!(functions, "memset" => (dest: raw_ptr_u8.clone(), value: AstType::U8, size: AstType::Usize) -> AstType::Void);
+        register_intrinsic!(functions, "memcmp" => (ptr1: raw_ptr_u8.clone(), ptr2: raw_ptr_u8.clone(), size: AstType::Usize) -> AstType::I32);
 
         // Bitwise operations
-        functions.insert(
-            "bswap16".to_string(),
-            StdFunction {
-                name: "bswap16".to_string(),
-                params: vec![("value".to_string(), AstType::U16)],
-                return_type: AstType::U16,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "bswap32".to_string(),
-            StdFunction {
-                name: "bswap32".to_string(),
-                params: vec![("value".to_string(), AstType::U32)],
-                return_type: AstType::U32,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "bswap64".to_string(),
-            StdFunction {
-                name: "bswap64".to_string(),
-                params: vec![("value".to_string(), AstType::U64)],
-                return_type: AstType::U64,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "ctlz".to_string(),
-            StdFunction {
-                name: "ctlz".to_string(),
-                params: vec![("value".to_string(), AstType::U64)],
-                return_type: AstType::U64,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "cttz".to_string(),
-            StdFunction {
-                name: "cttz".to_string(),
-                params: vec![("value".to_string(), AstType::U64)],
-                return_type: AstType::U64,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "ctpop".to_string(),
-            StdFunction {
-                name: "ctpop".to_string(),
-                params: vec![("value".to_string(), AstType::U64)],
-                return_type: AstType::U64,
-                is_builtin: true,
-            },
-        );
+        register_intrinsic!(functions, "bswap16" => (value: AstType::U16) -> AstType::U16);
+        register_intrinsic!(functions, "bswap32" => (value: AstType::U32) -> AstType::U32);
+        register_intrinsic!(functions, "bswap64" => (value: AstType::U64) -> AstType::U64);
+        register_intrinsic!(functions, "ctlz" => (value: AstType::U64) -> AstType::U64);
+        register_intrinsic!(functions, "cttz" => (value: AstType::U64) -> AstType::U64);
+        register_intrinsic!(functions, "ctpop" => (value: AstType::U64) -> AstType::U64);
 
         // Atomic operations
-        functions.insert(
-            "atomic_load".to_string(),
-            StdFunction {
-                name: "atomic_load".to_string(),
-                params: vec![("ptr".to_string(), AstType::raw_ptr(AstType::U64))],
-                return_type: AstType::U64,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "atomic_store".to_string(),
-            StdFunction {
-                name: "atomic_store".to_string(),
-                params: vec![
-                    ("ptr".to_string(), AstType::raw_ptr(AstType::U64)),
-                    ("value".to_string(), AstType::U64),
-                ],
-                return_type: AstType::Void,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "atomic_add".to_string(),
-            StdFunction {
-                name: "atomic_add".to_string(),
-                params: vec![
-                    ("ptr".to_string(), AstType::raw_ptr(AstType::U64)),
-                    ("value".to_string(), AstType::U64),
-                ],
-                return_type: AstType::U64,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "atomic_sub".to_string(),
-            StdFunction {
-                name: "atomic_sub".to_string(),
-                params: vec![
-                    ("ptr".to_string(), AstType::raw_ptr(AstType::U64)),
-                    ("value".to_string(), AstType::U64),
-                ],
-                return_type: AstType::U64,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "atomic_cas".to_string(),
-            StdFunction {
-                name: "atomic_cas".to_string(),
-                params: vec![
-                    ("ptr".to_string(), AstType::raw_ptr(AstType::U64)),
-                    ("expected".to_string(), AstType::U64),
-                    ("new_value".to_string(), AstType::U64),
-                ],
-                return_type: AstType::Bool,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "atomic_xchg".to_string(),
-            StdFunction {
-                name: "atomic_xchg".to_string(),
-                params: vec![
-                    ("ptr".to_string(), AstType::raw_ptr(AstType::U64)),
-                    ("value".to_string(), AstType::U64),
-                ],
-                return_type: AstType::U64,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "fence".to_string(),
-            StdFunction {
-                name: "fence".to_string(),
-                params: vec![],
-                return_type: AstType::Void,
-                is_builtin: true,
-            },
-        );
+        register_intrinsic!(functions, "atomic_load" => (ptr: raw_ptr_u64.clone()) -> AstType::U64);
+        register_intrinsic!(functions, "atomic_store" => (ptr: raw_ptr_u64.clone(), value: AstType::U64) -> AstType::Void);
+        register_intrinsic!(functions, "atomic_add" => (ptr: raw_ptr_u64.clone(), value: AstType::U64) -> AstType::U64);
+        register_intrinsic!(functions, "atomic_sub" => (ptr: raw_ptr_u64.clone(), value: AstType::U64) -> AstType::U64);
+        register_intrinsic!(functions, "atomic_cas" => (ptr: raw_ptr_u64.clone(), expected: AstType::U64, new_value: AstType::U64) -> AstType::Bool);
+        register_intrinsic!(functions, "atomic_xchg" => (ptr: raw_ptr_u64.clone(), value: AstType::U64) -> AstType::U64);
+        register_intrinsic!(functions, "fence" => () -> AstType::Void);
 
         // Overflow-checked arithmetic
-        functions.insert(
-            "add_overflow".to_string(),
-            StdFunction {
-                name: "add_overflow".to_string(),
-                params: vec![
-                    ("a".to_string(), AstType::I64),
-                    ("b".to_string(), AstType::I64),
-                ],
-                return_type: AstType::Struct {
-                    name: "OverflowResult".to_string(),
-                    fields: vec![
-                        ("result".to_string(), AstType::I64),
-                        ("overflow".to_string(), AstType::Bool),
-                    ],
-                },
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "sub_overflow".to_string(),
-            StdFunction {
-                name: "sub_overflow".to_string(),
-                params: vec![
-                    ("a".to_string(), AstType::I64),
-                    ("b".to_string(), AstType::I64),
-                ],
-                return_type: AstType::Struct {
-                    name: "OverflowResult".to_string(),
-                    fields: vec![
-                        ("result".to_string(), AstType::I64),
-                        ("overflow".to_string(), AstType::Bool),
-                    ],
-                },
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "mul_overflow".to_string(),
-            StdFunction {
-                name: "mul_overflow".to_string(),
-                params: vec![
-                    ("a".to_string(), AstType::I64),
-                    ("b".to_string(), AstType::I64),
-                ],
-                return_type: AstType::Struct {
-                    name: "OverflowResult".to_string(),
-                    fields: vec![
-                        ("result".to_string(), AstType::I64),
-                        ("overflow".to_string(), AstType::Bool),
-                    ],
-                },
-                is_builtin: true,
-            },
-        );
+        register_intrinsic!(functions, "add_overflow" => (a: AstType::I64, b: AstType::I64) -> overflow_result.clone());
+        register_intrinsic!(functions, "sub_overflow" => (a: AstType::I64, b: AstType::I64) -> overflow_result.clone());
+        register_intrinsic!(functions, "mul_overflow" => (a: AstType::I64, b: AstType::I64) -> overflow_result.clone());
 
         // Type conversion intrinsics
-        functions.insert(
-            "trunc_f64_i64".to_string(),
-            StdFunction {
-                name: "trunc_f64_i64".to_string(),
-                params: vec![("value".to_string(), AstType::F64)],
-                return_type: AstType::I64,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "trunc_f32_i32".to_string(),
-            StdFunction {
-                name: "trunc_f32_i32".to_string(),
-                params: vec![("value".to_string(), AstType::F32)],
-                return_type: AstType::I32,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "sitofp_i64_f64".to_string(),
-            StdFunction {
-                name: "sitofp_i64_f64".to_string(),
-                params: vec![("value".to_string(), AstType::I64)],
-                return_type: AstType::F64,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "uitofp_u64_f64".to_string(),
-            StdFunction {
-                name: "uitofp_u64_f64".to_string(),
-                params: vec![("value".to_string(), AstType::U64)],
-                return_type: AstType::F64,
-                is_builtin: true,
-            },
-        );
+        register_intrinsic!(functions, "trunc_f64_i64" => (value: AstType::F64) -> AstType::I64);
+        register_intrinsic!(functions, "trunc_f32_i32" => (value: AstType::F32) -> AstType::I32);
+        register_intrinsic!(functions, "sitofp_i64_f64" => (value: AstType::I64) -> AstType::F64);
+        register_intrinsic!(functions, "uitofp_u64_f64" => (value: AstType::U64) -> AstType::F64);
 
         // Debug/introspection
-        functions.insert(
-            "alignof".to_string(),
-            StdFunction {
-                name: "alignof".to_string(),
-                params: vec![],
-                return_type: AstType::Usize,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "unreachable".to_string(),
-            StdFunction {
-                name: "unreachable".to_string(),
-                params: vec![],
-                return_type: AstType::Void,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "trap".to_string(),
-            StdFunction {
-                name: "trap".to_string(),
-                params: vec![],
-                return_type: AstType::Void,
-                is_builtin: true,
-            },
-        );
-
-        functions.insert(
-            "debugtrap".to_string(),
-            StdFunction {
-                name: "debugtrap".to_string(),
-                params: vec![],
-                return_type: AstType::Void,
-                is_builtin: true,
-            },
-        );
+        register_intrinsic!(functions, "unreachable" => () -> AstType::Void);
+        register_intrinsic!(functions, "trap" => () -> AstType::Void);
+        register_intrinsic!(functions, "debugtrap" => () -> AstType::Void);
 
         CompilerModule { functions, types }
     }

@@ -12,381 +12,71 @@ pub mod math;
 // Re-export io functions for backward compatibility
 pub use io::*;
 
-// Note: Other modules (math, core, helpers, fs, compiler, collections) are
-// available via their module paths when needed
+// Re-export math functions
+pub use math::compile_math_function;
 
-// All functions are now delegated to their respective modules
-use super::LLVMCompiler;
-use crate::ast;
-use crate::error::CompileError;
-use inkwell::values::BasicValueEnum;
+// Re-export core functions
+pub use core::{compile_core_assert, compile_core_panic};
 
-// Delegate to math module
-pub fn compile_math_function<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    func_name: &str,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    math::compile_math_function(compiler, func_name, args)
-}
+// Re-export fs functions
+pub use fs::{
+    compile_fs_create_dir, compile_fs_exists, compile_fs_read_file, compile_fs_remove_file,
+    compile_fs_write_file,
+};
 
-// Delegate to core module
-pub fn compile_core_assert<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    core::compile_core_assert(compiler, args)
-}
+// Re-export helpers
+pub use helpers::{create_result_err, create_result_ok, create_result_ok_void};
 
-// Delegate to core module
-pub fn compile_core_panic<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    core::compile_core_panic(compiler, args)
-}
+// Re-export collections functions
+pub use collections::{compile_dynvec_new, compile_hashmap_new, compile_hashset_new};
 
-// Delegate to fs module
-pub fn compile_fs_read_file<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    fs::compile_fs_read_file(compiler, args)
-}
-
-// Delegate to fs module
-pub fn compile_fs_write_file<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    fs::compile_fs_write_file(compiler, args)
-}
-
-// Delegate to fs module
-pub fn compile_fs_exists<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    fs::compile_fs_exists(compiler, args)
-}
-
-// Delegate to fs module
-pub fn compile_fs_remove_file<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    fs::compile_fs_remove_file(compiler, args)
-}
-
-// Delegate to fs module
-pub fn compile_fs_create_dir<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    fs::compile_fs_create_dir(compiler, args)
-}
-
-// Delegate to helpers module
-pub fn create_result_ok<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    value: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    helpers::create_result_ok(compiler, value)
-}
-
-pub fn create_result_ok_void<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    helpers::create_result_ok_void(compiler)
-}
-
-pub fn create_result_err<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    error: BasicValueEnum<'ctx>,
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    helpers::create_result_err(compiler, error)
-}
-
-// Delegate to collections module
-pub fn compile_hashmap_new<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    collections::compile_hashmap_new(compiler, args)
-}
-
-// Delegate to collections module
-pub fn compile_hashset_new<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    collections::compile_hashset_new(compiler, args)
-}
-
-// Delegate to collections module
-pub fn compile_dynvec_new<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    collections::compile_dynvec_new(compiler, args)
-}
-
-// Delegate to compiler module
-pub fn compile_inline_c<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_inline_c(compiler, args)
-}
-
-// Delegate to compiler module
-pub fn compile_raw_allocate<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_raw_allocate(compiler, args)
-}
-
-// Delegate to compiler module
-pub fn compile_raw_deallocate<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_raw_deallocate(compiler, args)
-}
-
-// Delegate to compiler module
-pub fn compile_raw_reallocate<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_raw_reallocate(compiler, args)
-}
-
-// Delegate to compiler module
-pub fn compile_raw_ptr_offset<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_raw_ptr_offset(compiler, args)
-}
-
-// Delegate to compiler module
-pub fn compile_raw_ptr_cast<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_raw_ptr_cast(compiler, args)
-}
-
-// Delegate to compiler module
-pub fn compile_call_external<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_call_external(compiler, args)
-}
-
-// Delegate to compiler module
-pub fn compile_load_library<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_load_library(compiler, args)
-}
-
-// Delegate to compiler module
-pub fn compile_get_symbol<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_get_symbol(compiler, args)
-}
-
-// Delegate to compiler module
-pub fn compile_unload_library<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_unload_library(compiler, args)
-}
-
-// Delegate to compiler module
-pub fn compile_dlerror<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_dlerror(compiler, args)
-}
-
-// Delegate to compiler module - is_null helper
-pub fn compile_is_null<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_is_null(compiler, args)
-}
-
-// Delegate to compiler module
-pub fn compile_null_ptr<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_null_ptr(compiler, args)
-}
-
-// Delegate to compiler module - enum intrinsics
-pub fn compile_discriminant<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_discriminant(compiler, args)
-}
-
-pub fn compile_set_discriminant<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_set_discriminant(compiler, args)
-}
-
-pub fn compile_get_payload<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_get_payload(compiler, args)
-}
-
-pub fn compile_set_payload<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_set_payload(compiler, args)
-}
-
-// Delegate to compiler module - GEP intrinsics
-pub fn compile_gep<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_gep(compiler, args)
-}
-
-pub fn compile_gep_struct<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_gep_struct(compiler, args)
-}
-
-// Delegate to compiler module - load/store intrinsics
-pub fn compile_load<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-    type_arg: Option<&ast::AstType>,
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_load(compiler, args, type_arg)
-}
-
-pub fn compile_store<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-    type_arg: Option<&ast::AstType>,
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_store(compiler, args, type_arg)
-}
-
-// Delegate to compiler module - pointer conversion intrinsics
-pub fn compile_ptr_to_int<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_ptr_to_int(compiler, args)
-}
-
-pub fn compile_int_to_ptr<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_int_to_ptr(compiler, args)
-}
-
-// Delegate to compiler module - sizeof intrinsic
-pub fn compile_sizeof<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    type_arg: Option<&ast::AstType>,
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_sizeof(compiler, type_arg)
-}
-
-// Delegate to compiler module - memory intrinsics
-pub fn compile_memset<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_memset(compiler, args)
-}
-
-pub fn compile_memcpy<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_memcpy(compiler, args)
-}
-
-pub fn compile_memmove<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_memmove(compiler, args)
-}
-
-pub fn compile_memcmp<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_memcmp(compiler, args)
-}
-
-// Delegate to compiler module - bitwise intrinsics
-pub fn compile_bswap16<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_bswap16(compiler, args)
-}
-
-pub fn compile_bswap32<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_bswap32(compiler, args)
-}
-
-pub fn compile_bswap64<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_bswap64(compiler, args)
-}
-
-pub fn compile_ctlz<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_ctlz(compiler, args)
-}
-
-pub fn compile_cttz<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_cttz(compiler, args)
-}
-
-pub fn compile_ctpop<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    compiler::compile_ctpop(compiler, args)
-}
+// Re-export compiler intrinsics
+pub use compiler::{
+    // Inline C
+    compile_inline_c,
+    // Memory allocation
+    compile_raw_allocate,
+    compile_raw_deallocate,
+    compile_raw_reallocate,
+    // Pointer operations
+    compile_raw_ptr_cast,
+    compile_raw_ptr_offset,
+    // External calls
+    compile_call_external,
+    // Library loading
+    compile_dlerror,
+    compile_get_symbol,
+    compile_load_library,
+    compile_unload_library,
+    // Pointer utilities
+    compile_is_null,
+    compile_null_ptr,
+    // Enum intrinsics
+    compile_discriminant,
+    compile_get_payload,
+    compile_set_discriminant,
+    compile_set_payload,
+    // GEP intrinsics
+    compile_gep,
+    compile_gep_struct,
+    // Load/store intrinsics
+    compile_load,
+    compile_store,
+    // Pointer conversion
+    compile_int_to_ptr,
+    compile_ptr_to_int,
+    // Sizeof
+    compile_sizeof,
+    // Memory operations
+    compile_memcmp,
+    compile_memcpy,
+    compile_memmove,
+    compile_memset,
+    // Bitwise intrinsics
+    compile_bswap16,
+    compile_bswap32,
+    compile_bswap64,
+    compile_ctlz,
+    compile_ctpop,
+    compile_cttz,
+};
