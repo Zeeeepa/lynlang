@@ -177,6 +177,14 @@ fn run_file(file_path: &str) -> std::io::Result<()> {
         .create_jit_execution_engine(OptimizationLevel::None)
         .map_err(|e| io::Error::other(format!("Failed to create execution engine: {}", e)))?;
 
+    // Map __c_lib_mkdir to the actual mkdir symbol from libc
+    // This is needed because we use __c_lib_mkdir internally to avoid name collision
+    // with the Zen stdlib mkdir function
+    if let Some(mkdir_fn) = module.get_function("__c_lib_mkdir") {
+        let mkdir_ptr = libc::mkdir as *const ();
+        execution_engine.add_global_mapping(&mkdir_fn, mkdir_ptr as usize);
+    }
+
     let exit_code = match execution_engine.get_function_value("main") {
         Ok(main_fn) => {
             let main_type = main_fn.get_type();

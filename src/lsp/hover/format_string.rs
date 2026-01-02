@@ -4,6 +4,7 @@ use lsp_types::Position;
 use std::collections::HashMap;
 
 use crate::lsp::document_store::DocumentStore;
+use crate::lsp::helpers::char_pos_to_byte_pos;
 use crate::lsp::types::*;
 use crate::lsp::utils::format_type;
 use super::expressions::analyze_expression_hover;
@@ -27,6 +28,7 @@ pub fn get_format_string_field_hover(
 
     let current_line = lines[position.line as usize];
     let char_pos = position.character as usize;
+    let byte_pos = char_pos_to_byte_pos(current_line, char_pos);
 
     // Find format strings: "${...}" but not "\${...}" (escaped)
     // Limit search to prevent infinite loops
@@ -37,7 +39,7 @@ pub fn get_format_string_field_hover(
     while iterations < MAX_ITERATIONS {
         iterations += 1;
 
-        let search_range = search_pos..char_pos.min(current_line.len());
+        let search_range = search_pos..byte_pos;
         if search_range.is_empty() {
             break;
         }

@@ -1,6 +1,86 @@
 use crate::ast::{AstType, Expression};
 use std::collections::HashMap;
 
+/// Macro for declaring stdlib functions with minimal boilerplate.
+///
+/// Usage:
+/// ```ignore
+/// register_stdlib_fn!(functions,
+///     // Single param function
+///     sqrt(value: F64) -> F64,
+///     // Multi param function
+///     pow(base: F64, exp: F64) -> F64,
+/// );
+/// ```
+#[macro_export]
+macro_rules! register_stdlib_fn {
+    // Base case: no more functions
+    ($map:expr,) => {};
+
+    // Single parameter function
+    ($map:expr, $name:ident($param:ident: $ptype:ident) -> $ret:ident, $($rest:tt)*) => {
+        $map.insert(
+            stringify!($name).to_string(),
+            $crate::stdlib_metadata::StdFunction {
+                name: stringify!($name).to_string(),
+                params: vec![(stringify!($param).to_string(), $crate::ast::AstType::$ptype)],
+                return_type: $crate::ast::AstType::$ret,
+                is_builtin: true,
+            },
+        );
+        register_stdlib_fn!($map, $($rest)*);
+    };
+
+    // Two parameter function
+    ($map:expr, $name:ident($p1:ident: $t1:ident, $p2:ident: $t2:ident) -> $ret:ident, $($rest:tt)*) => {
+        $map.insert(
+            stringify!($name).to_string(),
+            $crate::stdlib_metadata::StdFunction {
+                name: stringify!($name).to_string(),
+                params: vec![
+                    (stringify!($p1).to_string(), $crate::ast::AstType::$t1),
+                    (stringify!($p2).to_string(), $crate::ast::AstType::$t2),
+                ],
+                return_type: $crate::ast::AstType::$ret,
+                is_builtin: true,
+            },
+        );
+        register_stdlib_fn!($map, $($rest)*);
+    };
+
+    // Three parameter function
+    ($map:expr, $name:ident($p1:ident: $t1:ident, $p2:ident: $t2:ident, $p3:ident: $t3:ident) -> $ret:ident, $($rest:tt)*) => {
+        $map.insert(
+            stringify!($name).to_string(),
+            $crate::stdlib_metadata::StdFunction {
+                name: stringify!($name).to_string(),
+                params: vec![
+                    (stringify!($p1).to_string(), $crate::ast::AstType::$t1),
+                    (stringify!($p2).to_string(), $crate::ast::AstType::$t2),
+                    (stringify!($p3).to_string(), $crate::ast::AstType::$t3),
+                ],
+                return_type: $crate::ast::AstType::$ret,
+                is_builtin: true,
+            },
+        );
+        register_stdlib_fn!($map, $($rest)*);
+    };
+
+    // No parameter function (returns value)
+    ($map:expr, $name:ident() -> $ret:ident, $($rest:tt)*) => {
+        $map.insert(
+            stringify!($name).to_string(),
+            $crate::stdlib_metadata::StdFunction {
+                name: stringify!($name).to_string(),
+                params: vec![],
+                return_type: $crate::ast::AstType::$ret,
+                is_builtin: true,
+            },
+        );
+        register_stdlib_fn!($map, $($rest)*);
+    };
+}
+
 pub mod build;
 pub mod compiler;
 pub mod core;

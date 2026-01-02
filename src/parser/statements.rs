@@ -766,7 +766,7 @@ impl<'a> Parser<'a> {
                     if statements.is_empty() {
                         Statement::Expression {
                             expr: Expression::Boolean(true),
-                            span: None,
+                            span: Some(self.current_span.clone()),
                         } // No-op
                     } else if statements.len() == 1 {
                         statements.into_iter().next().unwrap()

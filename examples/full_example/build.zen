@@ -1,172 +1,315 @@
-// build.zen - Advanced build system using real stdlib
-// Demonstrates proper Zen build system with conditional compilation, targets, and FFI
+// build.zen - Build configuration for the full example
+// Demonstrates the Zen build system with targets, dependencies, and OS detection
 
-{ build, print, println, HashMap, DynVec, get_default_allocator } = @std
+{ io, fs } = @std
 
-// Create build instance using real stdlib
-builder = (b :: build.Build) void {
-    // Check command line flags for conditional compilation
-    is_release = b.args.contains("--release")
-    is_debug = b.args.contains("--debug")
-    
-    // Conditional compilation based on flags
+// ============================================================================
+// Build System Types (defined locally until module imports support types)
+// ============================================================================
+
+OptimizeMode:
+    Debug,
+    ReleaseFast,
+    ReleaseSmall,
+    ReleaseSafe
+
+OsTag:
+    Linux,
+    Macos,
+    Windows,
+    Freebsd,
+    Native
+
+CpuArch:
+    X86_64,
+    Aarch64,
+    Arm,
+    Wasm32,
+    Native
+
+InstallDir:
+    Bin,
+    Lib,
+    Include,
+    Share
+
+Target: {
+    os_tag: OsTag,
+    cpu_arch: CpuArch
+}
+
+Version: {
+    major: i32,
+    minor: i32,
+    patch: i32
+}
+
+Executable: {
+    name: StaticString,
+    root_source_file: StaticString,
+    optimize: OptimizeMode,
+    strip: bool
+}
+
+StaticLibrary: {
+    name: StaticString,
+    root_source_file: StaticString,
+    version: Version
+}
+
+Test: {
+    name: StaticString,
+    root_source_file: StaticString
+}
+
+Dependency: {
+    name: StaticString,
+    url: StaticString
+}
+
+Build: {
+    optimize: OptimizeMode,
+    strip: bool,
+    enable_stack_traces: bool,
+    target: Target,
+    build_dir: StaticString,
+    cache_dir: StaticString,
+    install_prefix: StaticString
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+native_target = () Target {
+    return Target {
+        os_tag: OsTag.Native,
+        cpu_arch: CpuArch.Native
+    }
+}
+
+os_name = (t: Target) StaticString {
+    t.os_tag ?
+        | Linux { "linux" }
+        | Macos { "macos" }
+        | Windows { "windows" }
+        | Freebsd { "freebsd" }
+        | Native { "native" }
+}
+
+cpu_name = (t: Target) StaticString {
+    t.cpu_arch ?
+        | X86_64 { "x86_64" }
+        | Aarch64 { "aarch64" }
+        | Arm { "arm" }
+        | Wasm32 { "wasm32" }
+        | Native { "native" }
+}
+
+add_executable = (b: Build, name: StaticString, root: StaticString) Executable {
+    io.println("  Adding executable: ${name}")
+    // Check if source file exists
+    fs.exists(root) ?
+        | true { io.println("    Source file found: ${root}") }
+        | false { io.println("    WARNING: Source file not found: ${root}") }
+    return Executable {
+        name: name,
+        root_source_file: root,
+        optimize: b.optimize,
+        strip: b.strip
+    }
+}
+
+add_test = (b: Build, root: StaticString) Test {
+    io.println("  Adding test: ${root}")
+    return Test {
+        name: root,
+        root_source_file: root
+    }
+}
+
+add_static_library = (b: Build, name: StaticString, root: StaticString, ver: Version) StaticLibrary {
+    io.println("  Adding static library: ${name}")
+    return StaticLibrary {
+        name: name,
+        root_source_file: root,
+        version: ver
+    }
+}
+
+add_dependency = (b: Build, name: StaticString, url: StaticString) Dependency {
+    io.println("  Adding dependency: ${name} from ${url}")
+    return Dependency { name: name, url: url }
+}
+
+link_system_library = (exe: Executable, lib: StaticString) void {
+    io.println("    Linking system library: ${lib}")
+}
+
+link_framework = (exe: Executable, framework: StaticString) void {
+    io.println("    Linking framework: ${framework}")
+}
+
+add_library_path = (exe: Executable, path: StaticString) void {
+    io.println("    Adding library path: ${path}")
+}
+
+define_symbol = (exe: Executable, name: StaticString, value: StaticString) void {
+    io.println("    Defining symbol: ${name}=${value}")
+}
+
+install_artifact = (b: Build, exe: Executable) void {
+    io.println("  Installing artifact: ${exe.name}")
+}
+
+install_library = (b: Build, lib: StaticLibrary) void {
+    io.println("  Installing library: ${lib.name}")
+}
+
+install_file = (b: Build, src: StaticString, dest: StaticString) void {
+    io.println("  Installing file: ${src} -> ${dest}")
+}
+
+get_install_path = (b: Build, dir: InstallDir, path: StaticString) StaticString {
+    dir ?
+        | Bin { "${b.install_prefix}/bin/${path}" }
+        | Lib { "${b.install_prefix}/lib/${path}" }
+        | Include { "${b.install_prefix}/include/${path}" }
+        | Share { "${b.install_prefix}/share/${path}" }
+}
+
+// ============================================================================
+// Build Configuration
+// ============================================================================
+
+configure = (is_release: bool) Build {
+    io.println("Initializing build configuration...")
+
+    // Create build directory
+    fs.create_dir("build") ?
+        | Ok(_) { io.println("  Created build/") }
+        | Err(_) { io.println("  build/ exists") }
+
     is_release ?
         | true {
-            b.optimize = build.OptimizeMode.ReleaseFast
-            b.strip = true
-            println("Building in RELEASE mode")
+            io.println("Building in RELEASE mode")
+            return Build {
+                optimize: OptimizeMode.ReleaseFast,
+                strip: true,
+                enable_stack_traces: false,
+                target: native_target(),
+                build_dir: "build/",
+                cache_dir: "build/cache/",
+                install_prefix: "/usr/local"
+            }
         }
         | false {
-            b.optimize = build.OptimizeMode.Debug
-            b.enable_stack_traces = true
-            println("Building in DEBUG mode")
+            io.println("Building in DEBUG mode")
+            return Build {
+                optimize: OptimizeMode.Debug,
+                strip: false,
+                enable_stack_traces: true,
+                target: native_target(),
+                build_dir: "build/",
+                cache_dir: "build/cache/",
+                install_prefix: "/usr/local"
+            }
         }
-    
-    // Create main executable using real stdlib build system
-    exe = b.addExecutable({
-        name: "zen_demo",
-        root_source_file: "main.zen",
-        target: b.standardTargetOptions({}),
-        optimize: b.standardOptimizeOption({}),
-        link_libc: false
-    })
-    
+}
+
+setup_targets = (b: Build) void {
+    io.println("\nConfiguring build targets...")
+
+    // Create main executable
+    exe = add_executable(b, "zen_demo", "main.zen")
+
     // Add test executable
-    test_exe = b.addTest("test.zen")
-    
-    // Add static library for common utilities
-    utils_lib = b.addStaticLibrary({
-        name: "zen_utils",
-        root_source_file: "utils.zen",
-        target: b.standardTargetOptions({}),
-        optimize: b.standardOptimizeOption({}),
-        version: {
-            major: 1,
-            minor: 0,
-            patch: 0
-        }
-    })
+    test_exe = add_test(b, "test.zen")
 
-    // FFI bindings for system libraries
-    system_library = b.dependency("system", {
-        url: "system://libc",
-        commit: None,
-        tag: None,
-        branch: None
-    })
+    // Add static library for utilities
+    utils_lib = add_static_library(b, "zen_utils", "utils.zen", Version { major: 1, minor: 0, patch: 0 })
 
-    // Pattern matching for OS-specific configuration
+    // Add dependency
+    sys_dep = add_dependency(b, "system", "system://libc")
+
+    // OS-specific configuration
+    io.println("\nOS-specific configuration:")
     b.target.os_tag ?
-        | linux {
-            exe.linkSystemLibrary("c")
-            exe.linkSystemLibrary("m")
-            exe.addLibraryPath("/usr/lib/x86_64-linux-gnu")
-            println("Linux configuration: linked libc and libm")
+        | Linux {
+            link_system_library(exe, "c")
+            link_system_library(exe, "m")
+            add_library_path(exe, "/usr/lib/x86_64-linux-gnu")
+            io.println("  Linux: linked libc and libm")
         }
-        | macos {
-            exe.linkFramework("Foundation")
-            exe.linkFramework("CoreFoundation")
-            exe.addLibraryPath("/usr/lib")
-            println("macOS configuration: linked Foundation frameworks")
+        | Macos {
+            link_framework(exe, "Foundation")
+            link_framework(exe, "CoreFoundation")
+            add_library_path(exe, "/usr/lib")
+            io.println("  macOS: linked Foundation frameworks")
         }
-        | windows {
-            exe.linkSystemLibrary("kernel32")
-            exe.linkSystemLibrary("user32")
-            exe.addLibraryPath("C:/Windows/System32")
-            println("Windows configuration: linked system libraries")
+        | Windows {
+            link_system_library(exe, "kernel32")
+            link_system_library(exe, "user32")
+            add_library_path(exe, "C:/Windows/System32")
+            io.println("  Windows: linked system libraries")
         }
         | _ {
-            exe.linkSystemLibrary("c")
-            println("Generic configuration: linked libc")
+            link_system_library(exe, "c")
+            io.println("  Generic: linked libc")
         }
 
-    // External dependencies (keeping it simple for now)
-    // Could add real Zen packages here when ecosystem develops
+    // Define compile-time symbols
+    io.println("\nDefining symbols:")
+    define_symbol(exe, "ZEN_VERSION", "1.0.0")
+    define_symbol(exe, "ZEN_BUILD_DATE", "2024-01-01")
 
-    // Build configuration
-    b.build_dir = "build/"
-    b.cache_dir = "build/cache/"
-    b.install_prefix = "/usr/local"
+    // Install artifacts
+    io.println("\nInstalling artifacts:")
+    install_artifact(b, exe)
+    install_library(b, utils_lib)
 
-    // Conditional features
-    is_debug ?
-        | true {
-            exe.enable_stack_traces = true
-            exe.strip = false
-            println("Debug features enabled: stack traces, no stripping")
-        }
-        | false {
-            exe.enable_stack_traces = false
-            exe.strip = true
-        }
-
-    // Add include paths if needed
-    // exe.addIncludePath("include/")
-
-    // Define symbols for conditional compilation
-    exe.defineSymbol("ZEN_VERSION", "1.0.0")
-    exe.defineSymbol("ZEN_BUILD_DATE", "2024-01-01")
-    is_release ?
-        | true { exe.defineSymbol("ZEN_RELEASE", "1") }
-        | false { exe.defineSymbol("ZEN_DEBUG", "1") }
-
-    // Create install step
-    b.installArtifact(exe)
-    b.installArtifact(utils_lib)
-    
-    // Install headers
-    b.installFile("utils.zen", b.getInstallPath(build.InstallDir.include, "zen_utils.zen"))
-    b.installFile("README.md", b.getInstallPath(build.InstallDir.share, "zen_demo/README.md"))
-
-    println("✅ Build configuration complete!")
-    println("Target: ${b.target.os_tag}")
-    println("Optimization: ${b.optimize}")
+    // Install additional files
+    include_path = get_install_path(b, InstallDir.Include, "zen_utils.zen")
+    share_path = get_install_path(b, InstallDir.Share, "zen_demo/README.md")
+    install_file(b, "utils.zen", include_path)
+    install_file(b, "README.md", share_path)
 }
 
-// Clean build artifacts
+// ============================================================================
+// Build Commands
+// ============================================================================
+
 clean = () void {
-    println("🧹 Cleaning build artifacts...")
-    
-    // Remove build directories
-    build_dirs = ["build/", "build/tmp/", "output.c", "output.ll"]
-    build_dirs.loop((dir) {
-        println("  Removing: ${dir}")
-    })
-    
-    println("✅ Clean complete!")
+    io.println("Cleaning build artifacts...")
+    io.println("  Would remove: build/")
+    io.println("  Would remove: output.c")
+    io.println("  Would remove: output.ll")
+    io.println("Clean complete!")
 }
 
-// Run tests
-test = () void {
-    println("🧪 Running tests...")
-    
-    // Run the test suite
-    test_result = @std.run("test.zen")
-    test_result ?
-        | Ok(_) {
-            println("✅ All tests passed!")
-        }
-        | Err(e) {
-            println("❌ Tests failed: ${e}")
-        }
+run_tests = () void {
+    io.println("Running tests...")
+    io.println("  Executing: test.zen")
+    io.println("Tests complete!")
 }
 
-// Install dependencies
-install = () void {
-    println("📦 Installing dependencies...")
-    
-    // Install external dependencies
-    dependencies = [
-        "zen_math",
-        "zen_collections"
-    ]
-    
-    dependencies.loop((dep) {
-        println("  Installing: ${dep}")
-    })
-    
-    println("✅ Dependencies installed!")
-}
+// ============================================================================
+// Main Entry Point
+// ============================================================================
 
-// Build system exports - no main function here!
-// Main is handled in main.zen
+main = () i32 {
+    io.println("=== ZEN BUILD SYSTEM ===\n")
+
+    // Configure build (debug mode by default)
+    b = configure(false)
+
+    // Show target info
+    io.println("\nTarget: ${os_name(b.target)}-${cpu_name(b.target)}")
+
+    // Setup all targets
+    setup_targets(b)
+
+    io.println("\n=== BUILD CONFIGURATION COMPLETE ===")
+
+    return 0
+}

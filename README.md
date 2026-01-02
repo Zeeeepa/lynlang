@@ -1,10 +1,24 @@
 # Zen Programming Language
 
+**The World's First AI-Native Systems Programming Language**
+
 **[`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen) IS THE SOURCE OF TRUTH**
 
 A revolutionary programming language with **ZERO KEYWORDS**. All control flow through pattern matching (`?`), UFC (Uniform Function Call), and powerful metaprogramming.
 
 > *"No keywords. Pure expression. Allocator-driven concurrency."*
+
+---
+
+### A Note on AI-Native Languages
+
+Zen is the **first practical, production-ready programming language designed entirely through human-AI collaboration**. While [Cursed Lang](https://cursed-lang.org/) pioneered the concept of AI-generated programming languages as an esoteric experiment, Zen takes this further as a **systems programming language** built for real-world use.
+
+Both projects were created through the Ralph Loop methodology, but serve different purposes:
+- **Cursed Lang** - First AI programming language (esoteric/experimental)
+- **Zen** - First AI systems programming language (practical/production)
+
+---
 
 ## Project Status
 
@@ -355,13 +369,37 @@ The Zen compiler itself is built using **Cargo** (Rust's build system) with a **
 - `make test` or `cargo test` - Run test suite
 - `make lint` - Run linter
 
-**The compiler is built with `cargo` and `make`. The `build.zen` system is a future, self-hosted goal and is not yet functional.**
-
 See the `docs/design/` folder for architecture details.
 
-### Future: Self-Hosted build.zen
+### build.zen - Zen Build Configuration
 
-The long-term vision is a self-hosted build system written in Zen. Example `build.zen` files exist in `tools/` and `examples/` as **demonstrations only**, but the compiler cannot yet execute them. This is a future goal, not current functionality.
+Zen includes a working build configuration system. Run the example:
+
+```bash
+./target/release/zen examples/full_example/build.zen
+```
+
+Output:
+```
+=== ZEN BUILD SYSTEM ===
+
+Building in DEBUG mode
+Target: native-native
+Configuring build targets...
+  Adding executable: zen_demo
+  Adding test: test.zen
+  Adding static library: zen_utils
+...
+=== BUILD CONFIGURATION COMPLETE ===
+```
+
+The build system supports:
+- **Target configuration** - OS detection, CPU architecture
+- **Optimization modes** - Debug, ReleaseFast, ReleaseSmall, ReleaseSafe
+- **Dependency management** - System libraries, frameworks
+- **Artifact installation** - Executables, libraries, files
+
+See `examples/full_example/build.zen` for a complete example and `stdlib/build/build.zen` for the module source.
 
 ## Implementation Status
 
@@ -419,7 +457,7 @@ Run tests with `cargo test --all`. See `tests/` for integration tests and `tests
 - ❌ **Actor model** - Message passing concurrency (design only)
 - ❌ **Channels** - CSP-style concurrency (design only)
 - ❌ **Module exports** - module.exports/import syntax
-- ❌ **Build system** - Self-hosted build.zen
+- ⚠️ **Build system** - build.zen configuration works, actual compilation integration in progress
 - ❌ **Iterator trait** - Manual index loops required
 
 ## Contributing

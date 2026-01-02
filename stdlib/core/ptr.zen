@@ -58,7 +58,7 @@ Ptr<T>.at = (self: Ptr<T>, index: usize) Ptr<T> {
     self ?
         | Some(addr_i64) {
             addr = compiler.int_to_ptr(addr_i64)
-            item_size = compiler.sizeof(T)
+            item_size = compiler.sizeof<T>()
             offset = index * item_size
             new_addr = compiler.gep(addr, offset)
             new_addr_int = compiler.ptr_to_int(new_addr)
@@ -72,7 +72,7 @@ Ptr<T>.offset = (self: Ptr<T>, count: i64) Ptr<T> {
     self ?
         | Some(addr_i64) {
             addr = compiler.int_to_ptr(addr_i64)
-            item_size = compiler.sizeof(T)
+            item_size = compiler.sizeof<T>()
             byte_offset = count * item_size
             new_addr = compiler.gep(addr, byte_offset)
             new_addr_int = compiler.ptr_to_int(new_addr)

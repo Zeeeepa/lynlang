@@ -19,42 +19,34 @@ none<T> = () Option<T> {
 // Check if option has value
 is_some<T> = (opt: Option<T>) bool {
     opt ?
-    | Some(_) { true }
-    | None { false }
+        | Some(_) { true }
+        | None { false }
 }
 
 // Check if option is none
 is_none<T> = (opt: Option<T>) bool {
     opt ?
-    | Some(_) { false }
-    | None { true }
+        | Some(_) { false }
+        | None { true }
 }
 
 // Map: transform the value inside
 map<T, U> = (opt: Option<T>, f: (T) U) Option<U> {
     opt ?
-    | Some(val) { Option.Some(f(val)) }
-    | None { Option.None }
+        | Some(val) { Option.Some(f(val)) }
+        | None { Option.None }
 }
 
 // Unwrap with default value
 unwrap_or<T> = (opt: Option<T>, default: T) T {
     opt ?
-    | Some(val) { val }
-    | None { default }
+        | Some(val) { val }
+        | None { default }
 }
 
 // Get value or panic
 unwrap<T> = (opt: Option<T>) T {
     opt ?
-    | Some(val) { val }
-    | None {
-        // Panic - infinite loop
-        loop(() {
-            true ? { break }
-        })
-        return opt ?
-        | Some(v) { v }
-        | None { return opt ? | Some(v) { v } | None {} }
-    }
+        | Some(val) { val }
+        | None { @std.core.panic("unwrap called on None") }
 }

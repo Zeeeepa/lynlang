@@ -7,28 +7,8 @@
 // STRING UTILITIES
 // ============================================================================
 
-string_length = (s: StaticString) i32 {
-    len := 0
-    loop(() {
-        s[cast(len, u64)] == 0 ? { break }
-        len = len + 1
-    })
-    return len
-}
-
-string_equals = (a: StaticString, b: StaticString) bool {
-    i := 0
-    loop(() {
-        a[cast(i, u64)] == 0 ? {
-            return b[cast(i, u64)] == 0
-        }
-        a[cast(i, u64)] != b[cast(i, u64)] ? {
-            return false
-        }
-        i = i + 1
-    })
-    return true
-}
+// Note: Low-level string manipulation requires ptr operations from @std.ptr
+// For now, use string comparison via pattern matching or equality operators
 
 // ============================================================================
 // MATH UTILITIES
@@ -111,23 +91,23 @@ format_point = (x: f64, y: f64) StaticString {
 
 assert_equal = (a: i32, b: i32, message: StaticString) void {
     a == b ?
-        | true { 
+        | true {
             io.println("✓ PASS: ${message}")
         }
-        | false { 
+        | false {
             io.println("✗ FAIL: ${message}")
             io.println("  Expected: ${b}, Got: ${a}")
-        }
+    }
 }
 
 assert_true = (condition: bool, message: StaticString) void {
     condition ?
-        | true { 
+        | true {
             io.println("✓ PASS: ${message}")
         }
-        | false { 
+        | false {
             io.println("✗ FAIL: ${message}")
-        }
+    }
 }
 
 // ============================================================================
@@ -136,12 +116,12 @@ assert_true = (condition: bool, message: StaticString) void {
 
 run_utils_demo = () void {
     io.println("\n=== UTILITY FUNCTIONS DEMO ===\n")
-    
+
     // String utilities
     io.println("String Utilities:")
     hello = "Hello"
-    io.println("  Length of '${hello}': ${string_length(hello)}")
-    
+    io.println("  String: '${hello}'")
+
     // Math utilities
     io.println("\nMath Utilities:")
     io.println("  abs(-5) = ${abs(-5)}")
@@ -149,21 +129,21 @@ run_utils_demo = () void {
     io.println("  is_even(4) = ${is_even(4)}")
     io.println("  max(5, 10) = ${max_i32(5, 10)}")
     io.println("  min(5, 10) = ${min_i32(5, 10)}")
-    
+
     // Validation utilities
     io.println("\nValidation Utilities:")
     io.println("  is_digit('5') = ${is_digit(53)}")
     io.println("  is_alpha('A') = ${is_alpha(65)}")
     io.println("  is_whitespace(' ') = ${is_whitespace(32)}")
-    
+
     // Formatting utilities
     io.println("\nFormatting Utilities:")
     person_str = format_person("Alice", 30)
     io.println("  Formatted person: ${person_str}")
-    
+
     point_str = format_point(3.14, 2.71)
     io.println("  Formatted point: ${point_str}")
-    
+
     // Testing utilities
     io.println("\nTesting Utilities:")
     assert_equal(add(2, 3), 5, "2 + 3 should equal 5")

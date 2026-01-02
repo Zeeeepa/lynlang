@@ -589,7 +589,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                     // Convert expression to block that returns the value
                     let body = Expression::Block(vec![Statement::Expression {
                         expr: body_expr,
-                        span: None,
+                        span: Some(parser.current_span.clone()),
                     }]);
                     return Ok(Expression::Closure {
                         params: vec![],
@@ -755,7 +755,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                         // Convert expression to block that returns the value
                         let body = Expression::Block(vec![Statement::Expression {
                             expr: body_expr,
-                            span: None,
+                            span: Some(parser.current_span.clone()),
                         }]);
                         return Ok(Expression::Closure {
                             params,

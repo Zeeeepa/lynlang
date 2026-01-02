@@ -5,6 +5,7 @@ pub mod compiler;
 pub mod comptime;
 pub mod error;
 pub mod ffi;
+pub mod formatting;
 pub mod lexer;
 pub mod lsp;
 pub mod module_system;

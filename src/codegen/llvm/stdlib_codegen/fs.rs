@@ -468,13 +468,41 @@ pub fn compile_fs_create_dir<'ctx>(
         ));
     }
 
-    // Get or declare mkdir
-    let mkdir_fn = compiler.module.get_function("mkdir").unwrap_or_else(|| {
+    // Get or declare mkdir C library function
+    // Note: There may be a name collision with Zen stdlib's mkdir function.
+    // We need the C library version which returns i32, not the Zen version which returns Result.
+    let mkdir_fn = {
         let i32_type = compiler.context.i32_type();
         let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-        let fn_type = i32_type.fn_type(&[ptr_type.into(), i32_type.into()], false);
-        compiler.module.add_function("mkdir", fn_type, None)
-    });
+        let expected_fn_type = i32_type.fn_type(&[ptr_type.into(), i32_type.into()], false);
+
+        // Try to find an existing mkdir function
+        match compiler.module.get_function("mkdir") {
+            Some(existing) if existing.get_type() == expected_fn_type => {
+                // Perfect! It's the C library function
+                existing
+            }
+            _ => {
+                // Either no mkdir exists, or it's the wrong type (Zen stdlib version)
+                // Look for our C wrapper, or create it
+                compiler.module.get_function("__c_lib_mkdir").unwrap_or_else(|| {
+                    // Declare a function that will be linked to the actual C library mkdir
+                    // We give it a unique name to avoid collision
+                    let c_mkdir_decl = compiler.module.add_function(
+                        "__c_lib_mkdir",
+                        expected_fn_type,
+                        Some(inkwell::module::Linkage::External)
+                    );
+
+                    // TODO: At JIT time or link time, we need to ensure __c_lib_mkdir resolves to the
+                    // real mkdir symbol. For now, this will need to be handled externally or via a
+                    // runtime symbol mapping.
+
+                    c_mkdir_decl
+                })
+            }
+        }
+    };
 
     // Compile the path argument
     let path_value = compiler.compile_expression(&args[0])?;

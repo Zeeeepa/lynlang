@@ -55,28 +55,12 @@ unwrap_or<T, E> = (res: Result<T, E>, default: T) T {
 unwrap<T, E> = (res: Result<T, E>) T {
     res ?
         | Ok(val) { val }
-        | Err(_) {
-            // Panic
-            loop(() {
-                true ? { break }
-            })
-            return res ?
-                | Ok(v) { v }
-                | Err(_) { return res ? | Ok(v) { v } | Err(_) {} }
-        }
+        | Err(_) { @std.core.panic("unwrap called on Err") }
 }
 
 // Get the Err value or panic
 unwrap_err<T, E> = (res: Result<T, E>) E {
     res ?
         | Err(err) { err }
-        | Ok(_) {
-            // Panic
-            loop(() {
-                true ? { break }
-            })
-            return res ?
-                | Err(e) { e }
-                | Ok(_) { return res ? | Err(e) { e } | Ok(_) {} }
-        }
+        | Ok(_) { @std.core.panic("unwrap_err called on Ok") }
 }

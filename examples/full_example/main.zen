@@ -23,14 +23,14 @@ Point: {
 // ============================================================================
 
 Status:
-Active,
-Inactive,
-Banned
+    Active,
+    Inactive,
+    Banned
 
 Color:
-Red,
-Green,
-Blue
+    Red,
+    Green,
+    Blue
 
 // ============================================================================
 // 3. FUNCTIONS - Various function patterns
@@ -47,8 +47,8 @@ multiply = (a: i32, b: i32) i32 {
 
 divide = (a: f64, b: f64) i32 {
     b == 0.0 ?
-    | true { return -1 }
-    | false { return cast(a / b, i32) }
+        | true { return -1 }
+        | false { return cast(a / b, i32) }
 }
 
 greet = (name: StaticString) void {
@@ -61,16 +61,16 @@ greet = (name: StaticString) void {
 
 describe_status = (status: Status) StaticString {
     status ?
-    | Active { "User is active" }
-    | Inactive { "User is inactive" }
-    | Banned { "User is banned" }
+        | Active { "User is active" }
+        | Inactive { "User is inactive" }
+        | Banned { "User is banned" }
 }
 
 describe_color = (color: Color) StaticString {
     color ?
-    | Red { "Primary color: Red" }
-    | Green { "Primary color: Green" }
-    | Blue { "Primary color: Blue" }
+        | Red { "Primary color: Red" }
+        | Green { "Primary color: Green" }
+        | Blue { "Primary color: Blue" }
 }
 
 // ============================================================================
@@ -115,17 +115,17 @@ demo_loops = () void {
 compute_greeting = (hour: i32) StaticString {
     greeting ::= ""
     hour < 12 ?
-    | true { greeting = "Good morning" }
-    | false {
-        hour < 18 ?
-        | true { greeting = "Good afternoon" }
-        | false { greeting = "Good evening" }
+        | true { greeting = "Good morning" }
+        | false {
+            hour < 18 ?
+                | true { greeting = "Good afternoon" }
+                | false { greeting = "Good evening" }
     }
     return greeting
 }
 
 // ============================================================================
-// MAIN FUNCTION - Entry point demonstrating all features
+// MAIN FUNCTION - Entry point demonstrating all features≤
 // ============================================================================
 
 main = () i32 {

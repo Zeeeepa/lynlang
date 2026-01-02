@@ -123,3 +123,24 @@ macro_rules! lock_store {
 
 pub use lock_store;
 pub use parse_params;
+
+/// Converts a UTF-16 character offset (LSP standard) to a byte offset in a string.
+/// Returns the byte offset, clamped to valid string boundaries.
+///
+/// LSP uses UTF-16 code units for character positions, but Rust strings are UTF-8.
+/// This function safely converts between the two.
+#[inline]
+pub fn char_pos_to_byte_pos(line: &str, char_pos: usize) -> usize {
+    let mut byte_pos = 0;
+    let mut utf16_pos = 0;
+
+    for c in line.chars() {
+        if utf16_pos >= char_pos {
+            break;
+        }
+        byte_pos += c.len_utf8();
+        utf16_pos += c.len_utf16();
+    }
+
+    byte_pos.min(line.len())
+}

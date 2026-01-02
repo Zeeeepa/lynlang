@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 // Import from other LSP modules
 use super::document_store::DocumentStore;
-use super::helpers::{success_response, try_lock, try_parse_params};
+use super::helpers::{char_pos_to_byte_pos, success_response, try_lock, try_parse_params};
 use super::stdlib_resolver::StdlibResolver;
 use super::type_inference::infer_receiver_type_with_context;
 use super::types::{SymbolInfo, ZenCompletionContext};
@@ -331,10 +331,11 @@ fn get_completion_context(
 
     let line = lines[position.line as usize];
     let char_pos = position.character as usize;
+    let byte_pos = char_pos_to_byte_pos(line, char_pos);
 
     // Check if we're completing after @std. (module path completion)
     if char_pos > 5 {
-        let before_cursor = &line[..char_pos.min(line.len())];
+        let before_cursor = &line[..byte_pos];
         if before_cursor.ends_with("@std.") || before_cursor.contains("@std.") {
             // Check if we're right after @std.
             if let Some(std_pos) = before_cursor.rfind("@std.") {

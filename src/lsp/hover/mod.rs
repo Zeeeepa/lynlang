@@ -15,6 +15,7 @@ use lsp_types::*;
 use serde_json::Value;
 
 use super::document_store::DocumentStore;
+use super::helpers::char_pos_to_byte_pos;
 use super::navigation::find_symbol_at_position;
 use super::navigation::find_symbol_definition_in_content;
 use super::types::*;
@@ -199,8 +200,9 @@ mod handler {
     ) -> Option<Response> {
         let line = content.lines().nth(position.line as usize).unwrap_or("");
         let char_pos = position.character as usize;
+        let byte_pos = char_pos_to_byte_pos(line, char_pos);
 
-        if let Some(dot_pos) = line[..char_pos.min(line.len())].rfind('.') {
+        if let Some(dot_pos) = line[..byte_pos].rfind('.') {
             let before_dot = &line[..dot_pos];
             let after_dot = &line[dot_pos + 1..];
 
@@ -481,7 +483,7 @@ mod handler {
         None
     }
 
-    fn is_inside_format_expression(line: &str, char_pos: usize) -> bool {
+    fn is_inside_format_expression(line: &str, byte_pos: usize) -> bool {
         // Find the nearest ${ before the cursor
         let mut search_pos = 0;
         let mut iterations = 0;
@@ -490,7 +492,7 @@ mod handler {
         while iterations < MAX_ITERATIONS {
             iterations += 1;
 
-            let search_range = search_pos..char_pos.min(line.len());
+            let search_range = search_pos..byte_pos.min(line.len());
             if search_range.is_empty() {
                 break;
             }
@@ -513,12 +515,12 @@ mod handler {
                 if let Some(close_brace) = line[dollar_pos + 2..].find('}') {
                     let expr_end = dollar_pos + 2 + close_brace;
                     // Check if cursor is between ${ and }
-                    if char_pos > dollar_pos && char_pos <= expr_end + 1 {
+                    if byte_pos > dollar_pos && byte_pos <= expr_end + 1 {
                         return true;
                     }
                 } else {
                     // No closing brace found, but we're inside ${...
-                    if char_pos > dollar_pos {
+                    if byte_pos > dollar_pos {
                         return true;
                     }
                 }
@@ -534,7 +536,7 @@ mod handler {
     }
 
     /// Extract string literal if cursor is inside one (public for use in handler)
-    fn extract_string_literal_from_line(line: &str, char_pos: usize) -> Option<String> {
+    fn extract_string_literal_from_line(line: &str, byte_pos: usize) -> Option<String> {
         let mut in_string = false;
         let mut string_start = 0;
         let mut escape_next = false;
@@ -558,7 +560,7 @@ mod handler {
                 } else {
                     // End of string
                     // Include boundaries: if cursor is at or between the quotes
-                    if char_pos >= string_start && char_pos <= i {
+                    if byte_pos >= string_start && byte_pos <= i {
                         // We're inside this string literal (including on the quotes)
                         return Some(line[string_start..=i].to_string());
                     }
@@ -568,7 +570,7 @@ mod handler {
         }
 
         // If we're still in a string at the end, check if cursor is in it
-        if in_string && char_pos >= string_start {
+        if in_string && byte_pos >= string_start {
             return Some(line[string_start..].to_string());
         }
 
@@ -583,6 +585,7 @@ mod handler {
     ) -> Option<Response> {
         let line = content.lines().nth(position.line as usize).unwrap_or("");
         let char_pos = position.character as usize;
+        let byte_pos = char_pos_to_byte_pos(line, char_pos);
         let trimmed = symbol_name.trim();
 
         if trimmed.starts_with('"') && trimmed.ends_with('"') {
@@ -613,8 +616,8 @@ mod handler {
             ));
         }
 
-        if !is_inside_format_expression(line, char_pos) {
-            if let Some(string_literal) = extract_string_literal_from_line(line, char_pos) {
+        if !is_inside_format_expression(line, byte_pos) {
+            if let Some(string_literal) = extract_string_literal_from_line(line, byte_pos) {
                 return Some(create_hover_response_from_string(
                     request_id,
                     format!("```zen\n{}\n```\n\n**Type:** `StaticString`", string_literal),

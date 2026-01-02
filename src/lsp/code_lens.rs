@@ -3,6 +3,7 @@
 
 use lsp_server::{Request, Response};
 use lsp_types::*;
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 use crate::ast::Declaration;
@@ -30,34 +31,74 @@ pub fn handle_code_lens(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Resp
         None => return null_response(&req),
     };
 
-    let mut lenses = Vec::new();
+    // Debug: log to file
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/tmp/zen-lsp-codelens.log")
+    {
+        use std::io::Write;
+        let _ = writeln!(f, "=== CodeLens request PID={} ===", std::process::id());
+        let _ = writeln!(f, "URI: {}", params.text_document.uri);
+    }
 
-    // Find test functions and add "Run Test" code lens
+    let mut lenses = Vec::new();
+    // Track which functions we've already processed to prevent duplicates from AST
+    let mut processed_functions: HashSet<String> = HashSet::new();
+
+    // Generate code lenses for all functions from the parsed AST
     if let Some(ast) = &doc.ast {
         for decl in ast.iter() {
             if let Declaration::Function(func) = decl {
                 let func_name = &func.name;
 
-                // Check if this is a test function (starts with test_ or ends with _test)
-                if func_name.starts_with("test_")
-                    || func_name.ends_with("_test")
-                    || func_name.contains("_test_")
-                {
-                    // Find the line number of this function
-                    let line_num = find_function_line(&doc.content, func_name);
+                // Skip if we've already processed this function (handles potential AST duplicates)
+                if processed_functions.contains(func_name) {
+                    continue;
+                }
+                processed_functions.insert(func_name.clone());
 
-                    if let Some(line) = line_num {
+                let line_num = find_function_line(&doc.content, func_name);
+
+                if let Some(line) = line_num {
+                    let range = Range {
+                        start: Position { line: line as u32, character: 0 },
+                        end: Position { line: line as u32, character: 0 },
+                    };
+
+                    // main and build get both Run and Build buttons
+                    if func_name == "main" || func_name == "build" {
                         lenses.push(CodeLens {
-                            range: Range {
-                                start: Position {
-                                    line: line as u32,
-                                    character: 0,
-                                },
-                                end: Position {
-                                    line: line as u32,
-                                    character: 0,
-                                },
-                            },
+                            range,
+                            command: Some(Command {
+                                title: "▶ Run".to_string(),
+                                command: "zen.run".to_string(),
+                                arguments: Some(vec![
+                                    serde_json::to_value(&params.text_document.uri).unwrap(),
+                                    serde_json::to_value(func_name).unwrap(),
+                                    serde_json::to_value(line).unwrap(),
+                                ]),
+                            }),
+                            data: None,
+                        });
+
+                        lenses.push(CodeLens {
+                            range,
+                            command: Some(Command {
+                                title: "🔨 Build".to_string(),
+                                command: "zen.build".to_string(),
+                                arguments: Some(vec![
+                                    serde_json::to_value(&params.text_document.uri).unwrap(),
+                                    serde_json::to_value(func_name).unwrap(),
+                                    serde_json::to_value(line).unwrap(),
+                                ]),
+                            }),
+                            data: None,
+                        });
+                    } else if is_test_function(func_name) {
+                        // Test functions get "Run Test" button
+                        lenses.push(CodeLens {
+                            range,
                             command: Some(Command {
                                 title: "▶ Run Test".to_string(),
                                 command: "zen.runTest".to_string(),
@@ -69,9 +110,43 @@ pub fn handle_code_lens(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Resp
                             data: None,
                         });
                     }
+                    // Regular functions don't get Run buttons - can't run them in isolation
                 }
             }
         }
+    }
+
+    // Final deduplication: remove any lenses with same line and title
+    let mut seen_lens: HashSet<(u32, String)> = HashSet::new();
+    let lenses: Vec<CodeLens> = lenses
+        .into_iter()
+        .filter(|lens| {
+            let line = lens.range.start.line;
+            let title = lens.command.as_ref().map(|c| c.title.clone()).unwrap_or_default();
+            let key = (line, title);
+            if seen_lens.contains(&key) {
+                false
+            } else {
+                seen_lens.insert(key);
+                true
+            }
+        })
+        .collect();
+
+    // Debug: log final lenses
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/tmp/zen-lsp-codelens.log")
+    {
+        use std::io::Write;
+        let _ = writeln!(f, "Returning {} lenses:", lenses.len());
+        for lens in &lenses {
+            if let Some(cmd) = &lens.command {
+                let _ = writeln!(f, "  - Line {}: {}", lens.range.start.line, cmd.title);
+            }
+        }
+        let _ = writeln!(f, "");
     }
 
     success_response(&req, lenses)
@@ -81,18 +156,26 @@ pub fn handle_code_lens(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Resp
 // HELPER FUNCTIONS
 // ============================================================================
 
+fn is_test_function(name: &str) -> bool {
+    name.starts_with("test_") || name.ends_with("_test") || name.contains("_test_")
+}
+
 fn find_function_line(content: &str, func_name: &str) -> Option<usize> {
-    let lines: Vec<&str> = content.lines().collect();
-    for (line_num, line) in lines.iter().enumerate() {
-        // Look for function definition: "func_name = "
-        if line.contains(func_name) && line.contains("=") && line.contains("(") {
-            // Verify this is a function definition, not just usage
-            if let Some(eq_pos) = line.find('=') {
-                if let Some(name_start) = line.find(func_name) {
-                    // Check if function name comes before '=' and there's '(' after
-                    if name_start < eq_pos && line[eq_pos..].contains('(') {
-                        return Some(line_num);
-                    }
+    for (line_num, line) in content.lines().enumerate() {
+        // Look for function definition: "func_name = ("
+        // Must have func_name before '=' and '(' after '='
+        if let Some(eq_pos) = line.find('=') {
+            let before_eq = &line[..eq_pos];
+            let after_eq = &line[eq_pos..];
+
+            // Check if the function name is in the part before '='
+            // and '(' appears after '='
+            if before_eq.contains(func_name) && after_eq.contains('(') {
+                // Verify it's the EXACT function name (not a substring like "compute_main" for "main")
+                let trimmed = before_eq.trim();
+                // Only exact match - don't use ends_with which could match "compute_main" for "main"
+                if trimmed == func_name {
+                    return Some(line_num);
                 }
             }
         }

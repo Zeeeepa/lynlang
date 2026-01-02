@@ -13,7 +13,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             return Err(CompileError::TypeMismatch {
                 expected: "string (i8*) for length operation".to_string(),
                 found: format!("{:?}", str_val.get_type()),
-                span: None,
+                span: self.current_span.clone(),
             });
         }
         let str_ptr = str_val.into_pointer_value();

@@ -6,7 +6,7 @@ use lsp_types::*;
 use std::sync::{Arc, Mutex};
 
 use super::document_store::DocumentStore;
-use super::helpers::{null_response, success_response, try_lock, try_parse_params};
+use super::helpers::{char_pos_to_byte_pos, null_response, success_response, try_lock, try_parse_params};
 use super::types::SymbolInfo;
 
 // ============================================================================
@@ -136,19 +136,22 @@ fn find_function_call_at_position(content: &str, position: Position) -> Option<(
         context.push(' ');
     }
 
-    let cursor_pos = line_offset + position.character as usize;
-    let cursor_pos = cursor_pos.min(context.len());
+    // Convert character position to byte position for the current line
+    let current_line = lines.get(position.line as usize).unwrap_or(&"");
+    let char_byte_offset = char_pos_to_byte_pos(current_line, position.character as usize);
+    let cursor_pos = (line_offset + char_byte_offset).min(context.len());
 
     // Find the function call - look backwards from cursor for opening paren
     let mut paren_count = 0;
     let mut current_pos = cursor_pos;
+    let context_bytes = context.as_bytes();
 
-    // Move to the nearest opening paren
+    // Move to the nearest opening paren (using bytes - parens are ASCII)
     while current_pos > 0 {
-        let ch = context.chars().nth(current_pos - 1)?;
-        if ch == ')' {
+        let byte = context_bytes[current_pos - 1];
+        if byte == b')' {
             paren_count += 1;
-        } else if ch == '(' {
+        } else if byte == b'(' {
             if paren_count == 0 {
                 break;
             }

@@ -55,10 +55,36 @@ Set<T>.contains_index = (self: Set<T>, index: usize) bool {
     return index < self.data.len()
 }
 
-// Insert element (caller responsible for uniqueness)
-// TODO: Add proper duplicate checking with equality comparison
+// Helper: check if element exists starting from index
+Set<T>.contains_from = (self: Set<T>, elem: T, i: usize) bool {
+    len = self.data.len()
+    i < len ?
+        | true {
+            // Check element at current index
+            current = self.data.get(i)
+            current ?
+                | Some(val) {
+                    val == elem ?
+                        | true { return true }
+                        | false { return self.contains_from(elem, i + 1) }
+                }
+                | None { return self.contains_from(elem, i + 1) }
+        }
+        | false { return false }
+}
+
+// Check if element exists in set (linear scan with equality check)
+Set<T>.contains = (self: Set<T>, elem: T) bool {
+    return self.contains_from(elem, 0)
+}
+
+// Insert element (checks for duplicates to maintain uniqueness)
 Set<T>.insert = (self: MutPtr<Set<T>>, elem: T) void {
-    self.val.data.mut_ref().push(elem)
+    // Only insert if element doesn't already exist
+    already_exists = self.val.contains(elem)
+    already_exists ?
+        | true { }  // Element already in set, do nothing
+        | false { self.val.data.mut_ref().push(elem) }
 }
 
 // Remove element at index (swap-remove for O(1))
@@ -70,13 +96,52 @@ Set<T>.remove_at = (self: MutPtr<Set<T>>, index: usize) void {
             last_index = len - 1
             index != last_index ?
                 | true {
-                    // TODO: swap elements when we have proper element access
+                    // Get the last element
+                    last_elem = self.val.data.get(last_index)
+                    last_elem ?
+                        | Some(val) {
+                            // Store it at the index we're removing
+                            elem_ptr = self.val.data.data.at(index)
+                            elem_ptr ?
+                                | Some(_) {
+                                    addr = elem_ptr.addr()
+                                    compiler.store<T>(addr, val)
+                                }
+                                | None { }
+                        }
+                        | None { }
                 }
                 | false { }
             // Pop the last element
             self.val.data.mut_ref().pop()
         }
         | false { }
+}
+
+// Helper: find and remove element starting from index
+Set<T>.remove_from = (self: MutPtr<Set<T>>, elem: T, i: usize) bool {
+    len = self.val.data.len()
+    i < len ?
+        | true {
+            current = self.val.data.get(i)
+            current ?
+                | Some(val) {
+                    val == elem ?
+                        | true {
+                            // Found it, remove at this index
+                            self.remove_at(i)
+                            return true
+                        }
+                        | false { return self.remove_from(elem, i + 1) }
+                }
+                | None { return self.remove_from(elem, i + 1) }
+        }
+        | false { return false }
+}
+
+// Remove element by value (finds and removes first occurrence)
+Set<T>.remove = (self: MutPtr<Set<T>>, elem: T) bool {
+    return self.remove_from(elem, 0)
 }
 
 // Clear set

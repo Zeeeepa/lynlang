@@ -1257,6 +1257,7 @@ dependencies = [
  "env_logger",
  "glob",
  "inkwell",
+ "libc",
  "libloading",
  "log",
  "lsp-server",

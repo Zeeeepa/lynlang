@@ -60,9 +60,24 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 None,
             ));
         }
+
+        // Infer array type to get the element type
+        let array_type = self.infer_expression_type(&args[0])?;
+        let element_type = match array_type {
+            ast::AstType::Generic { name, type_args } if name == "Array" && !type_args.is_empty() => {
+                type_args[0].clone()
+            }
+            _ => {
+                return Err(CompileError::TypeError(
+                    format!("Expected Array<T> type, got {:?}", array_type),
+                    None,
+                ));
+            }
+        };
+
         let array_val = self.compile_expression(&args[0])?;
         let index_val = self.compile_expression(&args[1])?;
-        arrays::compile_array_get(self, array_val, index_val)
+        arrays::compile_array_get(self, array_val, index_val, &element_type)
     }
 
     pub fn compile_array_len(
@@ -116,8 +131,23 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 None,
             ));
         }
+
+        // Infer array type to get the element type
+        let array_type = self.infer_expression_type(&args[0])?;
+        let element_type = match array_type {
+            ast::AstType::Generic { name, type_args } if name == "Array" && !type_args.is_empty() => {
+                type_args[0].clone()
+            }
+            _ => {
+                return Err(CompileError::TypeError(
+                    format!("Expected Array<T> type, got {:?}", array_type),
+                    None,
+                ));
+            }
+        };
+
         let array_val = self.compile_expression(&args[0])?;
-        arrays::compile_array_pop(self, array_val)
+        arrays::compile_array_pop(self, array_val, &element_type)
     }
 
     // Function declaration/definition

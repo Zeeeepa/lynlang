@@ -8,22 +8,22 @@ use inkwell::values::{BasicValueEnum, PointerValue};
 /// Use: `Vec.new(allocator)` instead of `Vec<T, size>()`
 /// See: stdlib/vec.zen, stdlib/compiler/compiler.zen
 pub fn compile_array_literal<'ctx>(
-    _compiler: &mut LLVMCompiler<'ctx>,
+    compiler: &mut LLVMCompiler<'ctx>,
     _expr: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     Err(CompileError::InternalError(
         "Array literals are deprecated. Use Vec.new(allocator) from stdlib/vec.zen".to_string(),
-        None,
+        compiler.get_current_span(),
     ))
 }
 
 pub fn compile_array_index<'ctx>(
-    _compiler: &mut LLVMCompiler<'ctx>,
+    compiler: &mut LLVMCompiler<'ctx>,
     _expr: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     Err(CompileError::InternalError(
         "Use Vec.get(index) from stdlib/vec.zen for array indexing".to_string(),
-        None,
+        compiler.get_current_span(),
     ))
 }
 
@@ -60,31 +60,31 @@ pub fn compile_array_index_address<'ctx>(
 }
 
 pub fn compile_vec_constructor<'ctx>(
-    _compiler: &mut LLVMCompiler<'ctx>,
+    compiler: &mut LLVMCompiler<'ctx>,
     _expr: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     Err(CompileError::InternalError(
         "Vec<T, size>() syntax is deprecated. Use Vec.new(allocator) from stdlib/vec.zen".to_string(),
-        None,
+        compiler.get_current_span(),
     ))
 }
 
 pub fn compile_dynvec_constructor<'ctx>(
-    _compiler: &mut LLVMCompiler<'ctx>,
+    compiler: &mut LLVMCompiler<'ctx>,
     _expr: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     Err(CompileError::InternalError(
         "DynVec<T>() syntax is deprecated. Use Vec.new(allocator) from stdlib/vec.zen".to_string(),
-        None,
+        compiler.get_current_span(),
     ))
 }
 
 pub fn compile_array_constructor<'ctx>(
-    _compiler: &mut LLVMCompiler<'ctx>,
+    compiler: &mut LLVMCompiler<'ctx>,
     _expr: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     Err(CompileError::InternalError(
         "Array<T>() syntax is deprecated. Use Vec.new(allocator) from stdlib/vec.zen".to_string(),
-        None,
+        compiler.get_current_span(),
     ))
 }

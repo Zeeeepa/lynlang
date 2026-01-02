@@ -153,14 +153,14 @@ fn get_function_type_from_ast<'a, 'ctx>(
             } else {
                 Err(CompileError::InternalError(
                     "Expected function pointer type in pointer".to_string(),
-                    None,
+                    compiler.current_span.clone(),
                 ))
             }
         }
         _ => Err(CompileError::TypeMismatch {
             expected: "function pointer".to_string(),
             found: format!("{:?}", var_type),
-            span: None,
+            span: compiler.current_span.clone(),
         }),
     }
 }

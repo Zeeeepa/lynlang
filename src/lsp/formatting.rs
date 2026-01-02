@@ -3,6 +3,8 @@ use lsp_types::*;
 use serde_json::Value;
 use std::sync::{Arc, Mutex};
 
+use crate::formatting::{format_braces, format_enum_variants, fix_indentation, normalize_variable_declarations, remove_trailing_whitespace};
+
 use super::document_store::DocumentStore;
 use super::helpers::{null_response, success_response, try_lock, try_parse_params_with_error};
 
@@ -45,37 +47,19 @@ pub fn handle_formatting(req: Request, store: Arc<Mutex<DocumentStore>>) -> Resp
 }
 
 fn format_document(content: &str) -> String {
-    let mut formatted = String::new();
-    let mut indent_level: usize = 0;
-    let indent_str = "    "; // 4 spaces
+    // First, normalize variable declarations (fix syntax like `i: i32 ::= 0` → `i :: i32 = 0`)
+    let normalized = normalize_variable_declarations(content);
 
-    for line in content.lines() {
-        let trimmed = line.trim();
+    // Fix trailing whitespace
+    let no_trailing = remove_trailing_whitespace(&normalized);
 
-        // Skip empty lines
-        if trimmed.is_empty() {
-            formatted.push('\n');
-            continue;
-        }
+    // Fix indentation (tabs to spaces)
+    let fixed_indent = fix_indentation(&no_trailing);
 
-        // Decrease indent for closing braces
-        if trimmed.starts_with('}') || trimmed.starts_with(']') {
-            indent_level = indent_level.saturating_sub(1);
-        }
+    // Then do brace-based indentation
+    let braced = format_braces(&fixed_indent);
 
-        // Add indentation
-        for _ in 0..indent_level {
-            formatted.push_str(indent_str);
-        }
-
-        formatted.push_str(trimmed);
-        formatted.push('\n');
-
-        // Increase indent after opening braces
-        if trimmed.ends_with('{') || trimmed.ends_with('[') {
-            indent_level += 1;
-        }
-    }
-
-    formatted
+    // Finally format enum variants (must be last to preserve enum indentation)
+    format_enum_variants(&braced)
 }
+

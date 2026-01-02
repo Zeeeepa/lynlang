@@ -481,11 +481,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // Check if this is an Array type - get what we need and drop the borrow
             let array_info = self.variables.get(name).and_then(|var_info| {
                 if let AstType::Generic {
-                    name: type_name, ..
+                    name: type_name,
+                    type_args,
                 } = &var_info.ast_type
                 {
-                    if type_name == "Array" {
-                        Some((var_info.pointer, var_info.ast_type.clone()))
+                    if type_name == "Array" && !type_args.is_empty() {
+                        Some((var_info.pointer, var_info.ast_type.clone(), type_args[0].clone()))
                     } else {
                         None
                     }
@@ -494,7 +495,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
             });
 
-            if let Some((array_ptr, _ast_type)) = array_info {
+            if let Some((array_ptr, _ast_type, element_type)) = array_info {
                 // Compile the object to get the array value
                 // Array struct type: { ptr, length, capacity }
                 let array_struct_type = self.context.struct_type(
@@ -534,8 +535,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             ));
                         }
                         let index = self.compile_expression(&args[0])?;
-                        let result =
-                            super::functions::arrays::compile_array_get(self, object_val, index)?;
+                        let result = super::functions::arrays::compile_array_get(
+                            self,
+                            object_val,
+                            index,
+                            &element_type,
+                        )?;
                         return Ok(result);
                     }
                     "len" => {
@@ -570,8 +575,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             ));
                         }
                         // Pass the pointer for in-place modification
-                        let result =
-                            super::functions::arrays::compile_array_pop_by_ptr(self, array_ptr)?;
+                        let result = super::functions::arrays::compile_array_pop_by_ptr(
+                            self,
+                            array_ptr,
+                            &element_type,
+                        )?;
                         return Ok(result);
                     }
                     _ => {

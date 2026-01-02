@@ -1,0 +1,19 @@
+# Rust formatting configuration for Zenlang
+
+# Use the 2021 edition style
+edition = "2021"
+
+# Maximum width of each line
+max_width = 100
+
+# Use block indent for function arguments
+fn_params_layout = "Tall"
+
+# Use block indent for chain method calls
+chain_width = 60
+
+# Prevent single-line if/else
+single_line_if_else_max_width = 0
+
+# Prevent single-line blocks
+single_line_let_else_max_width = 0

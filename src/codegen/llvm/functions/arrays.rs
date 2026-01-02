@@ -567,20 +567,15 @@ pub fn compile_array_push<'ctx>(
 
 /// Compile Array.get(index) - gets an element from the array
 ///
-/// TODO: This function currently hardcodes i32 as the element type.
-/// Array<T> should work with any type T (i64, f64, String, etc.), but this
-/// implementation assumes i32. This breaks Array<i64>, Array<f64>, etc.
-///
-/// Fix required: Accept element_type: AstType as a parameter and generate
-/// LLVM code for that specific type instead of hardcoding i32.
+/// This function properly handles generic Array<T> by using the actual element type T.
 pub fn compile_array_get<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     array_val: BasicValueEnum<'ctx>,
     index_val: BasicValueEnum<'ctx>,
+    element_type: &ast::AstType,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    // Set the generic type context for pattern matching
-    // TODO: Use actual element type instead of hardcoded I32
-    compiler.track_generic_type("Option_Some_Type".to_string(), crate::ast::AstType::I32);
+    // Set the generic type context for pattern matching with the actual element type
+    compiler.track_generic_type("Option_Some_Type".to_string(), element_type.clone());
 
     // Array struct type: { ptr, length, capacity, allocator }
     let array_struct_type = compiler.context.struct_type(
@@ -599,12 +594,37 @@ pub fn compile_array_get<'ctx>(
         false,
     );
 
-    // Option type: { discriminant: i64, payload: i32 }
-    // TODO: Generate payload type based on actual Array<T> element type, not hardcoded i32
+    // Option type: { discriminant: i64, payload: T }
+    // Generate payload type based on actual Array<T> element type
+    let element_llvm_type = compiler.to_llvm_type(element_type)?;
+    let payload_type = match element_llvm_type {
+        crate::codegen::llvm::Type::Basic(basic) => basic,
+        crate::codegen::llvm::Type::Pointer(_) => {
+            // Pointer types - use generic opaque pointer
+            compiler.context.ptr_type(inkwell::AddressSpace::default()).into()
+        }
+        crate::codegen::llvm::Type::Struct(struct_type) => {
+            // Struct types can be stored directly
+            struct_type.into()
+        }
+        crate::codegen::llvm::Type::Function(_) => {
+            return Err(CompileError::TypeError(
+                "Cannot store function types in arrays".to_string(),
+                None,
+            ));
+        }
+        crate::codegen::llvm::Type::Void => {
+            return Err(CompileError::TypeError(
+                "Cannot store void types in arrays".to_string(),
+                None,
+            ));
+        }
+    };
+
     let option_type = compiler.context.struct_type(
         &[
             compiler.context.i64_type().into(), // discriminant
-            compiler.context.i32_type().into(), // payload (HARDCODED - should be element type T)
+            payload_type.into(),                // payload (actual element type T)
         ],
         false,
     );
@@ -728,18 +748,10 @@ pub fn compile_array_get<'ctx>(
         )?
         .into_pointer_value();
 
-    // Load the value as i64 (since push stores as i64) then truncate to i32
-    let value_i64 = compiler
-        .builder
-        .build_load(
-            compiler.context.i64_type(),
-            value_ptr,
-            &format!("get_elem_val_i64_{}", unique_id),
-        )?
-        .into_int_value();
-    let value = compiler.builder.build_int_truncate(
-        value_i64,
-        compiler.context.i32_type(),
+    // Load the actual value with the correct element type
+    let value = compiler.builder.build_load(
+        payload_type,
+        value_ptr,
         &format!("get_elem_val_{}", unique_id),
     )?;
 
@@ -796,9 +808,17 @@ pub fn compile_array_get<'ctx>(
     compiler
         .builder
         .build_store(disc_ptr, compiler.context.i64_type().const_int(1, false))?; // 1 for None
-    compiler
-        .builder
-        .build_store(payload_ptr, compiler.context.i32_type().const_int(0, false))?; // dummy payload
+    // Store a zero/null value for the payload with the correct type
+    let zero_payload = if payload_type.is_int_type() {
+        payload_type.into_int_type().const_zero().into()
+    } else if payload_type.is_float_type() {
+        payload_type.into_float_type().const_zero().into()
+    } else if payload_type.is_pointer_type() {
+        payload_type.into_pointer_type().const_null().into()
+    } else {
+        payload_type.const_zero()
+    };
+    compiler.builder.build_store(payload_ptr, zero_payload)?; // dummy payload
 
     let none_val = compiler.builder.build_load(
         option_type,
@@ -967,18 +987,14 @@ pub fn compile_array_set<'ctx>(
 
 /// Compile Array.pop() by pointer - modifies array in place and returns Option<T>
 ///
-/// TODO: This function currently hardcodes i32 as the element type.
-/// Array<T> should work with any type T, but this implementation assumes i32.
-///
-/// Fix required: Accept element_type: AstType as a parameter and generate
-/// LLVM code for that specific type instead of hardcoding i32.
+/// This function properly handles generic Array<T> by using the actual element type T.
 pub fn compile_array_pop_by_ptr<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     array_ptr: PointerValue<'ctx>,
+    element_type: &ast::AstType,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    // Set the generic type context so pattern matching knows this is Option<i32>
-    // TODO: Use actual element type instead of hardcoded I32
-    compiler.track_generic_type("Option_Some_Type".to_string(), crate::ast::AstType::I32);
+    // Set the generic type context so pattern matching knows the actual Option<T> type
+    compiler.track_generic_type("Option_Some_Type".to_string(), element_type.clone());
     // Array struct type: { ptr, length, capacity, allocator }
     let array_struct_type = compiler.context.struct_type(
         &[
@@ -997,13 +1013,39 @@ pub fn compile_array_pop_by_ptr<'ctx>(
     );
 
     // Option struct type: { discriminant: i64, payload: T }
+    // Generate payload type based on actual Array<T> element type
+    let element_llvm_type = compiler.to_llvm_type(element_type)?;
+    let payload_type = match element_llvm_type {
+        crate::codegen::llvm::Type::Basic(basic) => basic,
+        crate::codegen::llvm::Type::Pointer(_) => {
+            // Pointer types - use generic opaque pointer
+            compiler.context.ptr_type(inkwell::AddressSpace::default()).into()
+        }
+        crate::codegen::llvm::Type::Struct(struct_type) => {
+            // Struct types can be stored directly
+            struct_type.into()
+        }
+        crate::codegen::llvm::Type::Function(_) => {
+            return Err(CompileError::TypeError(
+                "Cannot store function types in arrays".to_string(),
+                None,
+            ));
+        }
+        crate::codegen::llvm::Type::Void => {
+            return Err(CompileError::TypeError(
+                "Cannot store void types in arrays".to_string(),
+                None,
+            ));
+        }
+    };
+
     let option_type = compiler.context.struct_type(
         &[
             compiler.context.i64_type().into(),
             compiler
                 .context
                 .ptr_type(inkwell::AddressSpace::default())
-                .into(),
+                .into(), // We still use pointers for the Option payload internally
         ],
         false,
     );
@@ -1012,9 +1054,9 @@ pub fn compile_array_pop_by_ptr<'ctx>(
     compiler.inline_counter += 1;
     let unique_id = compiler.inline_counter;
 
-    // Allocate space for the return value at function scope (not inside a branch)
+    // Allocate space for the return value at function scope with the actual element type
     let value_ptr = compiler.builder.build_alloca(
-        compiler.context.i32_type(),
+        payload_type,
         &format!("pop_return_val_{}", unique_id),
     )?;
 
@@ -1067,10 +1109,17 @@ pub fn compile_array_pop_by_ptr<'ctx>(
     // Empty case: return None
     compiler.builder.position_at_end(empty_bb);
 
-    // Store a dummy value (0) to value_ptr in the None case
-    compiler
-        .builder
-        .build_store(value_ptr, compiler.context.i32_type().const_zero())?;
+    // Store a dummy zero value to value_ptr in the None case with the correct type
+    let zero_value = if payload_type.is_int_type() {
+        payload_type.into_int_type().const_zero().into()
+    } else if payload_type.is_float_type() {
+        payload_type.into_float_type().const_zero().into()
+    } else if payload_type.is_pointer_type() {
+        payload_type.into_pointer_type().const_null().into()
+    } else {
+        payload_type.const_zero()
+    };
+    compiler.builder.build_store(value_ptr, zero_value)?;
 
     let none_val = {
         let discriminant = compiler.context.i64_type().const_int(1, false); // 1 for None (matching registration)
@@ -1109,34 +1158,36 @@ pub fn compile_array_pop_by_ptr<'ctx>(
         .into_pointer_value();
 
     // Get element at new_length position (which is the last element, since we haven't decremented length yet)
-    let element_ptr = unsafe {
+    // Arrays store pointers, so we need to get the pointer at this index
+    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
+    let element_ptr_ptr = unsafe {
         compiler.builder.build_gep(
-            compiler.context.i64_type(),
+            ptr_type,
             data_ptr,
             &[new_length], // This is now correct - it points to the last element
-            &format!("pop_elem_ptr_{}", unique_id),
+            &format!("pop_elem_ptr_ptr_{}", unique_id),
         )?
     };
 
     // NOW store the new length after we've gotten the element
     compiler.builder.build_store(length_ptr, new_length)?;
 
-    // Load the value from the array
-    let value_i64 = compiler.builder.build_load(
-        compiler.context.i64_type(),
-        element_ptr,
-        &format!("pop_val_i64_{}", unique_id),
+    // Load the pointer to the actual value from the array
+    let element_value_ptr = compiler.builder.build_load(
+        ptr_type,
+        element_ptr_ptr,
+        &format!("pop_elem_val_ptr_{}", unique_id),
+    )?.into_pointer_value();
+
+    // Load the actual value with the correct element type
+    let element_value = compiler.builder.build_load(
+        payload_type,
+        element_value_ptr,
+        &format!("pop_val_{}", unique_id),
     )?;
 
-    // Truncate to i32 as that's what Array<i32> expects
-    let value_i32 = compiler.builder.build_int_truncate(
-        value_i64.into_int_value(),
-        compiler.context.i32_type(),
-        &format!("pop_val_i32_{}", unique_id),
-    )?;
-
-    // Store the i32 value to the pre-allocated pointer (allocated at function scope)
-    compiler.builder.build_store(value_ptr, value_i32)?;
+    // Store the value to the pre-allocated pointer (allocated at function scope)
+    compiler.builder.build_store(value_ptr, element_value)?;
 
     // Create Some(value) - following the same pattern as compile_enum_variant
     let some_alloca = compiler
@@ -1186,6 +1237,7 @@ pub fn compile_array_pop_by_ptr<'ctx>(
 pub fn compile_array_pop<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     array_val: BasicValueEnum<'ctx>,
+    element_type: &ast::AstType,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     // Array struct type: { ptr, length, capacity, allocator }
     let array_struct_type = compiler.context.struct_type(
@@ -1211,5 +1263,5 @@ pub fn compile_array_pop<'ctx>(
     compiler.builder.build_store(array_ptr, array_val)?;
 
     // Call the pointer version
-    compile_array_pop_by_ptr(compiler, array_ptr)
+    compile_array_pop_by_ptr(compiler, array_ptr, element_type)
 }

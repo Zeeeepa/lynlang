@@ -1,6 +1,7 @@
 use clap::{Parser as ClapParser, Subcommand};
 use std::fs;
 use std::path::PathBuf;
+use zen::formatting::{format_braces, format_enum_variants, fix_indentation, normalize_variable_declarations, remove_trailing_whitespace};
 use zen::lexer::Lexer;
 use zen::parser::Parser;
 
@@ -122,20 +123,30 @@ fn check_file(path: &PathBuf) -> Result<(), String> {
 fn format_file(path: &PathBuf, stdout: bool) -> Result<(), String> {
     let content = fs::read_to_string(path).map_err(|e| format!("Failed to read file: {}", e))?;
 
-    // Parse the file
-    let lexer = Lexer::new(&content);
+    // Apply text-based fixes BEFORE parsing (to fix syntax that won't parse otherwise)
+    // Normalize variable declarations (fix syntax like `i: i32 ::= 0` → `i :: i32 = 0`)
+    let pre_normalized = normalize_variable_declarations(&content);
+
+    // Parse the normalized file
+    let lexer = Lexer::new(&pre_normalized);
     let mut parser = Parser::new(lexer);
 
     match parser.parse_program() {
         Ok(_program) => {
-            // Apply formatting fixes
-            let mut formatted = content.clone();
+            // Apply additional formatting fixes
+            let mut formatted = pre_normalized.clone();
 
             // Fix trailing whitespace
             formatted = remove_trailing_whitespace(&formatted);
 
-            // Fix indentation
+            // Fix indentation (tabs to spaces)
             formatted = fix_indentation(&formatted);
+
+            // Format braces and pattern matching
+            formatted = format_braces(&formatted);
+
+            // Format enum variants on separate lines (must be after braces)
+            formatted = format_enum_variants(&formatted);
 
             // Move imports out of comptime if needed
             formatted = fix_comptime_imports(&formatted);
@@ -234,19 +245,6 @@ fn has_trailing_whitespace(content: &str) -> bool {
         .any(|line| line.ends_with(' ') || line.ends_with('\t'))
 }
 
-fn remove_trailing_whitespace(content: &str) -> String {
-    content
-        .lines()
-        .map(|line| line.trim_end())
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn fix_indentation(content: &str) -> String {
-    // Convert tabs to 4 spaces (Zen standard)
-    content.replace('\t', "    ")
-}
-
 fn fix_comptime_imports(content: &str) -> String {
     // This is a simplified version - a full implementation would need proper AST manipulation
     // For now, just return the content as-is if no comptime imports are found
@@ -259,3 +257,4 @@ fn fix_comptime_imports(content: &str) -> String {
     println!("Please manually move imports to module level.");
     content.to_string()
 }
+

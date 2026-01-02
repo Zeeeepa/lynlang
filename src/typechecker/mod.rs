@@ -828,8 +828,6 @@ impl TypeChecker {
     ) -> Result<()> {
         use crate::ast::Pattern;
 
-        // eprintln!("DEBUG TypeChecker: add_pattern_bindings_to_scope_with_type for pattern: {:?}, type: {:?}", pattern, scrutinee_type);
-
         match pattern {
             Pattern::Identifier(name) => {
                 // Simple identifier pattern binds the name to the type of the matched value

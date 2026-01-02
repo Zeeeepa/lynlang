@@ -249,10 +249,12 @@ impl<'ctx> Compiler<'ctx> {
             Statement::ComptimeBlock(statements) => {
                 // Execute the comptime block inline
                 interpreter.execute_comptime_block(&statements)?;
-                // Comptime blocks don't produce runtime statements
+                // Comptime blocks don't produce runtime statements - use the block's span if available
+                // For now, we don't have a span for the comptime block itself, so use None
+                // TODO: Add span tracking for comptime blocks
                 Ok(Statement::Expression {
                     expr: Expression::Integer32(0),
-                    span: None,
+                    span: None, // Comptime blocks are elided, no runtime span needed
                 }) // placeholder
             }
             other => Ok(other),

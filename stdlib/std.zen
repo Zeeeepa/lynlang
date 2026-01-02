@@ -23,6 +23,10 @@
 { Set } = @std.collections.set
 { HashMap } = @std.collections.hashmap
 
+// Build system types and functions
+{ Build, Target, Executable, StaticLibrary, Test, Dependency, OptimizeMode, OsTag, CpuArch, InstallDir, Version, ExeOptions, LibOptions, DepOptions } = @std.build.build
+{ native_target, os_name, cpu_name, new_build, add_executable, add_test, add_static_library, add_dependency, install_artifact, install_library, install_file, get_install_path, link_system_library, link_framework, add_library_path, define_symbol, optimize_name } = @std.build.build
+
 // IO functions
 { STDIN, STDOUT, STDERR, print, println, eprint, eprintln, read_line, read_input } = @std.io.io
 

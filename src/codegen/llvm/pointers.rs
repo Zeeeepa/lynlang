@@ -62,14 +62,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             .into()),
                         _ => Err(CompileError::TypeError(
                             "Cannot dereference non-basic/non-struct type".to_string(),
-                            None,
+                            self.current_span.clone(),
                         )),
                     };
                 } else {
                     return Err(CompileError::TypeMismatch {
                         expected: "pointer".to_string(),
                         found: format!("{:?}", ast_type),
-                        span: None,
+                        span: self.current_span.clone(),
                     });
                 }
             }
@@ -86,7 +86,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 return Err(CompileError::TypeMismatch {
                     expected: "pointer".to_string(),
                     found: format!("{:?}", ptr_val.get_type()),
-                    span: None,
+                    span: self.current_span.clone(),
                 });
             }
             let ptr = ptr_val.into_pointer_value();
@@ -118,7 +118,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     .into()),
                 _ => Err(CompileError::TypeError(
                     "Cannot dereference non-basic/non-struct type".to_string(),
-                    None,
+                    self.current_span.clone(),
                 )),
             };
         }
@@ -129,7 +129,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             return Err(CompileError::TypeMismatch {
                 expected: "pointer".to_string(),
                 found: format!("{:?}", ptr_val.get_type()),
-                span: None,
+                span: self.current_span.clone(),
             });
         }
         let ptr = ptr_val.into_pointer_value();
@@ -146,7 +146,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 .into()),
             _ => Err(CompileError::TypeError(
                 "Cannot dereference non-basic/non-struct type".to_string(),
-                None,
+                self.current_span.clone(),
             )),
         }
     }
@@ -169,7 +169,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Err(CompileError::TypeMismatch {
                 expected: "pointer".to_string(),
                 found: format!("{:?}", val.get_type()),
-                span: None,
+                span: self.current_span.clone(),
             })
         }
     }
@@ -185,14 +185,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
             return Err(CompileError::TypeMismatch {
                 expected: "pointer for pointer offset base".to_string(),
                 found: format!("{:?}", base_val.get_type()),
-                span: None,
+                span: self.current_span.clone(),
             });
         }
         if !offset_val.is_int_value() {
             return Err(CompileError::TypeMismatch {
                 expected: "integer for pointer offset value".to_string(),
                 found: format!("{:?}", offset_val.get_type()),
-                span: None,
+                span: self.current_span.clone(),
             });
         }
         unsafe {

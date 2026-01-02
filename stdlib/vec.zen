@@ -32,7 +32,7 @@ Vec<T>.with_capacity = (allocator: Allocator, initial_capacity: usize) Vec<T> {
     initial_capacity == 0 ?
         | true { return Vec<T>.new(allocator) }
         | false {
-            item_size = compiler.sizeof(T)
+            item_size = compiler.sizeof<T>()
             total_size = initial_capacity * item_size
             raw_ptr = allocator.allocate(total_size)
             data = Ptr<T>.from_addr(raw_ptr)
@@ -102,7 +102,7 @@ Vec<T>.push = (self: MutPtr<Vec<T>>, elem: T) void {
     self.val.len == 0 && self.val.capacity == 0 ?
         | true {
             self.val.capacity = 1
-            item_size = compiler.sizeof(T)
+            item_size = compiler.sizeof<T>()
             raw_ptr = self.val.allocator.allocate(item_size)
             self.val.data = Ptr<T>.from_addr(raw_ptr)
         }
@@ -112,7 +112,7 @@ Vec<T>.push = (self: MutPtr<Vec<T>>, elem: T) void {
     self.val.len >= self.val.capacity ?
         | true {
             new_capacity = self.val.capacity * 2
-            item_size = compiler.sizeof(T)
+            item_size = compiler.sizeof<T>()
             old_size = self.val.capacity * item_size
             new_size = new_capacity * item_size
             old_addr = self.val.data.addr()
@@ -157,7 +157,7 @@ Vec<T>.reserve = (self: MutPtr<Vec<T>>, additional: usize) void {
     needed > self.val.capacity ?
         | true {
             new_capacity = needed * 2
-            item_size = compiler.sizeof(T)
+            item_size = compiler.sizeof<T>()
             old_size = self.val.capacity * item_size
             new_size = new_capacity * item_size
             old_addr = self.val.data.addr()
@@ -171,7 +171,7 @@ Vec<T>.reserve = (self: MutPtr<Vec<T>>, additional: usize) void {
 // Deallocate vector
 Vec<T>.free = (self: MutPtr<Vec<T>>) void {
     raw_addr = self.val.data.addr()
-    item_size = compiler.sizeof(T)
+    item_size = compiler.sizeof<T>()
     total_size = self.val.capacity * item_size
     self.val.allocator.deallocate(raw_addr, total_size)
 

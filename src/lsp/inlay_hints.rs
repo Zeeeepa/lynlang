@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::sync::{Arc, Mutex};
 
 use crate::ast::{AstType, Declaration, Expression, Statement};
+use crate::stdlib_metadata::compiler::get_intrinsic_return_type;
 use crate::stdlib_types::stdlib_types;
 
 use super::document_store::DocumentStore;
@@ -27,13 +28,14 @@ pub fn handle_inlay_hints(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Re
     };
 
     let mut hints = Vec::new();
-    
-    collect_hints_from_content(&doc.content, &mut hints);
+    let mut seen: std::collections::HashSet<(u32, u32)> = std::collections::HashSet::new();
+
+    collect_hints_from_content(&doc.content, &mut hints, &mut seen);
 
     if let Some(ast) = &doc.ast {
         for decl in ast {
             if let Declaration::Function(func) = decl {
-                collect_hints_from_statements(&func.body, &doc.content, doc, &store, &mut hints);
+                collect_hints_from_statements(&func.body, &doc.content, doc, &store, &mut hints, &mut seen);
             }
         }
     }
@@ -53,24 +55,90 @@ fn empty_response(id: lsp_server::RequestId) -> Response {
     }
 }
 
-fn collect_hints_from_content(content: &str, hints: &mut Vec<InlayHint>) {
-    let mut seen: std::collections::HashSet<(u32, u32)> = std::collections::HashSet::new();
-    
+fn collect_hints_from_content(content: &str, hints: &mut Vec<InlayHint>, seen: &mut std::collections::HashSet<(u32, u32)>) {
+    let mut in_struct_def = false;
+    let mut brace_depth: i32 = 0;
+    let mut pending_struct_def = false; // True when we saw "Name:" and expect "{" next
+
     for (line_num, line) in content.lines().enumerate() {
-        if let Some(hint) = try_create_hint_for_line(line, line_num as u32, &mut seen) {
+        let trimmed = line.trim();
+
+        // Track whether this line should be skipped (starts or is inside struct/enum def)
+        let mut skip_this_line = in_struct_def;
+
+        if !trimmed.is_empty() && !trimmed.starts_with("//") {
+            // Check for pending struct def (previous line was "Name:", now we see "{")
+            if pending_struct_def && trimmed.starts_with('{') {
+                in_struct_def = true;
+                brace_depth = 0;
+                skip_this_line = true;
+                pending_struct_def = false;
+            }
+
+            // Check for struct definition start: "Name: {" or "Name:" (with brace on next line)
+            if let Some(colon_pos) = trimmed.find(':') {
+                let before = trimmed[..colon_pos].trim();
+                let after = trimmed[colon_pos + 1..].trim();
+
+                // If it looks like a struct definition (PascalCase: { ... } or PascalCase:)
+                if !before.is_empty()
+                    && before.chars().next().unwrap().is_uppercase()
+                    && !before.contains('=')
+                    && !before.contains(' ')
+                {
+                    if after.starts_with('{') || after.contains('{') {
+                        // Brace on same line: "Person: {"
+                        in_struct_def = true;
+                        brace_depth = 0;
+                        skip_this_line = true;
+                        pending_struct_def = false;
+                    } else if after.is_empty() {
+                        // Brace might be on next line: "Person:"
+                        pending_struct_def = true;
+                        skip_this_line = true; // Skip the definition line too
+                    }
+                }
+            } else {
+                // Line doesn't have a colon - clear pending if it's not just a brace
+                if !trimmed.starts_with('{') {
+                    pending_struct_def = false;
+                }
+            }
+
+            // Track brace depth for struct definitions
+            if in_struct_def {
+                for ch in trimmed.chars() {
+                    if ch == '{' {
+                        brace_depth += 1;
+                    } else if ch == '}' {
+                        brace_depth -= 1;
+                        if brace_depth <= 0 {
+                            in_struct_def = false;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Skip lines inside struct/enum definitions
+        if skip_this_line {
+            continue;
+        }
+
+        if let Some(hint) = try_create_hint_for_line(line, line_num as u32, seen) {
             hints.push(hint);
         }
     }
 }
 
 fn try_create_hint_for_line(
-    line: &str, 
+    line: &str,
     line_num: u32,
     seen: &mut std::collections::HashSet<(u32, u32)>,
 ) -> Option<InlayHint> {
     let trimmed = line.trim();
-    
-    if trimmed.is_empty() 
+
+    if trimmed.is_empty()
         || trimmed.starts_with("//")
         || trimmed.starts_with('{')
         || trimmed.starts_with('}')
@@ -81,13 +149,13 @@ fn try_create_hint_for_line(
         return None;
     }
 
-    let (_var_name, var_end_pos, has_explicit_type, rhs) = parse_var_decl(line)?;
-    
+    let (_var_name, hint_pos, has_explicit_type, is_mutable, is_colon_eq, rhs) = parse_var_decl(line)?;
+
     if has_explicit_type {
         return None;
     }
 
-    let key = (line_num, var_end_pos);
+    let key = (line_num, hint_pos);
     if seen.contains(&key) {
         return None;
     }
@@ -95,9 +163,29 @@ fn try_create_hint_for_line(
     let inferred = infer_type(&rhs)?;
     seen.insert(key);
 
+    // Format hint based on declaration type:
+    // - Mutable (::=): show ":: Type" after variable name → "name :: Type = value"
+    // - Colon-eq (:=): show " Type" after the colon → "name: Type = value"
+    // - Immutable (=): show ": Type" after variable name → "name: Type = value"
+    let (hint_label, hint_char_pos) = if is_mutable {
+        // ::= → name :: Type = value
+        // Position hint between :: and = in the ::= operator
+        let dce_pos = line.find("::=")?;
+        (format!(" {} ", inferred), (dce_pos + 2) as u32)
+    } else if is_colon_eq {
+        // := → name: Type = value
+        // Position hint right after the colon (before the =)
+        // Find the := in the line and position after the :
+        let colon_eq_pos = line.find(":=")?;
+        (format!(" {} ", inferred), (colon_eq_pos + 1) as u32)
+    } else {
+        // = → name: Type = value (with space before =)
+        (format!(": {} ", inferred), hint_pos)
+    };
+
     Some(InlayHint {
-        position: Position { line: line_num, character: var_end_pos },
-        label: InlayHintLabel::String(format!(": {}", inferred)),
+        position: Position { line: line_num, character: hint_char_pos },
+        label: InlayHintLabel::String(hint_label),
         kind: Some(InlayHintKind::TYPE),
         text_edits: None,
         tooltip: None,
@@ -107,30 +195,45 @@ fn try_create_hint_for_line(
     })
 }
 
-fn parse_var_decl(line: &str) -> Option<(String, u32, bool, String)> {
+/// Parse a variable declaration line.
+/// Returns: (var_name, hint_position, has_explicit_type, is_mutable, is_colon_eq, rhs)
+fn parse_var_decl(line: &str) -> Option<(String, u32, bool, bool, bool, String)> {
     let trimmed = line.trim();
-    
+
     if trimmed.is_empty() || trimmed.starts_with("//") {
         return None;
     }
-    
-    let (eq_pos, eq_char_count) = if let Some(pos) = trimmed.find(" ::= ") {
-        (pos, 5)
+
+    // Detect declaration type and operator:
+    // - ::= means mutable with inferred type
+    // - := means immutable with inferred type (shorthand)
+    // - = means immutable with inferred type
+    // is_mutable: true for ::=, false for := and =
+    // is_colon_eq: true for :=, false for others
+    let (eq_pos, eq_char_count, is_mutable, is_colon_eq) = if let Some(pos) = trimmed.find(" ::= ") {
+        (pos, 5, true, false)
     } else if let Some(pos) = trimmed.find("::=") {
-        (pos, 3)
+        (pos, 3, true, false)
+    } else if let Some(pos) = trimmed.find(" := ") {
+        (pos, 4, false, true)
+    } else if let Some(pos) = trimmed.find(":=") {
+        (pos, 2, false, true)
     } else if let Some(pos) = trimmed.find(" = ") {
-        (pos, 3)
+        (pos, 3, false, false)
     } else {
         return None;
     };
-    
+
     let before_eq = &trimmed[..eq_pos];
     let after_eq = &trimmed[eq_pos + eq_char_count..];
 
+    // Check for explicit type annotation
     let has_explicit_type = if before_eq.contains("::") {
+        // Mutable with explicit type: "name :: Type"
         let parts: Vec<&str> = before_eq.splitn(2, "::").collect();
         parts.len() == 2 && !parts[1].trim().is_empty()
     } else if before_eq.contains(':') {
+        // Immutable with explicit type: "name: Type"
         let colon_pos = before_eq.find(':')?;
         let after_colon = before_eq[colon_pos + 1..].trim();
         !after_colon.is_empty()
@@ -138,6 +241,7 @@ fn parse_var_decl(line: &str) -> Option<(String, u32, bool, String)> {
         false
     };
 
+    // Extract variable name
     let var_name = if before_eq.contains("::") {
         before_eq.split("::").next()?.trim()
     } else if before_eq.contains(':') {
@@ -146,7 +250,7 @@ fn parse_var_decl(line: &str) -> Option<(String, u32, bool, String)> {
         before_eq.trim()
     };
 
-    if var_name.is_empty() 
+    if var_name.is_empty()
         || var_name.contains('(')
         || var_name.contains(')')
         || var_name.contains('.')
@@ -159,7 +263,7 @@ fn parse_var_decl(line: &str) -> Option<(String, u32, bool, String)> {
     let var_start = line.find(var_name)?;
     let var_end_pos = (var_start + var_name.len()) as u32;
 
-    Some((var_name.to_string(), var_end_pos, has_explicit_type, after_eq.trim().to_string()))
+    Some((var_name.to_string(), var_end_pos, has_explicit_type, is_mutable, is_colon_eq, after_eq.trim().to_string()))
 }
 
 fn infer_type(rhs: &str) -> Option<String> {
@@ -200,7 +304,14 @@ fn infer_from_call(call: &str) -> Option<String> {
     if let Some(dot_pos) = call.rfind('.') {
         let receiver = call[..dot_pos].trim();
         let method = call[dot_pos + 1..].trim();
-        
+
+        // Check for compiler intrinsics (compiler.load_library, etc.)
+        if receiver == "compiler" || receiver == "builtin" {
+            if let Some(ret_type) = get_intrinsic_return_type(method) {
+                return Some(format_type(&ret_type));
+            }
+        }
+
         if receiver.chars().next()?.is_uppercase() {
             if matches!(method, "new" | "init" | "create" | "default" | "from") {
                 return Some(receiver.to_string());
@@ -209,18 +320,18 @@ fn infer_from_call(call: &str) -> Option<String> {
                 return Some(format_type(ret));
             }
         }
-        
+
         if let Some(ret) = stdlib_types().get_function_return_type(receiver, method) {
             return Some(format_type(ret));
         }
-        
+
         if let Some(ret) = stdlib_types().get_method_return_type(receiver, method) {
             return Some(format_type(ret));
         }
     } else if call.chars().next()?.is_uppercase() {
         return Some(call.to_string());
     }
-    
+
     None
 }
 
@@ -230,6 +341,7 @@ fn collect_hints_from_statements(
     doc: &Document,
     store: &DocumentStore,
     hints: &mut Vec<InlayHint>,
+    seen: &mut std::collections::HashSet<(u32, u32)>,
 ) {
     for stmt in statements {
         match stmt {
@@ -238,23 +350,27 @@ fn collect_hints_from_statements(
                     if let Some(init) = initializer {
                         if let Some(inferred) = infer_expr_type(init, doc, store) {
                             if let Some(pos) = find_var_pos(content, name) {
-                                hints.push(InlayHint {
-                                    position: pos,
-                                    label: InlayHintLabel::String(format!(": {}", inferred)),
-                                    kind: Some(InlayHintKind::TYPE),
-                                    text_edits: None,
-                                    tooltip: None,
-                                    padding_left: None,
-                                    padding_right: None,
-                                    data: None,
-                                });
+                                let key = (pos.line, pos.character);
+                                if !seen.contains(&key) {
+                                    seen.insert(key);
+                                    hints.push(InlayHint {
+                                        position: pos,
+                                        label: InlayHintLabel::String(format!(": {}", inferred)),
+                                        kind: Some(InlayHintKind::TYPE),
+                                        text_edits: None,
+                                        tooltip: None,
+                                        padding_left: None,
+                                        padding_right: None,
+                                        data: None,
+                                    });
+                                }
                             }
                         }
                     }
                 }
             }
             Statement::Loop { body, .. } => {
-                collect_hints_from_statements(body, content, doc, store, hints);
+                collect_hints_from_statements(body, content, doc, store, hints, seen);
             }
             _ => {}
         }
@@ -262,11 +378,60 @@ fn collect_hints_from_statements(
 }
 
 fn find_var_pos(content: &str, var_name: &str) -> Option<Position> {
+    let mut in_struct_def = false;
+    let mut brace_depth: i32 = 0;
+
     for (line_num, line) in content.lines().enumerate() {
+        let trimmed = line.trim();
+
+        // Track struct/enum definitions to skip them
+        if !trimmed.is_empty() && !trimmed.starts_with("//") {
+            // Detect struct definition start: "Name: {" or "Name<T>: {"
+            if let Some(colon_pos) = trimmed.find(':') {
+                let before = trimmed[..colon_pos].trim();
+                let after = trimmed[colon_pos + 1..].trim();
+
+                // Check for PascalCase type definition (might have generics like Name<T>)
+                let base_name = before.split('<').next().unwrap_or(before);
+                if !base_name.is_empty()
+                    && base_name.chars().next().unwrap().is_uppercase()
+                    && !before.contains('=')
+                    && (after.starts_with('{') || after.contains('{'))
+                {
+                    in_struct_def = true;
+                    brace_depth = 0;
+                }
+            }
+
+            // Track brace depth
+            if in_struct_def {
+                for ch in trimmed.chars() {
+                    if ch == '{' {
+                        brace_depth += 1;
+                    } else if ch == '}' {
+                        brace_depth -= 1;
+                        if brace_depth <= 0 {
+                            in_struct_def = false;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Skip lines inside struct definitions
+        if in_struct_def {
+            continue;
+        }
+
+        // Look for variable declaration (must have = operator, not just :)
         if let Some(pos) = line.find(var_name) {
             let before = pos == 0 || line.as_bytes().get(pos - 1).map(|&b| b.is_ascii_whitespace()).unwrap_or(true);
             let after = &line[pos + var_name.len()..].trim_start();
-            if before && (after.starts_with('=') || after.starts_with(':')) {
+
+            // Only match if followed by = (with optional : for type annotation)
+            // This excludes struct field definitions like "name: Type"
+            if before && (after.starts_with('=') || after.starts_with(":=") || after.starts_with("::=")
+                || (after.starts_with(':') && after.contains('='))) {
                 return Some(Position {
                     line: line_num as u32,
                     character: (pos + var_name.len()) as u32,

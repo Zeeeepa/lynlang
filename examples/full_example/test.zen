@@ -6,7 +6,7 @@
 { HashMap, HashSet } = @std.collections
 { Vec, DynVec, Array } = @std
 
-// Import the main module functions to test 
+// Import the main module functions to test
 
 // ============================================================================
 // TEST FRAMEWORK - Simple test utilities
@@ -47,7 +47,7 @@ add_test = (suite: TestSuite, test_name: StaticString, test_func: () TestResult)
             | Fail(msg) {
                 suite.failed = suite.failed + 1
                 println("    ✗ FAILED: ${msg}")
-            }
+        }
         return result
     })
 }
@@ -86,7 +86,7 @@ test_divide_valid = () TestResult {
         }
         | Err(msg) {
             return TestResult.Fail("Unexpected error: ${msg}")
-        }
+    }
 }
 
 // Test division by zero
@@ -101,7 +101,7 @@ test_divide_by_zero = () TestResult {
                 return TestResult.Pass
             }
             return TestResult.Fail("Expected 'Division by zero', got '${msg}'")
-        }
+    }
 }
 
 // Test person lookup
@@ -116,7 +116,7 @@ test_find_person_exists = () TestResult {
         }
         | None {
             return TestResult.Fail("Expected to find person with id 1")
-        }
+    }
 }
 
 // Test person lookup for non-existent person
@@ -128,7 +128,7 @@ test_find_person_not_exists = () TestResult {
         }
         | None {
             return TestResult.Pass
-        }
+    }
 }
 
 // Test status pattern matching
@@ -162,13 +162,13 @@ test_calculate_success = () TestResult {
         }
         | Err(msg) {
             return TestResult.Fail("Unexpected error: ${msg}")
-        }
+    }
 }
 
 // Test collections with allocators
 test_collections = () TestResult {
     allocator = @std.get_default_allocator()
-    
+
     // Test HashMap
     map = HashMap.new<StaticString, i32>(allocator)
     map.insert("test", 42)
@@ -182,7 +182,7 @@ test_collections = () TestResult {
         }
         | None {
             return TestResult.Fail("Expected to find key 'test'")
-        }
+    }
 }
 
 // Test string operations
@@ -213,10 +213,10 @@ test_generic_container = () TestResult {
 
 main = () void {
     println("=== ZEN TEST SUITE ===")
-    
+
     // Create test suite
     suite = new_test_suite("Zen Full Example Tests")
-    
+
     // Add all tests
     add_test(suite, "Basic Addition", test_add)
     add_test(suite, "Division Valid", test_divide_valid)
@@ -229,17 +229,17 @@ main = () void {
     add_test(suite, "Collections", test_collections)
     add_test(suite, "String Operations", test_string_operations)
     add_test(suite, "Generic Container", test_generic_container)
-    
+
     // Run all tests
     run_tests(suite)
-    
+
     // Summary
     total = suite.passed + suite.failed
     println("\n=== TEST SUMMARY ===")
     println("Total tests: ${total}")
     println("Passed: ${suite.passed}")
     println("Failed: ${suite.failed}")
-    
+
     suite.failed == 0 ? {
         println("🎉 All tests passed!")
     } : {
