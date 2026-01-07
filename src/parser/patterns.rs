@@ -331,11 +331,11 @@ impl<'a> Parser<'a> {
                 self.next_token(); // consume ')'
 
                 if patterns.len() == 1 {
+                    // Single pattern in parentheses - just unwrap it
                     Ok(patterns.remove(0))
                 } else {
-                    // Tuple pattern - for now, just use the first pattern
-                    // TODO: Implement proper tuple pattern support
-                    Ok(patterns.remove(0))
+                    // Tuple pattern
+                    Ok(Pattern::Tuple(patterns))
                 }
             }
             Token::Operator(op) if op == "|" => {

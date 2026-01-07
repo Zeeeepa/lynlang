@@ -1,5 +1,14 @@
-use super::super::lexer::{Lexer, Token};
+use super::super::lexer::{Lexer, LexerState, Token};
 use crate::error::Span;
+
+/// Saved parser state for backtracking during look-ahead
+pub struct ParserState {
+    pub lexer_state: LexerState,
+    pub current_token: Token,
+    pub peek_token: Token,
+    pub current_span: Span,
+    pub peek_span: Span,
+}
 
 pub struct Parser<'a> {
     pub(crate) lexer: Lexer<'a>,
@@ -103,6 +112,154 @@ impl<'a> Parser<'a> {
             true
         } else {
             false
+        }
+    }
+
+    /// Skip optional semicolon if present
+    #[inline]
+    pub fn skip_optional_semicolon(&mut self) {
+        if self.current_token == Token::Symbol(';') {
+            self.next_token();
+        }
+    }
+
+    /// Parse generic type parameters like <T, U, V>
+    /// Returns the type parameters as a string (e.g., "<T,U>")
+    pub fn parse_generic_params_as_string(&mut self) -> String {
+        if self.current_token != Token::Operator("<".to_string()) {
+            return String::new();
+        }
+
+        let mut result = String::from("<");
+        self.next_token(); // consume '<'
+
+        loop {
+            if let Token::Identifier(param) = &self.current_token {
+                result.push_str(param);
+                self.next_token();
+            } else {
+                break;
+            }
+
+            if self.current_token == Token::Symbol(',') {
+                result.push(',');
+                self.next_token();
+            } else if self.current_token == Token::Operator(">".to_string()) {
+                result.push('>');
+                self.next_token();
+                break;
+            } else {
+                break;
+            }
+        }
+        result
+    }
+
+    /// Parse type name with optional generic parameters
+    /// Returns "TypeName" or "TypeName<T,U>"
+    pub fn parse_type_name_with_generics(&mut self) -> crate::error::Result<String> {
+        let name = self.expect_identifier("type name")?;
+        let mut full_name = name;
+
+        if self.current_token == Token::Operator("<".to_string()) {
+            full_name.push_str(&self.parse_generic_params_as_string());
+        }
+
+        Ok(full_name)
+    }
+
+    /// Check if current token is a specific operator
+    #[inline]
+    pub fn is_operator(&self, op: &str) -> bool {
+        self.current_token == Token::Operator(op.to_string())
+    }
+
+    /// Get current identifier without consuming, or None
+    pub fn current_identifier(&self) -> Option<String> {
+        if let Token::Identifier(name) = &self.current_token {
+            Some(name.clone())
+        } else {
+            None
+        }
+    }
+
+    /// Get peek identifier without consuming, or None
+    pub fn peek_identifier(&self) -> Option<String> {
+        if let Token::Identifier(name) = &self.peek_token {
+            Some(name.clone())
+        } else {
+            None
+        }
+    }
+
+    /// Check if peek token is a specific symbol
+    #[inline]
+    pub fn peek_is_symbol(&self, symbol: char) -> bool {
+        self.peek_token == Token::Symbol(symbol)
+    }
+
+    /// Check if peek token is a specific operator
+    #[inline]
+    pub fn peek_is_operator(&self, op: &str) -> bool {
+        self.peek_token == Token::Operator(op.to_string())
+    }
+
+    // ========================================================================
+    // STATE SAVE/RESTORE FOR LOOK-AHEAD
+    // ========================================================================
+
+    /// Save the current parser state for potential backtracking
+    pub fn save_state(&self) -> ParserState {
+        ParserState {
+            lexer_state: self.lexer.save_state(),
+            current_token: self.current_token.clone(),
+            peek_token: self.peek_token.clone(),
+            current_span: self.current_span.clone(),
+            peek_span: self.peek_span.clone(),
+        }
+    }
+
+    /// Restore parser to a previously saved state
+    pub fn restore_state(&mut self, state: ParserState) {
+        self.lexer.restore_state(state.lexer_state);
+        self.current_token = state.current_token;
+        self.peek_token = state.peek_token;
+        self.current_span = state.current_span;
+        self.peek_span = state.peek_span;
+    }
+
+    /// Execute a closure with look-ahead, then restore state
+    /// Returns whatever the closure returns
+    pub fn with_lookahead<T, F: FnOnce(&mut Self) -> T>(&mut self, f: F) -> T {
+        let saved = self.save_state();
+        let result = f(self);
+        self.restore_state(saved);
+        result
+    }
+
+    /// Skip past generic parameters <T, U, V> and return depth reached
+    /// Returns 0 if not at '<', returns -1 if generics are malformed
+    pub fn skip_generic_params(&mut self) -> i32 {
+        if self.current_token != Token::Operator("<".to_string()) {
+            return 0;
+        }
+        self.next_token(); // consume '<'
+        let mut depth = 1;
+        while depth > 0 && self.current_token != Token::Eof {
+            if self.current_token == Token::Operator("<".to_string()) {
+                depth += 1;
+            } else if self.current_token == Token::Operator(">".to_string()) {
+                depth -= 1;
+            }
+            if depth > 0 {
+                self.next_token();
+            }
+        }
+        if depth == 0 {
+            self.next_token(); // consume final '>'
+            1
+        } else {
+            -1 // malformed
         }
     }
 

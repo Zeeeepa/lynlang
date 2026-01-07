@@ -6,6 +6,126 @@ use crate::error::{CompileError, Result};
 use crate::lexer::Token;
 
 impl<'a> Parser<'a> {
+    // ========================================================================
+    // HELPER METHODS FOR PARSING COMMON PATTERNS
+    // ========================================================================
+
+    /// Parse a brace-enclosed block of statements: { stmt1; stmt2; ... }
+    fn parse_brace_block(&mut self, context: &str) -> Result<Vec<Statement>> {
+        self.expect_symbol('{')?;
+        let mut statements = vec![];
+        while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
+            statements.push(self.parse_statement()?);
+        }
+        if self.current_token != Token::Symbol('}') {
+            return Err(self.syntax_error(format!("Expected '}}' to close {}", context)));
+        }
+        self.next_token();
+        Ok(statements)
+    }
+
+    /// Wrap a list of statements as a single statement (for defer blocks, etc.)
+    fn wrap_statements_as_stmt(&self, statements: Vec<Statement>) -> Statement {
+        match statements.len() {
+            0 => Statement::Expression {
+                expr: Expression::Boolean(true),
+                span: Some(self.current_span.clone()),
+            },
+            1 => statements.into_iter().next().unwrap(),
+            _ => Statement::Block {
+                statements,
+                span: Some(self.current_span.clone()),
+            },
+        }
+    }
+
+    /// Parse an expression as a statement, handling optional semicolon
+    fn parse_expression_statement(&mut self) -> Result<Statement> {
+        let span = Some(self.current_span.clone());
+        let expr = self.parse_expression()?;
+        self.skip_optional_semicolon();
+        Ok(Statement::Expression { expr, span })
+    }
+
+    /// Check if current function declaration has a body (for external fn detection)
+    /// Assumes we're at '(' of parameter list
+    fn function_has_body(&mut self) -> bool {
+        // Skip past '(' and params
+        let mut depth = 1;
+        self.next_token(); // consume '('
+        while depth > 0 && self.current_token != Token::Eof {
+            match &self.current_token {
+                Token::Symbol('(') => depth += 1,
+                Token::Symbol(')') => depth -= 1,
+                _ => {}
+            }
+            self.next_token();
+        }
+
+        // Now at return type, skip it (identifier with optional generics)
+        while !matches!(self.current_token, Token::Symbol('{') | Token::Eof | Token::Identifier(_))
+            || matches!(&self.current_token, Token::Identifier(_))
+        {
+            if matches!(self.current_token, Token::Symbol('{') | Token::Eof) {
+                break;
+            }
+            self.next_token();
+            // After identifier, check for generics
+            if self.current_token == Token::Operator("<".to_string()) {
+                self.skip_generic_params();
+            } else {
+                break;
+            }
+        }
+
+        // Check for body: either '{' directly or '= {' (alternate syntax)
+        self.current_token == Token::Symbol('{')
+            || (self.current_token == Token::Operator("=".to_string())
+                && self.peek_token == Token::Symbol('{'))
+    }
+
+    /// Check if a brace block looks like a trait (has method signatures) vs struct (has fields)
+    /// Assumes we're at '{'
+    fn looks_like_trait(&mut self) -> bool {
+        self.next_token(); // consume '{'
+        // Look for pattern: identifier ':' '(' which indicates a trait method
+        if let Token::Identifier(_) = &self.current_token {
+            self.next_token();
+            self.current_token == Token::Symbol(':') && {
+                self.next_token();
+                self.current_token == Token::Symbol('(')
+            }
+        } else {
+            false
+        }
+    }
+
+    /// Detect what type of declaration follows after generics
+    /// Returns (is_struct, is_enum, is_function, is_external_fn, is_behavior, is_trait)
+    fn detect_declaration_type(&mut self) -> (bool, bool, bool, bool, bool, bool) {
+        // We're past the generics, check what comes next
+        let is_struct = self.current_token == Token::Symbol(':')
+            && self.peek_token == Token::Symbol('{');
+        let is_enum = self.current_token == Token::Symbol(':')
+            && (matches!(&self.peek_token, Token::Identifier(_))
+                || self.peek_token == Token::Symbol('.'));
+        let is_generic_function = self.current_token == Token::Symbol('(');
+        let is_equals_function = self.current_token == Token::Operator("=".to_string())
+            && self.peek_token == Token::Symbol('(');
+        let is_function = (self.current_token == Token::Symbol(':')
+            && self.peek_token == Token::Symbol('('))
+            || is_generic_function
+            || is_equals_function;
+        let is_behavior = self.current_token == Token::Symbol(':')
+            && matches!(&self.peek_token, Token::Identifier(name) if name == "behavior");
+
+        (is_struct, is_enum, is_function, false, is_behavior, false)
+    }
+
+    // ========================================================================
+    // MAIN PARSING METHODS
+    // ========================================================================
+
     pub fn parse_program(&mut self) -> Result<Program> {
         let mut declarations = vec![];
         while self.current_token != Token::Eof {
@@ -29,18 +149,11 @@ impl<'a> Parser<'a> {
                     declarations.push(self.parse_comptime_block_declaration()?);
                 } else if self.peek_token == Token::Operator(":=".to_string()) {
                     let var_name = name.clone();
-                    let saved_current = self.current_token.clone();
-                    let saved_peek = self.peek_token.clone();
-                    let saved_lex_state = self.lexer.save_state();
-
-                    self.next_token();
-                    self.next_token();
-
-                    let is_module_import = self.is_module_import_after_colon_assign();
-
-                    self.current_token = saved_current;
-                    self.peek_token = saved_peek;
-                    self.lexer.restore_state(saved_lex_state);
+                    let is_module_import = self.with_lookahead(|p| {
+                        p.next_token();
+                        p.next_token();
+                        p.is_module_import_after_colon_assign()
+                    });
 
                     if is_module_import {
                         self.next_token();
@@ -50,27 +163,16 @@ impl<'a> Parser<'a> {
                         declarations.push(self.parse_constant_from_statement()?);
                     }
                 } else if self.peek_token == Token::Operator("::".to_string()) {
-                    let saved_state = self.lexer.save_state();
-                    let saved_current_token = self.current_token.clone();
-                    let saved_peek_token = self.peek_token.clone();
-
-                    self.next_token();
-                    self.next_token();
-
-                    let is_function = self.current_token == Token::Symbol('(');
-
-                    self.lexer.restore_state(saved_state);
-                    self.current_token = saved_current_token;
-                    self.peek_token = saved_peek_token;
+                    let is_function = self.with_lookahead(|p| {
+                        p.next_token();
+                        p.next_token();
+                        p.current_token == Token::Symbol('(')
+                    });
 
                     if is_function {
                         declarations.push(Declaration::Function(self.parse_function()?));
                     } else {
-                        let var_name = if let Token::Identifier(n) = &self.current_token {
-                            n.clone()
-                        } else {
-                            unreachable!()
-                        };
+                        let var_name = self.current_identifier().unwrap();
                         self.next_token();
                         declarations.push(self.parse_top_level_mutable_var(var_name)?);
                     }
@@ -78,121 +180,41 @@ impl<'a> Parser<'a> {
                     || self.peek_token == Token::Operator("<".to_string())
                 {
                     // Check if it's a struct, enum, or function definition
-                    let _name = if let Token::Identifier(name) = &self.current_token {
-                        name.clone()
-                    } else {
-                        unreachable!()
-                    };
-
                     // Look ahead to see what type of declaration this is
-                    let saved_state = self.lexer.save_state();
-                    let saved_current_token = self.current_token.clone();
-                    let saved_peek_token = self.peek_token.clone();
+                    let saved_state = self.save_state();
 
                     // If generics, need to look ahead to determine struct vs function
                     if self.peek_token == Token::Operator("<".to_string()) {
-                        // Look ahead to see if it's a struct or a function with generics
-                        let saved_inner_state = self.lexer.save_state();
-                        let saved_current = self.current_token.clone();
-                        let saved_peek = self.peek_token.clone();
-                        let saved_span = self.current_span.clone();
-                        let saved_peek_span = self.peek_span.clone();
 
-                        // Skip past the generics to see what follows
+                        // Skip past name and generics to see what follows
                         self.next_token(); // Move to <
-                        self.next_token(); // Move past <
-                        let mut depth = 1;
-                        while depth > 0 && self.current_token != Token::Eof {
-                            if self.current_token == Token::Operator("<".to_string()) {
-                                depth += 1;
-                            } else if self.current_token == Token::Operator(">".to_string()) {
-                                depth -= 1;
-                            }
-                            if depth > 0 {
-                                self.next_token();
-                            }
-                        }
+                        let depth = self.skip_generic_params();
 
-                        if depth == 0 {
-                            self.next_token(); // Move past >
-
+                        if depth >= 0 {
                             // FIRST check if this is an impl block: Type<T>.impl = { ... }
                             if self.current_token == Token::Symbol('.') {
-                                // Save state before checking
-                                let saved_after_generics_state = self.lexer.save_state();
-                                let saved_after_generics_current = self.current_token.clone();
-                                let saved_after_generics_peek = self.peek_token.clone();
-
+                                let after_generics_state = self.save_state();
                                 self.next_token();
                                 if let Token::Identifier(method_name) = &self.current_token {
                                     let method_name = method_name.clone();
-
                                     // Check if this is a method definition: Type<T>.method = ...
                                     if self.peek_token == Token::Operator("=".to_string()) {
                                         // This is a method definition! Restore and parse properly
-                                        self.lexer.restore_state(saved_inner_state);
-                                        self.current_token = saved_current.clone();
-                                        self.peek_token = saved_peek.clone();
-                                        self.current_span = saved_span.clone();
-                                        self.peek_span = saved_peek_span.clone();
-
-                                        // Parse type name with generics
-                                        let mut type_name =
-                                            if let Token::Identifier(name) = &self.current_token {
-                                                name.clone()
-                                            } else {
-                                                return Err(CompileError::SyntaxError(
-                                                    "Expected type name".to_string(),
-                                                    Some(self.current_span.clone()),
-                                                ));
-                                            };
-                                        self.next_token(); // consume name
-                                        self.next_token(); // consume '<'
-                                        type_name.push('<');
-                                        loop {
-                                            if let Token::Identifier(param) = &self.current_token {
-                                                type_name.push_str(param);
-                                                self.next_token();
-                                            } else {
-                                                break;
-                                            }
-                                            if self.current_token == Token::Symbol(',') {
-                                                type_name.push(',');
-                                                self.next_token();
-                                            } else if self.current_token
-                                                == Token::Operator(">".to_string())
-                                            {
-                                                type_name.push('>');
-                                                self.next_token();
-                                                break;
-                                            } else {
-                                                break;
-                                            }
-                                        }
-
-                                        // Now at '.', consume it
-                                        self.next_token(); // consume '.'
+                                        self.restore_state(saved_state);
+                                        // Parse type name with generics using helper
+                                        let type_name = self.parse_type_name_with_generics()?;
+                                        self.expect_symbol('.')?;
 
                                         if method_name == "impl" {
-                                            // impl block: Type<T>.impl = { ... }
                                             self.next_token(); // consume 'impl'
-                                            if self.current_token
-                                                == Token::Operator("=".to_string())
-                                            {
-                                                self.next_token();
-                                                declarations.push(Declaration::ImplBlock(
-                                                    self.parse_impl_block(type_name)?,
-                                                ));
-                                                continue;
-                                            }
-                                            return Err(CompileError::SyntaxError(
-                                                "Expected '=' after 'impl'".to_string(),
-                                                Some(self.current_span.clone()),
+                                            self.expect_operator("=")?;
+                                            declarations.push(Declaration::ImplBlock(
+                                                self.parse_impl_block(type_name)?,
                                             ));
+                                            continue;
                                         } else {
                                             // Method definition: Type<T>.method = (params) ReturnType { ... }
-                                            let full_function_name =
-                                                format!("{}.{}", type_name, method_name);
+                                            let full_function_name = format!("{}.{}", type_name, method_name);
                                             let mut func = self.parse_function()?;
                                             func.name = full_function_name;
                                             declarations.push(Declaration::Function(func));
@@ -200,38 +222,16 @@ impl<'a> Parser<'a> {
                                         }
                                     }
                                 }
-
                                 // Not a recognized pattern - restore and continue
-                                self.lexer.restore_state(saved_after_generics_state);
-                                self.current_token = saved_after_generics_current.clone();
-                                self.peek_token = saved_after_generics_peek.clone();
+                                self.restore_state(after_generics_state);
                             }
 
-                            // Check what comes after the generics
-                            let is_struct = self.current_token == Token::Symbol(':')
-                                && self.peek_token == Token::Symbol('{');
-                            let is_enum = self.current_token == Token::Symbol(':')
-                                && (matches!(&self.peek_token, Token::Identifier(_))
-                                    || self.peek_token == Token::Symbol('.')); // Support .Variant syntax (enums use commas, not pipes)
-                                                                               // Generic function: name<T>(params) return_type { ... }
-                                                                               // or name<T> = (params) return_type { ... }
-                            let is_generic_function = self.current_token == Token::Symbol('(');
-                            let is_equals_function = self.current_token
-                                == Token::Operator("=".to_string())
-                                && self.peek_token == Token::Symbol('(');
-                            let is_function = (self.current_token == Token::Symbol(':')
-                                && self.peek_token == Token::Symbol('('))
-                                || is_generic_function
-                                || is_equals_function;
-                            let is_behavior = self.current_token == Token::Symbol(':')
-                                && matches!(&self.peek_token, Token::Identifier(name) if name == "behavior");
+                            // Check what comes after the generics using helper
+                            let (is_struct, is_enum, is_function, _, is_behavior, _) =
+                                self.detect_declaration_type();
 
                             // Restore lexer state
-                            self.lexer.restore_state(saved_inner_state);
-                            self.current_token = saved_current;
-                            self.peek_token = saved_peek;
-                            self.current_span = saved_span;
-                            self.peek_span = saved_peek_span;
+                            self.restore_state(saved_state);
 
                             if is_behavior {
                                 declarations.push(Declaration::Behavior(self.parse_behavior()?));
@@ -247,80 +247,33 @@ impl<'a> Parser<'a> {
                             }
                         } else {
                             // Malformed generics, restore and try to parse as struct
-                            self.lexer.restore_state(saved_inner_state);
-                            self.current_token = saved_current;
-                            self.peek_token = saved_peek;
-                            self.current_span = saved_span;
-                            self.peek_span = saved_peek_span;
+                            self.restore_state(saved_state);
                             declarations.push(Declaration::Struct(self.parse_struct()?));
                         }
                     } else {
                         // FIRST check if this is an impl block: Type.impl or Type<T>.impl
-                        // Check if peek_token is '.' or '<' (indicating impl block)
                         if self.peek_token == Token::Symbol('.')
                             || self.peek_token == Token::Operator("<".to_string())
                         {
-                            // Save state before trying to parse impl
-                            let saved_before_impl_state = self.lexer.save_state();
-                            let saved_before_impl_current = self.current_token.clone();
-                            let saved_before_impl_peek = self.peek_token.clone();
-
+                            let impl_saved = self.save_state();
                             // Try to parse as impl block
-                            if let Token::Identifier(name) = &self.current_token {
-                                let mut type_name = name.clone();
-                                self.next_token(); // consume type name
-
-                                // Check for generic parameters
-                                if self.current_token == Token::Operator("<".to_string()) {
-                                    type_name.push('<');
-                                    self.next_token();
-                                    loop {
-                                        if let Token::Identifier(param) = &self.current_token {
-                                            type_name.push_str(param);
-                                            self.next_token();
-                                        } else {
-                                            break;
-                                        }
-                                        if self.current_token == Token::Symbol(',') {
-                                            type_name.push(',');
-                                            self.next_token();
-                                        } else if self.current_token
-                                            == Token::Operator(">".to_string())
-                                        {
-                                            type_name.push('>');
-                                            self.next_token();
-                                            break;
-                                        } else {
-                                            break;
-                                        }
-                                    }
-                                }
-
+                            if self.current_identifier().is_some() {
+                                let type_name = self.parse_type_name_with_generics()?;
                                 // Check if next is '.' followed by 'impl'
-                                if self.current_token == Token::Symbol('.') {
-                                    self.next_token();
-                                    if let Token::Identifier(method_name) = &self.current_token {
-                                        if method_name == "impl" {
-                                            // This IS an impl block!
-                                            self.next_token();
-                                            if self.current_token
-                                                == Token::Operator("=".to_string())
-                                            {
-                                                self.next_token();
-                                                declarations.push(Declaration::ImplBlock(
-                                                    self.parse_impl_block(type_name)?,
-                                                ));
-                                                continue; // Skip to next declaration
-                                            }
+                                if self.try_consume_symbol('.') {
+                                    if self.is_keyword("impl") {
+                                        self.next_token(); // consume 'impl'
+                                        if self.try_consume_operator("=") {
+                                            declarations.push(Declaration::ImplBlock(
+                                                self.parse_impl_block(type_name)?,
+                                            ));
+                                            continue; // Skip to next declaration
                                         }
                                     }
                                 }
                             }
-
                             // Not an impl block, restore state
-                            self.lexer.restore_state(saved_before_impl_state);
-                            self.current_token = saved_before_impl_current.clone();
-                            self.peek_token = saved_before_impl_peek.clone();
+                            self.restore_state(impl_saved);
                         }
 
                         // Need to look ahead to determine if it's a struct, enum, behavior, trait, or function
@@ -328,52 +281,29 @@ impl<'a> Parser<'a> {
                         self.next_token(); // Move past ':' to see what comes after
 
                         // Check what comes after ':'
-                        // Enums use commas to separate variants, structs use {}
                         let is_enum = matches!(&self.current_token, Token::Identifier(_))
-                            || matches!(&self.current_token, Token::Symbol('.')); // Support .Variant syntax
-                        let is_function = matches!(&self.current_token, Token::Symbol('('));
+                            || matches!(&self.current_token, Token::Symbol('.'));
+                        let is_function_or_external = matches!(&self.current_token, Token::Symbol('('));
                         let is_behavior = matches!(&self.current_token, Token::Identifier(name) if name == "behavior");
 
+                        // If it looks like a function, check if it's external (no body) or regular
+                        let (is_function, is_external_fn) = if is_function_or_external {
+                            let has_body = self.with_lookahead(|p| p.function_has_body());
+                            if has_body { (true, false) } else { (false, true) }
+                        } else {
+                            (false, false)
+                        };
+
                         // Check if it's a trait or struct (both start with '{')
-                        let (is_struct, is_trait) =
-                            if matches!(&self.current_token, Token::Symbol('{')) {
-                                // Look ahead to see if it contains method signatures (trait) or fields (struct)
-                                let saved_trait_state = self.lexer.save_state();
-                                let saved_trait_current = self.current_token.clone();
-                                let saved_trait_peek = self.peek_token.clone();
-
-                                self.next_token(); // consume '{'
-
-                                // Look for the pattern: identifier ':' '(' which indicates a trait method
-                                let looks_like_trait =
-                                    if let Token::Identifier(_) = &self.current_token {
-                                        self.next_token();
-                                        self.current_token == Token::Symbol(':') && {
-                                            self.next_token();
-                                            self.current_token == Token::Symbol('(')
-                                        }
-                                    } else {
-                                        false
-                                    };
-
-                                // Restore state
-                                self.lexer.restore_state(saved_trait_state);
-                                self.current_token = saved_trait_current;
-                                self.peek_token = saved_trait_peek;
-
-                                if looks_like_trait {
-                                    (false, true)
-                                } else {
-                                    (true, false)
-                                }
-                            } else {
-                                (false, false)
-                            };
+                        let (is_struct, is_trait) = if self.current_token == Token::Symbol('{') {
+                            let looks_like_trait = self.with_lookahead(|p| p.looks_like_trait());
+                            if looks_like_trait { (false, true) } else { (true, false) }
+                        } else {
+                            (false, false)
+                        };
 
                         // Restore lexer state
-                        self.lexer.restore_state(saved_state);
-                        self.current_token = saved_current_token;
-                        self.peek_token = saved_peek_token;
+                        self.restore_state(saved_state);
 
                         if is_behavior {
                             declarations.push(Declaration::Behavior(self.parse_behavior()?));
@@ -381,6 +311,10 @@ impl<'a> Parser<'a> {
                             declarations.push(Declaration::Trait(self.parse_trait()?));
                         } else if is_enum {
                             declarations.push(Declaration::Enum(self.parse_enum()?));
+                        } else if is_external_fn {
+                            declarations.push(Declaration::ExternalFunction(
+                                self.parse_external_function()?,
+                            ));
                         } else if is_function {
                             declarations.push(Declaration::Function(self.parse_function()?));
                         } else if is_struct {
@@ -394,54 +328,11 @@ impl<'a> Parser<'a> {
                     || (self.peek_token == Token::Operator("<".to_string()))
                 {
                     // Could be an impl block: Type.impl = { ... } or Type<T>.impl = { ... }
-                    let type_name = if let Token::Identifier(name) = &self.current_token {
-                        let mut full_name = name.clone();
-                        self.next_token(); // consume type name
-
-                        // Check for generic parameters: Type<T, U>
-                        if self.current_token == Token::Operator("<".to_string()) {
-                            full_name.push('<');
-                            self.next_token(); // consume '<'
-
-                            // Parse type parameters
-                            loop {
-                                if let Token::Identifier(param) = &self.current_token {
-                                    full_name.push_str(param);
-                                    self.next_token();
-                                } else {
-                                    break;
-                                }
-
-                                if self.current_token == Token::Symbol(',') {
-                                    full_name.push(',');
-                                    self.next_token();
-                                } else if self.current_token == Token::Operator(">".to_string()) {
-                                    full_name.push('>');
-                                    self.next_token();
-                                    break;
-                                } else {
-                                    break;
-                                }
-                            }
-                        }
-
-                        full_name
-                    } else {
-                        unreachable!()
-                    };
-
-                    // Save state for potential backtrack
-                    let saved_impl_state = self.lexer.save_state();
-                    let saved_current_token = self.current_token.clone();
-                    let saved_peek_token = self.peek_token.clone();
+                    let type_name = self.parse_type_name_with_generics()?;
 
                     // Now check for '.'
                     if self.current_token != Token::Symbol('.') {
-                        // Not an impl block, restore and continue
-                        self.lexer.restore_state(saved_impl_state);
-                        self.current_token = saved_current_token;
-                        self.peek_token = saved_peek_token;
-                        // Continue parsing as something else
+                        // Not an impl block, restore and parse as function
                         declarations.push(Declaration::Function(self.parse_function()?));
                         continue;
                     }
@@ -452,21 +343,8 @@ impl<'a> Parser<'a> {
                         if method_name == "impl" {
                             // This is an impl block: Type.impl = { ... }
                             self.next_token(); // consume 'impl'
-
-                            // Expect '='
-                            if self.current_token != Token::Operator("=".to_string()) {
-                                return Err(CompileError::SyntaxError(
-                                    format!(
-                                        "Expected '=' after 'impl', got {:?}",
-                                        self.current_token
-                                    ),
-                                    Some(self.current_span.clone()),
-                                ));
-                            }
-                            self.next_token(); // consume '='
-
-                            declarations
-                                .push(Declaration::ImplBlock(self.parse_impl_block(type_name)?));
+                            self.expect_operator("=")?;
+                            declarations.push(Declaration::ImplBlock(self.parse_impl_block(type_name)?));
                         } else if method_name == "implements" {
                             // This is a trait implementation: Type.implements(Trait, { ... })
                             self.next_token(); // consume 'implements'
@@ -504,86 +382,57 @@ impl<'a> Parser<'a> {
                                 func.name = full_function_name;
                                 declarations.push(Declaration::Function(func));
                             } else {
-                                // Not a recognized method and not a method definition, restore and error
-                                self.lexer.restore_state(saved_impl_state);
-                                self.current_token = saved_current_token;
-                                self.peek_token = saved_peek_token;
-
-                                return Err(CompileError::SyntaxError(
-                                    format!(
-                                        "Expected 'implements' or 'requires' after '{}.'",
-                                        type_name
-                                    ),
-                                    Some(self.current_span.clone()),
+                                // Not a recognized method and not a method definition
+                                return Err(self.syntax_error(
+                                    format!("Expected 'impl', 'implements', 'requires', or method after '{}.'", type_name)
                                 ));
                             }
                         }
                     } else {
-                        // Not an identifier, restore and error
-                        self.lexer.restore_state(saved_impl_state);
-                        self.current_token = saved_current_token;
-                        self.peek_token = saved_peek_token;
-
-                        return Err(CompileError::SyntaxError(
-                            format!("Expected 'implements' or 'requires' after '{}.'", type_name),
-                            Some(self.current_span.clone()),
+                        // Not an identifier
+                        return Err(self.syntax_error(
+                            format!("Expected method name after '{}.'", type_name)
                         ));
                     }
-                } else if self.peek_token == Token::Symbol('(') {
-                    // Could be an external function declaration
-                    declarations.push(Declaration::ExternalFunction(
-                        self.parse_external_function()?,
-                    ));
+                } else if self.peek_token == Token::Symbol(':') {
+                    // Could be an external function declaration: name: (params) return_type
+                    let is_external_fn = self.with_lookahead(|p| {
+                        p.next_token(); // consume identifier
+                        p.next_token(); // consume ':'
+                        p.current_token == Token::Symbol('(')
+                    });
+
+                    if is_external_fn {
+                        declarations.push(Declaration::ExternalFunction(
+                            self.parse_external_function()?,
+                        ));
+                    } else {
+                        declarations.push(Declaration::Function(self.parse_function()?));
+                    }
                 } else if self.peek_token == Token::Operator(":=".to_string()) {
                     // Top-level constant declaration: name := value
-                    let name = if let Token::Identifier(name) = &self.current_token {
-                        name.clone()
-                    } else {
-                        unreachable!()
-                    };
+                    let name = self.current_identifier().unwrap();
                     self.next_token(); // consume identifier
                     self.next_token(); // consume ':='
                     let value = self.parse_expression()?;
+                    self.skip_optional_semicolon();
 
-                    // Skip optional semicolon
-                    if self.current_token == Token::Symbol(';') {
-                        self.next_token();
-                    }
-
-                    // Create a constant declaration
                     declarations.push(Declaration::Constant {
                         name,
                         value,
-                        type_: None, // Type will be inferred
+                        type_: None,
                     });
                 } else if self.peek_token == Token::Operator("=".to_string()) {
                     // Could be either:
                     // 1. Function declaration: name = (params) returnType { ... }
                     // 2. Variable declaration: name = value
-                    // Need to look ahead to distinguish
-
-                    // Save state for restoration
-                    let saved_fn_state = self.lexer.save_state();
-                    let saved_current_token = self.current_token.clone();
-                    let saved_peek_token = self.peek_token.clone();
-
-                    let name = if let Token::Identifier(n) = &self.current_token {
-                        n.clone()
-                    } else {
-                        unreachable!()
-                    };
-
-                    // Look ahead past =
-                    self.next_token(); // move to =
-                    self.next_token(); // move past =
-
-                    // Check if it's a function (starts with '(')
-                    let is_function = self.current_token == Token::Symbol('(');
-
-                    // Restore state
-                    self.lexer.restore_state(saved_fn_state);
-                    self.current_token = saved_current_token;
-                    self.peek_token = saved_peek_token;
+                    // Look ahead to distinguish
+                    let name = self.current_identifier().unwrap();
+                    let is_function = self.with_lookahead(|p| {
+                        p.next_token(); // move to =
+                        p.next_token(); // move past =
+                        p.current_token == Token::Symbol('(')
+                    });
 
                     if is_function {
                         // Function declaration: name = (params) returnType { ... }
@@ -658,17 +507,11 @@ impl<'a> Parser<'a> {
                         } else {
                             // Regular variable declaration
                             let value = self.parse_expression()?;
-
-                            // Skip optional semicolon
-                            if self.current_token == Token::Symbol(';') {
-                                self.next_token();
-                            }
-
-                            // Create a top-level constant declaration (immutable by default at top level)
+                            self.skip_optional_semicolon();
                             declarations.push(Declaration::Constant {
                                 name,
                                 value,
-                                type_: None, // Type will be inferred
+                                type_: None,
                             });
                         }
                     }
@@ -709,9 +552,7 @@ impl<'a> Parser<'a> {
                 let span = Some(self.current_span.clone());
                 self.next_token();
                 let expr = self.parse_expression()?;
-                if self.current_token == Token::Symbol(';') {
-                    self.next_token();
-                }
+                self.skip_optional_semicolon();
                 Ok(Statement::Return { expr, span })
             }
             Token::Identifier(id) if id == "loop" => {
@@ -728,156 +569,49 @@ impl<'a> Parser<'a> {
             }
             Token::Identifier(id) if id == "break" => {
                 self.next_token();
-                let label = if let Token::Identifier(label_name) = &self.current_token {
-                    let label_name = label_name.clone();
-                    self.next_token();
-                    Some(label_name)
-                } else {
-                    None
-                };
-                if self.current_token == Token::Symbol(';') {
-                    self.next_token();
-                }
+                let label = self.current_identifier().map(|name| { self.next_token(); name });
+                self.skip_optional_semicolon();
                 Ok(Statement::Break { label })
             }
             Token::Identifier(id) if id == "defer" => {
-                self.next_token(); // consume 'defer'
-
-                // Parse the statement or block to defer
+                self.next_token();
                 let deferred_stmt = if self.current_token == Token::Symbol('{') {
-                    // Parse block
-                    self.next_token(); // consume '{'
-                    let mut statements = Vec::new();
-                    while self.current_token != Token::Symbol('}')
-                        && self.current_token != Token::Eof
-                    {
-                        statements.push(self.parse_statement()?);
-                    }
-                    if self.current_token != Token::Symbol('}') {
-                        return Err(CompileError::SyntaxError(
-                            "Expected '}' to close defer block".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
-                    }
-                    self.next_token(); // consume '}'
-
-                    // Wrap multiple statements in a single defer by using the first as the deferred action
-                    // In a real implementation, we'd need a Block statement type
-                    if statements.is_empty() {
-                        Statement::Expression {
-                            expr: Expression::Boolean(true),
-                            span: Some(self.current_span.clone()),
-                        } // No-op
-                    } else if statements.len() == 1 {
-                        statements.into_iter().next().unwrap()
-                    } else {
-                        // For now, only support single statement in defer
-                        // TODO: Add Block statement type to support multiple statements
-                        statements.into_iter().next().unwrap()
-                    }
+                    let statements = self.parse_brace_block("defer block")?;
+                    self.wrap_statements_as_stmt(statements)
                 } else {
-                    // Single statement
                     self.parse_statement()?
                 };
-
                 Ok(Statement::Defer(Box::new(deferred_stmt)))
             }
             Token::Identifier(id) if id == "continue" => {
                 self.next_token();
-                let label = if let Token::Identifier(label_name) = &self.current_token {
-                    let label_name = label_name.clone();
-                    self.next_token();
-                    Some(label_name)
-                } else {
-                    None
-                };
-                if self.current_token == Token::Symbol(';') {
-                    self.next_token();
-                }
+                let label = self.current_identifier().map(|name| { self.next_token(); name });
+                self.skip_optional_semicolon();
                 Ok(Statement::Continue { label })
             }
             Token::Identifier(id) if id == "comptime" => {
-                // Parse comptime block as statement
                 let span = Some(self.current_span.clone());
                 self.next_token(); // consume 'comptime'
                 if self.current_token != Token::Symbol('{') {
-                    // It's a comptime expression, not a block
                     let expr = Expression::Comptime(Box::new(self.parse_expression()?));
-                    if self.current_token == Token::Symbol(';') {
-                        self.next_token();
-                    }
+                    self.skip_optional_semicolon();
                     return Ok(Statement::Expression { expr, span });
                 }
-                self.next_token(); // consume '{'
-
-                let mut statements = vec![];
-                while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
-                    statements.push(self.parse_statement()?);
-                }
-
-                if self.current_token != Token::Symbol('}') {
-                    return Err(CompileError::SyntaxError(
-                        "Expected '}' to close comptime block".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
-                }
-                self.next_token(); // consume '}'
+                let statements = self.parse_brace_block("comptime block")?;
                 Ok(Statement::ComptimeBlock(statements))
             }
             Token::AtThis => {
-                // Parse @this.defer() statement
                 self.next_token(); // consume '@this'
-
-                if self.current_token != Token::Symbol('.') {
-                    return Err(CompileError::SyntaxError(
-                        "Expected '.' after '@this'".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
+                self.expect_symbol('.')?;
+                if !self.is_keyword("defer") {
+                    return Err(self.syntax_error("Expected 'defer' after '@this.' - only 'defer' is supported"));
                 }
-                self.next_token(); // consume '.'
-
-                if let Token::Identifier(id) = &self.current_token {
-                    if id == "defer" {
-                        self.next_token(); // consume 'defer'
-
-                        if self.current_token != Token::Symbol('(') {
-                            return Err(CompileError::SyntaxError(
-                                "Expected '(' after '@this.defer'".to_string(),
-                                Some(self.current_span.clone()),
-                            ));
-                        }
-                        self.next_token(); // consume '('
-
-                        // Parse the expression to defer
-                        let expr = self.parse_expression()?;
-
-                        if self.current_token != Token::Symbol(')') {
-                            return Err(CompileError::SyntaxError(
-                                "Expected ')' after defer expression".to_string(),
-                                Some(self.current_span.clone()),
-                            ));
-                        }
-                        self.next_token(); // consume ')'
-
-                        // Optional semicolon
-                        if self.current_token == Token::Symbol(';') {
-                            self.next_token();
-                        }
-
-                        Ok(Statement::ThisDefer(expr))
-                    } else {
-                        return Err(CompileError::SyntaxError(
-                            "Expected 'defer' after '@this.' - only 'defer' is supported"
-                                .to_string(),
-                            Some(self.current_span.clone()),
-                        ));
-                    }
-                } else {
-                    return Err(CompileError::SyntaxError(
-                        "Expected 'defer' after '@this.' - only 'defer' is supported".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
-                }
+                self.next_token(); // consume 'defer'
+                self.expect_symbol('(')?;
+                let expr = self.parse_expression()?;
+                self.expect_symbol(')')?;
+                self.skip_optional_semicolon();
+                Ok(Statement::ThisDefer(expr))
             }
             // Generic identifier case (after all specific keywords)
             Token::Identifier(_name) => {
@@ -905,81 +639,28 @@ impl<'a> Parser<'a> {
                     }
                     Token::Symbol('.') | Token::Symbol('[') => {
                         // Could be member access or array indexing followed by assignment
-                        // Parse the left-hand side expression first
                         let span = Some(self.current_span.clone());
                         let lhs = self.parse_expression()?;
 
-                        // Check if it's followed by an assignment
                         if self.current_token == Token::Operator("=".to_string()) {
                             self.next_token(); // consume '='
                             let value = self.parse_expression()?;
-                            if self.current_token == Token::Symbol(';') {
-                                self.next_token();
-                            }
-                            // Use PointerAssignment for member field assignments and array element assignments
-                            Ok(Statement::PointerAssignment {
-                                pointer: lhs,
-                                value,
-                            })
+                            self.skip_optional_semicolon();
+                            Ok(Statement::PointerAssignment { pointer: lhs, value })
                         } else {
-                            // Just an expression statement
-                            if self.current_token == Token::Symbol(';') {
-                                self.next_token();
-                            }
+                            self.skip_optional_semicolon();
                             Ok(Statement::Expression { expr: lhs, span })
                         }
                     }
-                    _ => {
-                        // Not a variable declaration, treat as expression
-                        let span = Some(self.current_span.clone());
-                        let expr = self.parse_expression()?;
-                        if self.current_token == Token::Symbol(';') {
-                            self.next_token();
-                        }
-                        Ok(Statement::Expression { expr, span })
-                    }
+                    _ => self.parse_expression_statement()
                 }
             }
-            Token::Symbol('?') => {
-                // Parse conditional expression
-                let span = Some(self.current_span.clone());
-                let expr = self.parse_expression()?;
-                if self.current_token == Token::Symbol(';') {
-                    self.next_token();
-                }
-                Ok(Statement::Expression { expr, span })
-            }
-            Token::Symbol('(') => {
-                // Parse parenthesized expression as statement
-                let span = Some(self.current_span.clone());
-                let expr = self.parse_expression()?;
-                if self.current_token == Token::Symbol(';') {
-                    self.next_token();
-                }
-                Ok(Statement::Expression { expr, span })
-            }
-            Token::Symbol('{') => {
-                // Parse destructuring import: { io, maths } = @std
-                self.parse_destructuring_import()
-            }
-            // Handle literal expressions as valid statements
+            Token::Symbol('?') | Token::Symbol('(') => self.parse_expression_statement(),
+            Token::Symbol('{') => self.parse_destructuring_import(),
             Token::Integer(_) | Token::Float(_) | Token::StringLiteral(_) => {
-                let span = Some(self.current_span.clone());
-                let expr = self.parse_expression()?;
-                if self.current_token == Token::Symbol(';') {
-                    self.next_token();
-                }
-                Ok(Statement::Expression { expr, span })
+                self.parse_expression_statement()
             }
-            // Handle @builtin and @std as expression statements (for calls like @builtin.store())
-            Token::AtBuiltin | Token::AtStd => {
-                let span = Some(self.current_span.clone());
-                let expr = self.parse_expression()?;
-                if self.current_token == Token::Symbol(';') {
-                    self.next_token();
-                }
-                Ok(Statement::Expression { expr, span })
-            }
+            Token::AtBuiltin | Token::AtStd => self.parse_expression_statement(),
             _ => Err(CompileError::SyntaxError(
                 format!("Unexpected token in statement: {:?}", self.current_token),
                 Some(self.current_span.clone()),
@@ -1093,10 +774,7 @@ impl<'a> Parser<'a> {
         // For inferred declarations (:= and ::=), leave type_ as None
         // For explicit declarations (: T = and :: T =), use the parsed type
         let final_type = type_;
-
-        if self.current_token == Token::Symbol(';') {
-            self.next_token();
-        }
+        self.skip_optional_semicolon();
 
         Ok(Statement::VariableDeclaration {
             name,
@@ -1141,29 +819,8 @@ impl<'a> Parser<'a> {
             LoopKind::Condition(condition)
         };
 
-        // Opening brace
-        if self.current_token != Token::Symbol('{') {
-            return Err(CompileError::SyntaxError(
-                "Expected '{' for loop body".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
-
-        // Parse loop body
-        let mut body = vec![];
-        while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
-            body.push(self.parse_statement()?);
-        }
-
-        if self.current_token != Token::Symbol('}') {
-            return Err(CompileError::SyntaxError(
-                "Expected '}' to close loop body".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
-
+        // Parse loop body using helper
+        let body = self.parse_brace_block("loop body")?;
         Ok(Statement::Loop { kind, label, body })
     }
 
@@ -1195,13 +852,9 @@ impl<'a> Parser<'a> {
         // Parse the value expression
         let value = self.parse_expression()?;
 
-        // Consume semicolon if present
-        if self.current_token == Token::Symbol(';') {
-            self.next_token();
-        }
+        self.skip_optional_semicolon();
 
         // Return a VariableAssignment statement - the typechecker will determine if this is valid
-        // (i.e., if the variable was declared as mutable with ::=)
         Ok(Statement::VariableAssignment {
             name,
             value,
@@ -1317,13 +970,7 @@ impl<'a> Parser<'a> {
 
         // Parse the source (should be @std or @std.something)
         let source = self.parse_expression()?;
-
-        // Consume semicolon if present
-        if self.current_token == Token::Symbol(';') {
-            self.next_token();
-        }
-
-        // Convert to DestructuringImport statement
+        self.skip_optional_semicolon();
         Ok(Statement::DestructuringImport { names, source })
     }
 }

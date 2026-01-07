@@ -33,6 +33,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Statement::ThisDefer(_) => deferred::compile_defer(self, statement),
             Statement::ComptimeBlock(_) => Ok(()),
             Statement::ModuleImport { .. } | Statement::DestructuringImport { .. } => Ok(()),
+            Statement::Block { statements, span } => {
+                self.set_span(span.clone());
+                for stmt in statements {
+                    self.compile_statement(stmt)?;
+                }
+                Ok(())
+            }
         }
     }
 

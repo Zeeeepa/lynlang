@@ -4,6 +4,44 @@ use crate::error::{CompileError, Result};
 use crate::lexer::Token;
 use crate::well_known::well_known;
 
+// ============================================================================
+// HELPER FUNCTIONS FOR REDUCING DUPLICATION
+// ============================================================================
+
+/// Handle UFC method chaining after a parenthesized expression.
+/// Parses chains like: (expr).method().field.another_method()
+fn parse_ufc_chain_after_parens(parser: &mut Parser, mut expr: Expression) -> Result<Expression> {
+    loop {
+        if parser.current_token != Token::Symbol('.') {
+            break;
+        }
+        parser.next_token(); // consume '.'
+
+        if let Token::Identifier(member) = &parser.current_token.clone() {
+            let member_clone = member.clone();
+            parser.next_token();
+
+            if parser.current_token == Token::Symbol('(') {
+                expr = super::calls::parse_call_expression_with_object(parser, expr, member_clone)?;
+            } else {
+                expr = Expression::MemberAccess {
+                    object: Box::new(expr),
+                    member: member_clone,
+                };
+            }
+        } else {
+            return Err(CompileError::SyntaxError(
+                format!(
+                    "Expected identifier after '.' in member access, got {:?}",
+                    parser.current_token
+                ),
+                Some(parser.current_span.clone()),
+            ));
+        }
+    }
+    Ok(expr)
+}
+
 pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
     match &parser.current_token {
         Token::Identifier(id) if id == "loop" => {
@@ -543,27 +581,86 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                             payload: None,
                         } = expr
                         {
-                            // This is an enum variant constructor with payload
+                            // Check if this looks like a struct literal: Module.Struct(field: value, ...)
+                            // vs an enum variant with payload: Module.Variant(expression)
+                            // We peek ahead to see if after '(' we have 'identifier:'
+                            let saved_state = parser.lexer.save_state();
+                            let saved_token = parser.current_token.clone();
+                            let saved_peek = parser.peek_token.clone();
+                            let saved_span = parser.current_span.clone();
+                            let saved_peek_span = parser.peek_span.clone();
+
                             parser.next_token(); // consume '('
-                            let payload_expr = parser.parse_expression()?;
-                            if parser.current_token != Token::Symbol(')') {
-                                return Err(CompileError::SyntaxError(
-                                    "Expected ')' after enum variant payload".to_string(),
-                                    Some(parser.current_span.clone()),
-                                ));
+
+                            // Check if first token is identifier followed by ':'
+                            let looks_like_struct_literal =
+                                if let Token::Identifier(_) = &parser.current_token {
+                                    parser.next_token();
+                                    parser.current_token == Token::Symbol(':')
+                                } else {
+                                    false
+                                };
+
+                            // Restore state
+                            parser.lexer.restore_state(saved_state);
+                            parser.current_token = saved_token;
+                            parser.peek_token = saved_peek;
+                            parser.current_span = saved_span;
+                            parser.peek_span = saved_peek_span;
+
+                            if looks_like_struct_literal {
+                                // Parse as struct literal with qualified name
+                                let qualified_name = format!("{}.{}", enum_name, variant);
+                                return super::structs::parse_struct_literal(
+                                    parser,
+                                    qualified_name,
+                                    '(',
+                                    ')',
+                                );
+                            } else {
+                                // This is an enum variant constructor with payload
+                                parser.next_token(); // consume '('
+                                let payload_expr = parser.parse_expression()?;
+                                if parser.current_token != Token::Symbol(')') {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected ')' after enum variant payload".to_string(),
+                                        Some(parser.current_span.clone()),
+                                    ));
+                                }
+                                parser.next_token(); // consume ')'
+                                expr = Expression::EnumVariant {
+                                    enum_name,
+                                    variant,
+                                    payload: Some(Box::new(payload_expr)),
+                                };
                             }
-                            parser.next_token(); // consume ')'
-                            expr = Expression::EnumVariant {
-                                enum_name,
-                                variant,
-                                payload: Some(Box::new(payload_expr)),
-                            };
                         } else {
                             return Err(CompileError::SyntaxError(
                                 "Unexpected expression type for function call".to_string(),
                                 Some(parser.current_span.clone()),
                             ));
                         }
+                    }
+                    Token::Symbol('{') => {
+                        // Check if this is a struct literal after a qualified name: Module.Struct { ... }
+                        // EnumVariant here means we parsed Module.Struct as an enum variant,
+                        // but it could actually be a struct initialization
+                        if let Expression::EnumVariant {
+                            enum_name,
+                            variant,
+                            payload: None,
+                        } = &expr
+                        {
+                            let qualified_name = format!("{}.{}", enum_name, variant);
+                            return super::structs::parse_struct_literal(
+                                parser,
+                                qualified_name,
+                                '{',
+                                '}',
+                            );
+                        }
+                        // If it's not an EnumVariant, break and let outer code handle it
+                        break;
                     }
                     _ => break,
                 }
@@ -661,7 +758,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
 
             // If it's definitely an expression, parse it as such
             if is_definitely_expression {
-                let mut expr = parser.parse_expression()?;
+                let expr = parser.parse_expression()?;
                 if parser.current_token != Token::Symbol(')') {
                     return Err(CompileError::SyntaxError(
                         format!(
@@ -672,37 +769,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                     ));
                 }
                 parser.next_token(); // consume ')'
-
-                // Check for UFC method chaining after parenthesized expression
-                loop {
-                    match &parser.current_token {
-                        Token::Symbol('.') => {
-                            // Member access or method call
-                            parser.next_token();
-                            if let Token::Identifier(member) = &parser.current_token.clone() {
-                                let member_clone = member.clone();
-                                parser.next_token();
-
-                                // Check if it's a method call
-                                if parser.current_token == Token::Symbol('(') {
-                                    expr = super::calls::parse_call_expression_with_object(
-                                        parser,
-                                        expr,
-                                        member_clone,
-                                    )?;
-                                } else {
-                                    // Member access
-                                    expr = Expression::MemberAccess {
-                                        object: Box::new(expr),
-                                        member: member_clone,
-                                    };
-                                }
-                            }
-                        }
-                        _ => break,
-                    }
-                }
-                return Ok(expr);
+                return parse_ufc_chain_after_parens(parser, expr);
             }
 
             // Check if this looks like a closure parameter list
@@ -798,7 +865,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
             } else {
                 // Not starting with an identifier, so it's definitely not a closure
                 // Parse as a parenthesized expression
-                let mut expr = parser.parse_expression()?;
+                let expr = parser.parse_expression()?;
                 if parser.current_token != Token::Symbol(')') {
                     return Err(CompileError::SyntaxError(
                         format!(
@@ -809,46 +876,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                     ));
                 }
                 parser.next_token(); // consume ')'
-
-                // Check for UFC method chaining after parenthesized expression
-                loop {
-                    match &parser.current_token {
-                        Token::Symbol('.') => {
-                            // Member access or method call
-                            parser.next_token();
-                            if let Token::Identifier(member) = &parser.current_token.clone() {
-                                let member_clone = member.clone();
-                                parser.next_token();
-
-                                // Check if it's a method call
-                                if parser.current_token == Token::Symbol('(') {
-                                    expr = super::calls::parse_call_expression_with_object(
-                                        parser,
-                                        expr,
-                                        member_clone,
-                                    )?;
-                                } else {
-                                    // Member access
-                                    expr = Expression::MemberAccess {
-                                        object: Box::new(expr),
-                                        member: member_clone,
-                                    };
-                                }
-                            } else {
-                                return Err(CompileError::SyntaxError(
-                                    format!(
-                                        "Expected identifier after '.' in member access, got {:?}",
-                                        parser.current_token
-                                    ),
-                                    Some(parser.current_span.clone()),
-                                ));
-                            }
-                        }
-                        _ => break,
-                    }
-                }
-
-                Ok(expr)
+                parse_ufc_chain_after_parens(parser, expr)
             }
         }
         Token::Symbol('[') => {

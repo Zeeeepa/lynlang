@@ -821,6 +821,62 @@ impl TypeChecker {
         self.add_pattern_bindings_to_scope_with_type(pattern, &AstType::I32)
     }
 
+    /// Helper to resolve the payload type for an enum variant pattern match
+    fn resolve_enum_payload_type(&self, variant: &str, scrutinee_type: &AstType) -> AstType {
+        match scrutinee_type {
+            AstType::Generic { name: enum_name, type_args } => {
+                if self.well_known.is_result(enum_name) && type_args.len() >= 2 {
+                    if self.well_known.is_ok(variant) {
+                        type_args[0].clone()
+                    } else if self.well_known.is_err(variant) {
+                        type_args[1].clone()
+                    } else {
+                        AstType::I32
+                    }
+                } else if self.well_known.is_option(enum_name) && !type_args.is_empty() {
+                    if self.well_known.is_some(variant) {
+                        type_args[0].clone()
+                    } else {
+                        AstType::Void
+                    }
+                } else {
+                    scrutinee_type.clone()
+                }
+            }
+            AstType::Enum { name: enum_name, variants } => {
+                if self.well_known.is_option(enum_name) || self.well_known.is_result(enum_name) {
+                    if let Some(enum_variant) = variants.iter().find(|v| &v.name == variant) {
+                        if let Some(payload_ty) = &enum_variant.payload {
+                            return payload_ty.clone();
+                        }
+                        return AstType::Void;
+                    }
+                }
+                scrutinee_type.clone()
+            }
+            _ => scrutinee_type.clone(),
+        }
+    }
+
+    /// Helper to unwrap primitive types from Generic wrapper
+    fn unwrap_primitive_generic(&self, scrutinee_type: &AstType) -> AstType {
+        if let AstType::Generic { name: type_name, type_args } = scrutinee_type {
+            if type_args.is_empty() {
+                return match type_name.as_str() {
+                    "i32" | "I32" => AstType::I32,
+                    "i64" | "I64" => AstType::I64,
+                    "f32" | "F32" => AstType::F32,
+                    "f64" | "F64" => AstType::F64,
+                    "bool" | "Bool" => AstType::Bool,
+                    "string" => AstType::StaticString,
+                    "String" => crate::ast::resolve_string_struct_type(),
+                    _ => scrutinee_type.clone(),
+                };
+            }
+        }
+        scrutinee_type.clone()
+    }
+
     fn add_pattern_bindings_to_scope_with_type(
         &mut self,
         pattern: &crate::ast::Pattern,
@@ -830,97 +886,18 @@ impl TypeChecker {
 
         match pattern {
             Pattern::Identifier(name) => {
-                // Simple identifier pattern binds the name to the type of the matched value
-                // Check if the scrutinee is a primitive generic type that should be unwrapped
-                let binding_type = if let AstType::Generic {
-                    name: type_name,
-                    type_args,
-                } = scrutinee_type
-                {
-                    if type_args.is_empty() {
-                        // Check if it's a primitive type name that got wrapped as Generic
-                        match type_name.as_str() {
-                            "i32" | "I32" => AstType::I32,
-                            "i64" | "I64" => AstType::I64,
-                            "f32" | "F32" => AstType::F32,
-                            "f64" | "F64" => AstType::F64,
-                            "bool" | "Bool" => AstType::Bool,
-                            "string" => AstType::StaticString,
-                            "String" => crate::ast::resolve_string_struct_type(),
-                            _ => scrutinee_type.clone(),
-                        }
-                    } else {
-                        scrutinee_type.clone()
-                    }
-                } else {
-                    scrutinee_type.clone()
-                };
-
+                let binding_type = self.unwrap_primitive_generic(scrutinee_type);
                 self.declare_variable(name, binding_type, false)?;
             }
             Pattern::EnumLiteral { variant, payload } => {
-                // For enum patterns with payloads, determine the payload type based on the variant
                 if let Some(payload_pattern) = payload {
-                    let payload_type = if let AstType::Generic {
-                        name: enum_name,
-                        type_args,
-                    } = scrutinee_type
-                    {
-                        if self.well_known.is_result(enum_name) && type_args.len() >= 2 {
-                            if self.well_known.is_ok(variant) {
-                                type_args[0].clone()
-                            } else if self.well_known.is_err(variant) {
-                                type_args[1].clone()
-                            } else {
-                                AstType::I32
-                            }
-                        } else if self.well_known.is_option(enum_name) && !type_args.is_empty() {
-                            if self.well_known.is_some(variant) {
-                                type_args[0].clone()
-                            } else {
-                                AstType::Void
-                            }
-                        } else {
-                            scrutinee_type.clone()
-                        }
-                    } else {
-                        scrutinee_type.clone()
-                    };
+                    let payload_type = self.resolve_enum_payload_type(variant, scrutinee_type);
                     self.add_pattern_bindings_to_scope_with_type(payload_pattern, &payload_type)?;
                 }
             }
-            Pattern::EnumVariant {
-                enum_name: _,
-                variant,
-                payload,
-                ..
-            } => {
+            Pattern::EnumVariant { variant, payload, .. } => {
                 if let Some(payload_pattern) = payload {
-                    let payload_type = if let AstType::Generic {
-                        name: enum_name,
-                        type_args,
-                    } = scrutinee_type
-                    {
-                        if self.well_known.is_result(enum_name) && type_args.len() >= 2 {
-                            if self.well_known.is_ok(variant) {
-                                type_args[0].clone()
-                            } else if self.well_known.is_err(variant) {
-                                type_args[1].clone()
-                            } else {
-                                AstType::I32
-                            }
-                        } else if self.well_known.is_option(enum_name) && !type_args.is_empty() {
-                            if self.well_known.is_some(variant) {
-                                type_args[0].clone()
-                            } else {
-                                AstType::Void
-                            }
-                        } else {
-                            scrutinee_type.clone()
-                        }
-                    } else {
-                        scrutinee_type.clone()
-                    };
+                    let payload_type = self.resolve_enum_payload_type(variant, scrutinee_type);
                     self.add_pattern_bindings_to_scope_with_type(payload_pattern, &payload_type)?;
                 }
             }
@@ -950,6 +927,12 @@ impl TypeChecker {
                 // Type pattern with optional binding
                 if let Some(name) = binding {
                     self.declare_variable(name, scrutinee_type.clone(), false)?;
+                }
+            }
+            // Tuple patterns - recursively bind patterns in the tuple
+            Pattern::Tuple(patterns) => {
+                for pattern in patterns {
+                    self.add_pattern_bindings_to_scope_with_type(pattern, scrutinee_type)?;
                 }
             }
             // Other patterns don't create bindings

@@ -117,6 +117,213 @@ pub fn handle_definition(
                 }
             }
 
+            // Handle qualified names like "build.LibOptions" where "build" is an imported module
+            if !symbol_name.starts_with('@') && symbol_name.contains('.') {
+                let parts: Vec<&str> = symbol_name.split('.').collect();
+                if parts.len() >= 2 {
+                    let module_alias = parts[0];
+                    let member_name = parts[1..].join(".");
+                    log::debug!(
+                        "[LSP] Qualified name: module_alias={}, member_name={}",
+                        module_alias,
+                        member_name
+                    );
+
+                    // Look for import of module_alias (e.g., "{ build } = @std")
+                    if let Some(import_info) = find_import_info(&doc.content, module_alias, position)
+                    {
+                        log::debug!(
+                            "[LSP] Found import for {}: source={}",
+                            module_alias,
+                            import_info.source
+                        );
+
+                        // Resolve the module source
+                        let module_path = if import_info.source == "@std" {
+                            // Module imported from @std (e.g., { build } = @std means @std.build)
+                            format!("@std.{}", module_alias)
+                        } else {
+                            import_info.source.clone()
+                        };
+
+                        // Try to resolve and find the symbol
+                        if let Some(file_path) = store.stdlib_resolver.resolve_module_path(&module_path)
+                        {
+                            log::debug!(
+                                "[LSP] Resolved module path {} to file: {:?}",
+                                module_path,
+                                file_path
+                            );
+
+                            if let Ok(module_uri) = Url::from_file_path(&file_path) {
+                                // Check stdlib_symbols first (has pre-indexed symbols with URIs)
+                                if let Some(symbol_info) = store.stdlib_symbols.get(&member_name) {
+                                    // Verify this symbol is from the expected module
+                                    if let Some(def_uri) = &symbol_info.definition_uri {
+                                        if def_uri.path().contains(&format!("/{}/", module_alias)) {
+                                            log::debug!(
+                                                "[LSP] Found {} in stdlib_symbols from {}",
+                                                member_name,
+                                                def_uri.path()
+                                            );
+                                            return Response {
+                                                id: req.id,
+                                                result: Some(
+                                                    serde_json::to_value(GotoDefinitionResponse::Scalar(
+                                                        Location {
+                                                            uri: def_uri.clone(),
+                                                            range: symbol_info.range,
+                                                        },
+                                                    ))
+                                                    .unwrap_or(Value::Null),
+                                                ),
+                                                error: None,
+                                            };
+                                        }
+                                    }
+                                }
+
+                                // Check if we have this document open
+                                if let Some(module_doc) = store.documents.get(&module_uri) {
+                                    if let Some(symbol_info) = module_doc.symbols.get(&member_name) {
+                                        return Response {
+                                            id: req.id,
+                                            result: Some(
+                                                serde_json::to_value(GotoDefinitionResponse::Scalar(
+                                                    Location {
+                                                        uri: module_uri,
+                                                        range: symbol_info.range,
+                                                    },
+                                                ))
+                                                .unwrap_or(Value::Null),
+                                            ),
+                                            error: None,
+                                        };
+                                    }
+                                }
+
+                                // File exists but not indexed - search it directly
+                                if file_path.exists() {
+                                    log::debug!(
+                                        "[LSP] Searching file directly for {}: {:?}",
+                                        member_name,
+                                        file_path
+                                    );
+                                    if let Ok(content) = std::fs::read_to_string(&file_path) {
+                                        if let Some(range) =
+                                            find_symbol_definition_in_content(&content, &member_name)
+                                        {
+                                            log::debug!(
+                                                "[LSP] Found {} at line {} in {:?}",
+                                                member_name,
+                                                range.start.line,
+                                                file_path
+                                            );
+                                            return Response {
+                                                id: req.id,
+                                                result: Some(
+                                                    serde_json::to_value(GotoDefinitionResponse::Scalar(
+                                                        Location {
+                                                            uri: module_uri,
+                                                            range,
+                                                        },
+                                                    ))
+                                                    .unwrap_or(Value::Null),
+                                                ),
+                                                error: None,
+                                            };
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Fallback: search stdlib documents for the module and member
+                        for (uri, stdlib_doc) in &store.documents {
+                            let uri_path = uri.path();
+                            if uri_path.contains("stdlib")
+                                && (uri_path.ends_with(&format!("{}/{}.zen", module_alias, module_alias))
+                                    || uri_path.contains(&format!("{}/{}", module_alias, module_alias)))
+                            {
+                                if let Some(symbol_info) = stdlib_doc.symbols.get(&member_name) {
+                                    return Response {
+                                        id: req.id,
+                                        result: Some(
+                                            serde_json::to_value(GotoDefinitionResponse::Scalar(
+                                                Location {
+                                                    uri: uri.clone(),
+                                                    range: symbol_info.range,
+                                                },
+                                            ))
+                                            .unwrap_or(Value::Null),
+                                        ),
+                                        error: None,
+                                    };
+                                }
+                            }
+                        }
+                    } else {
+                        // No import found - try resolving as @std.module_alias anyway
+                        // This handles cases where the import format isn't detected
+                        log::debug!(
+                            "[LSP] No import found for {}, trying @std.{}",
+                            module_alias,
+                            module_alias
+                        );
+                        let module_path = format!("@std.{}", module_alias);
+                        if let Some(file_path) =
+                            store.stdlib_resolver.resolve_module_path(&module_path)
+                        {
+                            if let Ok(module_uri) = Url::from_file_path(&file_path) {
+                                // Check stdlib_symbols
+                                if let Some(symbol_info) = store.stdlib_symbols.get(&member_name) {
+                                    if let Some(def_uri) = &symbol_info.definition_uri {
+                                        if def_uri.path().contains(&format!("/{}/", module_alias)) {
+                                            return Response {
+                                                id: req.id,
+                                                result: Some(
+                                                    serde_json::to_value(
+                                                        GotoDefinitionResponse::Scalar(Location {
+                                                            uri: def_uri.clone(),
+                                                            range: symbol_info.range,
+                                                        }),
+                                                    )
+                                                    .unwrap_or(Value::Null),
+                                                ),
+                                                error: None,
+                                            };
+                                        }
+                                    }
+                                }
+
+                                // Direct file search
+                                if file_path.exists() {
+                                    if let Ok(content) = std::fs::read_to_string(&file_path) {
+                                        if let Some(range) =
+                                            find_symbol_definition_in_content(&content, &member_name)
+                                        {
+                                            return Response {
+                                                id: req.id,
+                                                result: Some(
+                                                    serde_json::to_value(
+                                                        GotoDefinitionResponse::Scalar(Location {
+                                                            uri: module_uri,
+                                                            range,
+                                                        }),
+                                                    )
+                                                    .unwrap_or(Value::Null),
+                                                ),
+                                                error: None,
+                                            };
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Check if clicking on @std or std in the import statement itself
             let line = doc
                 .content

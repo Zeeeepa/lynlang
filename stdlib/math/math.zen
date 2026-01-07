@@ -153,6 +153,66 @@ copysign = (x: f64, y: f64) f64 {
 }
 
 // ============================================================================
+// Integer Math Functions
+// ============================================================================
+
+// Absolute value for i32
+abs = (n: i32) i32 {
+    n < 0 ?
+        | true { return -n }
+        | false { return n }
+}
+
+// Absolute value for i64
+abs64 = (n: i64) i64 {
+    n < 0 ?
+        | true { return -n }
+        | false { return n }
+}
+
+// Factorial (u32 -> u64 to avoid overflow)
+factorial = (n: u32) u64 {
+    n == 0 ?
+        | true { return 1 }
+        | false { return cast(n, u64) * factorial(n - 1) }
+}
+
+// Check if even
+is_even = (n: i32) bool {
+    n % 2 == 0
+}
+
+// Check if odd
+is_odd = (n: i32) bool {
+    n % 2 != 0
+}
+
+// Max of two i32
+max = (a: i32, b: i32) i32 {
+    a > b ?
+        | true { return a }
+        | false { return b }
+}
+
+// Min of two i32
+min = (a: i32, b: i32) i32 {
+    a < b ?
+        | true { return a }
+        | false { return b }
+}
+
+// Clamp value to range
+clamp = (n: i32, low: i32, high: i32) i32 {
+    n < low ?
+        | true { return low }
+        | false {
+            n > high ?
+                | true { return high }
+                | false { return n }
+        }
+}
+
+// ============================================================================
 // Integer bounds constants
 // Useful for safe conversions and overflow checking
 // ============================================================================

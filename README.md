@@ -376,7 +376,7 @@ See the `docs/design/` folder for architecture details.
 Zen includes a working build configuration system. Run the example:
 
 ```bash
-./target/release/zen examples/full_example/build.zen
+./target/release/zen examples/demo_project/build.zen
 ```
 
 Output:
@@ -399,7 +399,7 @@ The build system supports:
 - **Dependency management** - System libraries, frameworks
 - **Artifact installation** - Executables, libraries, files
 
-See `examples/full_example/build.zen` for a complete example and `stdlib/build/build.zen` for the module source.
+See `examples/demo_project/build.zen` for a complete example and `stdlib/build/build.zen` for the module source.
 
 ## Implementation Status
 

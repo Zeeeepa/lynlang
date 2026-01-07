@@ -156,6 +156,53 @@ impl<'ctx> LLVMCompiler<'ctx> {
     // Basic pattern matching implementation for common cases
     // ============================================================================
 
+    /// Find enum variant tag from symbol table
+    fn find_enum_variant_tag(&self, variant: &str) -> Option<(u64, Option<inkwell::types::StructType<'ctx>>)> {
+        for symbol in self.symbols.all_symbols() {
+            if let symbols::Symbol::EnumType(info) = symbol {
+                if let Some(&tag) = info.variant_indices.get(variant) {
+                    return Some((tag, Some(info.llvm_type)));
+                }
+            }
+        }
+        None
+    }
+
+    /// Compare int value with expected tag
+    fn compare_with_tag(
+        &self,
+        int_val: inkwell::values::IntValue<'ctx>,
+        expected_tag: u64,
+    ) -> Result<inkwell::values::IntValue<'ctx>, CompileError> {
+        let tag_const = self.context.i64_type().const_int(expected_tag, false);
+        let int_extended = if int_val.get_type().get_bit_width() < 64 {
+            self.builder.build_int_z_extend(int_val, self.context.i64_type(), "ext")?
+        } else {
+            int_val
+        };
+        Ok(self.builder.build_int_compare(inkwell::IntPredicate::EQ, int_extended, tag_const, "enum_match")?)
+    }
+
+    /// Extract payload bindings from pattern (returns binding name with prefix or empty)
+    fn extract_payload_binding(payload: &Option<Box<ast::Pattern>>, prefix: &str, value: BasicValueEnum<'ctx>) -> Vec<(String, BasicValueEnum<'ctx>)> {
+        match payload.as_ref().map(|p| p.as_ref()) {
+            Some(ast::Pattern::Identifier(name)) => vec![(format!("{}{}", prefix, name), value)],
+            Some(ast::Pattern::Wildcard) | None => vec![],
+            _ => vec![],
+        }
+    }
+
+    /// Compare integer scrutinee with literal value
+    fn compare_int_literal(
+        &self,
+        scrutinee_int: inkwell::values::IntValue<'ctx>,
+        literal_val: inkwell::values::IntValue<'ctx>,
+        name: &str,
+    ) -> Result<(inkwell::values::IntValue<'ctx>, Vec<(String, BasicValueEnum<'ctx>)>), CompileError> {
+        let matches = self.builder.build_int_compare(inkwell::IntPredicate::EQ, scrutinee_int, literal_val, name)?;
+        Ok((matches, vec![]))
+    }
+
     /// Compile a pattern test, returning (matches: i1, bindings)
     pub fn compile_pattern_test_with_type(
         &mut self,
@@ -163,263 +210,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
         pattern: &ast::Pattern,
         _scrutinee_type: Option<&AstType>,
     ) -> Result<(inkwell::values::IntValue<'ctx>, Vec<(String, BasicValueEnum<'ctx>)>), CompileError> {
+        let true_val = || self.context.bool_type().const_int(1, false);
+
         match pattern {
-            // Literal patterns - compare scrutinee with the literal value
-            ast::Pattern::Literal(expr) => {
-                match expr {
-                    ast::Expression::Boolean(b) => {
-                        // Compare boolean scrutinee with literal
-                        // Note: comparisons in Zen are zero-extended to i64, so we handle both i1 and i64
-                        if let BasicValueEnum::IntValue(scrutinee_int) = scrutinee {
-                            let bit_width = scrutinee_int.get_type().get_bit_width();
-                            let literal_val = if bit_width == 1 {
-                                self.context.bool_type().const_int(*b as u64, false)
-                            } else {
-                                // Scrutinee is i64 (zero-extended boolean comparison result)
-                                scrutinee_int.get_type().const_int(*b as u64, false)
-                            };
-                            let matches = self.builder.build_int_compare(
-                                inkwell::IntPredicate::EQ,
-                                *scrutinee_int,
-                                literal_val,
-                                "bool_match",
-                            )?;
-                            Ok((matches, vec![]))
-                        } else {
-                            // Scrutinee is not a boolean - no match
-                            Ok((self.context.bool_type().const_int(0, false), vec![]))
-                        }
-                    }
-                    ast::Expression::Integer32(n) => {
-                        if let BasicValueEnum::IntValue(scrutinee_int) = scrutinee {
-                            let literal_val = self.context.i32_type().const_int(*n as u64, false);
-                            let matches = self.builder.build_int_compare(
-                                inkwell::IntPredicate::EQ,
-                                *scrutinee_int,
-                                literal_val,
-                                "i32_match",
-                            )?;
-                            Ok((matches, vec![]))
-                        } else {
-                            Ok((self.context.bool_type().const_int(0, false), vec![]))
-                        }
-                    }
-                    ast::Expression::Integer64(n) => {
-                        if let BasicValueEnum::IntValue(scrutinee_int) = scrutinee {
-                            let literal_val = self.context.i64_type().const_int(*n as u64, false);
-                            let matches = self.builder.build_int_compare(
-                                inkwell::IntPredicate::EQ,
-                                *scrutinee_int,
-                                literal_val,
-                                "i64_match",
-                            )?;
-                            Ok((matches, vec![]))
-                        } else {
-                            Ok((self.context.bool_type().const_int(0, false), vec![]))
-                        }
-                    }
-                    _ => Err(CompileError::UnsupportedFeature(
-                        format!("Unsupported literal pattern type: {:?}", expr),
-                        self.current_span.clone(),
-                    ))
-                }
-            }
-            // Wildcard pattern - always matches
-            ast::Pattern::Wildcard => {
-                Ok((self.context.bool_type().const_int(1, false), vec![]))
-            }
-            // Identifier pattern - always matches and binds the value
-            ast::Pattern::Identifier(name) => {
-                Ok((self.context.bool_type().const_int(1, false), vec![(name.clone(), *scrutinee)]))
-            }
-            // EnumLiteral pattern - match enum variant by tag and extract payload bindings
+            ast::Pattern::Literal(expr) => self.compile_literal_pattern(scrutinee, expr),
+            ast::Pattern::Wildcard => Ok((true_val(), vec![])),
+            ast::Pattern::Identifier(name) => Ok((true_val(), vec![(name.clone(), *scrutinee)])),
             ast::Pattern::EnumLiteral { variant, payload } => {
-                // The scrutinee should be a pointer to an enum struct
-                // The first field (index 0) is the tag, field 1 is the payload
-                if let BasicValueEnum::PointerValue(scrutinee_ptr) = scrutinee {
-                    // Find the enum type and variant tag from the symbol table
-                    let mut found_tag: Option<u64> = None;
-                    let mut found_struct_type: Option<inkwell::types::StructType<'ctx>> = None;
-
-                    // Search all enums for one containing this variant
-                    for symbol in self.symbols.all_symbols() {
-                        if let symbols::Symbol::EnumType(info) = symbol {
-                            if let Some(&tag) = info.variant_indices.get(variant) {
-                                found_tag = Some(tag);
-                                found_struct_type = Some(info.llvm_type);
-                                break;
-                            }
-                        }
-                    }
-
-                    if let (Some(tag), Some(struct_type)) = (found_tag, found_struct_type) {
-                        // Load the tag field (field 0) from the enum struct
-                        let tag_ptr = self.builder.build_struct_gep(
-                            struct_type,
-                            *scrutinee_ptr,
-                            0,
-                            "tag_ptr",
-                        )?;
-                        let tag_val = self.builder.build_load(
-                            self.context.i64_type(),
-                            tag_ptr,
-                            "tag_val",
-                        )?;
-
-                        // Compare with expected variant tag
-                        let expected_tag = self.context.i64_type().const_int(tag, false);
-                        let matches = self.builder.build_int_compare(
-                            inkwell::IntPredicate::EQ,
-                            tag_val.into_int_value(),
-                            expected_tag,
-                            "enum_match",
-                        )?;
-
-                        // Extract payload bindings if there's a payload pattern
-                        // IMPORTANT: We only compute the GEP here (which is safe).
-                        // The actual loads/dereferences happen in apply_pattern_bindings
-                        // which runs in the body block AFTER the pattern match is confirmed.
-                        let bindings = if let Some(payload_pattern) = payload {
-                            // Get the GEP to the payload field (field 1)
-                            // We return this pointer so apply_pattern_bindings can dereference it
-                            let payload_ptr_ptr = self.builder.build_struct_gep(
-                                struct_type,
-                                *scrutinee_ptr,
-                                1,
-                                "payload_ptr_ptr",
-                            )?;
-
-                            // For enum payloads from a GEP, we need TWO loads:
-                            // 1. Load the payload pointer from the struct field
-                            // 2. Dereference that pointer to get the actual value
-                            // We use prefix __enum_payload_gep__ to indicate this
-                            match payload_pattern.as_ref() {
-                                ast::Pattern::Identifier(name) => {
-                                    vec![(format!("__enum_payload_gep__{}", name), payload_ptr_ptr.into())]
-                                }
-                                ast::Pattern::Wildcard => {
-                                    vec![]
-                                }
-                                _ => {
-                                    vec![]
-                                }
-                            }
-                        } else {
-                            vec![]
-                        };
-
-                        Ok((matches, bindings))
-                    } else {
-                        Err(CompileError::UnsupportedFeature(
-                            format!("Enum variant '{}' not found in symbol table", variant),
-                            self.current_span.clone(),
-                        ))
-                    }
-                } else if let BasicValueEnum::IntValue(scrutinee_int) = scrutinee {
-                    // Simple enum represented as an integer
-                    // Find the variant tag from symbol table
-                    let mut found_tag: Option<u64> = None;
-                    for symbol in self.symbols.all_symbols() {
-                        if let symbols::Symbol::EnumType(info) = symbol {
-                            if let Some(&tag) = info.variant_indices.get(variant) {
-                                found_tag = Some(tag);
-                                break;
-                            }
-                        }
-                    }
-
-                    if let Some(tag) = found_tag {
-                        let expected_tag = self.context.i64_type().const_int(tag, false);
-                        // Extend the scrutinee to i64 if needed
-                        let scrutinee_ext = if scrutinee_int.get_type().get_bit_width() < 64 {
-                            self.builder.build_int_z_extend(*scrutinee_int, self.context.i64_type(), "ext")?
-                        } else {
-                            *scrutinee_int
-                        };
-                        let matches = self.builder.build_int_compare(
-                            inkwell::IntPredicate::EQ,
-                            scrutinee_ext,
-                            expected_tag,
-                            "enum_match",
-                        )?;
-                        Ok((matches, vec![]))
-                    } else {
-                        Err(CompileError::UnsupportedFeature(
-                            format!("Enum variant '{}' not found in symbol table", variant),
-                            self.current_span.clone(),
-                        ))
-                    }
-                } else if let BasicValueEnum::StructValue(scrutinee_struct) = scrutinee {
-                    // Enum loaded as a struct value - extract the tag field (field 0)
-                    // Find the variant tag from symbol table
-                    let mut found_tag: Option<u64> = None;
-                    for symbol in self.symbols.all_symbols() {
-                        if let symbols::Symbol::EnumType(info) = symbol {
-                            if let Some(&tag) = info.variant_indices.get(variant) {
-                                found_tag = Some(tag);
-                                break;
-                            }
-                        }
-                    }
-
-                    if let Some(tag) = found_tag {
-                        // Extract the tag field from the struct value
-                        let tag_val = self.builder.build_extract_value(
-                            *scrutinee_struct,
-                            0,
-                            "tag_val",
-                        )?;
-
-                        let expected_tag = self.context.i64_type().const_int(tag, false);
-                        let matches = self.builder.build_int_compare(
-                            inkwell::IntPredicate::EQ,
-                            tag_val.into_int_value(),
-                            expected_tag,
-                            "enum_match",
-                        )?;
-
-                        // Extract payload bindings if there's a payload pattern
-                        // For StructValue, we extract the pointer field but defer dereferencing
-                        let bindings = if let Some(payload_pattern) = payload {
-                            // Extract the payload pointer (field 1) from the struct value
-                            // This is safe - just extracting a register value, not dereferencing
-                            let payload_ptr = self.builder.build_extract_value(
-                                *scrutinee_struct,
-                                1,
-                                "payload_ptr",
-                            )?;
-
-                            // For enum payloads from extract_value, we have the pointer directly
-                            // We only need ONE load to dereference it
-                            // We use prefix __enum_payload_ptr__ to indicate this
-                            match payload_pattern.as_ref() {
-                                ast::Pattern::Identifier(name) => {
-                                    vec![(format!("__enum_payload_ptr__{}", name), payload_ptr)]
-                                }
-                                ast::Pattern::Wildcard => {
-                                    vec![]
-                                }
-                                _ => {
-                                    vec![]
-                                }
-                            }
-                        } else {
-                            vec![]
-                        };
-
-                        Ok((matches, bindings))
-                    } else {
-                        Err(CompileError::UnsupportedFeature(
-                            format!("Enum variant '{}' not found in symbol table", variant),
-                            self.current_span.clone(),
-                        ))
-                    }
-                } else {
-                    Err(CompileError::UnsupportedFeature(
-                        format!("Unsupported scrutinee type for enum pattern: {:?}", scrutinee),
-                        self.current_span.clone(),
-                    ))
+                self.compile_enum_pattern(scrutinee, variant, payload)
+            }
+            ast::Pattern::Tuple(patterns) => {
+                let mut all_bindings = vec![];
+                for pattern in patterns {
+                    let (_, bindings) = self.compile_pattern_test_with_type(scrutinee, pattern, None)?;
+                    all_bindings.extend(bindings);
                 }
+                Ok((true_val(), all_bindings))
             }
             _ => Err(CompileError::UnsupportedFeature(
                 format!("Pattern type not yet implemented: {:?}", pattern),
@@ -428,142 +234,233 @@ impl<'ctx> LLVMCompiler<'ctx> {
         }
     }
 
+    /// Compile literal pattern matching
+    fn compile_literal_pattern(
+        &self,
+        scrutinee: &BasicValueEnum<'ctx>,
+        expr: &ast::Expression,
+    ) -> Result<(inkwell::values::IntValue<'ctx>, Vec<(String, BasicValueEnum<'ctx>)>), CompileError> {
+        let false_val = self.context.bool_type().const_int(0, false);
+
+        let BasicValueEnum::IntValue(scrutinee_int) = scrutinee else {
+            return Ok((false_val, vec![]));
+        };
+
+        match expr {
+            ast::Expression::Boolean(b) => {
+                let bit_width = scrutinee_int.get_type().get_bit_width();
+                let literal_val = if bit_width == 1 {
+                    self.context.bool_type().const_int(*b as u64, false)
+                } else {
+                    scrutinee_int.get_type().const_int(*b as u64, false)
+                };
+                self.compare_int_literal(*scrutinee_int, literal_val, "bool_match")
+            }
+            ast::Expression::Integer32(n) => {
+                let literal_val = self.context.i32_type().const_int(*n as u64, false);
+                self.compare_int_literal(*scrutinee_int, literal_val, "i32_match")
+            }
+            ast::Expression::Integer64(n) => {
+                let literal_val = self.context.i64_type().const_int(*n as u64, false);
+                self.compare_int_literal(*scrutinee_int, literal_val, "i64_match")
+            }
+            _ => Err(CompileError::UnsupportedFeature(
+                format!("Unsupported literal pattern type: {:?}", expr),
+                self.current_span.clone(),
+            ))
+        }
+    }
+
+    /// Compile enum pattern matching
+    fn compile_enum_pattern(
+        &mut self,
+        scrutinee: &BasicValueEnum<'ctx>,
+        variant: &str,
+        payload: &Option<Box<ast::Pattern>>,
+    ) -> Result<(inkwell::values::IntValue<'ctx>, Vec<(String, BasicValueEnum<'ctx>)>), CompileError> {
+        match scrutinee {
+            BasicValueEnum::PointerValue(ptr) => self.compile_enum_pattern_ptr(*ptr, variant, payload),
+            BasicValueEnum::IntValue(int_val) => self.compile_enum_pattern_int(*int_val, variant),
+            BasicValueEnum::StructValue(struct_val) => self.compile_enum_pattern_struct(*struct_val, variant, payload),
+            _ => Err(CompileError::UnsupportedFeature(
+                format!("Unsupported scrutinee type for enum pattern: {:?}", scrutinee),
+                self.current_span.clone(),
+            ))
+        }
+    }
+
+    /// Compile enum pattern for pointer scrutinee
+    fn compile_enum_pattern_ptr(
+        &mut self,
+        scrutinee_ptr: PointerValue<'ctx>,
+        variant: &str,
+        payload: &Option<Box<ast::Pattern>>,
+    ) -> Result<(inkwell::values::IntValue<'ctx>, Vec<(String, BasicValueEnum<'ctx>)>), CompileError> {
+        let Some((tag, Some(struct_type))) = self.find_enum_variant_tag(variant) else {
+            return Err(CompileError::UnsupportedFeature(
+                format!("Enum variant '{}' not found in symbol table", variant),
+                self.current_span.clone(),
+            ));
+        };
+
+        let tag_ptr = self.builder.build_struct_gep(struct_type, scrutinee_ptr, 0, "tag_ptr")?;
+        let tag_val = self.builder.build_load(self.context.i64_type(), tag_ptr, "tag_val")?;
+        let matches = self.compare_with_tag(tag_val.into_int_value(), tag)?;
+
+        let bindings = if payload.is_some() {
+            let payload_ptr = self.builder.build_struct_gep(struct_type, scrutinee_ptr, 1, "payload_ptr_ptr")?;
+            Self::extract_payload_binding(payload, "__enum_payload_gep__", payload_ptr.into())
+        } else {
+            vec![]
+        };
+
+        Ok((matches, bindings))
+    }
+
+    /// Compile enum pattern for integer scrutinee (simple enum)
+    fn compile_enum_pattern_int(
+        &self,
+        scrutinee_int: inkwell::values::IntValue<'ctx>,
+        variant: &str,
+    ) -> Result<(inkwell::values::IntValue<'ctx>, Vec<(String, BasicValueEnum<'ctx>)>), CompileError> {
+        let Some((tag, _)) = self.find_enum_variant_tag(variant) else {
+            return Err(CompileError::UnsupportedFeature(
+                format!("Enum variant '{}' not found in symbol table", variant),
+                self.current_span.clone(),
+            ));
+        };
+        let matches = self.compare_with_tag(scrutinee_int, tag)?;
+        Ok((matches, vec![]))
+    }
+
+    /// Compile enum pattern for struct value scrutinee
+    fn compile_enum_pattern_struct(
+        &self,
+        scrutinee_struct: inkwell::values::StructValue<'ctx>,
+        variant: &str,
+        payload: &Option<Box<ast::Pattern>>,
+    ) -> Result<(inkwell::values::IntValue<'ctx>, Vec<(String, BasicValueEnum<'ctx>)>), CompileError> {
+        let Some((tag, _)) = self.find_enum_variant_tag(variant) else {
+            return Err(CompileError::UnsupportedFeature(
+                format!("Enum variant '{}' not found in symbol table", variant),
+                self.current_span.clone(),
+            ));
+        };
+
+        let tag_val = self.builder.build_extract_value(scrutinee_struct, 0, "tag_val")?;
+        let matches = self.compare_with_tag(tag_val.into_int_value(), tag)?;
+
+        let bindings = if payload.is_some() {
+            let payload_ptr = self.builder.build_extract_value(scrutinee_struct, 1, "payload_ptr")?;
+            Self::extract_payload_binding(payload, "__enum_payload_ptr__", payload_ptr)
+        } else {
+            vec![]
+        };
+
+        Ok((matches, bindings))
+    }
+
+    /// Get module ID for import tracking
+    fn get_module_id(&self, module_name: &str) -> u64 {
+        if self.well_known.is_option(module_name) || self.well_known.is_option_variant(module_name) {
+            100
+        } else if self.well_known.is_result(module_name) || self.well_known.is_result_variant(module_name) {
+            101
+        } else {
+            match module_name {
+                "HashMap" | "HashSet" | "DynVec" | "Array" | "Vec" => 102,
+                "Allocator" | "get_default_allocator" => 103,
+                "min" | "max" | "abs" | "sqrt" | "pow" | "sin" | "cos" | "tan" => 104,
+                "io" => 1, "math" => 2, "core" => 3, "GPA" => 4, "AsyncPool" => 5, "build" => 7,
+                _ => 0,
+            }
+        }
+    }
+
+    /// Get payload AST type from tracked generic types
+    fn get_payload_ast_type(&self) -> Option<AstType> {
+        self.generic_type_context.get("Option_Some_Type")
+            .or_else(|| self.generic_type_context.get("Result_Ok_Type"))
+            .or_else(|| self.generic_type_context.get("Result_Err_Type"))
+            .cloned()
+    }
+
+    /// Load a value from pointer with fallback to i64
+    fn load_with_type_or_i64(&self, ptr: PointerValue<'ctx>, llvm_type: Option<BasicTypeEnum<'ctx>>) -> Option<BasicValueEnum<'ctx>> {
+        if let Some(ty) = llvm_type {
+            self.builder.build_load(ty, ptr, "payload_val").ok()
+        } else {
+            self.builder.build_load(self.context.i64_type(), ptr, "payload_val").ok()
+        }
+    }
+
+    /// Store a binding as a variable
+    fn store_binding(&mut self, var_name: &str, value: BasicValueEnum<'ctx>, ast_type: AstType) {
+        if let Ok(alloca) = self.builder.build_alloca(value.get_type(), var_name) {
+            let _ = self.builder.build_store(alloca, value);
+            self.variables.insert(var_name.to_string(), VariableInfo {
+                pointer: alloca,
+                ast_type,
+                is_mutable: false,
+                is_initialized: true,
+            });
+        }
+    }
+
+    /// Infer AST type from LLVM value
+    fn infer_ast_type(&self, value: &BasicValueEnum<'ctx>) -> AstType {
+        match value {
+            BasicValueEnum::IntValue(iv) => match iv.get_type().get_bit_width() {
+                1 => AstType::Bool,
+                32 => AstType::I32,
+                _ => AstType::I64,
+            },
+            BasicValueEnum::FloatValue(fv) => {
+                if fv.get_type() == self.context.f32_type() { AstType::F32 } else { AstType::F64 }
+            }
+            BasicValueEnum::PointerValue(_) => AstType::raw_ptr(AstType::Void),
+            _ => AstType::I32,
+        }
+    }
+
     /// Apply pattern bindings to the current scope
     pub fn apply_pattern_bindings(&mut self, bindings: &[(String, BasicValueEnum<'ctx>)]) {
         for (name, value) in bindings {
-            // Check for GEP-based enum payload (needs two loads)
-            if let Some(var_name) = name.strip_prefix("__enum_payload_gep__") {
-                if value.is_pointer_value() {
-                    let gep_ptr = value.into_pointer_value();
-
-                    // First load: get the payload pointer from the struct field
-                    let payload_ptr = if let Ok(loaded) = self.builder.build_load(
-                        self.context.ptr_type(inkwell::AddressSpace::default()),
-                        gep_ptr,
-                        "payload_ptr",
-                    ) {
-                        loaded.into_pointer_value()
-                    } else {
-                        continue;
-                    };
-
-                    // Determine the payload type from tracked generic types
-                    let payload_ast_type = self.generic_type_context.get("Option_Some_Type")
-                        .or_else(|| self.generic_type_context.get("Result_Ok_Type"))
-                        .or_else(|| self.generic_type_context.get("Result_Err_Type"))
-                        .cloned();
-
-                    let payload_llvm_type = payload_ast_type.as_ref()
-                        .and_then(|ast_type| self.to_llvm_type(ast_type).ok())
-                        .and_then(|t| self.expect_basic_type(t).ok());
-
-                    // Second load: dereference the payload pointer to get the actual value
-                    let payload_val = if let Some(llvm_type) = payload_llvm_type {
-                        if let Ok(val) = self.builder.build_load(llvm_type, payload_ptr, "payload_val") {
-                            val
-                        } else {
-                            continue;
-                        }
-                    } else {
-                        if let Ok(val) = self.builder.build_load(self.context.i64_type(), payload_ptr, "payload_val") {
-                            val
-                        } else {
-                            continue;
-                        }
-                    };
-
-                    let ast_type = payload_ast_type.unwrap_or(AstType::I64);
-                    let val_type = payload_val.get_type();
-                    if let Ok(alloca) = self.builder.build_alloca(val_type, var_name) {
-                        let _ = self.builder.build_store(alloca, payload_val);
-                        self.variables.insert(var_name.to_string(), VariableInfo {
-                            pointer: alloca,
-                            ast_type,
-                            is_mutable: false,
-                            is_initialized: true,
-                        });
-                    }
-                }
+            // Handle enum payload bindings (GEP needs 2 loads, ptr needs 1)
+            let (prefix, needs_extra_load) = if name.starts_with("__enum_payload_gep__") {
+                ("__enum_payload_gep__", true)
+            } else if name.starts_with("__enum_payload_ptr__") {
+                ("__enum_payload_ptr__", false)
+            } else {
+                // Regular binding
+                let ast_type = self.infer_ast_type(value);
+                self.store_binding(name, *value, ast_type);
                 continue;
-            }
+            };
 
-            // Check for pointer-based enum payload (needs one load)
-            if let Some(var_name) = name.strip_prefix("__enum_payload_ptr__") {
-                if value.is_pointer_value() {
-                    let payload_ptr = value.into_pointer_value();
+            let var_name = &name[prefix.len()..];
+            if !value.is_pointer_value() { continue; }
 
-                    // Determine the payload type from tracked generic types
-                    let payload_ast_type = self.generic_type_context.get("Option_Some_Type")
-                        .or_else(|| self.generic_type_context.get("Result_Ok_Type"))
-                        .or_else(|| self.generic_type_context.get("Result_Err_Type"))
-                        .cloned();
-
-                    let payload_llvm_type = payload_ast_type.as_ref()
-                        .and_then(|ast_type| self.to_llvm_type(ast_type).ok())
-                        .and_then(|t| self.expect_basic_type(t).ok());
-
-                    // Single load: dereference the payload pointer to get the actual value
-                    let payload_val = if let Some(llvm_type) = payload_llvm_type {
-                        if let Ok(val) = self.builder.build_load(llvm_type, payload_ptr, "payload_val") {
-                            val
-                        } else {
-                            continue;
-                        }
-                    } else {
-                        if let Ok(val) = self.builder.build_load(self.context.i64_type(), payload_ptr, "payload_val") {
-                            val
-                        } else {
-                            continue;
-                        }
-                    };
-
-                    let ast_type = payload_ast_type.unwrap_or(AstType::I64);
-                    let val_type = payload_val.get_type();
-                    if let Ok(alloca) = self.builder.build_alloca(val_type, var_name) {
-                        let _ = self.builder.build_store(alloca, payload_val);
-                        self.variables.insert(var_name.to_string(), VariableInfo {
-                            pointer: alloca,
-                            ast_type,
-                            is_mutable: false,
-                            is_initialized: true,
-                        });
-                    }
+            let payload_ptr = if needs_extra_load {
+                // GEP-based: first load the pointer from struct field
+                let gep_ptr = value.into_pointer_value();
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                match self.builder.build_load(ptr_type, gep_ptr, "payload_ptr") {
+                    Ok(loaded) => loaded.into_pointer_value(),
+                    Err(_) => continue,
                 }
-                continue;
-            }
+            } else {
+                value.into_pointer_value()
+            };
 
-            // Regular binding - store the value directly
-            let llvm_type = value.get_type();
-            if let Ok(alloca) = self.builder.build_alloca(llvm_type, name) {
-                let _ = self.builder.build_store(alloca, *value);
-                // Infer AST type from the LLVM type
-                let ast_type = match value {
-                    BasicValueEnum::IntValue(iv) => {
-                        let bit_width = iv.get_type().get_bit_width();
-                        match bit_width {
-                            1 => AstType::Bool,
-                            32 => AstType::I32,
-                            64 => AstType::I64,
-                            _ => AstType::I32,
-                        }
-                    }
-                    BasicValueEnum::FloatValue(fv) => {
-                        let ty = fv.get_type();
-                        if ty == self.context.f32_type() {
-                            AstType::F32
-                        } else {
-                            AstType::F64
-                        }
-                    }
-                    BasicValueEnum::PointerValue(_) => AstType::raw_ptr(AstType::Void),
-                    _ => AstType::I32, // Fallback
-                };
-                self.variables.insert(name.clone(), VariableInfo {
-                    pointer: alloca,
-                    ast_type,
-                    is_mutable: false,
-                    is_initialized: true,
-                });
+            let payload_ast_type = self.get_payload_ast_type();
+            let payload_llvm_type = payload_ast_type.as_ref()
+                .and_then(|t| self.to_llvm_type(t).ok())
+                .and_then(|t| self.expect_basic_type(t).ok());
+
+            if let Some(payload_val) = self.load_with_type_or_i64(payload_ptr, payload_llvm_type) {
+                let ast_type = payload_ast_type.unwrap_or(AstType::I64);
+                self.store_binding(var_name, payload_val, ast_type);
             }
         }
     }
@@ -894,60 +791,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Exports are handled at module level, no codegen needed
                 }
                 ast::Declaration::ModuleImport { alias, module_path } => {
-                    // Handle module imports like { io } = @std or { Option, Some, None } = @std
-                    // We just register these as compile-time symbols
-                    // The actual variables will be created when needed in functions
-
-                    // Extract the module name from the path (e.g., "@std.io" -> "io")
-                    let module_name = if let Some(last_part) = module_path.split('.').last() {
-                        last_part
-                    } else {
-                        alias
-                    };
-
-                    // Handle specific std types and modules
-                    if self.well_known.is_option(module_name) || self.well_known.is_option_variant(module_name) {
-                        self.module_imports.insert(alias.clone(), 100);
-                    } else if self.well_known.is_result(module_name) || self.well_known.is_result_variant(module_name) {
-                        self.module_imports.insert(alias.clone(), 101);
-                    } else {
-                        match module_name {
-                            // Collections
-                            "HashMap" | "HashSet" | "DynVec" | "Array" | "Vec" => {
-                                self.module_imports.insert(alias.clone(), 102);
-                            }
-                            // Allocator types
-                            "Allocator" | "get_default_allocator" => {
-                                self.module_imports.insert(alias.clone(), 103);
-                            }
-                            // Math functions
-                            "min" | "max" | "abs" | "sqrt" | "pow" | "sin" | "cos" | "tan" => {
-                                self.module_imports.insert(alias.clone(), 104);
-                            }
-                            // Regular modules
-                            "io" => {
-                                self.module_imports.insert(alias.clone(), 1);
-                            }
-                            "math" => {
-                                self.module_imports.insert(alias.clone(), 2);
-                            }
-                            "core" => {
-                                self.module_imports.insert(alias.clone(), 3);
-                            }
-                            "GPA" => {
-                                self.module_imports.insert(alias.clone(), 4);
-                            }
-                            "AsyncPool" => {
-                                self.module_imports.insert(alias.clone(), 5);
-                            }
-                            "build" => {
-                                self.module_imports.insert(alias.clone(), 7);
-                            }
-                            _ => {
-                                self.module_imports.insert(alias.clone(), 0);
-                            }
-                        }
-                    }
+                    let module_name = module_path.split('.').last().unwrap_or(alias);
+                    let module_id = self.get_module_id(module_name);
+                    self.module_imports.insert(alias.clone(), module_id);
                 }
                 ast::Declaration::Behavior(_) => {} // Behaviors are interface definitions, no codegen needed
                 ast::Declaration::Trait(_) => {} // Trait definitions are interface definitions, no direct codegen needed

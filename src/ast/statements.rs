@@ -70,6 +70,11 @@ pub enum Statement {
         names: Vec<String>,
         source: Expression,
     },
+    // Block of statements - used for defer blocks, etc.
+    Block {
+        statements: Vec<Statement>,
+        span: Option<Span>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]

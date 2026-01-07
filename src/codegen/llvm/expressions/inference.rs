@@ -3,6 +3,33 @@ use crate::ast::{AstType, Expression};
 use crate::error::CompileError;
 use crate::stdlib_metadata::compiler as compiler_intrinsics;
 
+// ============================================================================
+// HELPER FUNCTIONS - Shared logic for type inference
+// ============================================================================
+
+/// Look up a struct field type by struct name and field name
+fn lookup_struct_field_type(
+    compiler: &LLVMCompiler,
+    struct_name: &str,
+    member: &str,
+) -> Result<AstType, CompileError> {
+    if let Some(struct_info) = compiler.struct_types.get(struct_name) {
+        if let Some((_index, field_type)) = struct_info.fields.get(member) {
+            Ok(field_type.clone())
+        } else {
+            Err(CompileError::TypeError(
+                format!("Struct '{}' has no field '{}'", struct_name, member),
+                None,
+            ))
+        }
+    } else {
+        Err(CompileError::TypeError(
+            format!("Unknown struct type: {}", struct_name),
+            None,
+        ))
+    }
+}
+
 pub fn infer_expression_type(
     compiler: &LLVMCompiler,
     expr: &Expression,
@@ -324,46 +351,13 @@ pub fn infer_expression_type(
             // Infer the type of the object first
             let object_type = compiler.infer_expression_type(object)?;
 
-            // Handle struct field access
+            // Handle struct field access using helper
             match &object_type {
-                AstType::Struct { name, .. } => {
-                    // Look up the struct type info
-                    if let Some(struct_info) = compiler.struct_types.get(name) {
-                        // Find the field type
-                        if let Some((_index, field_type)) = struct_info.fields.get(member) {
-                            Ok(field_type.clone())
-                        } else {
-                            Err(CompileError::TypeError(
-                                format!("Struct '{}' has no field '{}'", name, member),
-                                None,
-                            ))
-                        }
-                    } else {
-                        Err(CompileError::TypeError(
-                            format!("Unknown struct type: {}", name),
-                            None,
-                        ))
-                    }
-                }
+                AstType::Struct { name, .. } => lookup_struct_field_type(compiler, name, member),
                 // Handle pointer to struct types
                 t if t.is_ptr_type() => {
-                    // Recursively infer member type from inner type
                     if let Some(AstType::Struct { name, .. }) = t.ptr_inner() {
-                        if let Some(struct_info) = compiler.struct_types.get(name) {
-                            if let Some((_index, field_type)) = struct_info.fields.get(member) {
-                                Ok(field_type.clone())
-                            } else {
-                                Err(CompileError::TypeError(
-                                    format!("Struct '{}' has no field '{}'", name, member),
-                                    None,
-                                ))
-                            }
-                        } else {
-                            Err(CompileError::TypeError(
-                                format!("Unknown struct type: {}", name),
-                                None,
-                            ))
-                        }
+                        lookup_struct_field_type(compiler, name, member)
                     } else {
                         Ok(AstType::Void)
                     }
@@ -371,24 +365,14 @@ pub fn infer_expression_type(
                 // Handle Generic types that might be structs
                 AstType::Generic { name, .. } => {
                     // Check if this generic is actually a registered struct type
-                    if let Some(struct_info) = compiler.struct_types.get(name) {
-                        if let Some((_index, field_type)) = struct_info.fields.get(member) {
-                            Ok(field_type.clone())
-                        } else {
-                            Err(CompileError::TypeError(
-                                format!("Struct '{}' has no field '{}'", name, member),
-                                None,
-                            ))
-                        }
+                    if compiler.struct_types.contains_key(name) {
+                        lookup_struct_field_type(compiler, name, member)
                     } else {
                         // Not a struct, might be a module reference (@std.something)
                         Ok(AstType::Void)
                     }
                 }
-                _ => {
-                    // For other types, return void (will error during compilation if needed)
-                    Ok(AstType::Void)
-                }
+                _ => Ok(AstType::Void), // Will error during compilation if needed
             }
         }
         // Pointer operations
@@ -721,9 +705,14 @@ fn infer_method_call_type(
         return infer_raise_method_type(compiler, object);
     }
 
-    // Handle constructors
-    if method == "new" || method == "init" {
-        return infer_constructor_type(compiler, object);
+    // Handle constructors (including generic constructors like new<K,V>)
+    let base_method = if let Some(angle_pos) = method.find('<') {
+        &method[..angle_pos]
+    } else {
+        method
+    };
+    if base_method == "new" || base_method == "init" {
+        return infer_constructor_type(compiler, object, method);
     }
 
     // Handle common methods by name
@@ -748,8 +737,21 @@ fn infer_raise_method_type(
 fn infer_constructor_type(
     compiler: &LLVMCompiler,
     object: &Expression,
+    method: &str,
 ) -> Result<AstType, CompileError> {
     if let Expression::Identifier(name) = object {
+        // Check for type args in method name (e.g., HashMap.new<K, V>())
+        if method.contains('<') {
+            if let Some(angle_pos) = method.find('<') {
+                let args_str = &method[angle_pos + 1..method.len() - 1];
+                let type_args = super::utils::parse_type_args_string(compiler, args_str)?;
+                return Ok(AstType::Generic {
+                    name: name.to_string(),
+                    type_args,
+                });
+            }
+        }
+
         // Check for generic type constructor (e.g., HashMap<K,V>.new())
         if name.contains('<') {
             if let Some(angle_pos) = name.find('<') {

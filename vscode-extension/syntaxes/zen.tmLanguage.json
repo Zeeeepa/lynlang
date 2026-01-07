@@ -120,12 +120,12 @@
                     "match": "(::=|:=|::)"
                 },
                 {
-                    "name": "keyword.operator.assignment.immutable.zen",
-                    "match": "(?<!:)=(?!=)"
-                },
-                {
                     "name": "keyword.operator.comparison.zen",
                     "match": "(==|!=|<=|>=|<|>)"
+                },
+                {
+                    "name": "keyword.operator.assignment.immutable.zen",
+                    "match": "(?<![:!<>=])=(?![=>])"
                 },
                 {
                     "name": "keyword.operator.arithmetic.zen",

@@ -120,7 +120,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         ptr,
                         "",
                     ) {
-                        Ok(val) => val.into(),
+                        Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
@@ -130,7 +130,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         ptr,
                         "",
                     ) {
-                        Ok(val) => val.into(),
+                        Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
@@ -144,7 +144,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         ptr,
                         "",
                     ) {
-                        Ok(val) => val.into(),
+                        Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
@@ -155,7 +155,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         ptr,
                         "",
                     ) {
-                        Ok(val) => val.into(),
+                        Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
@@ -171,7 +171,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     );
                     // Use empty string to let LLVM auto-generate unique names
                     match self.builder.build_load(enum_struct_type, ptr, "") {
-                        Ok(val) => val.into(),
+                        Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
@@ -180,7 +180,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // This value is used to identify which module is being referenced
                     // Use empty string to let LLVM auto-generate unique names
                     match self.builder.build_load(self.context.i64_type(), ptr, "") {
-                        Ok(val) => val.into(),
+                        Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
@@ -210,7 +210,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     let basic_type = self.expect_basic_type(elem_type)?;
                     // Use empty string to let LLVM auto-generate unique names
                     match self.builder.build_load(basic_type, ptr, "") {
-                        Ok(val) => val.into(),
+                        Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }

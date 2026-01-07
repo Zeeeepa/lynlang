@@ -4,6 +4,7 @@ use lsp_types::Position;
 use std::collections::HashMap;
 
 use crate::lsp::types::*;
+use crate::lsp::utils::{find_pattern_match_question, is_pattern_arm_line};
 
 /// Get hover information for pattern match variables
 pub fn get_pattern_match_hover(
@@ -23,26 +24,25 @@ pub fn get_pattern_match_hover(
 
     let current_line = lines[position.line as usize];
 
-    // Check if we're in a pattern match arm (contains '|' and '{')
-    if !current_line.contains('|') {
+    // Check if we're in a pattern match arm using lexer-based detection
+    if !is_pattern_arm_line(current_line) {
         return None;
     }
 
-    // Find the scrutinee by looking backwards for 'variable ?'
+    // Find the scrutinee by looking backwards for 'variable ?' using lexer-based detection
     let mut scrutinee_name = None;
     let mut scrutinee_line = None;
     for i in (0..=position.line).rev() {
         let line = lines[i as usize].trim();
-        if line.contains('?') && !line.starts_with("//") {
+        // Use lexer-based pattern match detection
+        if let Some(q_pos) = find_pattern_match_question(line) {
             // Found the pattern match - extract variable name
-            if let Some(q_pos) = line.find('?') {
-                let before_q = line[..q_pos].trim();
-                // Get the last word before '?'
-                if let Some(var) = before_q.split_whitespace().last() {
-                    scrutinee_name = Some(var.to_string());
-                    scrutinee_line = Some(i);
-                    break;
-                }
+            let before_q = line[..q_pos].trim();
+            // Get the last word before '?'
+            if let Some(var) = before_q.split_whitespace().last() {
+                scrutinee_name = Some(var.to_string());
+                scrutinee_line = Some(i);
+                break;
             }
         }
         // Don't search too far back

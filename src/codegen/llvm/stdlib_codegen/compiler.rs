@@ -1,1509 +1,656 @@
-//! Compiler intrinsics codegen - inline_c, raw_allocate, etc.
+//! Compiler intrinsics codegen - true LLVM primitives that must be in Rust
 
+use crate::ast::{self, AstType};
 use crate::codegen::llvm::{LLVMCompiler, Type};
-use crate::ast;
 use crate::error::CompileError;
+use inkwell::intrinsics::Intrinsic;
 use inkwell::module::Linkage;
-use inkwell::types::BasicType;
-use inkwell::values::BasicValueEnum;
+use inkwell::types::IntType;
+use inkwell::values::{BasicValueEnum, FunctionValue, IntValue, PointerValue};
+use inkwell::AddressSpace;
 
-/// Compile compiler.inline_c() - Inline C code compilation
-pub fn compile_inline_c<'ctx>(
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/// Convert any integer to i64, extending or truncating as needed
+fn to_i64<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.inline_c expects 1 argument (C code string), got {}",
-                args.len()
-            ),
-            None,
-        ));
+    val: BasicValueEnum<'ctx>,
+    signed: bool,
+) -> Result<IntValue<'ctx>, CompileError> {
+    if !val.is_int_value() {
+        return Err(CompileError::TypeError("Expected integer".to_string(), None));
     }
-
-    // For now, inline.c() is a placeholder that returns void
-    // Full implementation would:
-    // 1. Parse the C code string
-    // 2. Resolve ${variable} interpolations
-    // 3. Compile C code to LLVM IR using Clang or direct LLVM
-    // 4. Insert the IR into the current function
-
-    // TODO: Implement full inline C compilation
-    // This is a complex feature that requires:
-    // - C parser/compiler integration (Clang)
-    // - String interpolation resolution
-    // - LLVM IR insertion
-
-    // For now, return void
-    Ok(compiler.context.i32_type().const_zero().into())
+    let int_val = val.into_int_value();
+    let bits = int_val.get_type().get_bit_width();
+    let i64_type = compiler.context.i64_type();
+    Ok(if bits == 64 {
+        int_val
+    } else if bits < 64 {
+        if signed {
+            compiler.builder.build_int_s_extend(int_val, i64_type, "sext")?
+        } else {
+            compiler.builder.build_int_z_extend(int_val, i64_type, "zext")?
+        }
+    } else {
+        compiler.builder.build_int_truncate(int_val, i64_type, "trunc")?
+    })
 }
 
-/// Compile compiler.raw_allocate() - Raw memory allocation
+/// Convert integer to specific bit width
+fn to_int_width<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    val: IntValue<'ctx>,
+    target: IntType<'ctx>,
+    signed: bool,
+) -> Result<IntValue<'ctx>, CompileError> {
+    let src_bits = val.get_type().get_bit_width();
+    let dst_bits = target.get_bit_width();
+    Ok(if src_bits == dst_bits {
+        val
+    } else if src_bits < dst_bits {
+        if signed {
+            compiler.builder.build_int_s_extend(val, target, "sext")?
+        } else {
+            compiler.builder.build_int_z_extend(val, target, "zext")?
+        }
+    } else {
+        compiler.builder.build_int_truncate(val, target, "trunc")?
+    })
+}
+
+/// Get or declare a libc function
+fn get_or_declare_fn<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    name: &str,
+    ret_type: Option<inkwell::types::BasicTypeEnum<'ctx>>,
+    param_types: &[inkwell::types::BasicMetadataTypeEnum<'ctx>],
+) -> FunctionValue<'ctx> {
+    compiler.module.get_function(name).unwrap_or_else(|| {
+        let fn_type = match ret_type {
+            Some(t) => match t {
+                inkwell::types::BasicTypeEnum::IntType(i) => i.fn_type(param_types, false),
+                inkwell::types::BasicTypeEnum::PointerType(p) => p.fn_type(param_types, false),
+                _ => compiler.context.void_type().fn_type(param_types, false),
+            },
+            None => compiler.context.void_type().fn_type(param_types, false),
+        };
+        compiler.module.add_function(name, fn_type, Some(Linkage::External))
+    })
+}
+
+/// Call an LLVM intrinsic (bswap, ctlz, cttz, ctpop)
+fn call_int_intrinsic<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    name: &str,
+    val: IntValue<'ctx>,
+    extra_args: &[BasicValueEnum<'ctx>],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    let intrinsic = Intrinsic::find(name)
+        .ok_or_else(|| CompileError::InternalError(format!("{} intrinsic not found", name), None))?;
+    let int_type = val.get_type();
+    let intrinsic_fn = intrinsic
+        .get_declaration(&compiler.module, &[int_type.into()])
+        .ok_or_else(|| CompileError::InternalError(format!("Failed to get {} declaration", name), None))?;
+
+    let mut args: Vec<BasicValueEnum> = vec![val.into()];
+    args.extend_from_slice(extra_args);
+    let args_meta: Vec<_> = args.iter().map(|a| (*a).into()).collect();
+
+    compiler
+        .builder
+        .build_call(intrinsic_fn, &args_meta, "intrinsic")?
+        .try_as_basic_value()
+        .left()
+        .ok_or_else(|| CompileError::InternalError("Intrinsic should return value".to_string(), None))
+}
+
+/// Extract data pointer from String struct or return pointer directly
+fn extract_string_ptr<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    value: BasicValueEnum<'ctx>,
+) -> Result<PointerValue<'ctx>, CompileError> {
+    match value {
+        BasicValueEnum::PointerValue(ptr) => Ok(ptr),
+        BasicValueEnum::StructValue(s) => {
+            let ptr = compiler.builder.build_extract_value(s, 0, "str_data")?;
+            match ptr {
+                BasicValueEnum::PointerValue(p) => Ok(p),
+                _ => Err(CompileError::InternalError("String field 0 not a pointer".to_string(), None)),
+            }
+        }
+        _ => Err(CompileError::InternalError(format!("Expected String, got {:?}", value.get_type()), None)),
+    }
+}
+
+fn ptr_type<'ctx>(compiler: &LLVMCompiler<'ctx>) -> inkwell::types::PointerType<'ctx> {
+    compiler.context.ptr_type(AddressSpace::default())
+}
+
+fn require_args(args: &[ast::Expression], expected: usize, name: &str) -> Result<(), CompileError> {
+    if args.len() != expected {
+        Err(CompileError::TypeError(format!("{} expects {} args, got {}", name, expected, args.len()), None))
+    } else {
+        Ok(())
+    }
+}
+
+// =============================================================================
+// Memory Allocation (libc wrappers)
+// =============================================================================
+
 pub fn compile_raw_allocate<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.raw_allocate expects 1 argument (size), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
-    let size = compiler.compile_expression(&args[0])?;
-    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-
-    // Get or declare malloc
-    let malloc_fn = compiler.module.get_function("malloc").unwrap_or_else(|| {
-        let i64_type = compiler.context.i64_type();
-        let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
-        compiler
-            .module
-            .add_function("malloc", fn_type, Some(Linkage::External))
-    });
-
-    // Convert size to i64 if needed
-    let size_i64 = if size.is_int_value() {
-        let int_val = size.into_int_value();
-        if int_val.get_type().get_bit_width() != 64 {
-            compiler.builder.build_int_z_extend(
-                int_val,
-                compiler.context.i64_type(),
-                "size_extend",
-            )?
-        } else {
-            int_val
-        }
-    } else {
-        return Err(CompileError::TypeError(
-            "compiler.raw_allocate size must be an integer".to_string(),
-            None,
-        ));
-    };
-
-    let ptr = compiler
-        .builder
-        .build_call(malloc_fn, &[size_i64.into()], "allocated_ptr")?
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| {
-            CompileError::InternalError("malloc should return a pointer".to_string(), None)
-        })?;
-
-    Ok(ptr)
+    require_args(args, 1, "raw_allocate")?;
+    let size_val = compiler.compile_expression(&args[0])?;
+    let size = to_i64(compiler, size_val, false)?;
+    let malloc = get_or_declare_fn(compiler, "malloc", Some(ptr_type(compiler).into()), &[compiler.context.i64_type().into()]);
+    Ok(compiler.builder.build_call(malloc, &[size.into()], "ptr")?.try_as_basic_value().left().unwrap())
 }
 
-/// Compile compiler.raw_deallocate() - Raw memory deallocation
 pub fn compile_raw_deallocate<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 2 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.raw_deallocate expects 2 arguments (ptr, size), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
+    require_args(args, 2, "raw_deallocate")?;
     let ptr = compiler.compile_expression(&args[0])?;
-    let _size = compiler.compile_expression(&args[1])?; // Size kept for allocator compatibility
-
-    // Get or declare free
-    let free_fn = compiler.module.get_function("free").unwrap_or_else(|| {
-        let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-        let fn_type = compiler
-            .context
-            .void_type()
-            .fn_type(&[ptr_type.into()], false);
-        compiler
-            .module
-            .add_function("free", fn_type, Some(Linkage::External))
-    });
-
-    // Call free (size is ignored in standard free, but kept for allocator compatibility)
-    compiler
-        .builder
-        .build_call(free_fn, &[ptr.into()], "free_call")?;
-
-    // Return void
+    let _size = compiler.compile_expression(&args[1])?;
+    let free = get_or_declare_fn(compiler, "free", None, &[ptr_type(compiler).into()]);
+    compiler.builder.build_call(free, &[ptr.into()], "")?;
     Ok(compiler.context.i32_type().const_zero().into())
 }
 
-/// Compile compiler.raw_reallocate() - Raw memory reallocation
 pub fn compile_raw_reallocate<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 3 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.raw_reallocate expects 3 arguments (ptr, old_size, new_size), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
+    require_args(args, 3, "raw_reallocate")?;
     let ptr = compiler.compile_expression(&args[0])?;
-    let _old_size = compiler.compile_expression(&args[1])?;
-    let new_size = compiler.compile_expression(&args[2])?;
-
-    // Get or declare realloc
-    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-    let realloc_fn = compiler.module.get_function("realloc").unwrap_or_else(|| {
-        let i64_type = compiler.context.i64_type();
-        let fn_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
-        compiler
-            .module
-            .add_function("realloc", fn_type, Some(Linkage::External))
-    });
-
-    // Convert new_size to i64 if needed
-    let new_size_i64 = if new_size.is_int_value() {
-        let int_val = new_size.into_int_value();
-        if int_val.get_type().get_bit_width() != 64 {
-            compiler.builder.build_int_z_extend(
-                int_val,
-                compiler.context.i64_type(),
-                "size_extend",
-            )?
-        } else {
-            int_val
-        }
-    } else {
-        return Err(CompileError::TypeError(
-            "compiler.raw_reallocate new_size must be an integer".to_string(),
-            None,
-        ));
-    };
-
-    let new_ptr = compiler
-        .builder
-        .build_call(
-            realloc_fn,
-            &[ptr.into(), new_size_i64.into()],
-            "realloc_ptr",
-        )?
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| {
-            CompileError::InternalError("realloc should return a pointer".to_string(), None)
-        })?;
-
-    Ok(new_ptr)
+    let _old = compiler.compile_expression(&args[1])?;
+    let new_size_val = compiler.compile_expression(&args[2])?;
+    let new_size = to_i64(compiler, new_size_val, false)?;
+    let realloc = get_or_declare_fn(compiler, "realloc", Some(ptr_type(compiler).into()), &[ptr_type(compiler).into(), compiler.context.i64_type().into()]);
+    Ok(compiler.builder.build_call(realloc, &[ptr.into(), new_size.into()], "ptr")?.try_as_basic_value().left().unwrap())
 }
 
-/// Compile compiler.raw_ptr_offset() - Pointer arithmetic
+// =============================================================================
+// Pointer Operations
+// =============================================================================
+
 pub fn compile_raw_ptr_offset<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 2 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.raw_ptr_offset expects 2 arguments (ptr, offset), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
-    let ptr = compiler.compile_expression(&args[0])?;
-    let offset = compiler.compile_expression(&args[1])?;
-
-    // Convert offset to i64
-    let offset_i64 = if offset.is_int_value() {
-        let int_val = offset.into_int_value();
-        if int_val.get_type().get_bit_width() != 64 {
-            // Sign extend for signed offsets
-            compiler.builder.build_int_s_extend(
-                int_val,
-                compiler.context.i64_type(),
-                "offset_extend",
-            )?
-        } else {
-            int_val
-        }
-    } else {
-        return Err(CompileError::TypeError(
-            "compiler.raw_ptr_offset offset must be an integer".to_string(),
-            None,
-        ));
-    };
-
-    // Convert offset to bytes (assuming u8 pointer)
-    let i8_type = compiler.context.i8_type();
-    let offset_ptr = unsafe {
-        compiler.builder.build_gep(
-            i8_type,
-            ptr.into_pointer_value(),
-            &[offset_i64],
-            "offset_ptr",
-        )?
-    };
-
-    Ok(offset_ptr.into())
+    require_args(args, 2, "raw_ptr_offset")?;
+    let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
+    let offset_val = compiler.compile_expression(&args[1])?;
+    let offset = to_i64(compiler, offset_val, true)?;
+    let result = unsafe { compiler.builder.build_gep(compiler.context.i8_type(), ptr, &[offset], "offset")? };
+    Ok(result.into())
 }
 
-/// Compile compiler.raw_ptr_cast() - Pointer type casting
 pub fn compile_raw_ptr_cast<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.raw_ptr_cast expects 1 argument (ptr), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
-    // Pointer casting is a no-op at LLVM level (all pointers are the same)
-    // This is mainly for type checking in Zen
-    let ptr = compiler.compile_expression(&args[0])?;
-    Ok(ptr)
+    require_args(args, 1, "raw_ptr_cast")?;
+    compiler.compile_expression(&args[0]) // No-op at LLVM level
 }
 
-/// Compile compiler.call_external() - Call external C function
-pub fn compile_call_external<'ctx>(
-    _compiler: &mut LLVMCompiler<'ctx>,
-    _args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    // This is a placeholder - full implementation would require:
-    // - Function signature information
-    // - Argument marshalling
-    // - Return value handling
-
-    Err(CompileError::InternalError(
-        "compiler.call_external() not yet fully implemented - use inline.c() for direct C calls"
-            .to_string(),
-        None,
-    ))
-}
-
-/// Compile compiler.load_library() - Load dynamic library
-/// Uses dlopen on Unix, LoadLibrary on Windows
-/// Returns a handle (opaque pointer) or null on failure
-pub fn compile_load_library<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.load_library expects 1 argument (library path), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
-    let path = compiler.compile_expression(&args[0])?;
-    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-    let i32_type = compiler.context.i32_type();
-
-    // Get or declare dlopen: void* dlopen(const char* filename, int flags)
-    let dlopen_fn = compiler.module.get_function("dlopen").unwrap_or_else(|| {
-        let fn_type = ptr_type.fn_type(&[ptr_type.into(), i32_type.into()], false);
-        compiler
-            .module
-            .add_function("dlopen", fn_type, Some(Linkage::External))
-    });
-
-    // RTLD_LAZY = 1 (lazy binding - resolve symbols as needed)
-    let rtld_lazy = i32_type.const_int(1, false);
-
-    // Call dlopen(path, RTLD_LAZY)
-    let handle = compiler
-        .builder
-        .build_call(dlopen_fn, &[path.into(), rtld_lazy.into()], "lib_handle")?
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| {
-            CompileError::InternalError("dlopen should return a pointer".to_string(), None)
-        })?;
-
-    Ok(handle)
-}
-
-/// Compile compiler.get_symbol() - Get symbol from library
-/// Uses dlsym on Unix, GetProcAddress on Windows
-/// Returns a function pointer or null if symbol not found
-pub fn compile_get_symbol<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 2 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.get_symbol expects 2 arguments (handle, symbol_name), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
-    let handle = compiler.compile_expression(&args[0])?;
-    let symbol_name = compiler.compile_expression(&args[1])?;
-    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-
-    // Get or declare dlsym: void* dlsym(void* handle, const char* symbol)
-    let dlsym_fn = compiler.module.get_function("dlsym").unwrap_or_else(|| {
-        let fn_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
-        compiler
-            .module
-            .add_function("dlsym", fn_type, Some(Linkage::External))
-    });
-
-    // Call dlsym(handle, symbol_name)
-    let symbol_ptr = compiler
-        .builder
-        .build_call(dlsym_fn, &[handle.into(), symbol_name.into()], "symbol_ptr")?
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| {
-            CompileError::InternalError("dlsym should return a pointer".to_string(), None)
-        })?;
-
-    Ok(symbol_ptr)
-}
-
-/// Compile compiler.unload_library() - Unload dynamic library
-/// Uses dlclose on Unix, FreeLibrary on Windows
-/// Returns 0 on success, non-zero on failure
-pub fn compile_unload_library<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.unload_library expects 1 argument (handle), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
-    let handle = compiler.compile_expression(&args[0])?;
-    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-    let i32_type = compiler.context.i32_type();
-
-    // Get or declare dlclose: int dlclose(void* handle)
-    let dlclose_fn = compiler.module.get_function("dlclose").unwrap_or_else(|| {
-        let fn_type = i32_type.fn_type(&[ptr_type.into()], false);
-        compiler
-            .module
-            .add_function("dlclose", fn_type, Some(Linkage::External))
-    });
-
-    // Call dlclose(handle)
-    let result = compiler
-        .builder
-        .build_call(dlclose_fn, &[handle.into()], "dlclose_result")?
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| {
-            CompileError::InternalError("dlclose should return an int".to_string(), None)
-        })?;
-
-    Ok(result)
-}
-
-/// Compile compiler.dlerror() - Get last dynamic loading error message
-/// Uses dlerror on Unix
-/// Returns a pointer to error string or null if no error
-pub fn compile_dlerror<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    _args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-
-    // Get or declare dlerror: char* dlerror(void)
-    let dlerror_fn = compiler.module.get_function("dlerror").unwrap_or_else(|| {
-        let fn_type = ptr_type.fn_type(&[], false);
-        compiler
-            .module
-            .add_function("dlerror", fn_type, Some(Linkage::External))
-    });
-
-    // Call dlerror()
-    let error_msg = compiler
-        .builder
-        .build_call(dlerror_fn, &[], "dlerror_msg")?
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| {
-            CompileError::InternalError("dlerror should return a pointer".to_string(), None)
-        })?;
-
-    Ok(error_msg)
-}
-
-/// Compile compiler.null_ptr() - Get null pointer
 pub fn compile_null_ptr<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     _args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-    let null_ptr = ptr_type.const_null();
-    Ok(null_ptr.into())
+    Ok(ptr_type(compiler).const_null().into())
 }
 
-/// Compile compiler.is_null(ptr) - Check if pointer is null
-/// Returns true if ptr == null, false otherwise
 pub fn compile_is_null<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::InternalError(
-            "compiler.is_null() requires exactly 1 argument".to_string(),
-            None,
-        ));
-    }
-
-    // Compile the pointer argument
-    let ptr_value = compiler.compile_expression(&args[0])?;
-    let ptr = ptr_value.into_pointer_value();
-
-    // Get null pointer for comparison
-    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-    let null_ptr = ptr_type.const_null();
-
-    // Compare ptr == null
-    let is_null = compiler.builder.build_int_compare(
-        inkwell::IntPredicate::EQ,
-        ptr,
-        null_ptr,
-        "is_null",
-    )?;
-
-    Ok(is_null.into())
+    require_args(args, 1, "is_null")?;
+    let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
+    let null = ptr_type(compiler).const_null();
+    Ok(compiler.builder.build_int_compare(inkwell::IntPredicate::EQ, ptr, null, "is_null")?.into())
 }
 
-/// Compile compiler.discriminant() - Get enum discriminant
-/// Reads the discriminant (tag) from an enum value
-/// Enums are laid out as: [i32 discriminant][padding][payload]
-pub fn compile_discriminant<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.discriminant expects 1 argument, got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
-    let enum_ptr = compiler.compile_expression(&args[0])?;
-    let i32_type = compiler.context.i32_type();
-
-    // Cast to i32* to access discriminant
-    let enum_ptr_cast = compiler.builder.build_pointer_cast(
-        enum_ptr.into_pointer_value(),
-        compiler.context.ptr_type(inkwell::AddressSpace::default()),
-        "enum_ptr_i32",
-    )?;
-
-    // Load discriminant (first i32)
-    let discriminant = compiler
-        .builder
-        .build_load(i32_type, enum_ptr_cast, "discriminant")?;
-
-    Ok(discriminant)
-}
-
-/// Compile compiler.set_discriminant() - Set enum discriminant
-/// Writes the discriminant (tag) to an enum value
-pub fn compile_set_discriminant<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 2 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.set_discriminant expects 2 arguments, got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
-    let enum_ptr = compiler.compile_expression(&args[0])?;
-    let discriminant = compiler.compile_expression(&args[1])?;
-
-    let _i32_type = compiler.context.i32_type();
-
-    // Cast to i32* to access discriminant
-    let enum_ptr_cast = compiler.builder.build_pointer_cast(
-        enum_ptr.into_pointer_value(),
-        compiler.context.ptr_type(inkwell::AddressSpace::default()),
-        "enum_ptr_i32",
-    )?;
-
-    // Store discriminant
-    compiler.builder.build_store(enum_ptr_cast, discriminant)?;
-
-    // Return void
-    Ok(compiler.context.i32_type().const_zero().into())
-}
-
-/// Compile compiler.get_payload() - Get enum payload
-/// Returns a pointer to the payload data within an enum
-pub fn compile_get_payload<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.get_payload expects 1 argument, got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
-    let enum_ptr = compiler.compile_expression(&args[0])?;
-    let enum_ptr_val = enum_ptr.into_pointer_value();
-
-    // Payload starts after the discriminant (i32)
-    // Use GEP to skip the discriminant field
-    let i8_type = compiler.context.i8_type();
-
-    let payload_offset = unsafe {
-        compiler.builder.build_gep(
-            i8_type,
-            enum_ptr_val,
-            &[compiler.context.i32_type().const_int(4, false)],
-            "payload_ptr",
-        )?
-    };
-
-    Ok(payload_offset.into())
-}
-
-/// Compile compiler.set_payload() - Set enum payload
-/// Copies payload data into the enum's payload field
-pub fn compile_set_payload<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 2 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.set_payload expects 2 arguments, got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
-    let _enum_ptr = compiler.compile_expression(&args[0])?;
-    let _payload_ptr = compiler.compile_expression(&args[1])?;
-
-    // For now, we return void and expect the caller to handle the copy
-    // In a real implementation, we'd need to know the payload size
-    // This is typically handled at a higher level where types are known
-
-    // TODO: Implement proper payload copying with size information
-    // For now, just return void to satisfy the interface
-
-    Ok(compiler.context.i32_type().const_zero().into())
-}
-
-/// Compile compiler.gep() - Byte-level pointer arithmetic (GetElementPointer)
-/// Performs byte-offset pointer arithmetic with optional bounds checking
-pub fn compile_gep<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 2 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.gep expects 2 arguments (ptr, offset), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
-    let base_ptr = compiler.compile_expression(&args[0])?;
-    let offset = compiler.compile_expression(&args[1])?;
-
-    // Convert offset to i64 if needed
-    let offset_i64 = if offset.is_int_value() {
-        let int_val = offset.into_int_value();
-        if int_val.get_type().get_bit_width() != 64 {
-            // Sign extend for signed offsets
-            compiler.builder.build_int_s_extend(
-                int_val,
-                compiler.context.i64_type(),
-                "offset_extend",
-            )?
-        } else {
-            int_val
-        }
-    } else {
-        return Err(CompileError::TypeError(
-            "compiler.gep offset must be an integer".to_string(),
-            None,
-        ));
-    };
-
-    // Use GEP for byte-level pointer arithmetic
-    // Treat as i8 for byte-level access
-    let i8_type = compiler.context.i8_type();
-    let result_ptr = unsafe {
-        compiler.builder.build_gep(
-            i8_type,
-            base_ptr.into_pointer_value(),
-            &[offset_i64],
-            "gep_result",
-        )?
-    };
-
-    Ok(result_ptr.into())
-}
-
-/// Compile compiler.gep_struct() - Struct field access via pointer
-/// Accesses fields of a struct using field index
-/// This is a type-aware variant of GEP for struct field access
-pub fn compile_gep_struct<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 2 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.gep_struct expects 2 arguments (struct_ptr, field_index), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
-    let struct_ptr = compiler.compile_expression(&args[0])?;
-    let field_index = compiler.compile_expression(&args[1])?;
-
-    // Convert field_index to u32 if needed
-    let field_idx_u32 = if field_index.is_int_value() {
-        let int_val = field_index.into_int_value();
-        // Ensure we have a valid u32 field index
-        if int_val.get_type().get_bit_width() != 32 {
-            compiler.builder.build_int_truncate(
-                int_val,
-                compiler.context.i32_type(),
-                "field_idx_trunc",
-            )?
-        } else {
-            int_val
-        }
-    } else {
-        return Err(CompileError::TypeError(
-            "compiler.gep_struct field_index must be an integer".to_string(),
-            None,
-        ));
-    };
-
-    // For struct field access, we need the struct type
-    // Since we're working with raw pointers, we approximate by using byte offsets
-    // A proper implementation would require type information
-
-    // As a placeholder, treat field_index as a byte offset multiplied by alignment
-    // Typical alignment is 8 bytes for most types
-    let field_offset = compiler.builder.build_int_mul(
-        field_idx_u32,
-        compiler.context.i32_type().const_int(8, false),
-        "field_offset_bytes",
-    )?;
-
-    let field_offset_i64 = compiler.builder.build_int_s_extend(
-        field_offset,
-        compiler.context.i64_type(),
-        "field_offset_i64",
-    )?;
-
-    // Use GEP for the computed offset
-    let i8_type = compiler.context.i8_type();
-    let result_ptr = unsafe {
-        compiler.builder.build_gep(
-            i8_type,
-            struct_ptr.into_pointer_value(),
-            &[field_offset_i64],
-            "gep_struct_result",
-        )?
-    };
-
-    Ok(result_ptr.into())
-}
-
-/// Compile compiler.load<T>() - Load value from pointer
-/// Generic function that loads a value of type T from a pointer
-pub fn compile_load<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-    type_arg: Option<&ast::AstType>,
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::TypeError(
-            format!("compiler.load expects 1 argument (ptr), got {}", args.len()),
-            None,
-        ));
-    }
-
-    let ptr = compiler.compile_expression(&args[0])?;
-
-    // Get the type to load - either from type_arg or default to i32
-    let load_type = if let Some(ty) = type_arg {
-        compiler.to_llvm_type(ty)?
-    } else {
-        // Default to i32 if type not specified
-        Type::Basic(compiler.context.i32_type().into())
-    };
-
-    // Get the basic type for loading
-    let basic_type = match load_type {
-        Type::Basic(b) => b,
-        _ => {
-            return Err(CompileError::TypeError(
-                "compiler.load can only load basic types".to_string(),
-                None,
-            ))
-        }
-    };
-
-    // Cast pointer to pointer-to-T (LLVM 15+ uses opaque pointers)
-    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-
-    let typed_ptr =
-        compiler
-            .builder
-            .build_pointer_cast(ptr.into_pointer_value(), ptr_type, "typed_ptr")?;
-
-    // Load the value
-    let loaded = compiler
-        .builder
-        .build_load(basic_type, typed_ptr, "loaded_value")?;
-    Ok(loaded)
-}
-
-/// Compile compiler.store<T>() - Store value to pointer
-/// Generic function that stores a value of type T to a pointer
-pub fn compile_store<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-    type_arg: Option<&ast::AstType>,
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 2 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.store expects 2 arguments (ptr, value), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
-    let ptr = compiler.compile_expression(&args[0])?;
-    let value = compiler.compile_expression(&args[1])?;
-
-    // Get the type to store - either from type_arg or infer from value type
-    let store_type = if let Some(ty) = type_arg {
-        compiler.to_llvm_type(ty)?
-    } else {
-        // Infer from value type
-        match value {
-            BasicValueEnum::IntValue(iv) => Type::Basic(iv.get_type().into()),
-            BasicValueEnum::FloatValue(fv) => Type::Basic(fv.get_type().into()),
-            BasicValueEnum::PointerValue(_) => Type::Basic(
-                compiler
-                    .context
-                    .ptr_type(inkwell::AddressSpace::default())
-                    .into(),
-            ),
-            BasicValueEnum::StructValue(sv) => Type::Struct(sv.get_type()),
-            _ => Type::Basic(compiler.context.i32_type().into()),
-        }
-    };
-
-    // Get the basic type for storing (LLVM 15+ uses opaque pointers)
-    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-    let _basic_type = match store_type {
-        Type::Basic(b) => b,
-        Type::Struct(st) => st.as_basic_type_enum(),
-        _ => {
-            return Err(CompileError::TypeError(
-                "compiler.store can only store basic types or structs".to_string(),
-                None,
-            ))
-        }
-    };
-
-    let typed_ptr =
-        compiler
-            .builder
-            .build_pointer_cast(ptr.into_pointer_value(), ptr_type, "typed_ptr")?;
-
-    // Store the value
-    compiler.builder.build_store(typed_ptr, value)?;
-
-    // Return void
-    Ok(compiler.context.i32_type().const_zero().into())
-}
-
-/// Compile compiler.ptr_to_int() - Convert pointer to integer
 pub fn compile_ptr_to_int<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.ptr_to_int expects 1 argument (ptr), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
-    let ptr = compiler.compile_expression(&args[0])?;
-    let ptr_val = ptr.into_pointer_value();
-    let i64_type = compiler.context.i64_type();
-    let int_val = compiler
-        .builder
-        .build_ptr_to_int(ptr_val, i64_type, "ptr_to_int")?;
-    Ok(int_val.into())
+    require_args(args, 1, "ptr_to_int")?;
+    let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
+    Ok(compiler.builder.build_ptr_to_int(ptr, compiler.context.i64_type(), "p2i")?.into())
 }
 
-/// Compile compiler.int_to_ptr() - Convert integer to pointer
 pub fn compile_int_to_ptr<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.int_to_ptr expects 1 argument (addr), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
-    let addr = compiler.compile_expression(&args[0])?;
-    let int_val = addr.into_int_value();
-    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-    let ptr_val = compiler
-        .builder
-        .build_int_to_ptr(int_val, ptr_type, "int_to_ptr")?;
-    Ok(ptr_val.into())
+    require_args(args, 1, "int_to_ptr")?;
+    let addr = compiler.compile_expression(&args[0])?.into_int_value();
+    Ok(compiler.builder.build_int_to_ptr(addr, ptr_type(compiler), "i2p")?.into())
 }
 
-/// Compile compiler.sizeof<T>() - Get size of type in bytes
-/// Returns the size of type T in bytes at compile time
+// =============================================================================
+// Dynamic Library Loading
+// =============================================================================
+
+pub fn compile_load_library<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 1, "load_library")?;
+    let path_val = compiler.compile_expression(&args[0])?;
+    let path = extract_string_ptr(compiler, path_val)?;
+    let dlopen = get_or_declare_fn(compiler, "dlopen", Some(ptr_type(compiler).into()), &[ptr_type(compiler).into(), compiler.context.i32_type().into()]);
+    let rtld_lazy = compiler.context.i32_type().const_int(1, false);
+    Ok(compiler.builder.build_call(dlopen, &[path.into(), rtld_lazy.into()], "handle")?.try_as_basic_value().left().unwrap())
+}
+
+pub fn compile_get_symbol<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 2, "get_symbol")?;
+    let handle = compiler.compile_expression(&args[0])?;
+    let name_val = compiler.compile_expression(&args[1])?;
+    let name = extract_string_ptr(compiler, name_val)?;
+    let dlsym = get_or_declare_fn(compiler, "dlsym", Some(ptr_type(compiler).into()), &[ptr_type(compiler).into(), ptr_type(compiler).into()]);
+    Ok(compiler.builder.build_call(dlsym, &[handle.into(), name.into()], "sym")?.try_as_basic_value().left().unwrap())
+}
+
+pub fn compile_unload_library<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 1, "unload_library")?;
+    let handle = compiler.compile_expression(&args[0])?;
+    let dlclose = get_or_declare_fn(compiler, "dlclose", Some(compiler.context.i32_type().into()), &[ptr_type(compiler).into()]);
+    Ok(compiler.builder.build_call(dlclose, &[handle.into()], "result")?.try_as_basic_value().left().unwrap())
+}
+
+pub fn compile_dlerror<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    _args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    let dlerror = get_or_declare_fn(compiler, "dlerror", Some(ptr_type(compiler).into()), &[]);
+    Ok(compiler.builder.build_call(dlerror, &[], "err")?.try_as_basic_value().left().unwrap())
+}
+
+// =============================================================================
+// Enum Introspection
+// =============================================================================
+
+pub fn compile_discriminant<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 1, "discriminant")?;
+    let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
+    Ok(compiler.builder.build_load(compiler.context.i32_type(), ptr, "disc")?)
+}
+
+pub fn compile_set_discriminant<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 2, "set_discriminant")?;
+    let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
+    let disc = compiler.compile_expression(&args[1])?;
+    compiler.builder.build_store(ptr, disc)?;
+    Ok(compiler.context.i32_type().const_zero().into())
+}
+
+pub fn compile_get_payload<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 1, "get_payload")?;
+    let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
+    // Payload after 4-byte discriminant
+    let offset = compiler.context.i32_type().const_int(4, false);
+    let payload = unsafe { compiler.builder.build_gep(compiler.context.i8_type(), ptr, &[offset], "payload")? };
+    Ok(payload.into())
+}
+
+pub fn compile_set_payload<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 2, "set_payload")?;
+    let _ptr = compiler.compile_expression(&args[0])?;
+    let _payload = compiler.compile_expression(&args[1])?;
+    // TODO: needs size information for proper copy
+    Ok(compiler.context.i32_type().const_zero().into())
+}
+
+// =============================================================================
+// GEP / Load / Store
+// =============================================================================
+
+pub fn compile_gep<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 2, "gep")?;
+    let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
+    let offset_val = compiler.compile_expression(&args[1])?;
+    let offset = to_i64(compiler, offset_val, true)?;
+    let result = unsafe { compiler.builder.build_gep(compiler.context.i8_type(), ptr, &[offset], "gep")? };
+    Ok(result.into())
+}
+
+pub fn compile_gep_struct<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 2, "gep_struct")?;
+    let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
+    let idx = compiler.compile_expression(&args[1])?.into_int_value();
+    // Approximate: field_index * 8 bytes
+    let idx_i32 = to_int_width(compiler, idx, compiler.context.i32_type(), false)?;
+    let offset = compiler.builder.build_int_mul(idx_i32, compiler.context.i32_type().const_int(8, false), "off")?;
+    let offset_i64 = to_int_width(compiler, offset, compiler.context.i64_type(), true)?;
+    let result = unsafe { compiler.builder.build_gep(compiler.context.i8_type(), ptr, &[offset_i64], "gep_s")? };
+    Ok(result.into())
+}
+
+pub fn compile_load<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+    type_arg: Option<&AstType>,
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 1, "load")?;
+    let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
+    let load_type = match type_arg {
+        Some(ty) => compiler.to_llvm_type(ty)?,
+        None => Type::Basic(compiler.context.i32_type().into()),
+    };
+    let basic = match load_type {
+        Type::Basic(b) => b,
+        _ => return Err(CompileError::TypeError("load: need basic type".to_string(), None)),
+    };
+    Ok(compiler.builder.build_load(basic, ptr, "val")?)
+}
+
+pub fn compile_store<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+    _type_arg: Option<&AstType>,
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 2, "store")?;
+    let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
+    let val = compiler.compile_expression(&args[1])?;
+    compiler.builder.build_store(ptr, val)?;
+    Ok(compiler.context.i32_type().const_zero().into())
+}
+
+// =============================================================================
+// Sizeof
+// =============================================================================
+
 pub fn compile_sizeof<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
-    type_arg: Option<&crate::ast::AstType>,
+    type_arg: Option<&AstType>,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    // Get the type to measure
-    let size: u64 = if let Some(ty) = type_arg {
-        // Calculate size based on type
-        match ty {
-            crate::ast::AstType::I8 | crate::ast::AstType::U8 => 1,
-            crate::ast::AstType::I16 | crate::ast::AstType::U16 => 2,
-            crate::ast::AstType::I32 | crate::ast::AstType::U32 | crate::ast::AstType::F32 => 4,
-            crate::ast::AstType::I64
-            | crate::ast::AstType::U64
-            | crate::ast::AstType::F64
-            | crate::ast::AstType::Usize => 8,
-            crate::ast::AstType::Bool => 1,
-            crate::ast::AstType::Void => 0,
-            // Pointers are 8 bytes on 64-bit
+    let size: u64 = match type_arg {
+        Some(ty) => match ty {
+            AstType::I8 | AstType::U8 | AstType::Bool => 1,
+            AstType::I16 | AstType::U16 => 2,
+            AstType::I32 | AstType::U32 | AstType::F32 => 4,
+            AstType::I64 | AstType::U64 | AstType::F64 | AstType::Usize => 8,
+            AstType::Void => 0,
             t if t.is_ptr_type() => 8,
-            // For structs, calculate based on fields
-            crate::ast::AstType::Struct { fields, .. } => {
-                let mut total: u64 = 0;
-                for (_name, field_ty) in fields {
-                    // Simple alignment - real impl would need proper alignment
-                    total += match field_ty {
-                        crate::ast::AstType::I8 | crate::ast::AstType::U8 => 1,
-                        crate::ast::AstType::I16 | crate::ast::AstType::U16 => 2,
-                        crate::ast::AstType::I32
-                        | crate::ast::AstType::U32
-                        | crate::ast::AstType::F32 => 4,
-                        _ => 8,
-                    };
-                }
-                total
-            }
-            // Default for unknown types
+            AstType::Struct { fields, .. } => fields.iter().map(|(_, ft)| match ft {
+                AstType::I8 | AstType::U8 => 1,
+                AstType::I16 | AstType::U16 => 2,
+                AstType::I32 | AstType::U32 | AstType::F32 => 4,
+                _ => 8,
+            }).sum(),
             _ => 8,
-        }
-    } else {
-        // Default to pointer size if no type specified
-        8
+        },
+        None => 8,
     };
-
     Ok(compiler.context.i64_type().const_int(size, false).into())
 }
 
-/// Compile compiler.memset() - Fill memory with a byte value
+// =============================================================================
+// Memory Operations (libc)
+// =============================================================================
+
 pub fn compile_memset<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
-    args: &[crate::ast::Expression],
+    args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 3 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.memset expects 3 arguments (dest, value, size), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
+    require_args(args, 3, "memset")?;
     let dest = compiler.compile_expression(&args[0])?;
-    let value = compiler.compile_expression(&args[1])?;
-    let size = compiler.compile_expression(&args[2])?;
-
-    // Convert value to i8 if needed
-    let value_i8 = if value.is_int_value() {
-        let int_val = value.into_int_value();
-        if int_val.get_type().get_bit_width() != 8 {
-            compiler
-                .builder
-                .build_int_truncate(int_val, compiler.context.i8_type(), "value_i8")?
-        } else {
-            int_val
-        }
-    } else {
-        return Err(CompileError::TypeError(
-            "compiler.memset value must be an integer".to_string(),
-            None,
-        ));
-    };
-
-    // Convert size to i64 if needed
-    let size_i64 = if size.is_int_value() {
-        let int_val = size.into_int_value();
-        if int_val.get_type().get_bit_width() != 64 {
-            compiler.builder.build_int_z_extend(
-                int_val,
-                compiler.context.i64_type(),
-                "size_i64",
-            )?
-        } else {
-            int_val
-        }
-    } else {
-        return Err(CompileError::TypeError(
-            "compiler.memset size must be an integer".to_string(),
-            None,
-        ));
-    };
-
-    // Get or declare memset
-    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-    let memset_fn = compiler.module.get_function("memset").unwrap_or_else(|| {
-        let i8_type = compiler.context.i8_type();
-        let i64_type = compiler.context.i64_type();
-        let fn_type = ptr_type.fn_type(&[ptr_type.into(), i8_type.into(), i64_type.into()], false);
-        compiler
-            .module
-            .add_function("memset", fn_type, Some(Linkage::External))
-    });
-
-    compiler.builder.build_call(
-        memset_fn,
-        &[dest.into(), value_i8.into(), size_i64.into()],
-        "memset_call",
-    )?;
-
-    // Return void
+    let val_expr = compiler.compile_expression(&args[1])?.into_int_value();
+    let val = to_int_width(compiler, val_expr, compiler.context.i8_type(), false)?;
+    let size_val = compiler.compile_expression(&args[2])?;
+    let size = to_i64(compiler, size_val, false)?;
+    let memset = get_or_declare_fn(compiler, "memset", Some(ptr_type(compiler).into()),
+        &[ptr_type(compiler).into(), compiler.context.i8_type().into(), compiler.context.i64_type().into()]);
+    compiler.builder.build_call(memset, &[dest.into(), val.into(), size.into()], "")?;
     Ok(compiler.context.i32_type().const_zero().into())
 }
 
-/// Compile compiler.memcpy() - Copy memory from src to dest
 pub fn compile_memcpy<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
-    args: &[crate::ast::Expression],
+    args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 3 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.memcpy expects 3 arguments (dest, src, size), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
+    require_args(args, 3, "memcpy")?;
     let dest = compiler.compile_expression(&args[0])?;
     let src = compiler.compile_expression(&args[1])?;
-    let size = compiler.compile_expression(&args[2])?;
-
-    // Convert size to i64 if needed
-    let size_i64 = if size.is_int_value() {
-        let int_val = size.into_int_value();
-        if int_val.get_type().get_bit_width() != 64 {
-            compiler.builder.build_int_z_extend(
-                int_val,
-                compiler.context.i64_type(),
-                "size_i64",
-            )?
-        } else {
-            int_val
-        }
-    } else {
-        return Err(CompileError::TypeError(
-            "compiler.memcpy size must be an integer".to_string(),
-            None,
-        ));
-    };
-
-    // Get or declare memcpy
-    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-    let memcpy_fn = compiler.module.get_function("memcpy").unwrap_or_else(|| {
-        let i64_type = compiler.context.i64_type();
-        let fn_type =
-            ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
-        compiler
-            .module
-            .add_function("memcpy", fn_type, Some(Linkage::External))
-    });
-
-    compiler.builder.build_call(
-        memcpy_fn,
-        &[dest.into(), src.into(), size_i64.into()],
-        "memcpy_call",
-    )?;
-
-    // Return void
+    let size_val = compiler.compile_expression(&args[2])?;
+    let size = to_i64(compiler, size_val, false)?;
+    let memcpy = get_or_declare_fn(compiler, "memcpy", Some(ptr_type(compiler).into()),
+        &[ptr_type(compiler).into(), ptr_type(compiler).into(), compiler.context.i64_type().into()]);
+    compiler.builder.build_call(memcpy, &[dest.into(), src.into(), size.into()], "")?;
     Ok(compiler.context.i32_type().const_zero().into())
 }
 
-/// Compile compiler.memmove() - Copy memory (handles overlapping regions)
 pub fn compile_memmove<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
-    args: &[crate::ast::Expression],
+    args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 3 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.memmove expects 3 arguments (dest, src, size), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
+    require_args(args, 3, "memmove")?;
     let dest = compiler.compile_expression(&args[0])?;
     let src = compiler.compile_expression(&args[1])?;
-    let size = compiler.compile_expression(&args[2])?;
-
-    // Convert size to i64 if needed
-    let size_i64 = if size.is_int_value() {
-        let int_val = size.into_int_value();
-        if int_val.get_type().get_bit_width() != 64 {
-            compiler.builder.build_int_z_extend(
-                int_val,
-                compiler.context.i64_type(),
-                "size_i64",
-            )?
-        } else {
-            int_val
-        }
-    } else {
-        return Err(CompileError::TypeError(
-            "compiler.memmove size must be an integer".to_string(),
-            None,
-        ));
-    };
-
-    // Get or declare memmove
-    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-    let memmove_fn = compiler.module.get_function("memmove").unwrap_or_else(|| {
-        let i64_type = compiler.context.i64_type();
-        let fn_type =
-            ptr_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
-        compiler
-            .module
-            .add_function("memmove", fn_type, Some(Linkage::External))
-    });
-
-    compiler.builder.build_call(
-        memmove_fn,
-        &[dest.into(), src.into(), size_i64.into()],
-        "memmove_call",
-    )?;
-
-    // Return void
+    let size_val = compiler.compile_expression(&args[2])?;
+    let size = to_i64(compiler, size_val, false)?;
+    let memmove = get_or_declare_fn(compiler, "memmove", Some(ptr_type(compiler).into()),
+        &[ptr_type(compiler).into(), ptr_type(compiler).into(), compiler.context.i64_type().into()]);
+    compiler.builder.build_call(memmove, &[dest.into(), src.into(), size.into()], "")?;
     Ok(compiler.context.i32_type().const_zero().into())
 }
 
-/// Compile compiler.memcmp() - Compare memory regions
 pub fn compile_memcmp<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
-    args: &[crate::ast::Expression],
+    args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 3 {
-        return Err(CompileError::TypeError(
-            format!(
-                "compiler.memcmp expects 3 arguments (ptr1, ptr2, size), got {}",
-                args.len()
-            ),
-            None,
-        ));
-    }
-
-    let ptr1 = compiler.compile_expression(&args[0])?;
-    let ptr2 = compiler.compile_expression(&args[1])?;
-    let size = compiler.compile_expression(&args[2])?;
-
-    // Convert size to i64 if needed
-    let size_i64 = if size.is_int_value() {
-        let int_val = size.into_int_value();
-        if int_val.get_type().get_bit_width() != 64 {
-            compiler.builder.build_int_z_extend(
-                int_val,
-                compiler.context.i64_type(),
-                "size_i64",
-            )?
-        } else {
-            int_val
-        }
-    } else {
-        return Err(CompileError::TypeError(
-            "compiler.memcmp size must be an integer".to_string(),
-            None,
-        ));
-    };
-
-    // Get or declare memcmp
-    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-    let i32_type = compiler.context.i32_type();
-    let memcmp_fn = compiler.module.get_function("memcmp").unwrap_or_else(|| {
-        let i64_type = compiler.context.i64_type();
-        let fn_type =
-            i32_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
-        compiler
-            .module
-            .add_function("memcmp", fn_type, Some(Linkage::External))
-    });
-
-    let result = compiler
-        .builder
-        .build_call(
-            memcmp_fn,
-            &[ptr1.into(), ptr2.into(), size_i64.into()],
-            "memcmp_call",
-        )?
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| {
-            CompileError::InternalError("memcmp should return an integer".to_string(), None)
-        })?;
-
-    Ok(result)
+    require_args(args, 3, "memcmp")?;
+    let p1 = compiler.compile_expression(&args[0])?;
+    let p2 = compiler.compile_expression(&args[1])?;
+    let size_val = compiler.compile_expression(&args[2])?;
+    let size = to_i64(compiler, size_val, false)?;
+    let memcmp = get_or_declare_fn(compiler, "memcmp", Some(compiler.context.i32_type().into()),
+        &[ptr_type(compiler).into(), ptr_type(compiler).into(), compiler.context.i64_type().into()]);
+    Ok(compiler.builder.build_call(memcmp, &[p1.into(), p2.into(), size.into()], "cmp")?.try_as_basic_value().left().unwrap())
 }
 
 // =============================================================================
-// BITWISE INTRINSICS
+// Bitwise Intrinsics
 // =============================================================================
 
-/// Compile compiler.bswap16() - Byte swap for 16-bit integers
-pub fn compile_bswap16<'ctx>(
+fn compile_bswap<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
-    args: &[crate::ast::Expression],
+    args: &[ast::Expression],
+    bits: u32,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::TypeError(
-            format!("bswap16 expects 1 argument, got {}", args.len()),
-            None,
-        ));
-    }
-
-    let value = compiler.compile_expression(&args[0])?;
-    let int_val = value.into_int_value();
-
-    // LLVM intrinsic for bswap
-    let i16_type = compiler.context.i16_type();
-    let intrinsic = inkwell::intrinsics::Intrinsic::find("llvm.bswap.i16")
-        .ok_or_else(|| CompileError::InternalError("bswap intrinsic not found".to_string(), None))?;
-    let intrinsic_fn = intrinsic
-        .get_declaration(&compiler.module, &[i16_type.into()])
-        .ok_or_else(|| {
-            CompileError::InternalError("Failed to get bswap declaration".to_string(), None)
-        })?;
-
-    // Truncate to i16 if needed
-    let val_i16 = if int_val.get_type().get_bit_width() != 16 {
-        compiler
-            .builder
-            .build_int_truncate(int_val, i16_type, "trunc_i16")?
-    } else {
-        int_val
+    require_args(args, 1, &format!("bswap{}", bits))?;
+    let val = compiler.compile_expression(&args[0])?.into_int_value();
+    let target_type = match bits {
+        16 => compiler.context.i16_type(),
+        32 => compiler.context.i32_type(),
+        64 => compiler.context.i64_type(),
+        _ => return Err(CompileError::InternalError("Invalid bswap width".to_string(), None)),
     };
-
-    let result = compiler
-        .builder
-        .build_call(intrinsic_fn, &[val_i16.into()], "bswap16")?
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| {
-            CompileError::InternalError("bswap16 should return a value".to_string(), None)
-        })?;
-
-    Ok(result)
+    let converted = to_int_width(compiler, val, target_type, false)?;
+    call_int_intrinsic(compiler, &format!("llvm.bswap.i{}", bits), converted, &[])
 }
 
-/// Compile compiler.bswap32() - Byte swap for 32-bit integers
-pub fn compile_bswap32<'ctx>(
+pub fn compile_bswap16<'ctx>(compiler: &mut LLVMCompiler<'ctx>, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compile_bswap(compiler, args, 16)
+}
+
+pub fn compile_bswap32<'ctx>(compiler: &mut LLVMCompiler<'ctx>, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compile_bswap(compiler, args, 32)
+}
+
+pub fn compile_bswap64<'ctx>(compiler: &mut LLVMCompiler<'ctx>, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compile_bswap(compiler, args, 64)
+}
+
+fn compile_bit_count<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
-    args: &[crate::ast::Expression],
+    args: &[ast::Expression],
+    intrinsic_name: &str,
+    has_zero_poison: bool,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::TypeError(
-            format!("bswap32 expects 1 argument, got {}", args.len()),
-            None,
-        ));
-    }
+    require_args(args, 1, intrinsic_name)?;
+    let val = compiler.compile_expression(&args[0])?.into_int_value();
+    let val_i64 = to_int_width(compiler, val, compiler.context.i64_type(), false)?;
+    let extra = if has_zero_poison {
+        vec![compiler.context.bool_type().const_zero().into()]
+    } else {
+        vec![]
+    };
+    call_int_intrinsic(compiler, &format!("llvm.{}.i64", intrinsic_name), val_i64, &extra)
+}
 
-    let value = compiler.compile_expression(&args[0])?;
-    let int_val = value.into_int_value();
+pub fn compile_ctlz<'ctx>(compiler: &mut LLVMCompiler<'ctx>, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compile_bit_count(compiler, args, "ctlz", true)
+}
 
-    let i32_type = compiler.context.i32_type();
-    let intrinsic = inkwell::intrinsics::Intrinsic::find("llvm.bswap.i32")
-        .ok_or_else(|| CompileError::InternalError("bswap intrinsic not found".to_string(), None))?;
-    let intrinsic_fn = intrinsic
-        .get_declaration(&compiler.module, &[i32_type.into()])
-        .ok_or_else(|| {
-            CompileError::InternalError("Failed to get bswap declaration".to_string(), None)
-        })?;
+pub fn compile_cttz<'ctx>(compiler: &mut LLVMCompiler<'ctx>, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compile_bit_count(compiler, args, "cttz", true)
+}
 
-    // Convert to i32 if needed
-    let val_i32 = if int_val.get_type().get_bit_width() != 32 {
-        if int_val.get_type().get_bit_width() < 32 {
-            compiler
-                .builder
-                .build_int_z_extend(int_val, i32_type, "zext_i32")?
-        } else {
-            compiler
-                .builder
-                .build_int_truncate(int_val, i32_type, "trunc_i32")?
+pub fn compile_ctpop<'ctx>(compiler: &mut LLVMCompiler<'ctx>, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    compile_bit_count(compiler, args, "ctpop", false)
+}
+
+// =============================================================================
+// Inline C Compilation
+// =============================================================================
+
+pub fn compile_inline_c<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    use std::io::Write;
+    use std::process::Command;
+
+    require_args(args, 1, "inline_c")?;
+
+    // Extract C code from string literal argument
+    let c_code = match &args[0] {
+        ast::Expression::String(s) => s.clone(),
+        _ => {
+            return Err(CompileError::TypeError(
+                "inline_c requires a string literal argument".to_string(),
+                None,
+            ))
         }
-    } else {
-        int_val
     };
 
-    let result = compiler
-        .builder
-        .build_call(intrinsic_fn, &[val_i32.into()], "bswap32")?
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| {
-            CompileError::InternalError("bswap32 should return a value".to_string(), None)
+    // Create temp files
+    let temp_dir = std::env::temp_dir();
+    let id = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let c_file = temp_dir.join(format!("zen_inline_{}.c", id));
+    let bc_file = temp_dir.join(format!("zen_inline_{}.bc", id));
+
+    // Write C code to temp file
+    let mut file = std::fs::File::create(&c_file).map_err(|e| {
+        CompileError::InternalError(format!("Failed to create temp C file: {}", e), None)
+    })?;
+    file.write_all(c_code.as_bytes()).map_err(|e| {
+        CompileError::InternalError(format!("Failed to write C code: {}", e), None)
+    })?;
+    drop(file);
+
+    // Compile C to LLVM bitcode using clang
+    let output = Command::new("clang")
+        .args([
+            "-emit-llvm",
+            "-c",
+            "-O2",
+            "-o",
+            bc_file.to_str().unwrap_or(""),
+            c_file.to_str().unwrap_or(""),
+        ])
+        .output()
+        .map_err(|e| {
+            CompileError::InternalError(
+                format!("Failed to run clang (is it installed?): {}", e),
+                None,
+            )
         })?;
 
-    Ok(result)
-}
+    // Clean up C file
+    let _ = std::fs::remove_file(&c_file);
 
-/// Compile compiler.bswap64() - Byte swap for 64-bit integers
-pub fn compile_bswap64<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[crate::ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::TypeError(
-            format!("bswap64 expects 1 argument, got {}", args.len()),
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let _ = std::fs::remove_file(&bc_file);
+        return Err(CompileError::InternalError(
+            format!("Clang compilation failed:\n{}", stderr),
             None,
         ));
     }
 
-    let value = compiler.compile_expression(&args[0])?;
-    let int_val = value.into_int_value();
-
-    let i64_type = compiler.context.i64_type();
-    let intrinsic = inkwell::intrinsics::Intrinsic::find("llvm.bswap.i64")
-        .ok_or_else(|| CompileError::InternalError("bswap intrinsic not found".to_string(), None))?;
-    let intrinsic_fn = intrinsic
-        .get_declaration(&compiler.module, &[i64_type.into()])
-        .ok_or_else(|| {
-            CompileError::InternalError("Failed to get bswap declaration".to_string(), None)
+    // Load the bitcode and link into current module
+    let memory_buffer = inkwell::memory_buffer::MemoryBuffer::create_from_file(&bc_file)
+        .map_err(|e| {
+            let _ = std::fs::remove_file(&bc_file);
+            CompileError::InternalError(format!("Failed to load bitcode: {:?}", e), None)
         })?;
 
-    // Convert to i64 if needed
-    let val_i64 = if int_val.get_type().get_bit_width() != 64 {
-        compiler
-            .builder
-            .build_int_z_extend(int_val, i64_type, "zext_i64")?
-    } else {
-        int_val
-    };
-
-    let result = compiler
-        .builder
-        .build_call(intrinsic_fn, &[val_i64.into()], "bswap64")?
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| {
-            CompileError::InternalError("bswap64 should return a value".to_string(), None)
+    let inline_module = compiler
+        .context
+        .create_module_from_ir(memory_buffer)
+        .map_err(|e| {
+            let _ = std::fs::remove_file(&bc_file);
+            CompileError::InternalError(format!("Failed to parse bitcode: {:?}", e), None)
         })?;
 
-    Ok(result)
+    // Clean up bitcode file
+    let _ = std::fs::remove_file(&bc_file);
+
+    // Link the inline module into our main module
+    compiler
+        .module
+        .link_in_module(inline_module)
+        .map_err(|e| {
+            CompileError::InternalError(format!("Failed to link inline C module: {:?}", e), None)
+        })?;
+
+    Ok(compiler.context.i32_type().const_zero().into())
 }
 
-/// Compile compiler.ctlz() - Count leading zeros
-pub fn compile_ctlz<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[crate::ast::Expression],
+pub fn compile_call_external<'ctx>(
+    _compiler: &mut LLVMCompiler<'ctx>,
+    _args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::TypeError(
-            format!("ctlz expects 1 argument, got {}", args.len()),
-            None,
-        ));
-    }
-
-    let value = compiler.compile_expression(&args[0])?;
-    let int_val = value.into_int_value();
-
-    let i64_type = compiler.context.i64_type();
-    let intrinsic = inkwell::intrinsics::Intrinsic::find("llvm.ctlz.i64")
-        .ok_or_else(|| CompileError::InternalError("ctlz intrinsic not found".to_string(), None))?;
-    let intrinsic_fn = intrinsic
-        .get_declaration(&compiler.module, &[i64_type.into()])
-        .ok_or_else(|| {
-            CompileError::InternalError("Failed to get ctlz declaration".to_string(), None)
-        })?;
-
-    // Convert to i64 if needed
-    let val_i64 = if int_val.get_type().get_bit_width() != 64 {
-        compiler
-            .builder
-            .build_int_z_extend(int_val, i64_type, "zext_i64")?
-    } else {
-        int_val
-    };
-
-    // Second arg is is_zero_poison (false = returns bit width for 0 input)
-    let is_zero_poison = compiler.context.bool_type().const_zero();
-
-    let result = compiler
-        .builder
-        .build_call(intrinsic_fn, &[val_i64.into(), is_zero_poison.into()], "ctlz")?
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| {
-            CompileError::InternalError("ctlz should return a value".to_string(), None)
-        })?;
-
-    Ok(result)
-}
-
-/// Compile compiler.cttz() - Count trailing zeros
-pub fn compile_cttz<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[crate::ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::TypeError(
-            format!("cttz expects 1 argument, got {}", args.len()),
-            None,
-        ));
-    }
-
-    let value = compiler.compile_expression(&args[0])?;
-    let int_val = value.into_int_value();
-
-    let i64_type = compiler.context.i64_type();
-    let intrinsic = inkwell::intrinsics::Intrinsic::find("llvm.cttz.i64")
-        .ok_or_else(|| CompileError::InternalError("cttz intrinsic not found".to_string(), None))?;
-    let intrinsic_fn = intrinsic
-        .get_declaration(&compiler.module, &[i64_type.into()])
-        .ok_or_else(|| {
-            CompileError::InternalError("Failed to get cttz declaration".to_string(), None)
-        })?;
-
-    // Convert to i64 if needed
-    let val_i64 = if int_val.get_type().get_bit_width() != 64 {
-        compiler
-            .builder
-            .build_int_z_extend(int_val, i64_type, "zext_i64")?
-    } else {
-        int_val
-    };
-
-    // Second arg is is_zero_poison (false = returns bit width for 0 input)
-    let is_zero_poison = compiler.context.bool_type().const_zero();
-
-    let result = compiler
-        .builder
-        .build_call(intrinsic_fn, &[val_i64.into(), is_zero_poison.into()], "cttz")?
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| {
-            CompileError::InternalError("cttz should return a value".to_string(), None)
-        })?;
-
-    Ok(result)
-}
-
-/// Compile compiler.ctpop() - Count population (number of 1 bits)
-pub fn compile_ctpop<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[crate::ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 1 {
-        return Err(CompileError::TypeError(
-            format!("ctpop expects 1 argument, got {}", args.len()),
-            None,
-        ));
-    }
-
-    let value = compiler.compile_expression(&args[0])?;
-    let int_val = value.into_int_value();
-
-    let i64_type = compiler.context.i64_type();
-    let intrinsic = inkwell::intrinsics::Intrinsic::find("llvm.ctpop.i64")
-        .ok_or_else(|| CompileError::InternalError("ctpop intrinsic not found".to_string(), None))?;
-    let intrinsic_fn = intrinsic
-        .get_declaration(&compiler.module, &[i64_type.into()])
-        .ok_or_else(|| {
-            CompileError::InternalError("Failed to get ctpop declaration".to_string(), None)
-        })?;
-
-    // Convert to i64 if needed
-    let val_i64 = if int_val.get_type().get_bit_width() != 64 {
-        compiler
-            .builder
-            .build_int_z_extend(int_val, i64_type, "zext_i64")?
-    } else {
-        int_val
-    };
-
-    let result = compiler
-        .builder
-        .build_call(intrinsic_fn, &[val_i64.into()], "ctpop")?
-        .try_as_basic_value()
-        .left()
-        .ok_or_else(|| {
-            CompileError::InternalError("ctpop should return a value".to_string(), None)
-        })?;
-
-    Ok(result)
+    Err(CompileError::InternalError(
+        "call_external not implemented - use inline_c to define C functions, then call them directly".to_string(),
+        None,
+    ))
 }

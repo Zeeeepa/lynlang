@@ -138,7 +138,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let llvm_type = super::Type::Basic(self.context.i32_type().as_basic_type_enum());
         match llvm_type {
             super::Type::Basic(basic_type) => {
-                Ok(self.builder.build_load(basic_type, ptr, "load_tmp")?.into())
+                Ok(self.builder.build_load(basic_type, ptr, "load_tmp")?)
             }
             super::Type::Struct(struct_type) => Ok(self
                 .builder

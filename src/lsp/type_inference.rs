@@ -4,8 +4,82 @@
 use super::document_store::DocumentStore;
 use super::types::{Document, SymbolInfo};
 use super::utils::format_type;
+use crate::well_known::well_known;
 use lsp_types::*;
 use std::collections::HashMap;
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/// Split generic arguments by comma, respecting nested <> brackets
+pub fn split_generic_args(args: &str) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut current = String::new();
+    let mut depth = 0;
+
+    for ch in args.chars() {
+        match ch {
+            '<' => { depth += 1; current.push(ch); }
+            '>' => { depth -= 1; current.push(ch); }
+            ',' if depth == 0 => {
+                if !current.trim().is_empty() {
+                    result.push(current.trim().to_string());
+                }
+                current.clear();
+            }
+            _ => current.push(ch),
+        }
+    }
+    if !current.trim().is_empty() {
+        result.push(current.trim().to_string());
+    }
+    result
+}
+
+/// Infer type from common constructor/literal prefixes
+fn infer_type_from_prefix(expr: &str) -> Option<String> {
+    let wk = well_known();
+    let trimmed = expr.trim();
+
+    // String literals
+    if trimmed.starts_with('"') || trimmed.starts_with('\'') {
+        return Some("String".to_string());
+    }
+
+    // Constructor patterns (Type(...) or Type<...>)
+    let type_patterns = [
+        ("HashMap(", "HashMap"), ("HashMap<", "HashMap"),
+        ("DynVec(", "DynVec"), ("DynVec<", "DynVec"),
+        ("Vec(", "Vec"), ("Vec<", "Vec"),
+        ("Array(", "Array"), ("Array<", "Array"),
+        ("Some(", wk.option_name()), ("Ok(", wk.result_name()), ("Err(", wk.result_name()),
+        ("Result.", wk.result_name()), ("Option.", wk.option_name()),
+        ("get_default_allocator()", "Allocator"),
+    ];
+
+    for (prefix, type_name) in type_patterns {
+        if trimmed.starts_with(prefix) {
+            return Some(type_name.to_string());
+        }
+    }
+
+    // None variant
+    if trimmed == wk.none_name() {
+        return Some(wk.option_name().to_string());
+    }
+
+    // Array literal [size; type]
+    if trimmed.starts_with('[') && trimmed.contains(';') && trimmed.ends_with(']') {
+        return Some("Array".to_string());
+    }
+
+    None
+}
+
+// ============================================================================
+// MAIN FUNCTIONS
+// ============================================================================
 
 pub fn parse_generic_type(type_str: &str) -> (String, Vec<String>) {
     // First, try parsing using the real Parser
@@ -16,57 +90,18 @@ pub fn parse_generic_type(type_str: &str) -> (String, Vec<String>) {
     })() {
         match ast {
             crate::ast::AstType::Generic { name, type_args } => {
-                let args = type_args
-                    .iter()
-                    .map(super::utils::format_type)
-                    .collect::<Vec<_>>();
+                let args = type_args.iter().map(super::utils::format_type).collect();
                 return (name, args);
             }
-            other => {
-                return (super::utils::format_type(&other), Vec::new());
-            }
+            other => return (super::utils::format_type(&other), Vec::new()),
         }
     }
 
-    // Fallback: manual parsing
+    // Fallback: manual parsing using helper
     if let Some(angle_pos) = type_str.find('<') {
         let base = type_str[..angle_pos].to_string();
         let params_end = type_str.rfind('>').unwrap_or(type_str.len());
-        let params_str = &type_str[angle_pos + 1..params_end];
-
-        let params = if params_str.is_empty() {
-            Vec::new()
-        } else {
-            // Handle nested generics by tracking bracket depth
-            let mut params = Vec::new();
-            let mut current = String::new();
-            let mut depth = 0;
-
-            for ch in params_str.chars() {
-                match ch {
-                    '<' => {
-                        depth += 1;
-                        current.push(ch);
-                    }
-                    '>' => {
-                        depth -= 1;
-                        current.push(ch);
-                    }
-                    ',' if depth == 0 => {
-                        params.push(current.trim().to_string());
-                        current.clear();
-                    }
-                    _ => current.push(ch),
-                }
-            }
-
-            if !current.trim().is_empty() {
-                params.push(current.trim().to_string());
-            }
-
-            params
-        };
-
+        let params = split_generic_args(&type_str[angle_pos + 1..params_end]);
         (base, params)
     } else {
         (type_str.to_string(), Vec::new())
@@ -187,23 +222,15 @@ pub fn infer_variable_type(
 }
 
 pub fn infer_receiver_type(receiver: &str, documents: &HashMap<Url, Document>) -> Option<String> {
-    // Enhanced type inference for UFC method resolution with nested generic support
-
-    // Check if receiver is a string literal
-    if receiver.starts_with('"') || receiver.starts_with("'") {
-        return Some("String".to_string());
+    // Check common patterns first using helper
+    if let Some(t) = infer_type_from_prefix(receiver) {
+        return Some(t);
     }
 
     // Check for numeric literals
-    if receiver
-        .chars()
-        .all(|c| c.is_numeric() || c == '.' || c == '-')
-    {
-        if receiver.contains('.') {
-            return Some("f64".to_string());
-        } else {
-            return Some("i32".to_string());
-        }
+    let trimmed = receiver.trim();
+    if trimmed.chars().all(|c| c.is_numeric() || c == '.' || c == '-') && !trimmed.is_empty() {
+        return Some(if trimmed.contains('.') { "f64" } else { "i32" }.to_string());
     }
 
     // Check if receiver is a known variable in symbols (limit search)
@@ -213,93 +240,58 @@ pub fn infer_receiver_type(receiver: &str, documents: &HashMap<Url, Document>) -
             if let Some(type_info) = &symbol.type_info {
                 return Some(format_type(type_info));
             }
-            // Enhanced detail parsing for better type inference
             if let Some(detail) = &symbol.detail {
-                // Parse function return types
-                if detail.contains(" = ") && detail.contains(")") {
-                    if let Some(return_type) = detail.split(" = ").nth(1) {
-                        if let Some(ret) = return_type.split(')').nth(1).map(|s| s.trim()) {
-                            if !ret.is_empty() && ret != "void" {
-                                // Try parser-based generic handling
-                                let (base, _args) = parse_generic_type(ret);
-                                return Some(base);
-                            }
-                        }
-                    }
-                }
-                // Try to extract a base type token after ':' or after ')'
-                if let Some(colon_pos) = detail.find(':') {
-                    let after = detail[colon_pos + 1..].trim();
-                    let (base, _args) = parse_generic_type(after);
-                    if !base.is_empty() {
-                        return Some(base);
-                    }
-                }
-                if let Some(close_paren) = detail.rfind(')') {
-                    let after = detail[close_paren + 1..].trim();
-                    if !after.is_empty() && after != "void" {
-                        let (base, _args) = parse_generic_type(after);
-                        if !base.is_empty() {
-                            return Some(base);
-                        }
-                    }
-                }
-                // Fallback to simple contains checks
-                let wk = well_known();
-                for type_name in [
-                    "HashMap",
-                    "DynVec",
-                    "Vec",
-                    "Array",
-                    wk.option_name(),
-                    wk.result_name(),
-                    "String",
-                    "StaticString",
-                ] {
-                    if detail.contains(type_name) {
-                        return Some(type_name.to_string());
-                    }
+                if let Some(t) = extract_type_from_detail(detail) {
+                    return Some(t);
                 }
             }
         }
     }
 
-    // Enhanced pattern matching for function calls and constructors (no regex)
+    None
+}
+
+/// Extract type from symbol detail string
+fn extract_type_from_detail(detail: &str) -> Option<String> {
+    // Parse function return types: "name = (...) ReturnType"
+    if detail.contains(" = ") && detail.contains(')') {
+        if let Some(return_type) = detail.split(" = ").nth(1) {
+            if let Some(ret) = return_type.split(')').nth(1).map(|s| s.trim()) {
+                if !ret.is_empty() && ret != "void" {
+                    let (base, _) = parse_generic_type(ret);
+                    return Some(base);
+                }
+            }
+        }
+    }
+
+    // Try type after ':'
+    if let Some(colon_pos) = detail.find(':') {
+        let after = detail[colon_pos + 1..].trim();
+        let (base, _) = parse_generic_type(after);
+        if !base.is_empty() {
+            return Some(base);
+        }
+    }
+
+    // Try type after ')'
+    if let Some(close_paren) = detail.rfind(')') {
+        let after = detail[close_paren + 1..].trim();
+        if !after.is_empty() && after != "void" {
+            let (base, _) = parse_generic_type(after);
+            if !base.is_empty() {
+                return Some(base);
+            }
+        }
+    }
+
+    // Fallback: check for known type names
     let wk = well_known();
-    let receiver_trim = receiver.trim();
-    if receiver_trim.starts_with("HashMap(") {
-        return Some("HashMap".to_string());
-    }
-    if receiver_trim.starts_with("DynVec(") {
-        return Some("DynVec".to_string());
-    }
-    if receiver_trim.starts_with("Vec(") || receiver_trim.starts_with("Vec<") {
-        return Some("Vec".to_string());
-    }
-    if receiver_trim.starts_with("Array(") {
-        return Some("Array".to_string());
-    }
-    if receiver_trim.starts_with("Some(") {
-        return Some(wk.option_name().to_string());
-    }
-    if receiver_trim == wk.none_name() {
-        return Some(wk.option_name().to_string());
-    }
-    if receiver_trim.starts_with("Ok(") || receiver_trim.starts_with("Err(") {
-        return Some(wk.result_name().to_string());
-    }
-    if receiver_trim.starts_with("Result.") {
-        return Some(wk.result_name().to_string());
-    }
-    if receiver_trim.starts_with("Option.") {
-        return Some(wk.option_name().to_string());
-    }
-    if receiver_trim.starts_with("get_default_allocator()") {
-        return Some("Allocator".to_string());
-    }
-    if receiver_trim.starts_with('[') && receiver_trim.contains(';') && receiver_trim.ends_with(']')
-    {
-        return Some("Array".to_string());
+    let known_types = ["HashMap", "DynVec", "Vec", "Array", wk.option_name(), wk.result_name(), "String", "StaticString"];
+    for type_name in known_types {
+        if detail.contains(type_name) {
+            return Some(type_name.to_string());
+        }
     }
 
     None
@@ -333,15 +325,14 @@ pub fn infer_base_expression_type(
     expr: &str,
     documents: &HashMap<Url, Document>,
 ) -> Option<String> {
-    // Infer type of base expression (before any method calls)
     let expr = expr.trim();
 
-    // String literal
-    if expr.starts_with('"') {
-        return Some("String".to_string());
+    // Check common patterns first using helper
+    if let Some(t) = infer_type_from_prefix(expr) {
+        return Some(t);
     }
 
-    // Numeric literal
+    // Numeric literals
     if expr.parse::<i64>().is_ok() {
         return Some("i32".to_string());
     }
@@ -349,42 +340,17 @@ pub fn infer_base_expression_type(
         return Some("f64".to_string());
     }
 
-    // Constructor calls
-    let wk = well_known();
+    // Check if it's a known variable
     if let Some(type_name) = expr.split('(').next() {
-        if wk.is_some(type_name) || wk.is_none(type_name) {
-            return Some(wk.option_name().to_string());
-        }
-        if wk.is_ok(type_name) || wk.is_err(type_name) {
-            return Some(wk.result_name().to_string());
-        }
-        match type_name {
-            "HashMap" => return Some("HashMap".to_string()),
-            "DynVec" => return Some("DynVec".to_string()),
-            "Vec" => return Some("Vec".to_string()),
-            "Array" => return Some("Array".to_string()),
-            "get_default_allocator" => return Some("Allocator".to_string()),
-            _ => {
-                // Check if it's a variable (limit search for performance)
-                const MAX_DOCS_SEARCH: usize = 20;
-                for doc in documents.values().take(MAX_DOCS_SEARCH) {
-                    if let Some(symbol) = doc.symbols.get(type_name) {
-                        if let Some(type_info) = &symbol.type_info {
-                            let type_str = format_type(type_info);
-                            if let Some(base) = type_str.split('<').next() {
-                                return Some(base.to_string());
-                            }
-                            return Some(type_str);
-                        }
-                    }
+        const MAX_DOCS_SEARCH: usize = 20;
+        for doc in documents.values().take(MAX_DOCS_SEARCH) {
+            if let Some(symbol) = doc.symbols.get(type_name) {
+                if let Some(type_info) = &symbol.type_info {
+                    let type_str = format_type(type_info);
+                    return Some(type_str.split('<').next().unwrap_or(&type_str).to_string());
                 }
             }
         }
-    }
-
-    // Fixed array syntax [size; type]
-    if expr.starts_with('[') && expr.contains(';') {
-        return Some("Array".to_string());
     }
 
     None
@@ -640,7 +606,6 @@ pub fn infer_base_expression_type_from_store(expr: &str, store: &DocumentStore) 
 
 // Additional parsing and extraction functions
 use crate::ast::AstType;
-use crate::well_known::well_known;
 
 pub fn extract_generic_types(ast_type: &AstType) -> (Option<String>, Option<String>) {
     let wk = well_known();
@@ -757,39 +722,6 @@ pub fn parse_return_type_generics(signature: &str) -> (Option<String>, Option<St
     }
 
     (None, None)
-}
-
-pub fn split_generic_args(args: &str) -> Vec<String> {
-    // Split generic arguments by comma, respecting nested <>
-    let mut result = Vec::new();
-    let mut current = String::new();
-    let mut depth = 0;
-
-    for ch in args.chars() {
-        match ch {
-            '<' => {
-                depth += 1;
-                current.push(ch);
-            }
-            '>' => {
-                depth -= 1;
-                current.push(ch);
-            }
-            ',' if depth == 0 => {
-                result.push(current.trim().to_string());
-                current.clear();
-            }
-            _ => {
-                current.push(ch);
-            }
-        }
-    }
-
-    if !current.trim().is_empty() {
-        result.push(current.trim().to_string());
-    }
-
-    result
 }
 
 pub fn infer_function_return_types(

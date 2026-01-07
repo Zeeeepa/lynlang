@@ -33,13 +33,14 @@ Enums: discriminant, set_discriminant, get_payload ✅
 ## What Needs Work
 
 ### 1. Ptr/Ref Type System Integration
-**Status**: Type checking exists but needs verification
+**Status**: DONE (Session 11)
 
-**TODO**:
-- [ ] Verify Ptr<T> pattern matching works in compiler
-- [ ] Verify Ref<T> dereference ops work
-- [ ] Add tests for generic Ptr<T> operations
-- [ ] Test composition with Option<Ptr<T>>
+**Completed**:
+- [x] Verify Ptr<T> pattern matching works in compiler
+- [x] Add tests for generic Ptr<T> operations (11 tests in ptr_ref_tests.rs)
+- [x] Fixed type name resolution for static method calls
+- [x] Fixed enum type tracking for method calls
+- [x] Fixed generic method name lookup (Type<T>.method)
 
 **Files affected**:
 - `src/typechecker/mod.rs` - type checking for Ptr/Ref
@@ -47,40 +48,14 @@ Enums: discriminant, set_discriminant, get_payload ✅
 - `tests/` - new test cases
 
 ### 2. String Using Ptr<u8>
-**Status**: stdlib/string.zen exists but needs Ptr<u8> integration
+**Status**: DONE - stdlib/string.zen uses Ptr<u8>
 
-**Current**: Uses raw *u8 pointers  
-**Target**: Use Ptr<u8> wrapper for type safety
-
-**Changes needed** (stdlib/string.zen):
-```zen
-String: {
-    data: Ptr<u8>,  // ← Change from *u8 to Ptr<u8>
-    len: usize,
-    capacity: usize,
-    allocator: gpa.Allocator
-}
-```
-
-**Impact**: string_push, string_pop, string_at, string_free need updates
+Implemented methods: new, len, capacity, is_empty, push, at, clear, reserve, free, clone
 
 ### 3. Vec<T> Using Ptr<T>
-**Status**: stdlib/vec.zen stubbed out
+**Status**: DONE - stdlib/vec.zen uses Ptr<T>
 
-**Target**: Full Vec<T> implementation using Ptr<T>
-
-```zen
-Vec<T>: {
-    data: Ptr<T>,      // ← Type-safe!
-    len: usize,
-    capacity: usize,
-    allocator: gpa.Allocator
-}
-```
-
-**Methods needed**:
-- vec_new, vec_push, vec_pop, vec_get, vec_len
-- vec_capacity, vec_free, vec_reserve
+Implemented methods: new, with_capacity, len, capacity, is_empty, get, push, pop, clear, reserve, free
 
 ### 4. Null Pointer Handling
 **Status**: SAFE_POINTERS_DESIGN.md recommends Ptr<T> instead of null_ptr()

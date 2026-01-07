@@ -1,33 +1,15 @@
-//! Standard library function codegen
-//! Split into modules by functionality
+//! Standard library codegen - only compiler intrinsics
+//! High-level stdlib (io, fs, core, math) should be implemented in Zen
 
 pub mod collections;
 pub mod compiler;
-pub mod core;
-pub mod fs;
 pub mod helpers;
-pub mod io;
-pub mod math;
-
-// Re-export io functions for backward compatibility
-pub use io::*;
-
-// Re-export math functions
-pub use math::compile_math_function;
-
-// Re-export core functions
-pub use core::{compile_core_assert, compile_core_panic};
-
-// Re-export fs functions
-pub use fs::{
-    compile_fs_create_dir, compile_fs_exists, compile_fs_read_file, compile_fs_remove_file,
-    compile_fs_write_file,
-};
-
-// Note: helpers module functions are used via direct path (helpers::create_result_ok, etc.)
 
 // Re-export collections functions
-pub use collections::{compile_dynvec_new, compile_hashmap_new, compile_hashset_new};
+pub use collections::{
+    compile_dynvec_new, compile_hashmap_get, compile_hashmap_insert, compile_hashmap_new,
+    compile_hashset_new,
+};
 
 // Re-export compiler intrinsics
 pub use compiler::{

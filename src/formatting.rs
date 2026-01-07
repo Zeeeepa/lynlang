@@ -1,6 +1,74 @@
 //! Shared formatting utilities for Zen language
 //! Used by both the LSP and zen-format CLI
 
+use crate::lexer::{Lexer, Token};
+
+/// Information about braces and pattern matching on a single line
+#[derive(Debug, Default)]
+struct LineTokenInfo {
+    open_braces: usize,
+    close_braces: usize,
+    open_brackets: usize,
+    close_brackets: usize,
+    ends_with_question: bool,
+    starts_with_pipe: bool,
+    first_token_is_close_brace: bool,
+    first_token_is_close_bracket: bool,
+}
+
+/// Analyze a single line using the lexer to get accurate token information.
+/// This properly handles strings, comments, and other contexts where
+/// braces/brackets/operators might appear but shouldn't be counted.
+fn analyze_line_tokens(line: &str) -> LineTokenInfo {
+    let mut info = LineTokenInfo::default();
+    let mut lexer = Lexer::new(line);
+    let mut is_first_token = true;
+    let mut last_token: Option<Token> = None;
+
+    loop {
+        let token_with_span = lexer.next_token_with_span();
+        let token = token_with_span.token.clone();
+
+        if token == Token::Eof {
+            break;
+        }
+
+        // Track first non-whitespace token
+        if is_first_token {
+            match &token {
+                Token::Symbol('}') => info.first_token_is_close_brace = true,
+                Token::Symbol(']') => info.first_token_is_close_bracket = true,
+                Token::Pipe => info.starts_with_pipe = true,
+                _ => {}
+            }
+            is_first_token = false;
+        }
+
+        // Count braces and brackets
+        match &token {
+            Token::Symbol('{') => info.open_braces += 1,
+            Token::Symbol('}') => info.close_braces += 1,
+            Token::Symbol('[') => info.open_brackets += 1,
+            Token::Symbol(']') => info.close_brackets += 1,
+            _ => {}
+        }
+
+        last_token = Some(token);
+    }
+
+    // Check if line ends with '?'
+    if let Some(Token::Question) = last_token {
+        info.ends_with_question = true;
+    }
+
+    info
+}
+
+/// Check if a line is a pattern match arm (starts with `|` token).
+fn is_pattern_arm_line(line: &str) -> bool {
+    analyze_line_tokens(line.trim()).starts_with_pipe
+}
+
 /// Format enum variants to be on separate lines with proper indentation
 /// Handles both inline enums and multi-line enums missing indentation.
 pub fn format_enum_variants(content: &str) -> String {
@@ -202,7 +270,8 @@ pub fn fix_indentation(content: &str) -> String {
     content.replace('\t', "    ")
 }
 
-/// Format based on braces and pattern matching
+/// Format based on braces and pattern matching.
+/// Uses the lexer to correctly handle braces/brackets inside strings and comments.
 pub fn format_braces(content: &str) -> String {
     let mut formatted = String::new();
     let mut indent_level: usize = 0;
@@ -220,6 +289,11 @@ pub fn format_braces(content: &str) -> String {
             continue;
         }
 
+        // Analyze the line using the lexer for accurate token detection
+        let token_info = analyze_line_tokens(trimmed);
+        let is_closing_brace = token_info.first_token_is_close_brace || token_info.first_token_is_close_bracket;
+        let is_pattern_arm = token_info.starts_with_pipe;
+
         // Exit pattern matches before handling closing braces
         // We need to check this BEFORE decrementing for closing braces
         while let Some(&pm_indent) = pattern_match_stack.last() {
@@ -228,13 +302,12 @@ pub fn format_braces(content: &str) -> String {
             // 2. We're at the pattern match's indent level + 1 (inside the match)
             // 3. No more arms are coming
             let at_pattern_indent = indent_level == pm_indent + 1;
-            let is_closing_brace = trimmed.starts_with('}') || trimmed.starts_with(']');
 
-            if !trimmed.starts_with('|') && (at_pattern_indent || (is_closing_brace && indent_level == pm_indent + 2)) {
-                // Check if there are more arms coming
+            if !is_pattern_arm && (at_pattern_indent || (is_closing_brace && indent_level == pm_indent + 2)) {
+                // Check if there are more arms coming (using lexer-based check)
                 let more_arms = lines.iter().skip(i + 1)
                     .find(|l| !l.trim().is_empty())
-                    .map(|l| l.trim().starts_with('|'))
+                    .map(|l| is_pattern_arm_line(l))
                     .unwrap_or(false);
 
                 if !more_arms {
@@ -249,7 +322,7 @@ pub fn format_braces(content: &str) -> String {
         }
 
         // Decrease indent for lines starting with closing brace (after pattern match handling)
-        if trimmed.starts_with('}') || trimmed.starts_with(']') {
+        if is_closing_brace {
             indent_level = indent_level.saturating_sub(1);
         }
 
@@ -261,12 +334,15 @@ pub fn format_braces(content: &str) -> String {
         formatted.push_str(trimmed);
         formatted.push('\n');
 
-        // Count braces for indent change (excluding leading close brace already handled)
-        let opens = trimmed.matches('{').count() + trimmed.matches('[').count();
-        let mut closes = trimmed.matches('}').count() + trimmed.matches(']').count();
+        // Count braces for indent change using lexer-based counts
+        let opens = token_info.open_braces + token_info.open_brackets;
+        let mut closes = token_info.close_braces + token_info.close_brackets;
 
         // Don't double-count leading close brace
-        if trimmed.starts_with('}') || trimmed.starts_with(']') {
+        if token_info.first_token_is_close_brace {
+            closes = closes.saturating_sub(1);
+        }
+        if token_info.first_token_is_close_bracket {
             closes = closes.saturating_sub(1);
         }
 
@@ -277,11 +353,11 @@ pub fn format_braces(content: &str) -> String {
             indent_level = indent_level.saturating_sub(closes - opens);
         }
 
-        // Start pattern match
-        if trimmed.ends_with('?') {
+        // Start pattern match (using lexer-based check)
+        if token_info.ends_with_question {
             let has_arms = lines.iter().skip(i + 1)
                 .find(|l| !l.trim().is_empty())
-                .map(|l| l.trim().starts_with('|'))
+                .map(|l| is_pattern_arm_line(l))
                 .unwrap_or(false);
 
             if has_arms {
@@ -292,4 +368,115 @@ pub fn format_braces(content: &str) -> String {
     }
 
     formatted
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_analyze_line_braces_in_string() {
+        // Braces inside strings should NOT be counted
+        let info = analyze_line_tokens(r#"msg = "{ braces }""#);
+        assert_eq!(info.open_braces, 0, "braces in string should not be counted");
+        assert_eq!(info.close_braces, 0);
+    }
+
+    #[test]
+    fn test_analyze_line_real_braces() {
+        // Real braces should be counted
+        let info = analyze_line_tokens("foo = () {");
+        assert_eq!(info.open_braces, 1);
+        assert_eq!(info.close_braces, 0);
+
+        let info = analyze_line_tokens("}");
+        assert_eq!(info.open_braces, 0);
+        assert_eq!(info.close_braces, 1);
+        assert!(info.first_token_is_close_brace);
+    }
+
+    #[test]
+    fn test_analyze_line_question_in_string() {
+        // Question mark in string should NOT trigger pattern match
+        let info = analyze_line_tokens(r#"msg = "What?""#);
+        assert!(!info.ends_with_question, "? in string should not trigger pattern match");
+    }
+
+    #[test]
+    fn test_analyze_line_real_question() {
+        // Real question mark should trigger pattern match
+        let info = analyze_line_tokens("result?");
+        assert!(info.ends_with_question, "real ? should trigger pattern match");
+
+        let info = analyze_line_tokens("foo.bar?");
+        assert!(info.ends_with_question);
+    }
+
+    #[test]
+    fn test_analyze_line_pipe_in_string() {
+        // Pipe in string should NOT be detected as pattern arm
+        let info = analyze_line_tokens(r#"regex = "a|b|c""#);
+        assert!(!info.starts_with_pipe, "| in string should not be pattern arm");
+    }
+
+    #[test]
+    fn test_analyze_line_real_pipe() {
+        // Real pipe at start should be detected as pattern arm
+        let info = analyze_line_tokens("| Ok(val) { return val }");
+        assert!(info.starts_with_pipe, "real | should be pattern arm");
+
+        let info = analyze_line_tokens("| true { }");
+        assert!(info.starts_with_pipe);
+    }
+
+    #[test]
+    fn test_is_pattern_arm_line() {
+        assert!(is_pattern_arm_line("| Ok(x) { }"));
+        assert!(is_pattern_arm_line("  | true { }"));
+        assert!(!is_pattern_arm_line(r#"regex = "a|b""#));
+        assert!(!is_pattern_arm_line("foo | bar")); // bitwise or in middle, not at start
+    }
+
+    #[test]
+    fn test_format_braces_with_strings() {
+        let input = r#"test = () {
+msg = "{ braces }"
+return msg
+}"#;
+        let formatted = format_braces(input);
+        // Should properly indent despite braces in string
+        assert!(formatted.contains("    msg = \"{ braces }\""));
+        assert!(formatted.contains("    return msg"));
+    }
+
+    #[test]
+    fn test_format_braces_pattern_match() {
+        let input = r#"test = () {
+result?
+| Ok(x) { return x }
+| Err(e) { return 0 }
+}"#;
+        let formatted = format_braces(input);
+        // Pattern arms should be indented
+        assert!(formatted.contains("    result?"));
+        assert!(formatted.contains("        | Ok(x)"));
+        assert!(formatted.contains("        | Err(e)"));
+    }
+
+    #[test]
+    fn test_format_braces_question_in_string() {
+        // Question mark in string should NOT trigger pattern match indentation
+        let input = r#"test = () {
+msg = "What?"
+return msg
+}"#;
+        let formatted = format_braces(input);
+        let lines: Vec<&str> = formatted.lines().collect();
+        // Line 0: test = () {
+        // Line 1:     msg = "What?"
+        // Line 2:     return msg
+        // Line 3: }
+        assert!(lines[1].starts_with("    msg"), "line 1 should be indented msg");
+        assert!(lines[2].starts_with("    return"), "line 2 should be indented return");
+    }
 }

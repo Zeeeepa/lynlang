@@ -7,27 +7,41 @@ pub fn looks_like_generic_type_args(parser: &Parser) -> bool {
     // Try to determine if this is generic type args Vec<T> or vec_new<i32> vs comparison x < y
     // Heuristics:
     // 1. If next token is a type-like identifier (uppercase or known types like i32), likely generic
-    // 2. If we can see a > followed by { or (, it's definitely generic
+    // 2. If next token is '(' it's a function type like () ReturnType
+    // 3. If next token is '[' it's an array type like [i32]
+    // 4. If next token is '*' or '&' it's a pointer/reference type
     if let Token::Operator(op) = &parser.current_token {
         if op == "<" {
-            if let Token::Identifier(name) = &parser.peek_token {
-                // Check for type-like names
-                let first_char = name.chars().next().unwrap_or('_');
+            match &parser.peek_token {
+                Token::Identifier(name) => {
+                    // Check for type-like names
+                    let first_char = name.chars().next().unwrap_or('_');
 
-                // Types typically start with uppercase or are primitive types
-                return first_char.is_uppercase()
-                    || name == "i8"
-                    || name == "i16"
-                    || name == "i32"
-                    || name == "i64"
-                    || name == "u8"
-                    || name == "u16"
-                    || name == "u32"
-                    || name == "u64"
-                    || name == "f32"
-                    || name == "f64"
-                    || name == "bool"
-                    || name == "string";
+                    // Types typically start with uppercase or are primitive types
+                    return first_char.is_uppercase()
+                        || name == "i8"
+                        || name == "i16"
+                        || name == "i32"
+                        || name == "i64"
+                        || name == "u8"
+                        || name == "u16"
+                        || name == "u32"
+                        || name == "u64"
+                        || name == "f32"
+                        || name == "f64"
+                        || name == "bool"
+                        || name == "string";
+                }
+                // Function type: <() ReturnType> or <(param: Type) ReturnType>
+                Token::Symbol('(') => return true,
+                // Array type: <[T]> or <[T; N]>
+                Token::Symbol('[') => return true,
+                // Pointer type: <*T> or <&T>
+                Token::Symbol('*') | Token::Symbol('&') => return true,
+                Token::Operator(op) if op == "*" => return true,
+                // Anonymous struct type: <{field: Type}>
+                Token::Symbol('{') => return true,
+                _ => {}
             }
         }
     }

@@ -7,12 +7,84 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct StructTypeInfo<'ctx> {
-    /// The LLVM struct type
     pub llvm_type: StructType<'ctx>,
-    /// Mapping from field name to (index, type)
     pub fields: HashMap<String, (usize, AstType)>,
 }
-// Move any struct registration, lookup, or field access helpers here as needed.
+
+// ============================================================================
+// Helper Types and Functions
+// ============================================================================
+
+struct FieldInfo {
+    index: usize,
+    ast_type: AstType,
+}
+
+impl<'ctx> LLVMCompiler<'ctx> {
+    /// Get field info from struct type
+    fn get_field_info(&self, struct_name: &str, field_name: &str) -> Result<FieldInfo, CompileError> {
+        let struct_info = self.struct_types.get(struct_name).ok_or_else(|| {
+            CompileError::TypeError(format!("Struct type '{}' not found", struct_name), None)
+        })?;
+
+        let (index, ast_type) = struct_info.fields.get(field_name).ok_or_else(|| {
+            CompileError::TypeError(
+                format!("Field '{}' not found in struct '{}'", field_name, struct_name),
+                None,
+            )
+        })?;
+
+        Ok(FieldInfo { index: *index, ast_type: ast_type.clone() })
+    }
+
+    /// Convert LLVM type to BasicTypeEnum for loads
+    fn to_basic_type(&self, llvm_type: &Type<'ctx>) -> Result<inkwell::types::BasicTypeEnum<'ctx>, CompileError> {
+        match llvm_type {
+            Type::Basic(ty) => Ok(*ty),
+            Type::Struct(st) => Ok(st.as_basic_type_enum()),
+            _ => Err(CompileError::TypeError("Field type must be basic type".to_string(), None)),
+        }
+    }
+
+    /// Load a struct field given pointer and field info
+    fn load_struct_field(
+        &mut self,
+        struct_ptr: inkwell::values::PointerValue<'ctx>,
+        struct_name: &str,
+        field_name: &str,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        let struct_info = self.struct_types.get(struct_name).ok_or_else(|| {
+            CompileError::TypeError(format!("Struct type '{}' not found", struct_name), None)
+        })?;
+
+        let field_info = self.get_field_info(struct_name, field_name)?;
+
+        let field_ptr = self.builder.build_struct_gep(
+            struct_info.llvm_type,
+            struct_ptr,
+            field_info.index as u32,
+            &format!("{}_{}_ptr", struct_name, field_name),
+        )?;
+
+        let field_llvm_type = self.to_llvm_type(&field_info.ast_type)?;
+        let basic_type = self.to_basic_type(&field_llvm_type)?;
+
+        Ok(self.builder.build_load(basic_type, field_ptr, &format!("load_{}", field_name))?)
+    }
+
+    /// Get struct name from AstType
+    fn struct_name_from_type(&self, ast_type: &AstType) -> Option<String> {
+        match ast_type {
+            AstType::Struct { name, .. } => Some(name.clone()),
+            AstType::Generic { name, .. } if self.struct_types.contains_key(name) => Some(name.clone()),
+            _ => None,
+        }
+    }
+}
+
+// ============================================================================
+// Struct Literal Compilation
+// ============================================================================
 
 impl<'ctx> LLVMCompiler<'ctx> {
     pub fn compile_struct_literal(
@@ -22,825 +94,364 @@ impl<'ctx> LLVMCompiler<'ctx> {
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         let (llvm_type, fields_with_info) = {
             let struct_info = self.struct_types.get(name).ok_or_else(|| {
-                CompileError::TypeError(
-                    format!("Undefined struct type: {}", name),
-                    self.get_current_span(),
-                )
+                CompileError::TypeError(format!("Undefined struct type: {}", name), self.get_current_span())
             })?;
+
             let mut fields_with_info = Vec::new();
             for (field_name, field_expr) in fields {
-                let (field_index, field_type) =
-                    struct_info.fields.get(field_name).ok_or_else(|| {
-                        CompileError::TypeError(
-                            format!("No field '{}' in struct '{}'", field_name, name),
-                            self.get_current_span(),
-                        )
-                    })?;
-                fields_with_info.push((
-                    field_name.clone(),
-                    *field_index,
-                    field_type.clone(),
-                    field_expr.clone(),
-                ));
+                let (idx, ty) = struct_info.fields.get(field_name).ok_or_else(|| {
+                    CompileError::TypeError(
+                        format!("No field '{}' in struct '{}'", field_name, name),
+                        self.get_current_span(),
+                    )
+                })?;
+                fields_with_info.push((field_name.clone(), *idx, ty.clone(), field_expr.clone()));
             }
-            fields_with_info.sort_by_key(|&(_, idx, _, _)| idx);
+            fields_with_info.sort_by_key(|(_, idx, _, _)| *idx);
             (struct_info.llvm_type, fields_with_info)
         };
-        let alloca = self
-            .builder
-            .build_alloca(llvm_type, &format!("{}_tmp", name))?;
+
+        let alloca = self.builder.build_alloca(llvm_type, &format!("{}_tmp", name))?;
+
         for (field_name, field_index, field_type, field_expr) in fields_with_info {
             let field_val = self.compile_expression(&field_expr)?;
             let field_ptr = self.builder.build_struct_gep(
-                llvm_type,
-                alloca,
-                field_index as u32,
-                &format!("{}_ptr", field_name),
+                llvm_type, alloca, field_index as u32, &format!("{}_ptr", field_name),
             )?;
-            // Get the expected LLVM type for this field
-            let field_llvm_type = self.to_llvm_type(&field_type)?;
-            let expected_type = match field_llvm_type {
-                super::Type::Basic(ty) => ty,
-                super::Type::Struct(st) => st.as_basic_type_enum(),
-                _ => {
-                    // For other types (pointers, void), just use direct store
-                    self.builder.build_store(field_ptr, field_val)?;
-                    continue;
-                }
-            };
-            // Use coercing_store to handle type mismatches (e.g., i64 literal into i32 field)
-            self.coercing_store(
-                field_val,
-                field_ptr,
-                expected_type,
-                &format!("struct field '{}.{}'", name, field_name),
-            )?;
-        }
-        match self
-            .builder
-            .build_load(llvm_type, alloca, &format!("{}_val", name))
-        {
-            Ok(val) => Ok(val),
-            Err(e) => Err(CompileError::InternalError(
-                e.to_string(),
-                self.get_current_span(),
-            )),
-        }
-    }
 
+            let field_llvm_type = self.to_llvm_type(&field_type)?;
+            match self.to_basic_type(&field_llvm_type) {
+                Ok(expected_type) => {
+                    self.coercing_store(field_val, field_ptr, expected_type,
+                        &format!("struct field '{}.{}'", name, field_name))?;
+                }
+                Err(_) => {
+                    self.builder.build_store(field_ptr, field_val)?;
+                }
+            }
+        }
+
+        Ok(self.builder.build_load(llvm_type, alloca, &format!("{}_val", name))?)
+    }
+}
+
+// ============================================================================
+// Struct Field Access
+// ============================================================================
+
+impl<'ctx> LLVMCompiler<'ctx> {
     pub fn compile_struct_field(
         &mut self,
         struct_: &Expression,
         field: &str,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // Special handling for identifiers
+        // Try identifier access first (most common case)
         if let Expression::Identifier(name) = struct_ {
-            // First check if this is an enum type (GameEntity.Player syntax)
-            if let Some(symbols::Symbol::EnumType(enum_info)) = self.symbols.lookup(name) {
-                // This is an enum variant creation, not a struct field access
-                if enum_info.variant_indices.contains_key(field) {
-                    // Create the enum variant
-                    return self.compile_enum_variant(name, field, &None);
-                } else {
-                    return Err(CompileError::TypeError(
-                        format!("Unknown variant '{}' for enum '{}'", field, name),
-                        None,
-                    ));
-                }
-            }
-
-            // Not an enum, check if it's a variable
-            // First check self.variables (main storage)
-            // eprintln!("DEBUG: Looking for variable '{}' in compile_struct_field", name);
-            let (alloca, var_type) = if let Some(var_info) = self.variables.get(name) {
-                // eprintln!("DEBUG: Found '{}' in variables with type: {:?}", name, var_info.ast_type);
-                (var_info.pointer, var_info.ast_type.clone())
-            } else if let Some(symbol) = self.symbols.lookup(name) {
-                // Then check self.symbols (used in trait methods)
-                if let symbols::Symbol::Variable(ptr) = symbol {
-                    // For 'self' in trait methods, we need to infer the type
-                    // eprintln!("DEBUG: Looking up type for '{}' in symbols", name);
-                    let inferred_type = if name == "self" {
-                        // Use the current implementing type if available
-                        if let Some(impl_type) = &self.current_impl_type {
-                            // Look up the actual struct fields
-                            if let Some(struct_info) = self.struct_types.get(impl_type) {
-                                let mut fields = Vec::new();
-                                for (field_name, (_index, field_type)) in &struct_info.fields {
-                                    fields.push((field_name.clone(), field_type.clone()));
-                                }
-                                AstType::ptr(AstType::Struct {
-                                    name: impl_type.clone(),
-                                    fields,
-                                })
-                            } else {
-                                AstType::Struct {
-                                    name: impl_type.clone(),
-                                    fields: vec![],
-                                }
-                            }
-                        } else {
-                            // Fallback: try to determine from registered struct types
-                            if let Some((struct_name, _)) = self.struct_types.iter().next() {
-                                AstType::Struct {
-                                    name: struct_name.clone(),
-                                    fields: vec![],
-                                }
-                            } else {
-                                return Err(CompileError::TypeError(
-                                    "Cannot determine type of 'self' in trait method".to_string(),
-                                    None,
-                                ));
-                            }
-                        }
-                    } else {
-                        // For other variables in symbols, use a generic type
-                        AstType::Void
-                    };
-                    (*ptr, inferred_type)
-                } else {
-                    return Err(CompileError::TypeError(
-                        format!("'{}' is not a variable", name),
-                        None,
-                    ));
-                }
-            } else {
-                // Variable not found in either storage
-                return Err(CompileError::UndeclaredVariable(
-                    name.to_string(),
-                    self.get_current_span(),
-                ));
-            };
-
-            // Check if this is a stdlib module reference (GPA.init())
-            if var_type == AstType::StdModule {
-                // This is a module method call like GPA.init()
-                // For now, return a dummy value to allow compilation to proceed
-                // Real implementation would create the proper type
-                match field {
-                    "init" => {
-                        // Return a dummy struct value representing the allocator
-                        // In a real implementation, this would create the actual allocator type
-                        return Ok(self.context.i64_type().const_int(1, false).into());
-                    }
-                    _ => {
-                        return Err(CompileError::TypeError(
-                            format!("Unknown method '{}' for module '{}'", field, name),
-                            None,
-                        ));
-                    }
-                }
-            }
-
-            {
-                let alloca = alloca; // Shadow to keep same name as before
-                let var_type = &var_type; // Take reference to match original code
-                                          // Handle pointer to struct (p.x where p is *Point)
-                if let Some(inner_type) = var_type.ptr_inner() {
-                    // Check if it's a struct or a generic type that represents a struct
-                    let struct_name = match inner_type {
-                        AstType::Struct { name, .. } => Some(name.clone()),
-                        AstType::Generic { name, .. } => {
-                            // Check if this generic is actually a registered struct type
-                            if self.struct_types.contains_key(name) {
-                                Some(name.clone())
-                            } else {
-                                None
-                            }
-                        }
-                        _ => None,
-                    };
-
-                    if let Some(struct_name) = struct_name {
-                        // Get struct type info
-                        let struct_info = self.struct_types.get(&struct_name).ok_or_else(|| {
-                            CompileError::TypeError(
-                                format!("Struct type '{}' not found", struct_name),
-                                None,
-                            )
-                        })?;
-
-                        // Find field index
-                        let field_index = struct_info
-                            .fields
-                            .get(field)
-                            .map(|(idx, _)| *idx)
-                            .ok_or_else(|| {
-                                CompileError::TypeError(
-                                    format!(
-                                        "Field '{}' not found in struct '{}'",
-                                        field, struct_name
-                                    ),
-                                    None,
-                                )
-                            })?;
-
-                        // Get field type
-                        let field_type = struct_info
-                            .fields
-                            .get(field)
-                            .map(|(_, ty)| ty.clone())
-                            .unwrap();
-
-                        // Load the pointer value
-                        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                        let struct_ptr = self.builder.build_load(
-                            ptr_type,
-                            alloca,
-                            &format!("load_{}_ptr", name),
-                        )?;
-                        let struct_ptr = struct_ptr.into_pointer_value();
-
-                        // Build GEP to get field pointer using build_struct_gep
-                        // This correctly handles struct field offsets and padding
-                        let field_ptr = self.builder.build_struct_gep(
-                            struct_info.llvm_type,
-                            struct_ptr,
-                            field_index as u32,
-                            &format!("{}_{}_ptr", name, field),
-                        )?;
-
-                        // Load the field value
-                        let field_llvm_type = self.to_llvm_type(&field_type)?;
-                        let basic_type = match field_llvm_type {
-                            Type::Basic(ty) => ty,
-                            Type::Struct(st) => st.as_basic_type_enum(),
-                            _ => {
-                                return Err(CompileError::TypeError(
-                                    "Field type must be basic type".to_string(),
-                                    None,
-                                ))
-                            }
-                        };
-
-                        let value = self.builder.build_load(
-                            basic_type,
-                            field_ptr,
-                            &format!("load_{}_{}", name, field),
-                        )?;
-                        return Ok(value);
-                    }
-                }
-
-                // Handle regular struct (non-pointer)
-                let struct_name = match var_type {
-                    AstType::Struct { name, .. } => Some(name.clone()),
-                    AstType::Generic { name, .. } => {
-                        // Check if this generic is actually a registered struct type
-                        if self.struct_types.contains_key(name) {
-                            Some(name.clone())
-                        } else {
-                            None
-                        }
-                    }
-                    _ => None,
-                };
-
-                if let Some(struct_name) = struct_name {
-                    // Get struct type info
-                    let struct_info = self.struct_types.get(&struct_name).ok_or_else(|| {
-                        CompileError::TypeError(
-                            format!("Struct type '{}' not found", struct_name),
-                            None,
-                        )
-                    })?;
-
-                    // Find field index
-                    let field_index = struct_info
-                        .fields
-                        .get(field)
-                        .map(|(idx, _)| *idx)
-                        .ok_or_else(|| {
-                            CompileError::TypeError(
-                                format!("Field '{}' not found in struct '{}'", field, struct_name),
-                                None,
-                            )
-                        })?;
-
-                    // Get field type
-                    let field_type = struct_info
-                        .fields
-                        .get(field)
-                        .map(|(_, ty)| ty.clone())
-                        .unwrap();
-
-                    // Build GEP to get field pointer using build_struct_gep
-                    // This correctly handles struct field offsets and padding
-                    let field_ptr = self.builder.build_struct_gep(
-                        struct_info.llvm_type,
-                        alloca,
-                        field_index as u32,
-                        &format!("{}.{}", name, field),
-                    )?;
-
-                    // Load the field value
-                    let field_llvm_type = self.to_llvm_type(&field_type)?;
-                    let basic_type = match field_llvm_type {
-                        Type::Basic(ty) => ty,
-                        Type::Struct(st) => st.as_basic_type_enum(),
-                        _ => {
-                            return Err(CompileError::TypeError(
-                                "Field type must be basic type".to_string(),
-                                None,
-                            ))
-                        }
-                    };
-
-                    let value = self.builder.build_load(
-                        basic_type,
-                        field_ptr,
-                        &format!("load_{}", field),
-                    )?;
-                    return Ok(value);
-                }
-            } // End of inner scope
+            return self.compile_identifier_field_access(name, field);
         }
 
-        // Handle dereference case - when accessing field of a dereferenced pointer
+        // Handle dereference case
         if let Expression::Dereference(inner) = struct_ {
-            // Compile the inner expression to get the pointer
-            let ptr_val = self.compile_expression(inner)?;
-
-            if let BasicValueEnum::PointerValue(ptr) = ptr_val {
-                // Load the pointer value to get the actual struct pointer
-                let struct_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                let struct_ptr =
-                    self.builder
-                        .build_load(struct_ptr_type, ptr, "load_struct_ptr")?;
-                let struct_ptr = struct_ptr.into_pointer_value();
-
-                // Now we need to find the struct type from the pointer
-                // This is a bit tricky - we need to look up the variable type
-                if let Expression::Identifier(ptr_name) = &**inner {
-                    if let Some(var_info) = self.variables.get(ptr_name) {
-                        let ptr_type = &var_info.ast_type;
-                        if let Some(inner_type) = ptr_type.ptr_inner() {
-                            if let AstType::Struct {
-                                name: struct_name, ..
-                            } = inner_type
-                            {
-                                // Get struct type info
-                                let struct_info =
-                                    self.struct_types.get(struct_name).ok_or_else(|| {
-                                        CompileError::TypeError(
-                                            format!("Struct type '{}' not found", struct_name),
-                                            None,
-                                        )
-                                    })?;
-
-                                // Find field index
-                                let field_index = struct_info
-                                    .fields
-                                    .get(field)
-                                    .map(|(idx, _)| *idx)
-                                    .ok_or_else(|| {
-                                        CompileError::TypeError(
-                                            format!(
-                                                "Field '{}' not found in struct '{}'",
-                                                field, struct_name
-                                            ),
-                                            None,
-                                        )
-                                    })?;
-
-                                // Get field type
-                                let field_type = struct_info
-                                    .fields
-                                    .get(field)
-                                    .map(|(_, ty)| ty.clone())
-                                    .unwrap();
-
-                                // Build GEP to get field pointer using build_struct_gep
-                                // This correctly handles struct field offsets and padding
-                                let field_ptr = self.builder.build_struct_gep(
-                                    struct_info.llvm_type,
-                                    struct_ptr,
-                                    field_index as u32,
-                                    &format!("{}->{}", ptr_name, field),
-                                )?;
-
-                                // Load the field value
-                                let field_llvm_type = self.to_llvm_type(&field_type)?;
-                                let basic_type = match field_llvm_type {
-                                    Type::Basic(ty) => ty,
-                                    Type::Struct(st) => st.as_basic_type_enum(),
-                                    _ => {
-                                        return Err(CompileError::TypeError(
-                                            "Field type must be basic type".to_string(),
-                                            None,
-                                        ))
-                                    }
-                                };
-
-                                let value = self.builder.build_load(
-                                    basic_type,
-                                    field_ptr,
-                                    &format!("load_{}", field),
-                                )?;
-                                return Ok(value);
-                            }
-                        }
-                    }
-                }
-            }
+            return self.compile_deref_field_access(inner, field);
         }
 
-        // Handle nested MemberAccess (e.g., rect.bottom_right.x)
-        // Instead of loading the struct value and storing it, access the nested field directly
-        // using chained GEP operations for better correctness
-        if let Expression::MemberAccess {
-            object,
-            member: inner_member,
-        } = struct_
-        {
-            // This is nested field access like rect.top_left.x
-            // Get the parent struct pointer/value first
-            let (parent_struct_ptr, parent_struct_name) = if let Expression::Identifier(name) =
-                &**object
-            {
-                // Get the variable's alloca
-                if let Some(var_info) = self.variables.get(name) {
-                    let var_type = &var_info.ast_type;
-                    match var_type {
-                        AstType::Struct {
-                            name: struct_name, ..
-                        } => (var_info.pointer, struct_name.clone()),
-                        AstType::Generic { name, .. } if self.struct_types.contains_key(name) => {
-                            (var_info.pointer, name.clone())
-                        }
-                        _ => {
-                            return Err(CompileError::TypeError(
-                                format!("'{}' is not a struct type, it's {:?}", name, var_type),
-                                None,
-                            ))
-                        }
-                    }
-                } else {
-                    return Err(CompileError::UndeclaredVariable(
-                        name.clone(),
-                        self.get_current_span(),
-                    ));
-                }
-            } else {
-                // For other object types, fall back to compiling and extracting
-                let inner_val = self.compile_struct_field(object, inner_member)?;
-
-                // Infer the type of the inner struct value
-                let field_struct_name = {
-                    let parent_struct_name = if let Expression::Identifier(name) = &**object {
-                        if let Some(var_info) = self.variables.get(name) {
-                            match &var_info.ast_type {
-                                AstType::Struct {
-                                    name: struct_name, ..
-                                } => struct_name.clone(),
-                                AstType::Generic { name, .. }
-                                    if self.struct_types.contains_key(name) =>
-                                {
-                                    name.clone()
-                                }
-                                _ => {
-                                    return Err(CompileError::TypeError(
-                                        format!("'{}' is not a struct type", name),
-                                        None,
-                                    ))
-                                }
-                            }
-                        } else {
-                            return Err(CompileError::UndeclaredVariable(
-                                name.clone(),
-                                self.get_current_span(),
-                            ));
-                        }
-                    } else {
-                        return Err(CompileError::TypeError(
-                            "Cannot infer struct type for nested access".to_string(),
-                            self.get_current_span(),
-                        ));
-                    };
-
-                    // Get the type of the field from the parent struct
-                    if let Some(parent_info) = self.struct_types.get(&parent_struct_name) {
-                        if let Some((_, field_type)) = parent_info.fields.get(inner_member) {
-                            match field_type {
-                                AstType::Struct { name, .. } => name.clone(),
-                                AstType::Generic { name, .. }
-                                    if self.struct_types.contains_key(name) =>
-                                {
-                                    name.clone()
-                                }
-                                _ => {
-                                    return Err(CompileError::TypeError(
-                                        format!("Field '{}' is not a struct type", inner_member),
-                                        None,
-                                    ))
-                                }
-                            }
-                        } else {
-                            return Err(CompileError::TypeError(
-                                format!(
-                                    "Field '{}' not found in struct '{}'",
-                                    inner_member, parent_struct_name
-                                ),
-                                None,
-                            ));
-                        }
-                    } else {
-                        return Err(CompileError::TypeError(
-                            format!("Struct type '{}' not found", parent_struct_name),
-                            None,
-                        ));
-                    }
-                };
-
-                // Store the struct value and access its field
-                let struct_info = self.struct_types.get(&field_struct_name).ok_or_else(|| {
-                    CompileError::TypeError(
-                        format!("Struct type '{}' not found", field_struct_name),
-                        None,
-                    )
-                })?;
-
-                let field_index = struct_info
-                    .fields
-                    .get(field)
-                    .map(|(idx, _)| *idx)
-                    .ok_or_else(|| {
-                        CompileError::TypeError(
-                            format!(
-                                "Field '{}' not found in struct '{}'",
-                                field, field_struct_name
-                            ),
-                            None,
-                        )
-                    })?;
-
-                let field_type = struct_info
-                    .fields
-                    .get(field)
-                    .map(|(_, ty)| ty.clone())
-                    .unwrap();
-
-                // Store the struct value in a temporary alloca
-                let temp_alloca = self.builder.build_alloca(
-                    struct_info.llvm_type,
-                    &format!("temp_{}", field_struct_name),
-                )?;
-                self.builder.build_store(temp_alloca, inner_val)?;
-
-                // Build GEP to get field pointer using build_struct_gep
-                let field_ptr = self.builder.build_struct_gep(
-                    struct_info.llvm_type,
-                    temp_alloca,
-                    field_index as u32,
-                    &format!("{}_{}_ptr", field_struct_name, field),
-                )?;
-
-                // Load the field value
-                let field_llvm_type = self.to_llvm_type(&field_type)?;
-                let basic_type = match field_llvm_type {
-                    Type::Basic(ty) => ty,
-                    Type::Struct(st) => st.as_basic_type_enum(),
-                    _ => {
-                        return Err(CompileError::TypeError(
-                            "Field type must be basic type".to_string(),
-                            None,
-                        ))
-                    }
-                };
-
-                let value = self.builder.build_load(
-                    basic_type,
-                    field_ptr,
-                    &format!("load_{}_{}", field_struct_name, field),
-                )?;
-                return Ok(value);
-            };
-
-            // Get parent struct info and extract needed data to avoid borrow checker issues
-            let (parent_llvm_type, inner_field_index, field_struct_name, field_index, field_type) = {
-                let parent_info = self.struct_types.get(&parent_struct_name).ok_or_else(|| {
-                    CompileError::TypeError(
-                        format!("Struct type '{}' not found", parent_struct_name),
-                        None,
-                    )
-                })?;
-
-                // Get the inner field (e.g., bottom_right) index and type
-                let (inner_field_index, inner_field_type) = parent_info
-                    .fields
-                    .get(inner_member)
-                    .map(|(idx, ty)| (*idx, ty.clone()))
-                    .ok_or_else(|| {
-                        CompileError::TypeError(
-                            format!(
-                                "Field '{}' not found in struct '{}'",
-                                inner_member, parent_struct_name
-                            ),
-                            None,
-                        )
-                    })?;
-
-                // Get the nested struct type name
-                let field_struct_name = match inner_field_type {
-                    AstType::Struct { name, .. } => name,
-                    AstType::Generic { name, .. } if self.struct_types.contains_key(&name) => name,
-                    _ => {
-                        return Err(CompileError::TypeError(
-                            format!("Field '{}' is not a struct type", inner_member),
-                            None,
-                        ))
-                    }
-                };
-
-                // Get nested struct info
-                let struct_info = self.struct_types.get(&field_struct_name).ok_or_else(|| {
-                    CompileError::TypeError(
-                        format!("Struct type '{}' not found", field_struct_name),
-                        None,
-                    )
-                })?;
-
-                // Get the nested field (e.g., y) index
-                let field_index = struct_info
-                    .fields
-                    .get(field)
-                    .map(|(idx, _)| *idx)
-                    .ok_or_else(|| {
-                        CompileError::TypeError(
-                            format!(
-                                "Field '{}' not found in struct '{}'",
-                                field, field_struct_name
-                            ),
-                            None,
-                        )
-                    })?;
-
-                let field_type = struct_info
-                    .fields
-                    .get(field)
-                    .map(|(_, ty)| ty.clone())
-                    .unwrap();
-
-                (
-                    parent_info.llvm_type,
-                    inner_field_index,
-                    field_struct_name,
-                    field_index,
-                    field_type,
-                )
-            };
-
-            // Get the nested struct type info
-            let nested_struct_info =
-                self.struct_types.get(&field_struct_name).ok_or_else(|| {
-                    CompileError::TypeError(
-                        format!("Struct type '{}' not found", field_struct_name),
-                        None,
-                    )
-                })?;
-
-            // Get pointer to the inner struct field
-            let inner_field_ptr = self.builder.build_struct_gep(
-                parent_llvm_type,
-                parent_struct_ptr,
-                inner_field_index as u32,
-                &format!("{}_{}_ptr", parent_struct_name, inner_member),
-            )?;
-
-            // Access the nested field using build_struct_gep on the inner_field_ptr
-            // CRITICAL: inner_field_ptr is already a pointer to the nested struct type
-            // We must use build_struct_gep with the nested struct type, not the parent type
-            // The pointer type returned by the first build_struct_gep should match
-            let nested_field_ptr = self.builder.build_struct_gep(
-                nested_struct_info.llvm_type,
-                inner_field_ptr,
-                field_index as u32,
-                &format!("{}_{}_{}_ptr", parent_struct_name, inner_member, field),
-            )?;
-
-            // Load the nested field value
-            let field_llvm_type = self.to_llvm_type(&field_type)?;
-            let basic_type = match field_llvm_type {
-                Type::Basic(ty) => ty,
-                Type::Struct(st) => st.as_basic_type_enum(),
-                _ => {
-                    return Err(CompileError::TypeError(
-                        "Field type must be basic type".to_string(),
-                        None,
-                    ))
-                }
-            };
-
-            let value = self.builder.build_load(
-                basic_type,
-                nested_field_ptr,
-                &format!("load_{}_{}_{}", parent_struct_name, inner_member, field),
-            )?;
-            return Ok(value);
+        // Handle nested MemberAccess
+        if let Expression::MemberAccess { object, member } = struct_ {
+            return self.compile_nested_field_access(object, member, field);
         }
 
-        // For any other expression type, we need to:
-        // 1. Compile the expression to get a struct value or pointer
-        // 2. If it's a value, store it in a temporary alloca
-        // 3. Access the field from there
-
-        // First compile the struct expression
-        let struct_val = self.compile_expression(struct_)?;
-
-        // Infer the struct type from the value
-        let struct_name = self.infer_struct_type_from_value(&struct_val, struct_)?;
-
-        // Get struct type info (clone to avoid borrow checker issues)
-        let (llvm_type, field_index, field_type) = {
-            let struct_info = self.struct_types.get(&struct_name).ok_or_else(|| {
-                CompileError::TypeError(
-                    format!("Struct type '{}' not found", struct_name),
-                    self.get_current_span(),
-                )
-            })?;
-
-            // Find field index and type
-            let field_index = struct_info
-                .fields
-                .get(field)
-                .map(|(idx, _)| *idx)
-                .ok_or_else(|| {
-                    CompileError::TypeError(
-                        format!("Field '{}' not found in struct '{}'", field, struct_name),
-                        None,
-                    )
-                })?;
-
-            let field_type = struct_info
-                .fields
-                .get(field)
-                .map(|(_, ty)| ty.clone())
-                .unwrap();
-
-            (struct_info.llvm_type, field_index, field_type)
-        };
-
-        // Determine if we have a pointer or a value
-        let struct_ptr = if struct_val.is_pointer_value() {
-            // It's already a pointer, use it directly
-            struct_val.into_pointer_value()
-        } else {
-            // It's a value, store it in a temporary alloca
-            let temp_alloca = self
-                .builder
-                .build_alloca(llvm_type, &format!("temp_struct_{}", struct_name))?;
-            self.builder.build_store(temp_alloca, struct_val)?;
-            temp_alloca
-        };
-
-        // Build GEP to access the field using build_struct_gep
-        // This correctly handles struct field offsets and padding
-        let field_ptr = self.builder.build_struct_gep(
-            llvm_type,
-            struct_ptr,
-            field_index as u32,
-            &format!("field_{}_ptr", field),
-        )?;
-
-        // Load the field value
-        let field_llvm_type = self.to_llvm_type(&field_type)?;
-        let basic_type = match field_llvm_type {
-            Type::Basic(ty) => ty,
-            Type::Struct(st) => st.as_basic_type_enum(),
-            _ => {
-                return Err(CompileError::TypeError(
-                    "Field type must be basic type".to_string(),
-                    None,
-                ))
-            }
-        };
-
-        let value = self
-            .builder
-            .build_load(basic_type, field_ptr, &format!("load_{}", field))?;
-        Ok(value)
+        // Fallback: compile expression and access field
+        self.compile_general_field_access(struct_, field)
     }
 
-    // Helper function to handle field access from a compiled value
-    fn compile_struct_field_from_value(
+    fn compile_identifier_field_access(
         &mut self,
-        _struct_val: BasicValueEnum<'ctx>,
-        _field: &str,
-        original_expr: &Expression,
+        name: &str,
+        field: &str,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // This is a placeholder for handling nested struct field access
-        // In a complete implementation, we'd need to track the type of struct_val
-        // For now, return an error
+        // Check if this is an enum type
+        if let Some(symbols::Symbol::EnumType(enum_info)) = self.symbols.lookup(name) {
+            if enum_info.variant_indices.contains_key(field) {
+                return self.compile_enum_variant(name, field, &None);
+            }
+            return Err(CompileError::TypeError(
+                format!("Unknown variant '{}' for enum '{}'", field, name), None
+            ));
+        }
+
+        // Get variable info
+        let (alloca, var_type) = self.get_variable_info(name)?;
+
+        // Handle stdlib module
+        if var_type == AstType::StdModule {
+            return self.compile_module_field_access(name, field);
+        }
+
+        // Handle pointer to struct
+        if let Some(inner_type) = var_type.ptr_inner() {
+            if let Some(struct_name) = self.struct_name_from_type(inner_type) {
+                return self.compile_ptr_struct_field(alloca, name, &struct_name, field);
+            }
+        }
+
+        // Handle regular struct
+        if let Some(struct_name) = self.struct_name_from_type(&var_type) {
+            return self.load_struct_field(alloca, &struct_name, field);
+        }
+
         Err(CompileError::TypeError(
-            format!(
-                "Nested struct field access not yet fully implemented for expression: {:?}",
-                original_expr
-            ),
-            None,
+            format!("'{}' is not a struct type, it's {:?}", name, var_type), None
         ))
     }
 
-    /// Infer struct type name from a compiled value and the original expression
+    fn get_variable_info(&self, name: &str) -> Result<(inkwell::values::PointerValue<'ctx>, AstType), CompileError> {
+        if let Some(var_info) = self.variables.get(name) {
+            return Ok((var_info.pointer, var_info.ast_type.clone()));
+        }
+
+        if let Some(symbol) = self.symbols.lookup(name) {
+            if let symbols::Symbol::Variable(ptr) = symbol {
+                let inferred = if name == "self" {
+                    self.infer_self_type()
+                } else {
+                    AstType::Void
+                };
+                return Ok((*ptr, inferred));
+            }
+            return Err(CompileError::TypeError(format!("'{}' is not a variable", name), None));
+        }
+
+        Err(CompileError::UndeclaredVariable(name.to_string(), self.get_current_span()))
+    }
+
+    fn infer_self_type(&self) -> AstType {
+        if let Some(impl_type) = &self.current_impl_type {
+            if let Some(struct_info) = self.struct_types.get(impl_type) {
+                let fields: Vec<_> = struct_info.fields.iter()
+                    .map(|(n, (_, t))| (n.clone(), t.clone()))
+                    .collect();
+                return AstType::ptr(AstType::Struct { name: impl_type.clone(), fields });
+            }
+            return AstType::Struct { name: impl_type.clone(), fields: vec![] };
+        }
+
+        if let Some((struct_name, _)) = self.struct_types.iter().next() {
+            return AstType::Struct { name: struct_name.clone(), fields: vec![] };
+        }
+
+        AstType::Void
+    }
+
+    fn compile_module_field_access(&mut self, _name: &str, field: &str) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        match field {
+            "init" => Ok(self.context.i64_type().const_int(1, false).into()),
+            _ => Err(CompileError::TypeError(format!("Unknown module method '{}'", field), None)),
+        }
+    }
+
+    fn compile_ptr_struct_field(
+        &mut self,
+        alloca: inkwell::values::PointerValue<'ctx>,
+        var_name: &str,
+        struct_name: &str,
+        field: &str,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        let struct_info = self.struct_types.get(struct_name).ok_or_else(|| {
+            CompileError::TypeError(format!("Struct type '{}' not found", struct_name), None)
+        })?;
+        let field_info = self.get_field_info(struct_name, field)?;
+
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let struct_ptr = self.builder.build_load(ptr_type, alloca, &format!("load_{}_ptr", var_name))?;
+        let struct_ptr = struct_ptr.into_pointer_value();
+
+        let field_ptr = self.builder.build_struct_gep(
+            struct_info.llvm_type, struct_ptr, field_info.index as u32,
+            &format!("{}_{}_ptr", var_name, field),
+        )?;
+
+        let field_llvm_type = self.to_llvm_type(&field_info.ast_type)?;
+        let basic_type = self.to_basic_type(&field_llvm_type)?;
+        Ok(self.builder.build_load(basic_type, field_ptr, &format!("load_{}_{}", var_name, field))?)
+    }
+
+    fn compile_deref_field_access(
+        &mut self,
+        inner: &Box<Expression>,
+        field: &str,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        let ptr_val = self.compile_expression(inner)?;
+        let BasicValueEnum::PointerValue(ptr) = ptr_val else {
+            return Err(CompileError::TypeError("Expected pointer value".to_string(), None));
+        };
+
+        let struct_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let struct_ptr = self.builder.build_load(struct_ptr_type, ptr, "load_struct_ptr")?;
+        let struct_ptr = struct_ptr.into_pointer_value();
+
+        if let Expression::Identifier(ptr_name) = &**inner {
+            let struct_name = self.variables.get(ptr_name).and_then(|v| {
+                v.ast_type.ptr_inner().and_then(|inner_type| {
+                    if let AstType::Struct { name, .. } = inner_type {
+                        Some(name.clone())
+                    } else { None }
+                })
+            });
+
+            if let Some(name) = struct_name {
+                return self.load_struct_field(struct_ptr, &name, field);
+            }
+        }
+
+        Err(CompileError::TypeError("Cannot determine struct type for dereference".to_string(), None))
+    }
+
+    fn compile_nested_field_access(
+        &mut self,
+        object: &Box<Expression>,
+        inner_member: &str,
+        field: &str,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Get parent struct info
+        let Expression::Identifier(name) = &**object else {
+            let inner_val = self.compile_struct_field(object, inner_member)?;
+            return self.compile_nested_from_value(object, inner_member, inner_val, field);
+        };
+
+        let var_info = self.variables.get(name).ok_or_else(|| {
+            CompileError::UndeclaredVariable(name.clone(), self.get_current_span())
+        })?;
+
+        let parent_struct_name = self.struct_name_from_type(&var_info.ast_type).ok_or_else(|| {
+            CompileError::TypeError(format!("'{}' is not a struct type", name), None)
+        })?;
+
+        let parent_struct_ptr = var_info.pointer;
+
+        // Get parent struct llvm type and inner field info
+        let parent_info = self.struct_types.get(&parent_struct_name).ok_or_else(|| {
+            CompileError::TypeError(format!("Struct '{}' not found", parent_struct_name), None)
+        })?;
+
+        let inner_field_info = self.get_field_info(&parent_struct_name, inner_member)?;
+
+        // Get nested struct name from inner field type
+        let nested_struct_name = self.struct_name_from_type(&inner_field_info.ast_type).ok_or_else(|| {
+            CompileError::TypeError(format!("Field '{}' is not a struct type", inner_member), None)
+        })?;
+
+        let nested_info = self.struct_types.get(&nested_struct_name).ok_or_else(|| {
+            CompileError::TypeError(format!("Struct '{}' not found", nested_struct_name), None)
+        })?;
+
+        let final_field_info = self.get_field_info(&nested_struct_name, field)?;
+
+        // Build chained GEPs
+        let inner_ptr = self.builder.build_struct_gep(
+            parent_info.llvm_type, parent_struct_ptr, inner_field_info.index as u32,
+            &format!("{}_{}_ptr", parent_struct_name, inner_member),
+        )?;
+
+        let nested_ptr = self.builder.build_struct_gep(
+            nested_info.llvm_type, inner_ptr, final_field_info.index as u32,
+            &format!("{}_{}_{}_ptr", parent_struct_name, inner_member, field),
+        )?;
+
+        let field_llvm_type = self.to_llvm_type(&final_field_info.ast_type)?;
+        let basic_type = self.to_basic_type(&field_llvm_type)?;
+        Ok(self.builder.build_load(basic_type, nested_ptr, &format!("load_{}", field))?)
+    }
+
+    fn compile_nested_from_value(
+        &mut self,
+        object: &Box<Expression>,
+        inner_member: &str,
+        inner_val: BasicValueEnum<'ctx>,
+        field: &str,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Infer nested struct name from parent
+        let Expression::Identifier(name) = &**object else {
+            return Err(CompileError::TypeError(
+                "Cannot infer struct type for nested access".to_string(), self.get_current_span()
+            ));
+        };
+
+        let var_info = self.variables.get(name).ok_or_else(|| {
+            CompileError::UndeclaredVariable(name.clone(), self.get_current_span())
+        })?;
+
+        let parent_name = self.struct_name_from_type(&var_info.ast_type).ok_or_else(|| {
+            CompileError::TypeError(format!("'{}' is not a struct type", name), None)
+        })?;
+
+        let parent_info = self.struct_types.get(&parent_name).ok_or_else(|| {
+            CompileError::TypeError(format!("Struct '{}' not found", parent_name), None)
+        })?;
+
+        let (_, field_type) = parent_info.fields.get(inner_member).ok_or_else(|| {
+            CompileError::TypeError(format!("Field '{}' not found", inner_member), None)
+        })?;
+
+        let nested_name = self.struct_name_from_type(field_type).ok_or_else(|| {
+            CompileError::TypeError(format!("Field '{}' is not a struct type", inner_member), None)
+        })?;
+
+        let nested_info = self.struct_types.get(&nested_name).ok_or_else(|| {
+            CompileError::TypeError(format!("Struct '{}' not found", nested_name), None)
+        })?;
+
+        let field_info = self.get_field_info(&nested_name, field)?;
+
+        // Store value and access field
+        let temp = self.builder.build_alloca(nested_info.llvm_type, &format!("temp_{}", nested_name))?;
+        self.builder.build_store(temp, inner_val)?;
+
+        let field_ptr = self.builder.build_struct_gep(
+            nested_info.llvm_type, temp, field_info.index as u32,
+            &format!("{}_{}_ptr", nested_name, field),
+        )?;
+
+        let field_llvm_type = self.to_llvm_type(&field_info.ast_type)?;
+        let basic_type = self.to_basic_type(&field_llvm_type)?;
+        Ok(self.builder.build_load(basic_type, field_ptr, &format!("load_{}", field))?)
+    }
+
+    fn compile_general_field_access(
+        &mut self,
+        struct_: &Expression,
+        field: &str,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        let struct_val = self.compile_expression(struct_)?;
+        let struct_name = self.infer_struct_type_from_value(&struct_val, struct_)?;
+
+        let struct_info = self.struct_types.get(&struct_name).ok_or_else(|| {
+            CompileError::TypeError(format!("Struct '{}' not found", struct_name), self.get_current_span())
+        })?;
+        let field_info = self.get_field_info(&struct_name, field)?;
+
+        let struct_ptr = if struct_val.is_pointer_value() {
+            struct_val.into_pointer_value()
+        } else {
+            let temp = self.builder.build_alloca(struct_info.llvm_type, &format!("temp_{}", struct_name))?;
+            self.builder.build_store(temp, struct_val)?;
+            temp
+        };
+
+        let field_ptr = self.builder.build_struct_gep(
+            struct_info.llvm_type, struct_ptr, field_info.index as u32, &format!("field_{}_ptr", field),
+        )?;
+
+        let field_llvm_type = self.to_llvm_type(&field_info.ast_type)?;
+        let basic_type = self.to_basic_type(&field_llvm_type)?;
+        Ok(self.builder.build_load(basic_type, field_ptr, &format!("load_{}", field))?)
+    }
+}
+
+// ============================================================================
+// Type Inference
+// ============================================================================
+
+impl<'ctx> LLVMCompiler<'ctx> {
     pub fn infer_struct_type_from_value(
         &mut self,
         _val: &BasicValueEnum<'ctx>,
@@ -848,220 +459,61 @@ impl<'ctx> LLVMCompiler<'ctx> {
     ) -> Result<String, CompileError> {
         match expr {
             Expression::Identifier(name) => {
-                // Look up the variable type
                 if let Some(var_info) = self.variables.get(name) {
-                    let var_type = &var_info.ast_type;
-                    match var_type {
-                        AstType::Struct {
-                            name: struct_name, ..
-                        } => Ok(struct_name.clone()),
-                        AstType::Generic {
-                            name: type_name, ..
-                        } => {
-                            // Check if this generic is actually a registered struct type
-                            if self.struct_types.contains_key(type_name) {
-                                Ok(type_name.clone())
-                            } else {
-                                Err(CompileError::TypeError(
-                                    format!("Type '{}' is not a registered struct type", type_name),
-                                    None,
-                                ))
-                            }
-                        }
-                        t if t.is_ptr_type() => {
-                            // Handle pointer to struct
-                            match t.ptr_inner() {
-                                Some(AstType::Struct {
-                                    name: struct_name, ..
-                                }) => Ok(struct_name.clone()),
-                                Some(AstType::Generic {
-                                    name: type_name, ..
-                                }) => {
-                                    // Check if this generic is actually a registered struct type
-                                    if self.struct_types.contains_key(type_name) {
-                                        Ok(type_name.clone())
-                                    } else {
-                                        Err(CompileError::TypeError(
-                                            format!("Variable '{}' is not a struct or pointer to struct", name),
-                                            None
-                                        ))
-                                    }
-                                }
-                                _ => Err(CompileError::TypeError(
-                                    format!(
-                                        "Variable '{}' is not a struct or pointer to struct",
-                                        name
-                                    ),
-                                    None,
-                                )),
-                            }
-                        }
-                        _ => Err(CompileError::TypeError(
-                            format!(
-                                "Variable '{}' is not a struct type, got {:?}",
-                                name, var_type
-                            ),
-                            None,
-                        )),
+                    let effective = var_info.ast_type.ptr_inner().unwrap_or(&var_info.ast_type);
+                    if let Some(n) = self.struct_name_from_type(effective) {
+                        return Ok(n);
                     }
-                } else {
-                    Err(CompileError::TypeError(
-                        format!("Unknown variable '{}'", name),
-                        None,
-                    ))
                 }
+                Err(CompileError::TypeError(format!("Unknown variable '{}'", name), None))
             }
             Expression::StructLiteral { name, .. } => Ok(name.clone()),
             Expression::FunctionCall { name, .. } => {
-                // Look up function return type
                 if let Some(func_type) = self.function_types.get(name) {
-                    if let AstType::Struct {
-                        name: struct_name, ..
-                    } = func_type
-                    {
-                        Ok(struct_name.clone())
-                    } else {
-                        Err(CompileError::TypeError(
-                            format!("Function '{}' does not return a struct", name),
-                            None,
-                        ))
+                    if let AstType::Struct { name: sn, .. } = func_type {
+                        return Ok(sn.clone());
                     }
-                } else {
-                    Err(CompileError::TypeError(
-                        format!("Unknown function '{}'", name),
-                        None,
-                    ))
                 }
+                Err(CompileError::TypeError(format!("Function '{}' does not return a struct", name), None))
             }
             Expression::MemberAccess { object, member } => {
-                // For nested field access like rect.top_left, we need to infer the type
-                // First infer the type of the object expression
-                let object_type = self.infer_expression_type(object)?;
+                let obj_type = self.infer_expression_type(object)?;
+                let obj_struct = self.struct_name_from_type(obj_type.ptr_inner().unwrap_or(&obj_type))
+                    .ok_or_else(|| CompileError::TypeError("Cannot infer object type".to_string(), None))?;
 
-                // Then get the struct name from the object type
-                let object_struct = match &object_type {
-                    AstType::Struct { name, .. } => name.clone(),
-                    t if t.is_ptr_type() => {
-                        if let Some(inner) = t.ptr_inner() {
-                            match inner {
-                                AstType::Struct { name, .. } => name.clone(),
-                                _ => {
-                                    return Err(CompileError::TypeError(
-                                        "Cannot infer struct type from MemberAccess expression".to_string(),
-                                        None,
-                                    ))
-                                }
-                            }
-                        } else {
-                            return Err(CompileError::TypeError(
-                                "Cannot infer struct type from MemberAccess expression".to_string(),
-                                None,
-                            ))
+                if let Some(info) = self.struct_types.get(&obj_struct) {
+                    if let Some((_, field_type)) = info.fields.get(member) {
+                        if let Some(n) = self.struct_name_from_type(field_type) {
+                            return Ok(n);
                         }
                     }
-                    _ => {
-                        return Err(CompileError::TypeError(
-                            "Cannot infer struct type from MemberAccess expression".to_string(),
-                            None,
-                        ))
-                    }
-                };
-
-                // Then look up the field type in that struct
-                if let Some(struct_info) = self.struct_types.get(&object_struct) {
-                    if let Some((_index, field_type)) = struct_info.fields.get(member) {
-                        // Check if the field is itself a struct
-                        match field_type {
-                            AstType::Struct { name, .. } => Ok(name.clone()),
-                            AstType::Generic { name, .. } => {
-                                // Check if this generic is actually a registered struct type
-                                if self.struct_types.contains_key(name) {
-                                    Ok(name.clone())
-                                } else {
-                                    Err(CompileError::TypeError(
-                                        format!("Field '{}' is not a struct type", member),
-                                        None,
-                                    ))
-                                }
-                            }
-                            _ => Err(CompileError::TypeError(
-                                format!(
-                                    "Field '{}' is not a struct type, got {:?}",
-                                    member, field_type
-                                ),
-                                None,
-                            )),
-                        }
-                    } else {
-                        Err(CompileError::TypeError(
-                            format!("Field '{}' not found in struct '{}'", member, object_struct),
-                            None,
-                        ))
-                    }
-                } else {
-                    Err(CompileError::TypeError(
-                        format!("Struct type '{}' not found", object_struct),
-                        None,
-                    ))
                 }
-            }
-            Expression::StructField { .. } => {
-                // This shouldn't be called for struct field access
-                Err(CompileError::TypeError(
-                    "Cannot infer struct type from StructField expression".to_string(),
-                    None,
-                ))
+                Err(CompileError::TypeError(format!("Field '{}' is not a struct", member), None))
             }
             Expression::PointerDereference(ptr_expr) => {
-                // For ptr.val where ptr is Ptr<Struct> or MutPtr<Struct> or RawPtr<Struct>
-                match ptr_expr.as_ref() {
-                    Expression::Identifier(name) => {
-                        if let Some(var_info) = self.variables.get(name) {
-                            if let Some(inner) = var_info.ast_type.ptr_inner() {
-                                match inner {
-                                    AstType::Struct { name: struct_name, .. } => Ok(struct_name.clone()),
-                                    AstType::Generic { name: type_name, .. } => {
-                                        // Check if this generic is actually a registered struct type
-                                        if self.struct_types.contains_key(type_name) {
-                                            Ok(type_name.clone())
-                                        } else {
-                                            Err(CompileError::TypeError(
-                                                format!("Pointer does not point to a struct type, got Generic: {}", type_name),
-                                                None
-                                            ))
-                                        }
-                                    }
-                                    _ => Err(CompileError::TypeError(
-                                        format!("Pointer does not point to a struct type, got: {:?}", inner),
-                                        None
-                                    ))
-                                }
-                            } else {
-                                Err(CompileError::TypeError(
-                                    "Cannot dereference non-pointer type".to_string(),
-                                    None,
-                                ))
+                if let Expression::Identifier(name) = ptr_expr.as_ref() {
+                    if let Some(var_info) = self.variables.get(name) {
+                        if let Some(inner) = var_info.ast_type.ptr_inner() {
+                            if let Some(n) = self.struct_name_from_type(inner) {
+                                return Ok(n);
                             }
-                        } else {
-                            Err(CompileError::TypeError(
-                                format!("Unknown variable '{}'", name),
-                                None,
-                            ))
                         }
                     }
-                    _ => Err(CompileError::TypeError(
-                        "Complex pointer dereference not yet supported in struct field access".to_string(),
-                        None,
-                    )),
                 }
+                Err(CompileError::TypeError("Cannot infer struct type from pointer".to_string(), None))
             }
             _ => Err(CompileError::TypeError(
-                format!("Cannot infer struct type from expression: {:?}", expr),
-                None,
+                format!("Cannot infer struct type from expression: {:?}", expr), None
             )),
         }
     }
+}
 
+// ============================================================================
+// Struct Field Assignment
+// ============================================================================
+
+impl<'ctx> LLVMCompiler<'ctx> {
     pub fn compile_struct_field_assignment(
         &mut self,
         struct_alloca: inkwell::values::PointerValue<'ctx>,
@@ -1069,61 +521,42 @@ impl<'ctx> LLVMCompiler<'ctx> {
         value: BasicValueEnum<'ctx>,
         struct_name: &str,
     ) -> Result<(), CompileError> {
-        // Get the struct type info using the struct name
-        let struct_type_info = self.struct_types.get(struct_name).ok_or_else(|| {
-            CompileError::TypeError(
-                format!("Struct '{}' not found", struct_name),
-                self.get_current_span(),
-            )
+        let struct_info = self.struct_types.get(struct_name).ok_or_else(|| {
+            CompileError::TypeError(format!("Struct '{}' not found", struct_name), self.get_current_span())
         })?;
 
-        let struct_type = struct_type_info.llvm_type;
-        let field_index = struct_type_info
-            .fields
-            .get(field_name)
-            .map(|(index, _)| *index)
-            .ok_or_else(|| {
-                CompileError::TypeError(
-                    format!(
-                        "Field '{}' not found in struct '{}'",
-                        field_name, struct_name
-                    ),
-                    None,
-                )
-            })?;
+        let field_info = self.get_field_info(struct_name, field_name)?;
 
-        // Create GEP to get the field pointer
-        let field_ptr = self
-            .builder
-            .build_struct_gep(struct_type, struct_alloca, field_index as u32, "field_ptr")
-            .map_err(CompileError::from)?;
-
-        // Get the expected field type for coercion
-        let field_type = struct_type_info
-            .fields
-            .get(field_name)
-            .map(|(_, ty)| ty.clone())
-            .unwrap();
-        let field_llvm_type = self.to_llvm_type(&field_type)?;
-        let expected_type = match field_llvm_type {
-            super::Type::Basic(ty) => ty,
-            super::Type::Struct(st) => st.as_basic_type_enum(),
-            _ => {
-                // For other types, use direct store
-                self.builder
-                    .build_store(field_ptr, value)
-                    .map_err(CompileError::from)?;
-                return Ok(());
-            }
-        };
-
-        // Store the value to the field with type coercion
-        self.coercing_store(
-            value,
-            field_ptr,
-            expected_type,
-            &format!("struct field '{}.{}'", struct_name, field_name),
+        let field_ptr = self.builder.build_struct_gep(
+            struct_info.llvm_type, struct_alloca, field_info.index as u32, "field_ptr",
         )?;
+
+        let field_llvm_type = self.to_llvm_type(&field_info.ast_type)?;
+        match self.to_basic_type(&field_llvm_type) {
+            Ok(expected_type) => {
+                self.coercing_store(value, field_ptr, expected_type,
+                    &format!("struct field '{}.{}'", struct_name, field_name))?;
+            }
+            Err(_) => {
+                self.builder.build_store(field_ptr, value)?;
+            }
+        }
+
         Ok(())
+    }
+}
+
+// Dead code helper for backwards compatibility
+impl<'ctx> LLVMCompiler<'ctx> {
+    #[allow(dead_code)]
+    fn compile_struct_field_from_value(
+        &mut self,
+        _struct_val: BasicValueEnum<'ctx>,
+        _field: &str,
+        original_expr: &Expression,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        Err(CompileError::TypeError(
+            format!("Nested struct field access not fully implemented for: {:?}", original_expr), None
+        ))
     }
 }

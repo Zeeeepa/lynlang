@@ -2,7 +2,55 @@ use super::super::LLVMCompiler;
 use crate::ast::{AstType, Expression};
 use crate::error::CompileError;
 use crate::stdlib_types::StdlibTypeRegistry;
-use inkwell::{values::BasicValueEnum, AddressSpace};
+use inkwell::{types::BasicTypeEnum, values::BasicValueEnum, AddressSpace};
+
+// ============================================================================
+// HELPER FUNCTIONS FOR REDUCING DUPLICATION
+// ============================================================================
+
+/// Track Result<T, E> type arguments in the compiler's generic type context
+pub fn track_result_types<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    result_type: &AstType,
+    type_args: &[AstType],
+) {
+    if type_args.len() != 2 {
+        return;
+    }
+    compiler.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+    compiler.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+    compiler.track_complex_generic(result_type, compiler.well_known.result_name());
+    compiler.generic_tracker.track_generic_type(result_type, compiler.well_known.result_name());
+}
+
+/// Convert AstType to LLVM BasicTypeEnum for loading values
+/// Returns None for types that need special handling (generics, structs, strings)
+pub fn ast_type_to_basic_type<'ctx>(
+    compiler: &LLVMCompiler<'ctx>,
+    ast_type: &AstType,
+) -> Option<BasicTypeEnum<'ctx>> {
+    match ast_type {
+        AstType::I8 | AstType::U8 => Some(compiler.context.i8_type().into()),
+        AstType::I16 | AstType::U16 => Some(compiler.context.i16_type().into()),
+        AstType::I32 | AstType::U32 => Some(compiler.context.i32_type().into()),
+        AstType::I64 | AstType::U64 | AstType::Usize => Some(compiler.context.i64_type().into()),
+        AstType::F32 => Some(compiler.context.f32_type().into()),
+        AstType::F64 => Some(compiler.context.f64_type().into()),
+        AstType::Bool => Some(compiler.context.bool_type().into()),
+        _ => None, // Complex types need special handling
+    }
+}
+
+/// Get the LLVM struct type for Result/Option (tag + payload pointer)
+pub fn generic_enum_struct_type<'ctx>(compiler: &LLVMCompiler<'ctx>) -> inkwell::types::StructType<'ctx> {
+    compiler.context.struct_type(
+        &[
+            compiler.context.i64_type().into(), // discriminant/tag
+            compiler.context.ptr_type(AddressSpace::default()).into(), // payload pointer
+        ],
+        false,
+    )
+}
 
 pub fn parse_type_args_string(
     compiler: &LLVMCompiler,
@@ -98,12 +146,10 @@ pub fn compile_comptime_expression<'ctx>(
             let const_expr = value.to_expression()?;
             compiler.compile_expression(&const_expr)
         }
-        Err(e) => {
-            return Err(CompileError::InternalError(
-                format!("Comptime evaluation error: {}", e),
-                None,
-            ));
-        }
+        Err(e) => Err(CompileError::InternalError(
+            format!("Comptime evaluation error: {}", e),
+            None,
+        ))
     }
 }
 pub fn compile_raise_expression<'ctx>(
@@ -148,27 +194,10 @@ pub fn compile_raise_expression<'ctx>(
         Expression::FunctionCall { name, .. } => {
             // Check if we know the function's return type - clone to avoid borrow issues
             if let Some(return_type) = compiler.function_types.get(name).cloned() {
-                // Track the complex generic type recursively
                 compiler.track_complex_generic(&return_type, compiler.well_known.result_name());
-
-                if let AstType::Generic {
-                    name: type_name,
-                    type_args,
-                } = &return_type
-                {
-                    if compiler.well_known.is_result(type_name) && type_args.len() == 2 {
-                        // Store Result<T, E> type arguments for proper payload extraction
-                        compiler
-                            .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                        compiler.track_generic_type(
-                            "Result_Err_Type".to_string(),
-                            type_args[1].clone(),
-                        );
-
-                        // Also use the generic tracker for better nested handling
-                        compiler
-                            .generic_tracker
-                            .track_generic_type(&return_type, compiler.well_known.result_name());
+                if let AstType::Generic { name: type_name, type_args } = &return_type {
+                    if compiler.well_known.is_result(type_name) {
+                        track_result_types(compiler, &return_type, type_args);
                     }
                 }
             }
@@ -176,25 +205,9 @@ pub fn compile_raise_expression<'ctx>(
         Expression::Identifier(_name) => {
             // For identifiers/variables, try to infer their type
             if let Ok(var_type) = compiler.infer_expression_type(expr) {
-                if let AstType::Generic {
-                    name: type_name,
-                    type_args,
-                } = &var_type
-                {
-                    if compiler.well_known.is_result(type_name) && type_args.len() == 2 {
-                        // Store Result<T, E> type arguments for proper payload extraction
-                        compiler
-                            .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                        compiler.track_generic_type(
-                            "Result_Err_Type".to_string(),
-                            type_args[1].clone(),
-                        );
-
-                        // Also track nested generics recursively
-                        compiler.track_complex_generic(&var_type, compiler.well_known.result_name());
-                        compiler
-                            .generic_tracker
-                            .track_generic_type(&var_type, compiler.well_known.result_name());
+                if let AstType::Generic { name: type_name, type_args } = &var_type {
+                    if compiler.well_known.is_result(type_name) {
+                        track_result_types(compiler, &var_type, type_args);
                     }
                 }
             }
@@ -238,66 +251,25 @@ pub fn compile_raise_expression<'ctx>(
         }
         Expression::MethodCall { object, .. } => {
             // Special handling for chained method calls like get_chained().raise()
-            // We need to compile the object first to get its type
-            // For raise() on a method call result, we need to track the types properly
-
             // First try to infer what the object returns
             if let Ok(object_type) = compiler.infer_expression_type(object) {
-                // If the object returns a Result, and we're calling raise() on it,
-                // we need to track its generic types
-                if let AstType::Generic {
-                    name: type_name,
-                    type_args,
-                } = &object_type
-                {
-                    if compiler.well_known.is_result(type_name) && type_args.len() == 2 {
-                        compiler
-                            .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                        compiler.track_generic_type(
-                            "Result_Err_Type".to_string(),
-                            type_args[1].clone(),
-                        );
-
-                        compiler.track_complex_generic(&object_type, compiler.well_known.result_name());
-                        compiler
-                            .generic_tracker
-                            .track_generic_type(&object_type, compiler.well_known.result_name());
-
-                        // For nested Result types, ensure we track the inner type properly
-                        if let AstType::Generic {
-                            name: inner_name, ..
-                        } = &type_args[0]
-                        {
+                if let AstType::Generic { name: type_name, type_args } = &object_type {
+                    if compiler.well_known.is_result(type_name) {
+                        track_result_types(compiler, &object_type, type_args);
+                        // For nested Result types, track the inner type
+                        if let Some(AstType::Generic { name: inner_name, .. }) = type_args.first() {
                             if compiler.well_known.is_result(inner_name) {
-                                // This is Result<Result<T,E>,E> - track the nested structure
-                                compiler
-                                    .generic_tracker
-                                    .track_generic_type(&type_args[0], "Result_Ok");
+                                compiler.generic_tracker.track_generic_type(&type_args[0], "Result_Ok");
                             }
                         }
                     }
                 }
             }
-
             // Now infer the type of the full method call expression
             if let Ok(expr_type) = compiler.infer_expression_type(expr) {
-                if let AstType::Generic {
-                    name: type_name,
-                    type_args,
-                } = &expr_type
-                {
-                    if compiler.well_known.is_result(type_name) && type_args.len() == 2 {
-                        compiler
-                            .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                        compiler.track_generic_type(
-                            "Result_Err_Type".to_string(),
-                            type_args[1].clone(),
-                        );
-
-                        compiler.track_complex_generic(&expr_type, compiler.well_known.result_name());
-                        compiler
-                            .generic_tracker
-                            .track_generic_type(&expr_type, compiler.well_known.result_name());
+                if let AstType::Generic { name: type_name, type_args } = &expr_type {
+                    if compiler.well_known.is_result(type_name) {
+                        track_result_types(compiler, &expr_type, type_args);
                     }
                 }
             }
@@ -305,23 +277,9 @@ pub fn compile_raise_expression<'ctx>(
         _ => {
             // Try to infer the type for other expressions
             if let Ok(expr_type) = compiler.infer_expression_type(expr) {
-                if let AstType::Generic {
-                    name: type_name,
-                    type_args,
-                } = &expr_type
-                {
-                    if compiler.well_known.is_result(type_name) && type_args.len() == 2 {
-                        compiler
-                            .track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                        compiler.track_generic_type(
-                            "Result_Err_Type".to_string(),
-                            type_args[1].clone(),
-                        );
-
-                        compiler.track_complex_generic(&expr_type, compiler.well_known.result_name());
-                        compiler
-                            .generic_tracker
-                            .track_generic_type(&expr_type, compiler.well_known.result_name());
+                if let AstType::Generic { name: type_name, type_args } = &expr_type {
+                    if compiler.well_known.is_result(type_name) {
+                        track_result_types(compiler, &expr_type, type_args);
                     }
                 }
             }
@@ -404,205 +362,72 @@ pub fn compile_raise_expression<'ctx>(
                 let ptr_val = ok_value_ptr.into_pointer_value();
 
                 // Use the tracked generic type information to determine the correct type to load
-                // Determine the correct type to load - handle nested generics
                 let load_result: Result<BasicValueEnum<'ctx>, CompileError> =
                     if let Some(ast_type) =
                         compiler.generic_type_context.get("Result_Ok_Type").cloned()
                     {
-                        match &ast_type {
-                            AstType::I8 => {
-                                let load_type: inkwell::types::BasicTypeEnum =
-                                    compiler.context.i8_type().into();
-                                Ok(compiler.builder.build_load(
-                                    load_type,
-                                    ptr_val,
-                                    "ok_value_deref",
-                                )?)
-                            }
-                            AstType::I16 => {
-                                let load_type: inkwell::types::BasicTypeEnum =
-                                    compiler.context.i16_type().into();
-                                Ok(compiler.builder.build_load(
-                                    load_type,
-                                    ptr_val,
-                                    "ok_value_deref",
-                                )?)
-                            }
-                            AstType::I32 => {
-                                let load_type: inkwell::types::BasicTypeEnum =
-                                    compiler.context.i32_type().into();
-                                Ok(compiler.builder.build_load(
-                                    load_type,
-                                    ptr_val,
-                                    "ok_value_deref",
-                                )?)
-                            }
-                            AstType::I64 => {
-                                let load_type: inkwell::types::BasicTypeEnum =
-                                    compiler.context.i64_type().into();
-                                Ok(compiler.builder.build_load(
-                                    load_type,
-                                    ptr_val,
-                                    "ok_value_deref",
-                                )?)
-                            }
-                            AstType::U8 => {
-                                let load_type: inkwell::types::BasicTypeEnum =
-                                    compiler.context.i8_type().into();
-                                Ok(compiler.builder.build_load(
-                                    load_type,
-                                    ptr_val,
-                                    "ok_value_deref",
-                                )?)
-                            }
-                            AstType::U16 => {
-                                let load_type: inkwell::types::BasicTypeEnum =
-                                    compiler.context.i16_type().into();
-                                Ok(compiler.builder.build_load(
-                                    load_type,
-                                    ptr_val,
-                                    "ok_value_deref",
-                                )?)
-                            }
-                            AstType::U32 => {
-                                let load_type: inkwell::types::BasicTypeEnum =
-                                    compiler.context.i32_type().into();
-                                Ok(compiler.builder.build_load(
-                                    load_type,
-                                    ptr_val,
-                                    "ok_value_deref",
-                                )?)
-                            }
-                            AstType::U64 => {
-                                let load_type: inkwell::types::BasicTypeEnum =
-                                    compiler.context.i64_type().into();
-                                Ok(compiler.builder.build_load(
-                                    load_type,
-                                    ptr_val,
-                                    "ok_value_deref",
-                                )?)
-                            }
-                            AstType::F32 => {
-                                let load_type: inkwell::types::BasicTypeEnum =
-                                    compiler.context.f32_type().into();
-                                Ok(compiler.builder.build_load(
-                                    load_type,
-                                    ptr_val,
-                                    "ok_value_deref",
-                                )?)
-                            }
-                            AstType::F64 => {
-                                let load_type: inkwell::types::BasicTypeEnum =
-                                    compiler.context.f64_type().into();
-                                Ok(compiler.builder.build_load(
-                                    load_type,
-                                    ptr_val,
-                                    "ok_value_deref",
-                                )?)
-                            }
-                            AstType::Bool => {
-                                let load_type: inkwell::types::BasicTypeEnum =
-                                    compiler.context.bool_type().into();
-                                Ok(compiler.builder.build_load(
-                                    load_type,
-                                    ptr_val,
-                                    "ok_value_deref",
-                                )?)
-                            }
-                            AstType::Generic { name, type_args }
-                                if compiler.well_known.is_result(name) && type_args.len() == 2 =>
-                            {
-                                // Handle nested Result<T,E> - the payload is itself a Result struct
-                                // When we store a nested Result/Option, we heap-allocate the struct and store the pointer
-                                // So ptr_val IS the pointer to the heap-allocated Result struct
+                        // Try basic types first using helper
+                        if let Some(load_type) = ast_type_to_basic_type(compiler, &ast_type) {
+                            Ok(compiler.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                        } else {
+                            // Handle complex types that need special logic
+                            match &ast_type {
+                                AstType::Generic { name, type_args }
+                                    if compiler.well_known.is_result(name) && type_args.len() == 2 =>
+                                {
+                                    // Handle nested Result<T,E> - payload is a heap-allocated struct
+                                    // Track with more specific keys for nested context
+                                    compiler
+                                        .generic_tracker
+                                        .track_generic_type(&ast_type, compiler.well_known.result_name());
 
-                                // DON'T update context here - it will overwrite the current extraction type!
-                                // The nested Result's types will be handled when IT gets raised
-                                // compiler.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                                // compiler.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
-
-                                // Also track them with more specific keys for nested context
-                                compiler
-                                    .generic_tracker
-                                    .track_generic_type(&ast_type, compiler.well_known.result_name());
-
-                                let result_struct_type = compiler.context.struct_type(
-                                    &[
-                                        compiler.context.i64_type().into(), // discriminant
-                                        compiler.context.ptr_type(AddressSpace::default()).into(), // payload
-                                    ],
-                                    false,
-                                );
-
-                                // Load the nested Result struct from heap
-                                let loaded_struct = compiler.builder.build_load(
-                                    result_struct_type,
-                                    ptr_val,
-                                    "nested_result",
-                                )?;
-
-                                // IMPORTANT: The extracted type is the nested Result, not its inner type!
-                                // We're extracting Result<i32, string> from Result<Result<i32, string>, string>
-                                // This is what allows the second .raise() to work
-                                Ok(loaded_struct)
-                            }
-                            AstType::Generic { name, type_args }
-                                if compiler.well_known.is_option(name) && type_args.len() == 1 =>
-                            {
-                                // Handle Option<T> - similar to Result but with only one type parameter
-                                let option_struct_type = compiler.context.struct_type(
-                                    &[
-                                        compiler.context.i64_type().into(), // discriminant
-                                        compiler.context.ptr_type(AddressSpace::default()).into(), // payload
-                                    ],
-                                    false,
-                                );
-                                let loaded = compiler.builder.build_load(
-                                    option_struct_type,
-                                    ptr_val,
-                                    "nested_option",
-                                )?;
-
-                                // Track the nested generic type
-                                compiler.track_generic_type(
-                                    "Option_Some_Type".to_string(),
-                                    type_args[0].clone(),
-                                );
-
-                                Ok(loaded)
-                            }
-                            AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => {
-                                Ok(ptr_val.into())
-                            }
-                            AstType::StaticString | AstType::StaticLiteral => {
-                                // Static strings are already a pointer value, just return it directly
-                                // The ptr_val is already pointing to the string data
-                                Ok(ptr_val.into())
-                            }
-                            _ => {
-                                // Default fallback to i32
-                                let load_type: inkwell::types::BasicTypeEnum =
-                                    compiler.context.i32_type().into();
-                                Ok(compiler.builder.build_load(
-                                    load_type,
-                                    ptr_val,
-                                    "ok_value_deref",
-                                )?)
+                                    let result_struct_type = generic_enum_struct_type(compiler);
+                                    // Load the nested Result struct from heap
+                                    let loaded_struct = compiler.builder.build_load(
+                                        result_struct_type,
+                                        ptr_val,
+                                        "nested_result",
+                                    )?;
+                                    Ok(loaded_struct)
+                                }
+                                AstType::Generic { name, type_args }
+                                    if compiler.well_known.is_option(name) && type_args.len() == 1 =>
+                                {
+                                    // Handle Option<T> - similar to Result
+                                    let option_struct_type = generic_enum_struct_type(compiler);
+                                    let loaded = compiler.builder.build_load(
+                                        option_struct_type,
+                                        ptr_val,
+                                        "nested_option",
+                                    )?;
+                                    // Track the nested generic type
+                                    compiler.track_generic_type(
+                                        "Option_Some_Type".to_string(),
+                                        type_args[0].clone(),
+                                    );
+                                    Ok(loaded)
+                                }
+                                AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => {
+                                    Ok(ptr_val.into())
+                                }
+                                AstType::StaticString | AstType::StaticLiteral => {
+                                    // Static strings are already a pointer value
+                                    Ok(ptr_val.into())
+                                }
+                                _ => {
+                                    // Default fallback to i32
+                                    let load_type: BasicTypeEnum = compiler.context.i32_type().into();
+                                    Ok(compiler.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                                }
                             }
                         }
                     } else {
                         // Default to i32 for backward compatibility
-                        let load_type: inkwell::types::BasicTypeEnum =
-                            compiler.context.i32_type().into();
-                        Ok(compiler
-                            .builder
-                            .build_load(load_type, ptr_val, "ok_value_deref")?)
+                        let load_type: BasicTypeEnum = compiler.context.i32_type().into();
+                        Ok(compiler.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
                     };
 
-                let loaded_value = load_result?;
-
-                // The loaded value should be the correct type
-                loaded_value
+                load_result?
             } else {
                 // If it's not a pointer, it might be an integer that looks like a pointer address
                 // This can happen if the payload is stored incorrectly
@@ -977,43 +802,20 @@ pub fn compile_raise_expression<'ctx>(
                     let ast_type_opt = compiler.generic_type_context.get("Result_Ok_Type");
                     let load_type: inkwell::types::BasicTypeEnum =
                         if let Some(ast_type) = ast_type_opt {
-                            // Debug: Check what type we're loading
-
-                            match ast_type {
-                                AstType::I8 => compiler.context.i8_type().into(),
-                                AstType::I16 => compiler.context.i16_type().into(),
-                                AstType::I32 => compiler.context.i32_type().into(),
-                                AstType::I64 => compiler.context.i64_type().into(),
-                                AstType::U8 => compiler.context.i8_type().into(),
-                                AstType::U16 => compiler.context.i16_type().into(),
-                                AstType::U32 => compiler.context.i32_type().into(),
-                                AstType::U64 => compiler.context.i64_type().into(),
-                                AstType::F32 => compiler.context.f32_type().into(),
-                                AstType::F64 => compiler.context.f64_type().into(),
-                                AstType::Bool => compiler.context.bool_type().into(),
-                                AstType::Generic { name, .. }
-                                    if compiler.well_known.is_result(name) || compiler.well_known.is_option(name) =>
-                                {
-                                    // For nested generics (Result<Result<T,E>,E2>),
-                                    // the payload pointer points to a heap-allocated struct
-                                    // We need to load the struct from that pointer
-                                    // The struct itself has the format [i64 tag, ptr payload]
-                                    // eprintln!("[DEBUG] Loading nested generic {} from payload pointer", name);
-                                    compiler
-                                        .context
-                                        .struct_type(
-                                            &[
-                                                compiler.context.i64_type().into(), // tag
-                                                compiler
-                                                    .context
-                                                    .ptr_type(inkwell::AddressSpace::default())
-                                                    .into(), // payload pointer
-                                            ],
-                                            false,
-                                        )
-                                        .into()
+                            // Try basic types first using helper
+                            if let Some(basic_type) = ast_type_to_basic_type(compiler, ast_type) {
+                                basic_type
+                            } else {
+                                // Handle complex types
+                                match ast_type {
+                                    AstType::Generic { name, .. }
+                                        if compiler.well_known.is_result(name) || compiler.well_known.is_option(name) =>
+                                    {
+                                        // For nested generics, load the struct from heap pointer
+                                        generic_enum_struct_type(compiler).into()
+                                    }
+                                    _ => compiler.context.i32_type().into(), // Default fallback
                                 }
-                                _ => compiler.context.i32_type().into(), // Default fallback
                             }
                         } else {
                             // Default to i32 for backward compatibility

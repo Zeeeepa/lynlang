@@ -5,6 +5,26 @@ use crate::typechecker::{EnumInfo, StructInfo, TypeChecker};
 use crate::well_known::well_known;
 use std::collections::HashMap;
 
+// ============================================================================
+// HELPER FUNCTIONS FOR REDUCING DUPLICATION
+// ============================================================================
+
+/// Extract the type name from common AstType variants (Struct, Generic, Enum)
+fn extract_type_name(ast_type: &AstType) -> Option<&str> {
+    match ast_type {
+        AstType::Struct { name, .. } => Some(name.as_str()),
+        AstType::Generic { name, .. } => Some(name.as_str()),
+        AstType::Enum { name, .. } => Some(name.as_str()),
+        _ => None,
+    }
+}
+
+/// Check if a type is any string type (static or dynamic)
+fn is_string_type(ast_type: &AstType) -> bool {
+    matches!(ast_type, AstType::StaticString | AstType::StaticLiteral)
+        || matches!(ast_type, AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name))
+}
+
 /// Infer the type of a binary operation
 #[allow(dead_code)]
 pub fn infer_binary_op_type(
@@ -86,15 +106,8 @@ pub fn infer_binary_op_type(
             }
         }
         BinaryOperator::StringConcat => {
-            // String concatenation
-            // All string types can be concatenated
-            let is_left_string =
-                matches!(&left_type, AstType::StaticLiteral | AstType::StaticString)
-                    || matches!(&left_type, AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name));
-            let is_right_string =
-                matches!(&right_type, AstType::StaticLiteral | AstType::StaticString)
-                    || matches!(&right_type, AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name));
-            if is_left_string && is_right_string {
+            // String concatenation - all string types can be concatenated
+            if is_string_type(&left_type) && is_string_type(&right_type) {
                 // Result is always String (dynamic) when concatenating
                 Ok(crate::ast::resolve_string_struct_type())
             } else {
@@ -306,17 +319,11 @@ fn types_comparable(left: &AstType, right: &AstType) -> bool {
         return true;
     }
 
-    let is_left_ptr = left.is_ptr_type();
-    let is_right_ptr = right.is_ptr_type();
-    if is_left_ptr && is_right_ptr {
+    if left.is_ptr_type() && right.is_ptr_type() {
         return true;
     }
 
-    let is_left_string = matches!(left, AstType::StaticString | AstType::StaticLiteral)
-        || matches!(left, AstType::Struct { ref name, .. } if StdlibTypeRegistry::is_string_type(name));
-    let is_right_string = matches!(right, AstType::StaticString | AstType::StaticLiteral)
-        || matches!(right, AstType::Struct { ref name, .. } if StdlibTypeRegistry::is_string_type(name));
-    if is_left_string && is_right_string {
+    if is_string_type(left) && is_string_type(right) {
         return true;
     }
 
@@ -428,6 +435,24 @@ pub fn infer_function_call_type(
             if let Some(return_type) = intrinsics::check_stdlib_function(module, base_func) {
                 return Ok(return_type);
             }
+
+            // Handle generic constructors like HashMap.new<K, V> or Vec.new<T>
+            if base_func == "new" {
+                match module {
+                    "HashMap" | "HashSet" | "DynVec" | "Vec" | "Array" => {
+                        // Parse type args from func, e.g., "new<i32, i32>"
+                        if let Some(angle_pos) = func.find('<') {
+                            let type_args_str = &func[angle_pos + 1..func.len() - 1];
+                            let type_args = parse_type_args(type_args_str);
+                            return Ok(AstType::Generic {
+                                name: module.to_string(),
+                                type_args,
+                            });
+                        }
+                    }
+                    _ => {}
+                }
+            }
         }
     }
 
@@ -439,10 +464,13 @@ pub fn infer_function_call_type(
         if let Some(angle_pos) = name.find('<') {
             let base_type = &name[..angle_pos];
             match base_type {
-                "HashMap" | "HashSet" | "DynVec" => {
+                "HashMap" | "HashSet" | "DynVec" | "Vec" | "Array" => {
+                    // Parse type args from the generic syntax, e.g. "HashMap<i32, i32>"
+                    let type_args_str = &name[angle_pos + 1..name.len() - 1];
+                    let type_args = parse_type_args(type_args_str);
                     return Ok(AstType::Generic {
                         name: base_type.to_string(),
-                        type_args: vec![],
+                        type_args,
                     });
                 }
                 _ => {}
@@ -496,6 +524,81 @@ fn infer_cast_type(args: &[Expression]) -> Result<AstType> {
         "cast() expects 2 arguments: cast(value, type)".to_string(),
         None,
     ))
+}
+
+/// Parse type arguments from a string like "i32, i32" into Vec<AstType>
+fn parse_type_args(type_args_str: &str) -> Vec<AstType> {
+    let mut result = Vec::new();
+    let mut depth = 0;
+    let mut current = String::new();
+
+    for ch in type_args_str.chars() {
+        match ch {
+            '<' => {
+                depth += 1;
+                current.push(ch);
+            }
+            '>' => {
+                depth -= 1;
+                current.push(ch);
+            }
+            ',' if depth == 0 => {
+                let trimmed = current.trim();
+                if !trimmed.is_empty() {
+                    result.push(string_to_ast_type(trimmed));
+                }
+                current.clear();
+            }
+            _ => {
+                current.push(ch);
+            }
+        }
+    }
+
+    let trimmed = current.trim();
+    if !trimmed.is_empty() {
+        result.push(string_to_ast_type(trimmed));
+    }
+
+    result
+}
+
+/// Convert a type name string to AstType
+fn string_to_ast_type(s: &str) -> AstType {
+    match s {
+        "i8" => AstType::I8,
+        "i16" => AstType::I16,
+        "i32" => AstType::I32,
+        "i64" => AstType::I64,
+        "u8" => AstType::U8,
+        "u16" => AstType::U16,
+        "u32" => AstType::U32,
+        "u64" => AstType::U64,
+        "usize" => AstType::Usize,
+        "f32" => AstType::F32,
+        "f64" => AstType::F64,
+        "bool" => AstType::Bool,
+        "void" => AstType::Void,
+        "StaticString" => AstType::StaticString,
+        "String" => crate::ast::resolve_string_struct_type(),
+        _ => {
+            // Check for generic types like Option<i32>
+            if let Some(angle_pos) = s.find('<') {
+                let base = &s[..angle_pos];
+                let inner = &s[angle_pos + 1..s.len() - 1];
+                AstType::Generic {
+                    name: base.to_string(),
+                    type_args: parse_type_args(inner),
+                }
+            } else {
+                // Assume it's a named type
+                AstType::Generic {
+                    name: s.to_string(),
+                    type_args: vec![],
+                }
+            }
+        }
+    }
 }
 
 pub fn infer_struct_field_type(
@@ -646,8 +749,22 @@ pub fn infer_method_call_type(
             return Ok(return_type.clone());
         }
 
-        if method == "new" {
-            if name == "Array" {
+        // Extract base method name (e.g., "new" from "new<i32, i32>")
+        let base_method = method.split('<').next().unwrap_or(method);
+
+        if base_method == "new" {
+            // Check if type args are in the method name (e.g., "new<i32, i32>")
+            if method.contains('<') {
+                // Parse type args from method, e.g., "new<i32, i32>" -> ["i32", "i32"]
+                if let Some(angle_pos) = method.find('<') {
+                    let type_args_str = &method[angle_pos + 1..method.len() - 1];
+                    let type_args = parse_type_args(type_args_str);
+                    return Ok(AstType::Generic {
+                        name: name.to_string(),
+                        type_args,
+                    });
+                }
+            } else if name == "Array" {
                 return Ok(AstType::Generic {
                     name: "Array".to_string(),
                     type_args: vec![AstType::I32],
@@ -677,13 +794,7 @@ pub fn infer_method_call_type(
         }
     }
 
-    let receiver_type_name = match effective_type {
-        AstType::Struct { name, .. } => Some(name.as_str()),
-        AstType::Generic { name, .. } => Some(name.as_str()),
-        AstType::Enum { name, .. } => Some(name.as_str()),
-        _ => None,
-    };
-    if let Some(type_name) = receiver_type_name {
+    if let Some(type_name) = extract_type_name(effective_type) {
         if let Some(return_type) = stdlib_types().get_method_return_type(type_name, method) {
             return Ok(return_type.clone());
         }
@@ -742,14 +853,8 @@ pub fn infer_method_call_type(
     }
 
     // Try trait/behavior method resolution
-    let type_name = match effective_type {
-        AstType::Struct { name, .. } => Some(name.clone()),
-        AstType::Generic { name, .. } => Some(name.clone()),
-        AstType::Enum { name, .. } => Some(name.clone()),
-        _ => None,
-    };
-    if let Some(type_name) = type_name {
-        if let Some(method_info) = checker.resolve_trait_method(&type_name, method) {
+    if let Some(type_name) = extract_type_name(effective_type) {
+        if let Some(method_info) = checker.resolve_trait_method(type_name, method) {
             return Ok(method_info.return_type);
         }
     }

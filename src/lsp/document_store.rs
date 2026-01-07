@@ -14,6 +14,70 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::time::Instant;
 
+// ============================================================================
+// HELPER FUNCTIONS FOR REDUCING DUPLICATION
+// ============================================================================
+
+/// Create a Range from line/char position and symbol length
+fn make_range(line: usize, char_pos: usize, symbol_len: usize) -> Range {
+    Range {
+        start: Position { line: line as u32, character: char_pos as u32 },
+        end: Position { line: line as u32, character: (char_pos + symbol_len) as u32 },
+    }
+}
+
+/// Create a dummy range for built-in types (no source location)
+fn dummy_range() -> Range {
+    Range {
+        start: Position { line: 0, character: 0 },
+        end: Position { line: 0, character: 0 },
+    }
+}
+
+/// Create a SymbolInfo with common defaults
+fn make_symbol(
+    name: String,
+    kind: SymbolKind,
+    range: Range,
+    detail: Option<String>,
+    documentation: Option<String>,
+    type_info: Option<AstType>,
+) -> SymbolInfo {
+    SymbolInfo {
+        name,
+        kind,
+        range,
+        selection_range: range,
+        detail,
+        documentation,
+        type_info,
+        definition_uri: None,
+        references: Vec::new(),
+        enum_variants: None,
+    }
+}
+
+/// Create a SymbolInfo for an enum (with variants)
+fn make_enum_symbol(
+    name: String,
+    range: Range,
+    detail: String,
+    variants: Vec<String>,
+) -> SymbolInfo {
+    SymbolInfo {
+        name,
+        kind: SymbolKind::ENUM,
+        range,
+        selection_range: range,
+        detail: Some(detail),
+        documentation: None,
+        type_info: None,
+        definition_uri: None,
+        references: Vec::new(),
+        enum_variants: Some(variants),
+    }
+}
+
 pub struct DocumentStore {
     pub documents: HashMap<Url, Document>,
     pub stdlib_symbols: HashMap<String, SymbolInfo>,
@@ -50,215 +114,126 @@ impl DocumentStore {
 
     /// Register built-in primitive types that are always available
     fn register_builtin_types(&mut self) {
-        use super::types::SymbolInfo;
-        use crate::ast::AstType;
-        use lsp_types::{Position, Range, SymbolKind};
-
-        // Create a dummy range for built-in types (they don't have a source location)
-        let dummy_range = Range {
-            start: Position {
-                line: 0,
-                character: 0,
-            },
-            end: Position {
-                line: 0,
-                character: 0,
-            },
-        };
+        let range = dummy_range();
 
         // Register all primitive types
         let builtin_types = vec![
-            ("i8", AstType::I8),
-            ("i16", AstType::I16),
-            ("i32", AstType::I32),
-            ("i64", AstType::I64),
-            ("u8", AstType::U8),
-            ("u16", AstType::U16),
-            ("u32", AstType::U32),
-            ("u64", AstType::U64),
-            ("usize", AstType::Usize),
-            ("f32", AstType::F32),
-            ("f64", AstType::F64),
-            ("bool", AstType::Bool),
-            ("StaticString", AstType::StaticString), // Built-in primitive type
-            ("void", AstType::Void),
+            ("i8", AstType::I8), ("i16", AstType::I16), ("i32", AstType::I32), ("i64", AstType::I64),
+            ("u8", AstType::U8), ("u16", AstType::U16), ("u32", AstType::U32), ("u64", AstType::U64),
+            ("usize", AstType::Usize), ("f32", AstType::F32), ("f64", AstType::F64),
+            ("bool", AstType::Bool), ("StaticString", AstType::StaticString), ("void", AstType::Void),
         ];
 
         for (name, type_) in builtin_types {
             self.stdlib_symbols.insert(
                 name.to_string(),
-                SymbolInfo {
-                    name: name.to_string(),
-                    kind: SymbolKind::TYPE_PARAMETER, // Use TYPE_PARAMETER for primitive types
-                    range: dummy_range,
-                    selection_range: dummy_range,
-                    detail: Some(format!("{} - Built-in primitive type", name)),
-                    documentation: Some(format!(
-                        "Built-in primitive type `{}`. Always available, no import needed.",
-                        name
-                    )),
-                    type_info: Some(type_),
-                    definition_uri: None,
-                    references: Vec::new(),
-                    enum_variants: None,
-                },
+                make_symbol(
+                    name.to_string(),
+                    SymbolKind::TYPE_PARAMETER,
+                    range,
+                    Some(format!("{} - Built-in primitive type", name)),
+                    Some(format!("Built-in primitive type `{}`. Always available, no import needed.", name)),
+                    Some(type_),
+                ),
             );
         }
 
         // Also register built-in generic types (Option, Result)
         let wk = well_known();
-        let builtin_generics = vec![
-            (
-                wk.option_name(),
-                AstType::Generic {
-                    name: wk.option_name().to_string(),
-                    type_args: vec![],
-                },
-            ),
-            (
-                wk.result_name(),
-                AstType::Generic {
-                    name: wk.result_name().to_string(),
-                    type_args: vec![],
-                },
-            ),
-        ];
-
-        for (name, type_) in builtin_generics {
+        for name in [wk.option_name(), wk.result_name()] {
+            let type_ = AstType::Generic { name: name.to_string(), type_args: vec![] };
             self.stdlib_symbols.insert(
                 name.to_string(),
-                SymbolInfo {
-                    name: name.to_string(),
-                    kind: SymbolKind::ENUM,
-                    range: dummy_range,
-                    selection_range: dummy_range,
-                    detail: Some(format!("{}<T> - Built-in generic type", name)),
-                    documentation: Some(format!(
-                        "Built-in generic type `{}`. Always available, no import needed.",
-                        name
-                    )),
-                    type_info: Some(type_),
-                    definition_uri: None,
-                    references: Vec::new(),
-                    enum_variants: None,
-                },
+                make_symbol(
+                    name.to_string(),
+                    SymbolKind::ENUM,
+                    range,
+                    Some(format!("{}<T> - Built-in generic type", name)),
+                    Some(format!("Built-in generic type `{}`. Always available, no import needed.", name)),
+                    Some(type_),
+                ),
             );
         }
 
-        self.register_compiler_intrinsics(&dummy_range);
+        self.register_compiler_intrinsics(&range);
     }
 
-    fn register_compiler_intrinsics(&mut self, dummy_range: &Range) {
+    fn register_compiler_intrinsics(&mut self, range: &Range) {
         use crate::stdlib_metadata::compiler::get_compiler_module;
-        use super::utils::format_type;
 
         let compiler_module = get_compiler_module();
-        
-        let intrinsics = vec![
-            ("raw_allocate", "Allocates raw memory using malloc", "Memory allocation"),
-            ("raw_deallocate", "Deallocates memory previously allocated with raw_allocate", "Memory deallocation"),
-            ("raw_reallocate", "Reallocates memory to a new size", "Memory reallocation"),
-            ("raw_ptr_offset", "Offset a pointer by byte count (deprecated - use gep)", "Pointer arithmetic"),
-            ("raw_ptr_cast", "Reinterprets a pointer type (no runtime cost)", "Type coercion"),
-            ("gep", "GetElementPointer - byte-level pointer arithmetic", "Pointer arithmetic"),
-            ("gep_struct", "Struct field access using GetElementPointer", "Field access"),
-            ("null_ptr", "Returns a null pointer", "Null pointer constant"),
-            ("nullptr", "Alias for null_ptr - returns a null pointer", "Null pointer constant"),
-            ("sizeof", "Returns the size of a type in bytes", "Type introspection"),
-            ("alignof", "Returns the alignment of a type in bytes", "Type introspection"),
-            ("discriminant", "Reads the discriminant (variant tag) from an enum", "Enum introspection"),
-            ("set_discriminant", "Sets the discriminant (variant tag) of an enum", "Enum manipulation"),
-            ("get_payload", "Returns a pointer to the payload data within an enum", "Enum access"),
-            ("set_payload", "Copies payload data into an enum's payload field", "Enum manipulation"),
-            ("load", "Load a value from a pointer", "Memory access"),
-            ("store", "Store a value to a pointer", "Memory access"),
-            ("memcpy", "Copy bytes from source to destination (non-overlapping)", "Memory operations"),
-            ("memmove", "Copy bytes from source to destination (overlapping safe)", "Memory operations"),
-            ("memset", "Set all bytes in memory to a value", "Memory operations"),
-            ("memcmp", "Compare bytes in memory", "Memory operations"),
-            ("ptr_to_int", "Convert a pointer to an integer address", "Type conversion"),
-            ("int_to_ptr", "Convert an integer address to a pointer", "Type conversion"),
-            ("trunc_f64_i64", "Truncate f64 to i64", "Type conversion"),
-            ("trunc_f32_i32", "Truncate f32 to i32", "Type conversion"),
-            ("sitofp_i64_f64", "Convert signed i64 to f64", "Type conversion"),
-            ("uitofp_u64_f64", "Convert unsigned u64 to f64", "Type conversion"),
-            ("bswap16", "Byte-swap a 16-bit value (endian conversion)", "Bitwise"),
-            ("bswap32", "Byte-swap a 32-bit value (endian conversion)", "Bitwise"),
-            ("bswap64", "Byte-swap a 64-bit value (endian conversion)", "Bitwise"),
+
+        // (name, description, category)
+        let intrinsics: &[(&str, &str, &str)] = &[
+            ("raw_allocate", "Allocates raw memory using malloc", "Memory"),
+            ("raw_deallocate", "Deallocates memory", "Memory"),
+            ("raw_reallocate", "Reallocates memory to a new size", "Memory"),
+            ("raw_ptr_offset", "Offset a pointer by byte count", "Pointer"),
+            ("raw_ptr_cast", "Reinterprets a pointer type", "Pointer"),
+            ("gep", "GetElementPointer - byte-level pointer arithmetic", "Pointer"),
+            ("gep_struct", "Struct field access using GEP", "Pointer"),
+            ("null_ptr", "Returns a null pointer", "Pointer"),
+            ("nullptr", "Alias for null_ptr", "Pointer"),
+            ("sizeof", "Returns the size of a type in bytes", "Type"),
+            ("alignof", "Returns the alignment of a type", "Type"),
+            ("discriminant", "Reads the discriminant from an enum", "Enum"),
+            ("set_discriminant", "Sets the discriminant of an enum", "Enum"),
+            ("get_payload", "Returns pointer to enum payload", "Enum"),
+            ("set_payload", "Copies payload into enum", "Enum"),
+            ("load", "Load a value from a pointer", "Memory"),
+            ("store", "Store a value to a pointer", "Memory"),
+            ("memcpy", "Copy bytes (non-overlapping)", "Memory"),
+            ("memmove", "Copy bytes (overlapping safe)", "Memory"),
+            ("memset", "Set all bytes to a value", "Memory"),
+            ("memcmp", "Compare bytes in memory", "Memory"),
+            ("ptr_to_int", "Convert pointer to integer", "Convert"),
+            ("int_to_ptr", "Convert integer to pointer", "Convert"),
+            ("trunc_f64_i64", "Truncate f64 to i64", "Convert"),
+            ("trunc_f32_i32", "Truncate f32 to i32", "Convert"),
+            ("sitofp_i64_f64", "Convert signed i64 to f64", "Convert"),
+            ("uitofp_u64_f64", "Convert unsigned u64 to f64", "Convert"),
+            ("bswap16", "Byte-swap 16-bit value", "Bitwise"),
+            ("bswap32", "Byte-swap 32-bit value", "Bitwise"),
+            ("bswap64", "Byte-swap 64-bit value", "Bitwise"),
             ("ctlz", "Count leading zeros", "Bitwise"),
             ("cttz", "Count trailing zeros", "Bitwise"),
-            ("ctpop", "Population count (count set bits)", "Bitwise"),
+            ("ctpop", "Population count", "Bitwise"),
             ("atomic_load", "Atomically load a value", "Atomic"),
             ("atomic_store", "Atomically store a value", "Atomic"),
-            ("atomic_add", "Atomically add and return old value", "Atomic"),
-            ("atomic_sub", "Atomically subtract and return old value", "Atomic"),
-            ("atomic_cas", "Compare-and-swap, returns success", "Atomic"),
-            ("atomic_xchg", "Atomically exchange and return old value", "Atomic"),
-            ("fence", "Memory fence for synchronization", "Atomic"),
-            ("add_overflow", "Add with overflow detection", "Overflow arithmetic"),
-            ("sub_overflow", "Subtract with overflow detection", "Overflow arithmetic"),
-            ("mul_overflow", "Multiply with overflow detection", "Overflow arithmetic"),
-            ("unreachable", "Mark code as unreachable (UB if reached)", "Debug"),
+            ("atomic_add", "Atomic add", "Atomic"),
+            ("atomic_sub", "Atomic subtract", "Atomic"),
+            ("atomic_cas", "Compare-and-swap", "Atomic"),
+            ("atomic_xchg", "Atomic exchange", "Atomic"),
+            ("fence", "Memory fence", "Atomic"),
+            ("add_overflow", "Add with overflow detection", "Overflow"),
+            ("sub_overflow", "Subtract with overflow detection", "Overflow"),
+            ("mul_overflow", "Multiply with overflow detection", "Overflow"),
+            ("unreachable", "Mark code as unreachable", "Debug"),
             ("trap", "Trigger a trap/abort", "Debug"),
-            ("debugtrap", "Trigger a debug trap (breakpoint)", "Debug"),
-            ("inline_c", "Inline C code compilation (placeholder)", "FFI"),
-            ("load_library", "Load a dynamic library (placeholder)", "FFI"),
-            ("get_symbol", "Get a symbol from a loaded library (placeholder)", "FFI"),
-            ("unload_library", "Unload a dynamic library (placeholder)", "FFI"),
-            ("call_external", "Call an external function via pointer (placeholder)", "FFI"),
+            ("debugtrap", "Trigger a debug trap", "Debug"),
+            ("inline_c", "Inline C code compilation", "FFI"),
+            ("load_library", "Load a dynamic library", "FFI"),
+            ("get_symbol", "Get symbol from library", "FFI"),
+            ("unload_library", "Unload a dynamic library", "FFI"),
+            ("call_external", "Call external function", "FFI"),
         ];
 
-        for (name, doc, category) in intrinsics {
+        for &(name, doc, category) in intrinsics {
             if let Some(func) = compiler_module.get_function(name) {
-                let params_str = func.params
-                    .iter()
+                let params_str = func.params.iter()
                     .map(|(pname, ptype)| format!("{}: {}", pname, format_type(ptype)))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                
-                let detail = format!(
-                    "@std.compiler.{}({}) -> {}",
-                    name,
-                    params_str,
-                    format_type(&func.return_type)
-                );
+                    .collect::<Vec<_>>().join(", ");
+                let detail = format!("@std.compiler.{}({}) -> {}", name, params_str, format_type(&func.return_type));
+                let full_doc = format!("{}\n\n**Category:** {}\n\n**Signature:**\n```zen\n{}\n```", doc, category, detail);
 
-                let full_doc = format!(
-                    "{}\n\n**Category:** {}\n\n**Module:** `@std.compiler`\n\n**Signature:**\n```zen\n{}\n```",
-                    doc, category, detail
-                );
-
-                self.stdlib_symbols.insert(
-                    format!("compiler.{}", name),
-                    SymbolInfo {
-                        name: name.to_string(),
-                        kind: SymbolKind::FUNCTION,
-                        range: *dummy_range,
-                        selection_range: *dummy_range,
-                        detail: Some(detail.clone()),
-                        documentation: Some(full_doc.clone()),
-                        type_info: Some(func.return_type.clone()),
-                        definition_uri: None,
-                        references: Vec::new(),
-                        enum_variants: None,
-                    },
-                );
-
-                self.stdlib_symbols.insert(
-                    format!("@std.compiler.{}", name),
-                    SymbolInfo {
-                        name: name.to_string(),
-                        kind: SymbolKind::FUNCTION,
-                        range: *dummy_range,
-                        selection_range: *dummy_range,
-                        detail: Some(detail),
-                        documentation: Some(full_doc),
-                        type_info: Some(func.return_type),
-                        definition_uri: None,
-                        references: Vec::new(),
-                        enum_variants: None,
-                    },
-                );
+                // Register both "compiler.name" and "@std.compiler.name" variants
+                for prefix in ["compiler.", "@std.compiler."] {
+                    self.stdlib_symbols.insert(
+                        format!("{}{}", prefix, name),
+                        make_symbol(name.to_string(), SymbolKind::FUNCTION, *range,
+                            Some(detail.clone()), Some(full_doc.clone()), Some(func.return_type.clone())),
+                    );
+                }
             }
         }
     }
@@ -509,284 +484,71 @@ impl DocumentStore {
     }
 
     fn extract_symbols(&self, content: &str) -> HashMap<String, SymbolInfo> {
-        let mut symbols = HashMap::new();
-
         // Try to parse AST first
         if let Some(ast) = self.parse(content) {
-            // First pass: Extract symbol definitions
-            for (decl_index, decl) in ast.iter().enumerate() {
-                let (line, char_pos) = self.find_declaration_position(content, &decl, decl_index);
-                let symbol_name = match decl {
-                    Declaration::Function(f) => &f.name,
-                    Declaration::Struct(s) => &s.name,
-                    Declaration::Enum(e) => &e.name,
-                    Declaration::Constant { name, .. } => name,
-                    _ => continue,
-                };
-                let name_end = char_pos + symbol_name.len();
-                let range = Range {
-                    start: Position {
-                        line: line as u32,
-                        character: char_pos as u32,
-                    },
-                    end: Position {
-                        line: line as u32,
-                        character: name_end as u32,
-                    },
-                };
+            return self.extract_symbols_from_ast(&ast, content);
+        }
 
-                match decl {
-                    Declaration::Function(func) => {
-                        let detail = format!(
-                            "{} = ({}) {}",
-                            func.name,
-                            func.args
-                                .iter()
-                                .map(|(name, ty)| format!("{}: {}", name, format_type(ty)))
-                                .collect::<Vec<_>>()
-                                .join(", "),
-                            format_type(&func.return_type)
-                        );
+        // Fallback: If parsing fails, try text-based extraction for basic symbols
+        // This helps when there are syntax errors but we still want goto-definition to work
+        log::debug!("[LSP] Parse failed, using text-based symbol extraction fallback");
+        self.extract_symbols_text_fallback(content)
+    }
 
-                        symbols.insert(
-                            func.name.clone(),
-                            SymbolInfo {
-                                name: func.name.clone(),
-                                kind: SymbolKind::FUNCTION,
-                                range,
-                                selection_range: range,
-                                detail: Some(detail),
-                                documentation: None,
-                                type_info: Some(func.return_type.clone()),
-                                definition_uri: None,
-                                references: Vec::new(),
-                                enum_variants: None,
-                            },
-                        );
-                    }
-                    Declaration::Struct(struct_def) => {
-                        let detail = format!(
-                            "{} struct with {} fields",
-                            struct_def.name,
-                            struct_def.fields.len()
-                        );
+    /// Text-based symbol extraction fallback when AST parsing fails
+    fn extract_symbols_text_fallback(&self, content: &str) -> HashMap<String, SymbolInfo> {
+        let mut symbols = HashMap::new();
 
-                        symbols.insert(
-                            struct_def.name.clone(),
-                            SymbolInfo {
-                                name: struct_def.name.clone(),
-                                kind: SymbolKind::STRUCT,
-                                range,
-                                selection_range: range,
-                                detail: Some(detail),
-                                documentation: None,
-                                type_info: None,
-                                definition_uri: None,
-                                references: Vec::new(),
-                                enum_variants: None,
-                            },
-                        );
-                    }
-                    Declaration::Enum(enum_def) => {
-                        let detail = format!(
-                            "{} enum with {} variants",
-                            enum_def.name,
-                            enum_def.variants.len()
-                        );
-
-                        let variant_names: Vec<String> =
-                            enum_def.variants.iter().map(|v| v.name.clone()).collect();
-
-                        symbols.insert(
-                            enum_def.name.clone(),
-                            SymbolInfo {
-                                name: enum_def.name.clone(),
-                                kind: SymbolKind::ENUM,
-                                range,
-                                selection_range: range,
-                                detail: Some(detail),
-                                documentation: None,
-                                type_info: None,
-                                definition_uri: None,
-                                references: Vec::new(),
-                                enum_variants: Some(variant_names),
-                            },
-                        );
-
-                        // Add enum variants as symbols
-                        for variant in &enum_def.variants {
-                            let variant_name = format!("{}::{}", enum_def.name, variant.name);
-                            symbols.insert(
-                                variant_name.clone(),
-                                SymbolInfo {
-                                    name: variant.name.clone(),
-                                    kind: SymbolKind::ENUM_MEMBER,
-                                    range,
-                                    selection_range: range,
-                                    detail: Some(format!("{}::{}", enum_def.name, variant.name)),
-                                    documentation: None,
-                                    type_info: None,
-                                    definition_uri: None,
-                                    references: Vec::new(),
-                                    enum_variants: None,
-                                },
-                            );
-                        }
-                    }
-                    Declaration::Constant { name, type_, .. } => {
-                        symbols.insert(
-                            name.clone(),
-                            SymbolInfo {
-                                name: name.clone(),
-                                kind: SymbolKind::CONSTANT,
-                                range,
-                                selection_range: range,
-                                detail: type_.as_ref().map(format_type),
-                                documentation: None,
-                                type_info: type_.clone(),
-                                definition_uri: None,
-                                references: Vec::new(),
-                                enum_variants: None,
-                            },
-                        );
-                    }
-                    _ => {}
-                }
+        for (line_num, line) in content.lines().enumerate() {
+            let trimmed = line.trim();
+            // Skip comments
+            if trimmed.starts_with("//") {
+                continue;
             }
 
-            // Second pass: Find references, extract variables, and handle impl blocks
-            for decl in ast {
-                match decl {
-                    Declaration::Function(func) => {
-                        self.find_references_in_statements(&func.body, &mut symbols);
-                        self.extract_variables_from_statements(&func.body, content, &mut symbols);
-                    }
-                    Declaration::TraitImplementation(impl_block) => {
-                        let impl_range = self.find_impl_block_range(content, &impl_block.type_name);
-                        for method in &impl_block.methods {
-                            let method_name =
-                                format!("{}.{}", impl_block.type_name, method.name);
-                            let detail = format!(
-                                "{}.{} = ({}) {}",
-                                impl_block.type_name,
-                                method.name,
-                                method
-                                    .args
-                                    .iter()
-                                    .map(|(name, ty)| format!("{}: {}", name, format_type(ty)))
-                                    .collect::<Vec<_>>()
-                                    .join(", "),
-                                format_type(&method.return_type)
-                            );
-
-                            symbols.insert(
-                                method_name.clone(),
-                                SymbolInfo {
-                                    name: method.name.clone(),
-                                    kind: SymbolKind::METHOD,
-                                    range: impl_range,
-                                    selection_range: impl_range,
-                                    detail: Some(detail),
-                                    documentation: Some(format!(
-                                        "Method from {}.implements({})",
-                                        impl_block.type_name, impl_block.trait_name
-                                    )),
-                                    type_info: Some(method.return_type.clone()),
-                                    definition_uri: None,
-                                    references: Vec::new(),
-                                    enum_variants: None,
-                                },
-                            );
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        } else {
-            // Fallback: If parsing fails, try text-based extraction for basic symbols
-            // This helps when there are syntax errors but we still want goto-definition to work
-            log::debug!("[LSP] Parse failed, using text-based symbol extraction fallback");
-            for (line_num, line) in content.lines().enumerate() {
-                let trimmed = line.trim();
-                // Skip comments
-                if trimmed.starts_with("//") {
-                    continue;
-                }
-
-                // Look for struct definitions: Name: {
-                if let Some(colon_pos) = trimmed.find(':') {
-                    let before_colon = trimmed[..colon_pos].trim();
-                    if !before_colon.is_empty()
-                        && before_colon
-                            .chars()
-                            .all(|c| c.is_alphanumeric() || c == '_')
-                        && trimmed[colon_pos + 1..].trim().starts_with('{')
-                    {
-                        // Found struct definition
-                        let char_pos = line.find(before_colon).unwrap_or(0);
-                        let range = Range {
-                            start: Position {
-                                line: line_num as u32,
-                                character: char_pos as u32,
-                            },
-                            end: Position {
-                                line: line_num as u32,
-                                character: (char_pos + before_colon.len()) as u32,
-                            },
-                        };
-                        symbols.insert(
+            // Look for struct definitions: Name: {
+            if let Some(colon_pos) = trimmed.find(':') {
+                let before_colon = trimmed[..colon_pos].trim();
+                if !before_colon.is_empty()
+                    && before_colon.chars().all(|c| c.is_alphanumeric() || c == '_')
+                    && trimmed[colon_pos + 1..].trim().starts_with('{')
+                {
+                    let char_pos = line.find(before_colon).unwrap_or(0);
+                    let range = make_range(line_num, char_pos, before_colon.len());
+                    symbols.insert(
+                        before_colon.to_string(),
+                        make_symbol(
                             before_colon.to_string(),
-                            SymbolInfo {
-                                name: before_colon.to_string(),
-                                kind: SymbolKind::STRUCT,
-                                range,
-                                selection_range: range,
-                                detail: Some(format!("{} struct", before_colon)),
-                                documentation: None,
-                                type_info: None,
-                                definition_uri: None,
-                                references: Vec::new(),
-                                enum_variants: None,
-                            },
-                        );
-                    }
+                            SymbolKind::STRUCT,
+                            range,
+                            Some(format!("{} struct", before_colon)),
+                            None,
+                            None,
+                        ),
+                    );
                 }
+            }
 
-                // Look for function definitions: name = (
-                if let Some(eq_pos) = trimmed.find('=') {
-                    let before_eq = trimmed[..eq_pos].trim();
-                    if !before_eq.is_empty()
-                        && before_eq.chars().all(|c| c.is_alphanumeric() || c == '_')
-                        && trimmed[eq_pos + 1..].trim().starts_with('(')
-                    {
-                        // Found function definition
-                        let char_pos = line.find(before_eq).unwrap_or(0);
-                        let range = Range {
-                            start: Position {
-                                line: line_num as u32,
-                                character: char_pos as u32,
-                            },
-                            end: Position {
-                                line: line_num as u32,
-                                character: (char_pos + before_eq.len()) as u32,
-                            },
-                        };
-                        symbols.insert(
+            // Look for function definitions: name = (
+            if let Some(eq_pos) = trimmed.find('=') {
+                let before_eq = trimmed[..eq_pos].trim();
+                if !before_eq.is_empty()
+                    && before_eq.chars().all(|c| c.is_alphanumeric() || c == '_')
+                    && trimmed[eq_pos + 1..].trim().starts_with('(')
+                {
+                    let char_pos = line.find(before_eq).unwrap_or(0);
+                    let range = make_range(line_num, char_pos, before_eq.len());
+                    symbols.insert(
+                        before_eq.to_string(),
+                        make_symbol(
                             before_eq.to_string(),
-                            SymbolInfo {
-                                name: before_eq.to_string(),
-                                kind: SymbolKind::FUNCTION,
-                                range,
-                                selection_range: range,
-                                detail: Some(format!("{} = (...) ...", before_eq)),
-                                documentation: None,
-                                type_info: None,
-                                definition_uri: None,
-                                references: Vec::new(),
-                                enum_variants: None,
-                            },
-                        );
-                    }
+                            SymbolKind::FUNCTION,
+                            range,
+                            Some(format!("{} = (...) ...", before_eq)),
+                            None,
+                            None,
+                        ),
+                    );
                 }
             }
         }
@@ -801,6 +563,7 @@ impl DocumentStore {
     ) -> HashMap<String, SymbolInfo> {
         let mut symbols = HashMap::new();
 
+        // First pass: Extract symbol definitions
         for (decl_index, decl) in ast.iter().enumerate() {
             let (line, char_pos) = self.find_declaration_position(content, decl, decl_index);
             let symbol_name = match decl {
@@ -810,136 +573,54 @@ impl DocumentStore {
                 Declaration::Constant { name, .. } => name,
                 _ => continue,
             };
-            let name_end = char_pos + symbol_name.len();
-            let range = Range {
-                start: Position {
-                    line: line as u32,
-                    character: char_pos as u32,
-                },
-                end: Position {
-                    line: line as u32,
-                    character: name_end as u32,
-                },
-            };
+            let range = make_range(line, char_pos, symbol_name.len());
 
             match decl {
                 Declaration::Function(func) => {
-                    let detail = format!(
-                        "{} = ({}) {}",
-                        func.name,
-                        func.args
-                            .iter()
-                            .map(|(name, ty)| format!("{}: {}", name, format_type(ty)))
-                            .collect::<Vec<_>>()
-                            .join(", "),
-                        format_type(&func.return_type)
-                    );
-
+                    let args_str = func.args.iter()
+                        .map(|(name, ty)| format!("{}: {}", name, format_type(ty)))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    let detail = format!("{} = ({}) {}", func.name, args_str, format_type(&func.return_type));
                     symbols.insert(
                         func.name.clone(),
-                        SymbolInfo {
-                            name: func.name.clone(),
-                            kind: SymbolKind::FUNCTION,
-                            range,
-                            selection_range: range,
-                            detail: Some(detail),
-                            documentation: None,
-                            type_info: Some(func.return_type.clone()),
-                            definition_uri: None,
-                            references: Vec::new(),
-                            enum_variants: None,
-                        },
+                        make_symbol(func.name.clone(), SymbolKind::FUNCTION, range, Some(detail), None, Some(func.return_type.clone())),
                     );
                 }
                 Declaration::Struct(struct_def) => {
-                    let detail = format!(
-                        "{} struct with {} fields",
-                        struct_def.name,
-                        struct_def.fields.len()
-                    );
-
+                    let detail = format!("{} struct with {} fields", struct_def.name, struct_def.fields.len());
                     symbols.insert(
                         struct_def.name.clone(),
-                        SymbolInfo {
-                            name: struct_def.name.clone(),
-                            kind: SymbolKind::STRUCT,
-                            range,
-                            selection_range: range,
-                            detail: Some(detail),
-                            documentation: None,
-                            type_info: None,
-                            definition_uri: None,
-                            references: Vec::new(),
-                            enum_variants: None,
-                        },
+                        make_symbol(struct_def.name.clone(), SymbolKind::STRUCT, range, Some(detail), None, None),
                     );
                 }
                 Declaration::Enum(enum_def) => {
-                    let detail = format!(
-                        "{} enum with {} variants",
-                        enum_def.name,
-                        enum_def.variants.len()
-                    );
-
-                    let variant_names: Vec<String> =
-                        enum_def.variants.iter().map(|v| v.name.clone()).collect();
-
+                    let detail = format!("{} enum with {} variants", enum_def.name, enum_def.variants.len());
+                    let variant_names: Vec<String> = enum_def.variants.iter().map(|v| v.name.clone()).collect();
                     symbols.insert(
                         enum_def.name.clone(),
-                        SymbolInfo {
-                            name: enum_def.name.clone(),
-                            kind: SymbolKind::ENUM,
-                            range,
-                            selection_range: range,
-                            detail: Some(detail),
-                            documentation: None,
-                            type_info: None,
-                            definition_uri: None,
-                            references: Vec::new(),
-                            enum_variants: Some(variant_names),
-                        },
+                        make_enum_symbol(enum_def.name.clone(), range, detail, variant_names),
                     );
-
+                    // Add enum variants as symbols
                     for variant in &enum_def.variants {
-                        let variant_name = format!("{}::{}", enum_def.name, variant.name);
+                        let variant_key = format!("{}::{}", enum_def.name, variant.name);
                         symbols.insert(
-                            variant_name.clone(),
-                            SymbolInfo {
-                                name: variant.name.clone(),
-                                kind: SymbolKind::ENUM_MEMBER,
-                                range,
-                                selection_range: range,
-                                detail: Some(format!("{}::{}", enum_def.name, variant.name)),
-                                documentation: None,
-                                type_info: None,
-                                definition_uri: None,
-                                references: Vec::new(),
-                                enum_variants: None,
-                            },
+                            variant_key.clone(),
+                            make_symbol(variant.name.clone(), SymbolKind::ENUM_MEMBER, range, Some(variant_key.clone()), None, None),
                         );
                     }
                 }
                 Declaration::Constant { name, type_, .. } => {
                     symbols.insert(
                         name.clone(),
-                        SymbolInfo {
-                            name: name.clone(),
-                            kind: SymbolKind::CONSTANT,
-                            range,
-                            selection_range: range,
-                            detail: type_.as_ref().map(format_type),
-                            documentation: None,
-                            type_info: type_.clone(),
-                            definition_uri: None,
-                            references: Vec::new(),
-                            enum_variants: None,
-                        },
+                        make_symbol(name.clone(), SymbolKind::CONSTANT, range, type_.as_ref().map(format_type), None, type_.clone()),
                     );
                 }
                 _ => {}
             }
         }
 
+        // Second pass: Find references, extract variables, and handle impl blocks
         for decl in ast {
             match decl {
                 Declaration::Function(func) => {
@@ -950,36 +631,15 @@ impl DocumentStore {
                     let impl_range = self.find_impl_block_range(content, &impl_block.type_name);
                     for method in &impl_block.methods {
                         let method_name = format!("{}.{}", impl_block.type_name, method.name);
-                        let detail = format!(
-                            "{}.{} = ({}) {}",
-                            impl_block.type_name,
-                            method.name,
-                            method
-                                .args
-                                .iter()
-                                .map(|(name, ty)| format!("{}: {}", name, format_type(ty)))
-                                .collect::<Vec<_>>()
-                                .join(", "),
-                            format_type(&method.return_type)
-                        );
-
+                        let args_str = method.args.iter()
+                            .map(|(name, ty)| format!("{}: {}", name, format_type(ty)))
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        let detail = format!("{}.{} = ({}) {}", impl_block.type_name, method.name, args_str, format_type(&method.return_type));
+                        let doc = format!("Method from {}.implements({})", impl_block.type_name, impl_block.trait_name);
                         symbols.insert(
-                            method_name.clone(),
-                            SymbolInfo {
-                                name: method.name.clone(),
-                                kind: SymbolKind::METHOD,
-                                range: impl_range,
-                                selection_range: impl_range,
-                                detail: Some(detail),
-                                documentation: Some(format!(
-                                    "Method from {}.implements({})",
-                                    impl_block.type_name, impl_block.trait_name
-                                )),
-                                type_info: Some(method.return_type.clone()),
-                                definition_uri: None,
-                                references: Vec::new(),
-                                enum_variants: None,
-                            },
+                            method_name,
+                            make_symbol(method.name.clone(), SymbolKind::METHOD, impl_range, Some(detail), Some(doc), Some(method.return_type.clone())),
                         );
                     }
                 }
@@ -1236,71 +896,12 @@ impl DocumentStore {
                 } => {
                     // Find the position of this variable in the content
                     if let Some((line, char_pos)) = self.find_variable_position(content, name) {
-                        let name_end = char_pos + name.len();
-                        let range = Range {
-                            start: Position {
-                                line: line as u32,
-                                character: char_pos as u32,
-                            },
-                            end: Position {
-                                line: line as u32,
-                                character: name_end as u32,
-                            },
-                        };
-
-                        // Determine type information
-                        let type_info = if let Some(ref _t) = type_ {
-                            type_.clone()
-                        } else if let Some(ref init) = initializer {
-                            // Try to infer type from initializer using compiler integration
-                            let mut inferred_type: Option<AstType> = None;
-                            for doc in self.documents.values().take(5) {
-                                if let Some(ast) = &doc.ast {
-                                    let program = Program {
-                                        declarations: ast.clone(),
-                                        statements: vec![],
-                                    };
-                                    let mut compiler_integration = CompilerIntegration::new();
-                                    if let Ok(ast_type) =
-                                        compiler_integration.infer_expression_type(&program, init)
-                                    {
-                                        inferred_type = Some(ast_type);
-                                        break;
-                                    }
-                                }
-                            }
-                            inferred_type
-                        } else {
-                            None
-                        };
-
-                        let detail = if let Some(ref t) = &type_info {
-                            Some(format!("{}: {}", name, format_type(t)))
-                        } else if let Some(ref init) = initializer {
-                            // Try to infer type from initializer for display
-                            if let Some(inferred) = self.infer_type_from_expression(init) {
-                                Some(format!("{}: {}", name, inferred))
-                            } else {
-                                Some(name.clone())
-                            }
-                        } else {
-                            Some(name.clone())
-                        };
-
+                        let range = make_range(line, char_pos, name.len());
+                        let type_info = self.infer_variable_type(type_, initializer);
+                        let detail = self.format_variable_detail(name, &type_info, initializer);
                         symbols.insert(
                             name.clone(),
-                            SymbolInfo {
-                                name: name.clone(),
-                                kind: SymbolKind::VARIABLE,
-                                range,
-                                selection_range: range,
-                                detail,
-                                documentation: None,
-                                type_info,
-                                definition_uri: None,
-                                references: Vec::new(),
-                                enum_variants: None,
-                            },
+                            make_symbol(name.clone(), SymbolKind::VARIABLE, range, detail, None, type_info),
                         );
                     }
                 }
@@ -1335,5 +936,37 @@ impl DocumentStore {
             }
         }
         None
+    }
+
+    /// Infer type from explicit type annotation or initializer
+    fn infer_variable_type(&self, type_: &Option<AstType>, initializer: &Option<Expression>) -> Option<AstType> {
+        if type_.is_some() {
+            return type_.clone();
+        }
+        if let Some(init) = initializer {
+            for doc in self.documents.values().take(5) {
+                if let Some(ast) = &doc.ast {
+                    let program = Program { declarations: ast.clone(), statements: vec![] };
+                    let mut compiler_integration = CompilerIntegration::new();
+                    if let Ok(ast_type) = compiler_integration.infer_expression_type(&program, init) {
+                        return Some(ast_type);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Format variable detail string for display
+    fn format_variable_detail(&self, name: &str, type_info: &Option<AstType>, initializer: &Option<Expression>) -> Option<String> {
+        if let Some(t) = type_info {
+            return Some(format!("{}: {}", name, format_type(t)));
+        }
+        if let Some(init) = initializer {
+            if let Some(inferred) = self.infer_type_from_expression(init) {
+                return Some(format!("{}: {}", name, inferred));
+            }
+        }
+        Some(name.to_string())
     }
 }

@@ -13,7 +13,7 @@ use inkwell::context::Context;
 
 // AST types used in type_inference.rs
 use crate::compiler::Compiler;
-use crate::error::CompileError;
+use crate::error::{CompileError, Span};
 
 use super::call_hierarchy::{
     handle_incoming_calls, handle_outgoing_calls, handle_prepare_call_hierarchy,
@@ -33,54 +33,41 @@ use super::semantic_tokens::handle_semantic_tokens;
 use super::signature_help::handle_signature_help;
 use super::symbols::{handle_document_symbols, handle_workspace_symbol};
 use super::types::{AnalysisJob, AnalysisResult};
+use super::utils::tokenize_with_lines;
+use crate::lexer::Token;
+
+/// Convert LSP position (line, character) to byte offset in content
+fn position_to_byte_offset(content: &str, target_line: usize, target_char: usize) -> usize {
+    let mut current_line = 0;
+    let mut current_char = 0;
+
+    for (byte_idx, ch) in content.char_indices() {
+        if current_line == target_line && current_char == target_char {
+            return byte_idx;
+        }
+        if ch == '\n' {
+            current_line += 1;
+            current_char = 0;
+        } else {
+            current_char += 1;
+        }
+    }
+
+    // Handle position at end of file or beyond
+    if current_line == target_line && current_char == target_char {
+        content.len()
+    } else {
+        content.len() // Clamp to content length
+    }
+}
 
 /// Apply a text edit to document content, handling LSP Range positions
-/// Converts LSP line/character positions to byte offsets and applies the edit
-///
-/// LSP positions are 0-indexed and represent positions BETWEEN characters:
-/// - Position (line: 0, character: 0) = before first character of line 0
-/// - Position (line: 0, character: 5) = after 5th character, before 6th character
 fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
-    // Convert LSP positions to byte offsets by scanning the content directly
-    let start_line = range.start.line as usize;
-    let start_char = range.start.character as usize;
-    let end_line = range.end.line as usize;
-    let end_char = range.end.character as usize;
+    let (start_line, start_char) = (range.start.line as usize, range.start.character as usize);
+    let (end_line, end_char) = (range.end.line as usize, range.end.character as usize);
 
-    log::debug!("[LSP] apply_text_edit called: range=({}:{} -> {}:{}), new_text='{}' (len={}), content_len={}",
-              start_line, start_char, end_line, end_char,
-              new_text.chars().take(30).collect::<String>(),
-              new_text.len(), content.len());
-
-    // Helper function to convert LSP position to byte offset
-    fn position_to_byte_offset(content: &str, target_line: usize, target_char: usize) -> usize {
-        let mut current_line = 0;
-        let mut current_char = 0;
-
-        for (byte_idx, ch) in content.char_indices() {
-            // Check if we've reached the target position
-            if current_line == target_line && current_char == target_char {
-                return byte_idx;
-            }
-
-            // Move to next position AFTER the check
-            if ch == '\n' {
-                current_line += 1;
-                current_char = 0;
-            } else {
-                current_char += 1;
-            }
-        }
-
-        // If target position is at end of file, return content length
-        // This handles the case where position is after the last character
-        if current_line == target_line && current_char == target_char {
-            return content.len();
-        }
-
-        // Beyond end of file - clamp to content length
-        content.len()
-    }
+    log::debug!("[LSP] apply_text_edit: range=({}:{} -> {}:{}), new_text len={}, content len={}",
+              start_line, start_char, end_line, end_char, new_text.len(), content.len());
 
     let start_byte = position_to_byte_offset(content, start_line, start_char);
     let end_byte = position_to_byte_offset(content, end_line, end_char);
@@ -129,141 +116,61 @@ fn apply_text_edit(content: &str, range: &Range, new_text: &str) -> String {
 // TYPES (moved to types.rs and document_store.rs)
 // ============================================================================
 
+/// Helper to extract span, severity, and error code from a CompileError
+fn extract_error_info(error: &CompileError) -> (Option<Span>, DiagnosticSeverity, &'static str) {
+    use CompileError::*;
+    match error {
+        // Errors with spans
+        ParseError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, "parse-error"),
+        SyntaxError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, "syntax-error"),
+        TypeError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, "type-error"),
+        TypeMismatch { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, "type-mismatch"),
+        UndeclaredVariable(_, span) => (span.clone(), DiagnosticSeverity::ERROR, "undeclared-variable"),
+        UndeclaredFunction(_, span) => (span.clone(), DiagnosticSeverity::ERROR, "undeclared-function"),
+        UnexpectedToken { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, "unexpected-token"),
+        InvalidPattern(_, span) => (span.clone(), DiagnosticSeverity::ERROR, "invalid-pattern"),
+        InvalidSyntax { span, .. } => (span.clone(), DiagnosticSeverity::ERROR, "invalid-syntax"),
+        DuplicateDeclaration { duplicate_location, .. } => (duplicate_location.clone(), DiagnosticSeverity::ERROR, "duplicate-declaration"),
+        ImportError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, "import-error"),
+        FFIError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, "ffi-error"),
+        InvalidLoopCondition(_, span) => (span.clone(), DiagnosticSeverity::ERROR, "invalid-loop"),
+        InternalError(_, span) => (span.clone(), DiagnosticSeverity::ERROR, "internal-error"),
+        // Warnings
+        MissingTypeAnnotation(_, span) => (span.clone(), DiagnosticSeverity::WARNING, "missing-type"),
+        MissingReturnStatement(_, span) => (span.clone(), DiagnosticSeverity::WARNING, "missing-return"),
+        UnsupportedFeature(_, span) => (span.clone(), DiagnosticSeverity::WARNING, "unsupported-feature"),
+        // Errors without spans
+        FileNotFound(_, _) => (None, DiagnosticSeverity::ERROR, "file-not-found"),
+        ComptimeError(_) => (None, DiagnosticSeverity::ERROR, "comptime-error"),
+        BuildError(_) => (None, DiagnosticSeverity::ERROR, "build-error"),
+        FileError(_) => (None, DiagnosticSeverity::ERROR, "file-error"),
+        CyclicDependency(_) => (None, DiagnosticSeverity::ERROR, "cyclic-dependency"),
+    }
+}
+
+/// Convert span to LSP Range (Position pair)
+fn span_to_lsp_range(span: Option<Span>) -> Range {
+    if let Some(span) = span {
+        let line = if span.line > 0 { span.line as u32 - 1 } else { 0 };
+        Range {
+            start: Position { line, character: span.column as u32 },
+            end: Position { line, character: (span.column + (span.end - span.start).max(1)) as u32 },
+        }
+    } else {
+        Range {
+            start: Position { line: 0, character: 0 },
+            end: Position { line: 0, character: 1 },
+        }
+    }
+}
+
 // Convert CompileError to LSP Diagnostic (standalone function for reuse)
 fn compile_error_to_diagnostic(error: CompileError) -> Diagnostic {
-    // Extract span and determine severity
-    let (span, severity, code) = match &error {
-        CompileError::ParseError(_, span) => {
-            (span.clone(), DiagnosticSeverity::ERROR, Some("parse-error"))
-        }
-        CompileError::SyntaxError(_, span) => (
-            span.clone(),
-            DiagnosticSeverity::ERROR,
-            Some("syntax-error"),
-        ),
-        CompileError::TypeError(_, span) => {
-            (span.clone(), DiagnosticSeverity::ERROR, Some("type-error"))
-        }
-        CompileError::TypeMismatch { span, .. } => (
-            span.clone(),
-            DiagnosticSeverity::ERROR,
-            Some("type-mismatch"),
-        ),
-        CompileError::UndeclaredVariable(_, span) => (
-            span.clone(),
-            DiagnosticSeverity::ERROR,
-            Some("undeclared-variable"),
-        ),
-        CompileError::UndeclaredFunction(_, span) => (
-            span.clone(),
-            DiagnosticSeverity::ERROR,
-            Some("undeclared-function"),
-        ),
-        CompileError::UnexpectedToken { span, .. } => (
-            span.clone(),
-            DiagnosticSeverity::ERROR,
-            Some("unexpected-token"),
-        ),
-        CompileError::InvalidPattern(_, span) => (
-            span.clone(),
-            DiagnosticSeverity::ERROR,
-            Some("invalid-pattern"),
-        ),
-        CompileError::InvalidSyntax { span, .. } => (
-            span.clone(),
-            DiagnosticSeverity::ERROR,
-            Some("invalid-syntax"),
-        ),
-        CompileError::MissingTypeAnnotation(_, span) => (
-            span.clone(),
-            DiagnosticSeverity::WARNING,
-            Some("missing-type"),
-        ),
-        CompileError::DuplicateDeclaration {
-            duplicate_location, ..
-        } => (
-            duplicate_location.clone(),
-            DiagnosticSeverity::ERROR,
-            Some("duplicate-declaration"),
-        ),
-        CompileError::ImportError(_, span) => (
-            span.clone(),
-            DiagnosticSeverity::ERROR,
-            Some("import-error"),
-        ),
-        CompileError::FFIError(_, span) => {
-            (span.clone(), DiagnosticSeverity::ERROR, Some("ffi-error"))
-        }
-        CompileError::InvalidLoopCondition(_, span) => (
-            span.clone(),
-            DiagnosticSeverity::ERROR,
-            Some("invalid-loop"),
-        ),
-        CompileError::MissingReturnStatement(_, span) => (
-            span.clone(),
-            DiagnosticSeverity::WARNING,
-            Some("missing-return"),
-        ),
-        CompileError::InternalError(_, span) => (
-            span.clone(),
-            DiagnosticSeverity::ERROR,
-            Some("internal-error"),
-        ),
-        CompileError::UnsupportedFeature(_, span) => (
-            span.clone(),
-            DiagnosticSeverity::WARNING,
-            Some("unsupported-feature"),
-        ),
-        CompileError::FileNotFound(_, _) => {
-            (None, DiagnosticSeverity::ERROR, Some("file-not-found"))
-        }
-        CompileError::ComptimeError(_) => (None, DiagnosticSeverity::ERROR, Some("comptime-error")),
-        CompileError::BuildError(_) => (None, DiagnosticSeverity::ERROR, Some("build-error")),
-        CompileError::FileError(_) => (None, DiagnosticSeverity::ERROR, Some("file-error")),
-        CompileError::CyclicDependency(_) => {
-            (None, DiagnosticSeverity::ERROR, Some("cyclic-dependency"))
-        }
-    };
-
-    // Convert span to LSP range
-    let (start_pos, end_pos) = if let Some(span) = span {
-        let start = Position {
-            line: if span.line > 0 {
-                span.line as u32 - 1
-            } else {
-                0
-            },
-            character: span.column as u32,
-        };
-        let end = Position {
-            line: if span.line > 0 {
-                span.line as u32 - 1
-            } else {
-                0
-            },
-            character: (span.column + (span.end - span.start).max(1)) as u32,
-        };
-        (start, end)
-    } else {
-        (
-            Position {
-                line: 0,
-                character: 0,
-            },
-            Position {
-                line: 0,
-                character: 1,
-            },
-        )
-    };
-
+    let (span, severity, code) = extract_error_info(&error);
     Diagnostic {
-        range: Range {
-            start: start_pos,
-            end: end_pos,
-        },
+        range: span_to_lsp_range(span),
         severity: Some(severity),
-        code: code.map(|c| lsp_types::NumberOrString::String(c.to_string())),
+        code: Some(lsp_types::NumberOrString::String(code.to_string())),
         code_description: None,
         source: Some("zen-compiler".to_string()),
         message: format!("{}", error),
@@ -764,31 +671,22 @@ impl ZenLanguageServer {
         let mut ranges = Vec::new();
 
         if let Some(doc) = store.documents.get(&params.text_document.uri) {
-            let lines: Vec<&str> = doc.content.lines().collect();
+            // Use lexer-based tokenization to correctly handle braces in strings/comments
+            let tokens = tokenize_with_lines(&doc.content);
             let mut brace_stack: Vec<(u32, FoldingRangeKind)> = Vec::new();
 
-            for (line_num, line) in lines.iter().enumerate() {
-                let trimmed = line.trim();
-                
-                if trimmed.starts_with("//") {
-                    continue;
-                }
-
-                for ch in line.chars() {
-                    if ch == '{' {
-                        let kind = if trimmed.contains("= (") || trimmed.ends_with(") {") {
-                            FoldingRangeKind::Region
-                        } else {
-                            FoldingRangeKind::Region
-                        };
-                        brace_stack.push((line_num as u32, kind));
-                    } else if ch == '}' {
+            for token_info in tokens {
+                match &token_info.token {
+                    Token::Symbol('{') => {
+                        brace_stack.push((token_info.line, FoldingRangeKind::Region));
+                    }
+                    Token::Symbol('}') => {
                         if let Some((start_line, kind)) = brace_stack.pop() {
-                            if line_num as u32 > start_line {
+                            if token_info.line > start_line {
                                 ranges.push(FoldingRange {
                                     start_line,
                                     start_character: None,
-                                    end_line: line_num as u32,
+                                    end_line: token_info.line,
                                     end_character: None,
                                     kind: Some(kind),
                                     collapsed_text: None,
@@ -796,6 +694,7 @@ impl ZenLanguageServer {
                             }
                         }
                     }
+                    _ => {}
                 }
             }
         }

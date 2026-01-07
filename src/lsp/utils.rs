@@ -2,8 +2,118 @@
 
 use crate::ast::AstType;
 use crate::error::{CompileError, Span};
+use crate::lexer::{Lexer, Token};
 use crate::stdlib_types::StdlibTypeRegistry;
 use lsp_types::*;
+
+/// Information about braces and pattern matching on a single line
+#[derive(Debug, Default)]
+pub struct LineTokenInfo {
+    pub open_braces: usize,
+    pub close_braces: usize,
+    pub open_brackets: usize,
+    pub close_brackets: usize,
+    pub ends_with_question: bool,
+    pub starts_with_pipe: bool,
+    pub first_token_is_close_brace: bool,
+    pub first_token_is_close_bracket: bool,
+}
+
+/// Analyze a single line using the lexer to get accurate token information.
+/// This properly handles strings, comments, and other contexts where
+/// braces/brackets/operators might appear but shouldn't be counted.
+pub fn analyze_line_tokens(line: &str) -> LineTokenInfo {
+    let mut info = LineTokenInfo::default();
+    let mut lexer = Lexer::new(line);
+    let mut is_first_token = true;
+    let mut last_token: Option<Token> = None;
+
+    loop {
+        let token_with_span = lexer.next_token_with_span();
+        let token = token_with_span.token.clone();
+
+        if token == Token::Eof {
+            break;
+        }
+
+        // Track first non-whitespace token
+        if is_first_token {
+            match &token {
+                Token::Symbol('}') => info.first_token_is_close_brace = true,
+                Token::Symbol(']') => info.first_token_is_close_bracket = true,
+                Token::Pipe => info.starts_with_pipe = true,
+                _ => {}
+            }
+            is_first_token = false;
+        }
+
+        // Count braces and brackets
+        match &token {
+            Token::Symbol('{') => info.open_braces += 1,
+            Token::Symbol('}') => info.close_braces += 1,
+            Token::Symbol('[') => info.open_brackets += 1,
+            Token::Symbol(']') => info.close_brackets += 1,
+            _ => {}
+        }
+
+        last_token = Some(token);
+    }
+
+    // Check if line ends with '?'
+    if let Some(Token::Question) = last_token {
+        info.ends_with_question = true;
+    }
+
+    info
+}
+
+/// Tokenize content and return tokens with their line numbers.
+/// Used for accurate folding range detection.
+pub struct TokenWithLine {
+    pub token: Token,
+    pub line: u32,
+    pub column: u32,
+}
+
+/// Tokenize entire content and return tokens with line information.
+/// This is useful for folding ranges where we need to track brace positions.
+pub fn tokenize_with_lines(content: &str) -> Vec<TokenWithLine> {
+    let mut tokens = Vec::new();
+    let mut lexer = Lexer::new(content);
+
+    loop {
+        let token_with_span = lexer.next_token_with_span();
+        if token_with_span.token == Token::Eof {
+            break;
+        }
+
+        tokens.push(TokenWithLine {
+            token: token_with_span.token,
+            line: token_with_span.span.line as u32 - 1, // Convert to 0-based
+            column: token_with_span.span.column as u32,
+        });
+    }
+
+    tokens
+}
+
+/// Check if a line contains a pattern match scrutinee (ends with `?` token).
+/// Returns the position of the `?` if found.
+pub fn find_pattern_match_question(line: &str) -> Option<usize> {
+    let info = analyze_line_tokens(line);
+    if info.ends_with_question {
+        // Find the position of the last '?' that's actually a token
+        // We need to search from the end
+        line.rfind('?')
+    } else {
+        None
+    }
+}
+
+/// Check if a line is a pattern match arm (starts with `|` token).
+pub fn is_pattern_arm_line(line: &str) -> bool {
+    analyze_line_tokens(line.trim()).starts_with_pipe
+}
 
 /// Convert a byte offset to LSP Position (line and character)
 /// Returns (line, character) where line is 0-based and character is UTF-16 code unit offset
@@ -567,9 +677,65 @@ mod tests {
     fn test_span_to_lsp_range_multiline_span() {
         let content = "line1\nline2\nline3";
         let span = Span { start: 0, end: 11, line: 1, column: 0 };
-        
+
         let range = span_to_lsp_range(&span, Some(content));
         assert_eq!((range.start.line, range.start.character), (0, 0));
         assert_eq!((range.end.line, range.end.character), (1, 5));
+    }
+
+    // Tests for lexer-based token analysis
+
+    #[test]
+    fn test_analyze_line_tokens_braces_in_string() {
+        let info = analyze_line_tokens(r#"msg = "{ braces }""#);
+        assert_eq!(info.open_braces, 0, "braces in string not counted");
+        assert_eq!(info.close_braces, 0);
+    }
+
+    #[test]
+    fn test_analyze_line_tokens_real_braces() {
+        let info = analyze_line_tokens("foo = () {");
+        assert_eq!(info.open_braces, 1);
+        assert_eq!(info.close_braces, 0);
+    }
+
+    #[test]
+    fn test_analyze_line_tokens_question_in_string() {
+        let info = analyze_line_tokens(r#"msg = "What?""#);
+        assert!(!info.ends_with_question);
+    }
+
+    #[test]
+    fn test_analyze_line_tokens_real_question() {
+        let info = analyze_line_tokens("result?");
+        assert!(info.ends_with_question);
+    }
+
+    #[test]
+    fn test_find_pattern_match_question() {
+        assert!(find_pattern_match_question("result?").is_some());
+        assert!(find_pattern_match_question(r#"msg = "What?""#).is_none());
+    }
+
+    #[test]
+    fn test_is_pattern_arm_line_util() {
+        assert!(is_pattern_arm_line("| Ok(x) { }"));
+        assert!(!is_pattern_arm_line(r#"regex = "a|b""#));
+    }
+
+    #[test]
+    fn test_tokenize_with_lines() {
+        let content = "foo = {\n  bar\n}";
+        let tokens = tokenize_with_lines(content);
+
+        // Find the opening brace
+        let open_brace = tokens.iter().find(|t| matches!(t.token, Token::Symbol('{')));
+        assert!(open_brace.is_some());
+        assert_eq!(open_brace.unwrap().line, 0);
+
+        // Find the closing brace
+        let close_brace = tokens.iter().find(|t| matches!(t.token, Token::Symbol('}')));
+        assert!(close_brace.is_some());
+        assert_eq!(close_brace.unwrap().line, 2);
     }
 }

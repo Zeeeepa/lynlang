@@ -1,90 +1,162 @@
 // Zen Standard Library: Testing
 // Testing utilities and test runners
 
-{ io } = @std
+{ io, memory } = @std
 
-// Test result type
-TestResult: {
-    name: String,
-    passed: bool,
-    message: String
+// ============================================================================
+// Test Result Enum
+// ============================================================================
+
+// Test result - either passed or failed with an optional message
+TestResult:
+    Pass,
+    Fail: String
+
+// Convenience constructors
+pass = () TestResult {
+    return TestResult.Pass
 }
 
-// Test function type
-// Test = () void
+fail_with = (message: String) TestResult {
+    return TestResult.Fail(message)
+}
 
-// Assert that condition is true
-assert = (condition: bool, message: String) void {
+// ============================================================================
+// Test Case
+// ============================================================================
+
+// A single test case with a name and test function
+TestCase: {
+    name: String,
+    test_fn: () TestResult
+}
+
+// ============================================================================
+// Test Suite
+// ============================================================================
+
+// Collection of tests with tracking for passed/failed
+TestSuite: {
+    name: String,
+    tests: DynVec<TestCase>,
+    passed: i32,
+    failed: i32,
+    allocator: memory.Allocator
+}
+
+// Create a new test suite
+new_test_suite = (name: String, allocator: memory.Allocator) TestSuite {
+    return TestSuite {
+        name: name,
+        tests: DynVec.new<TestCase>(allocator),
+        passed: 0,
+        failed: 0,
+        allocator: allocator
+    }
+}
+
+// Add a test to the suite
+add_test = (suite: TestSuite, name: String, test_fn: () TestResult) void {
+    test_case = TestCase {
+        name: name,
+        test_fn: test_fn
+    }
+    suite.tests.push(test_case)
+}
+
+// Run all tests in the suite
+run_tests = (suite: TestSuite) void {
+    io.println("Running test suite: ${suite.name}")
+    io.println("=" .repeat(50))
+
+    suite.tests.loop((test_case) {
+        result = test_case.test_fn()
+
+        result ?
+            | Pass {
+                suite.passed = suite.passed + 1
+                io.println("  ✓ ${test_case.name}")
+            }
+            | Fail(msg) {
+                suite.failed = suite.failed + 1
+                io.println("  ✗ ${test_case.name}: ${msg}")
+            }
+    })
+
+    io.println("=" .repeat(50))
+    total = suite.passed + suite.failed
+    io.println("Results: ${suite.passed}/${total} passed")
+
+    suite.failed == 0 ?
+        | true { io.println("✓ All tests passed!") }
+        | false { io.println("✗ ${suite.failed} test(s) failed") }
+}
+
+// ============================================================================
+// Panic helper (DRY: used by all assert functions)
+// ============================================================================
+
+fail = (message: String) void {
+    io.eprintln("[FAIL] ${message}")
+    // TODO: proper panic/abort mechanism
+}
+
+// ============================================================================
+// Assertions (return TestResult for use in test functions)
+// ============================================================================
+
+// Assert that a condition is true
+expect = (condition: bool, message: String) TestResult {
     condition ?
-        | true { }
-        | false {
-            io.eprintln(message)
-            // Panic
-            loop(() {
-                true ? { break }
-            })
-        }
+        | true { return TestResult.Pass }
+        | false { return TestResult.Fail(message) }
 }
 
 // Assert equality
-assert_eq<T> = (a: T, b: T, message: String) void {
-    equal = a == b
-    equal ?
-        | true { }
-        | false {
-            io.eprintln(message)
-            // Panic
-            loop(() {
-                true ? { break }
-            })
-        }
+expect_eq<T> = (actual: T, expected: T, message: String) TestResult {
+    actual == expected ?
+        | true { return TestResult.Pass }
+        | false { return TestResult.Fail(message) }
 }
 
 // Assert inequality
-assert_ne<T> = (a: T, b: T, message: String) void {
-    not_equal = a != b
-    not_equal ?
-        | true { }
-        | false {
-            io.eprintln(message)
-            // Panic
-            loop(() {
-                true ? { break }
-            })
-        }
+expect_ne<T> = (actual: T, expected: T, message: String) TestResult {
+    actual != expected ?
+        | true { return TestResult.Pass }
+        | false { return TestResult.Fail(message) }
 }
 
-// Assert that condition is false (negation)
+// Assert that a condition is false
+expect_not = (condition: bool, message: String) TestResult {
+    condition ?
+        | false { return TestResult.Pass }
+        | true { return TestResult.Fail(message) }
+}
+
+// ============================================================================
+// Legacy assertion functions (panic on failure)
+// ============================================================================
+
+assert = (condition: bool, message: String) void {
+    condition ?
+        | true { }
+        | false { fail(message) }
+}
+
+assert_eq<T> = (a: T, b: T, message: String) void {
+    a == b ?
+        | true { }
+        | false { fail(message) }
+}
+
+assert_ne<T> = (a: T, b: T, message: String) void {
+    a != b ?
+        | true { }
+        | false { fail(message) }
+}
+
 assert_not = (condition: bool, message: String) void {
     condition ?
         | false { }
-        | true {
-            io.eprintln(message)
-            // Panic
-            loop(() {
-                true ? { break }
-            })
-        }
-}
-
-// Assert that something panics
-assert_panics<R> = (f: () R, message: String) void {
-    // Can't easily test for panics without try-catch
-    // For now, just mark as unimplemented
-}
-
-// Run a test and return result
-run_test = (name: String, test_fn: () void) TestResult {
-    result = TestResult {
-        name: name,
-        passed: false,
-        message: ""
-    }
-    
-    // Try to run test
-    // TODO: Need exception handling to catch panics
-    test_fn()
-    
-    result.passed = true
-    return result
+        | true { fail(message) }
 }

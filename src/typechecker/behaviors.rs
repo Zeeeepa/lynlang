@@ -331,12 +331,20 @@ impl BehaviorResolver {
     pub fn verify_trait_implementation(&mut self, trait_impl: &TraitImplementation) -> Result<()> {
         // Verify that the implementation satisfies the trait
         if let Some(behavior) = self.behaviors.get(&trait_impl.trait_name) {
-            // Check that all required methods are implemented
+            // Check that all required methods are implemented with correct signatures
             for required_method in &behavior.methods {
                 let mut found = false;
                 for impl_method in &trait_impl.methods {
                     if impl_method.name == required_method.name {
-                        // TODO: Also check that the method signatures match
+                        // Check that the method signatures match
+                        if let Err(e) = self.check_method_signature(
+                            &trait_impl.type_name,
+                            &trait_impl.trait_name,
+                            required_method,
+                            impl_method,
+                        ) {
+                            return Err(e);
+                        }
                         found = true;
                         break;
                     }
@@ -358,6 +366,97 @@ impl BehaviorResolver {
                 None,
             ))
         }
+    }
+
+    /// Check that an implementation method signature matches the trait method signature
+    fn check_method_signature(
+        &self,
+        type_name: &str,
+        trait_name: &str,
+        required: &BehaviorMethodInfo,
+        impl_method: &crate::ast::Function,
+    ) -> Result<()> {
+        // Check return type matches (allowing Self -> concrete type substitution)
+        if !self.types_compatible(&required.return_type, &impl_method.return_type, type_name) {
+            return Err(CompileError::TypeError(
+                format!(
+                    "Method '{}' in implementation of trait '{}' for type '{}' has wrong return type: expected {:?}, got {:?}",
+                    required.name, trait_name, type_name, required.return_type, impl_method.return_type
+                ),
+                None,
+            ));
+        }
+
+        // Check parameter count (excluding self from required if has_self)
+        let required_param_count = if required.has_self {
+            required.param_types.len() - 1
+        } else {
+            required.param_types.len()
+        };
+
+        let impl_param_count = if impl_method.args.first().map(|(n, _)| n == "self").unwrap_or(false) {
+            impl_method.args.len() - 1
+        } else {
+            impl_method.args.len()
+        };
+
+        if required_param_count != impl_param_count {
+            return Err(CompileError::TypeError(
+                format!(
+                    "Method '{}' in implementation of trait '{}' for type '{}' has wrong number of parameters: expected {}, got {}",
+                    required.name, trait_name, type_name, required_param_count, impl_param_count
+                ),
+                None,
+            ));
+        }
+
+        // Check parameter types match
+        let required_params: Vec<_> = if required.has_self {
+            required.param_types.iter().skip(1).collect()
+        } else {
+            required.param_types.iter().collect()
+        };
+
+        let impl_params: Vec<_> = if impl_method.args.first().map(|(n, _)| n == "self").unwrap_or(false) {
+            impl_method.args.iter().skip(1).collect()
+        } else {
+            impl_method.args.iter().collect()
+        };
+
+        for (i, (req_type, (_, impl_type))) in required_params.iter().zip(impl_params.iter()).enumerate() {
+            if !self.types_compatible(req_type, impl_type, type_name) {
+                return Err(CompileError::TypeError(
+                    format!(
+                        "Method '{}' in implementation of trait '{}' for type '{}' has wrong type for parameter {}: expected {:?}, got {:?}",
+                        required.name, trait_name, type_name, i + 1, req_type, impl_type
+                    ),
+                    None,
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Check if two types are compatible, allowing Self -> concrete type substitution
+    fn types_compatible(&self, expected: &AstType, actual: &AstType, self_type: &str) -> bool {
+        // Handle Self substitution
+        if let AstType::Generic { name, type_args } = expected {
+            if name == "Self" && type_args.is_empty() {
+                // Self should match the implementing type
+                if let AstType::Generic { name: actual_name, type_args: actual_args } = actual {
+                    return actual_name == self_type && actual_args.is_empty();
+                }
+                // Also allow direct type name match
+                return match actual {
+                    AstType::Struct { name, .. } => name == self_type,
+                    _ => false,
+                };
+            }
+        }
+
+        // Direct type equality check
+        expected == actual
     }
 
     #[allow(dead_code)]

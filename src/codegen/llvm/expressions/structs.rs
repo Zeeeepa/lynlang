@@ -9,7 +9,7 @@ pub fn compile_struct_literal<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     match expr {
         Expression::StructLiteral { name, fields } => {
-            let fields_vec: Vec<(String, Expression)> = fields.iter().cloned().collect();
+            let fields_vec: Vec<(String, Expression)> = fields.to_vec();
             compiler.compile_struct_literal(name, &fields_vec)
         }
         _ => Err(CompileError::InternalError(

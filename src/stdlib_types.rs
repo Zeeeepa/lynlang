@@ -16,6 +16,7 @@ pub fn stdlib_types() -> &'static StdlibTypeRegistry {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Fields used for future signature checking
 pub struct MethodSignature {
     pub receiver_type: String,
     pub method_name: String,
@@ -25,6 +26,7 @@ pub struct MethodSignature {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Fields used for future signature checking
 pub struct FunctionSignature {
     pub name: String,
     pub module: String,
@@ -234,6 +236,7 @@ impl StdlibTypeRegistry {
             .map(|sig| &sig.return_type)
     }
     
+    #[allow(dead_code)] // Used in tests
     pub fn debug_list_functions(&self) -> Vec<String> {
         self.functions.keys().cloned().collect()
     }

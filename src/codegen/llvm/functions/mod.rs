@@ -39,7 +39,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        if args.len() < 1 {
+        if args.is_empty() {
             return Err(CompileError::TypeError(
                 "Array.push expects at least 1 argument (array, value)".to_string(),
                 None,
@@ -185,120 +185,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         calls::compile_function_call(self, name, args)
     }
 
-    // Stdlib functions
-    fn compile_io_print(
-        &mut self,
-        args: &[ast::Expression],
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib_codegen::compile_io_print(self, args)
-    }
-
-    fn compile_io_println(
-        &mut self,
-        args: &[ast::Expression],
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib_codegen::compile_io_println(self, args)
-    }
-
-    fn compile_io_print_int(
-        &mut self,
-        args: &[ast::Expression],
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib_codegen::compile_io_print_int(self, args)
-    }
-
-    fn compile_io_print_float(
-        &mut self,
-        args: &[ast::Expression],
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib_codegen::compile_io_print_float(self, args)
-    }
-
-    fn compile_io_eprint(
-        &mut self,
-        args: &[ast::Expression],
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib_codegen::compile_io_eprint(self, args)
-    }
-
-    fn compile_io_eprintln(
-        &mut self,
-        args: &[ast::Expression],
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib_codegen::compile_io_eprintln(self, args)
-    }
-
-    fn compile_io_read_line(
-        &mut self,
-        args: &[ast::Expression],
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib_codegen::compile_io_read_line(self, args)
-    }
-
-    fn compile_io_read_input(
-        &mut self,
-        args: &[ast::Expression],
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib_codegen::compile_io_read_input(self, args)
-    }
-
-    fn compile_math_function(
-        &mut self,
-        name: &str,
-        args: &[ast::Expression],
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib_codegen::compile_math_function(self, name, args)
-    }
-
-    fn compile_core_assert(
-        &mut self,
-        args: &[ast::Expression],
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib_codegen::compile_core_assert(self, args)
-    }
-
-    fn compile_core_panic(
-        &mut self,
-        args: &[ast::Expression],
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib_codegen::compile_core_panic(self, args)
-    }
-
-    fn compile_fs_read_file(
-        &mut self,
-        args: &[ast::Expression],
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib_codegen::compile_fs_read_file(self, args)
-    }
-
-    fn compile_fs_write_file(
-        &mut self,
-        args: &[ast::Expression],
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib_codegen::compile_fs_write_file(self, args)
-    }
-
-    fn compile_fs_exists(
-        &mut self,
-        args: &[ast::Expression],
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib_codegen::compile_fs_exists(self, args)
-    }
-
-    fn compile_fs_remove_file(
-        &mut self,
-        args: &[ast::Expression],
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib_codegen::compile_fs_remove_file(self, args)
-    }
-
-    fn compile_fs_create_dir(
-        &mut self,
-        args: &[ast::Expression],
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        super::stdlib_codegen::compile_fs_create_dir(self, args)
-    }
-
+    // Result helpers (used by collections, etc.)
     fn create_result_ok(
         &mut self,
         value: BasicValueEnum<'ctx>,

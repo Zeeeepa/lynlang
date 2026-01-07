@@ -126,6 +126,7 @@ impl WellKnownTypes {
 
     /// Check if a type name is Option or Result (types with success/failure variants)
     #[inline]
+    #[allow(dead_code)] // Utility for future use
     pub fn is_option_or_result(&self, name: &str) -> bool {
         matches!(
             self.get_type(name),
@@ -262,6 +263,7 @@ impl WellKnownTypes {
     /// Get discriminant tag for a variant (for codegen)
     /// Returns 0 for success variants (Some, Ok), 1 for failure variants (None, Err)
     #[inline]
+    #[allow(dead_code)] // Utility for future codegen use
     pub fn get_variant_tag(&self, variant_name: &str) -> Option<u64> {
         match self.get_variant(variant_name) {
             Some((_, WellKnownVariant::Some)) => Some(0),

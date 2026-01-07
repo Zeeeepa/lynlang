@@ -102,6 +102,9 @@ impl<'a> Parser<'a> {
         };
         self.next_token();
 
+        // Parse generic type parameters if present: <T, U, ...>
+        let type_params = self.parse_type_parameters()?;
+
         // Parameters in parentheses
         if self.current_token != Token::Symbol('(') {
             return Err(CompileError::SyntaxError(
@@ -170,7 +173,7 @@ impl<'a> Parser<'a> {
 
         Ok(Function {
             name,
-            type_params: Vec::new(), // TODO: Parse generic type parameters for methods
+            type_params,
             args: parameters,
             return_type,
             body,

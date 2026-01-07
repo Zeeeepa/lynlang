@@ -31,4 +31,19 @@
 { STDIN, STDOUT, STDERR, print, println, eprint, eprintln, read_line, read_input } = @std.io.io
 
 // Math functions
-{ PI, E, sin, cos, tan, asin, acos, atan, atan2, sinh, cosh, tanh, exp, log, log10, log2, pow, sqrt, cbrt, floor, ceil, round, trunc, fabs, fmod, remainder, fmin, fmax, copysign } = @std.math.math
+{ PI, E, sin, cos, tan, asin, acos, atan, atan2, sinh, cosh, tanh, exp, log, log10, log2, pow, sqrt, cbrt, floor, ceil, round, trunc, fabs, fmod, remainder, fmin, fmax, copysign, abs, abs64, factorial, is_even, is_odd, max, min, clamp, I8_MIN, I8_MAX, I16_MIN, I16_MAX, I32_MIN, I32_MAX, U8_MAX, U16_MAX, U32_MAX } = @std.math.math
+
+// Character utilities
+{ is_digit, is_alpha, is_alphanumeric, is_whitespace, is_uppercase, is_lowercase, is_hex_digit, is_printable, is_control, to_uppercase, to_lowercase, digit_to_int, hex_to_int } = @std.char
+
+// Testing utilities
+{ TestResult, TestCase, TestSuite, new_test_suite, add_test, run_tests, pass, fail_with, expect, expect_eq, expect_ne, expect_not, fail, assert, assert_eq, assert_ne, assert_not } = @std.testing.runner
+
+// Random number generation
+{ Rng, rng_new, rng_next, rng_next_i32, rng_next_i64, rng_next_f64, rng_next_bounded, random, random_bounded } = @std.random
+
+// Time utilities
+{ Duration, Instant, duration_from_secs, duration_from_millis, duration_as_secs, duration_as_millis, now, elapsed, sleep, sleep_millis, sleep_secs } = @std.time
+
+// Error handling
+{ ErrorLevel, Error, error_new, warning_new, fatal_new, is_warning, is_error, is_fatal } = @std.error

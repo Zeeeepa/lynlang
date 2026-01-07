@@ -41,7 +41,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // String interpolation
             Expression::StringInterpolation { parts } => {
                 use crate::ast::StringPart;
-                let parts_vec: Vec<StringPart> = parts.iter().cloned().collect();
+                let parts_vec: Vec<StringPart> = parts.to_vec();
                 self.compile_string_interpolation(&parts_vec)
             }
 
