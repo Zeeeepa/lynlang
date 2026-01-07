@@ -2,22 +2,19 @@ use crate::ast::{AstType, Expression};
 use std::collections::HashMap;
 
 /// Macro for declaring stdlib functions with minimal boilerplate.
+/// Supports simple type variants (F64, I32, etc).
 ///
 /// Usage:
 /// ```ignore
 /// register_stdlib_fn!(functions,
-///     // Single param function
 ///     sqrt(value: F64) -> F64,
-///     // Multi param function
 ///     pow(base: F64, exp: F64) -> F64,
 /// );
 /// ```
 #[macro_export]
 macro_rules! register_stdlib_fn {
-    // Base case: no more functions
     ($map:expr,) => {};
 
-    // Single parameter function
     ($map:expr, $name:ident($param:ident: $ptype:ident) -> $ret:ident, $($rest:tt)*) => {
         $map.insert(
             stringify!($name).to_string(),
@@ -31,7 +28,6 @@ macro_rules! register_stdlib_fn {
         register_stdlib_fn!($map, $($rest)*);
     };
 
-    // Two parameter function
     ($map:expr, $name:ident($p1:ident: $t1:ident, $p2:ident: $t2:ident) -> $ret:ident, $($rest:tt)*) => {
         $map.insert(
             stringify!($name).to_string(),
@@ -48,7 +44,6 @@ macro_rules! register_stdlib_fn {
         register_stdlib_fn!($map, $($rest)*);
     };
 
-    // Three parameter function
     ($map:expr, $name:ident($p1:ident: $t1:ident, $p2:ident: $t2:ident, $p3:ident: $t3:ident) -> $ret:ident, $($rest:tt)*) => {
         $map.insert(
             stringify!($name).to_string(),
@@ -66,7 +61,6 @@ macro_rules! register_stdlib_fn {
         register_stdlib_fn!($map, $($rest)*);
     };
 
-    // No parameter function (returns value)
     ($map:expr, $name:ident() -> $ret:ident, $($rest:tt)*) => {
         $map.insert(
             stringify!($name).to_string(),
@@ -78,6 +72,40 @@ macro_rules! register_stdlib_fn {
             },
         );
         register_stdlib_fn!($map, $($rest)*);
+    };
+}
+
+/// Flexible macro for registering functions with arbitrary type expressions.
+/// Use this when you need complex types (generics, Result, etc).
+///
+/// Usage:
+/// ```ignore
+/// register_fn!(functions, "name" => (param: AstType::I64) -> AstType::Void);
+/// register_fn!(functions, "name" => () -> AstType::Bool);
+/// ```
+#[macro_export]
+macro_rules! register_fn {
+    ($map:expr, $name:literal => () -> $ret:expr) => {
+        $map.insert(
+            $name.to_string(),
+            $crate::stdlib_metadata::StdFunction {
+                name: $name.to_string(),
+                params: vec![],
+                return_type: $ret,
+                is_builtin: true,
+            },
+        )
+    };
+    ($map:expr, $name:literal => ($($param:ident : $ptype:expr),+ $(,)?) -> $ret:expr) => {
+        $map.insert(
+            $name.to_string(),
+            $crate::stdlib_metadata::StdFunction {
+                name: $name.to_string(),
+                params: vec![$((stringify!($param).to_string(), $ptype)),+],
+                return_type: $ret,
+                is_builtin: true,
+            },
+        )
     };
 }
 

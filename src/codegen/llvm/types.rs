@@ -450,7 +450,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Type::Struct(struct_type) => Ok(struct_type.as_basic_type_enum()),
             _ => Err(CompileError::UnsupportedFeature(
                 "Expected basic type, got non-basic type (e.g., function type)".to_string(),
-                None,
+                self.get_current_span(),
             )),
         }
     }

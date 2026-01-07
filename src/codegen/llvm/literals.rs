@@ -230,12 +230,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // First, calculate the total size needed for the string
         // For now, we'll use a simple approach with sprintf for numeric values
 
-        // Declare sprintf if not already declared
-        let sprintf_fn = self.module.get_function("sprintf").unwrap_or_else(|| {
+        // Declare snprintf if not already declared (safer than sprintf - prevents buffer overflow)
+        let snprintf_fn = self.module.get_function("snprintf").unwrap_or_else(|| {
             let i32_type = self.context.i32_type();
+            let i64_type = self.context.i64_type();
             let ptr_type = self.context.ptr_type(AddressSpace::default());
-            let fn_type = i32_type.fn_type(&[ptr_type.into(), ptr_type.into()], true);
-            self.module.add_function("sprintf", fn_type, None)
+            // snprintf(char *str, size_t size, const char *format, ...)
+            let fn_type = i32_type.fn_type(&[ptr_type.into(), i64_type.into(), ptr_type.into()], true);
+            self.module.add_function("snprintf", fn_type, None)
         });
 
         // Build the format string and collect interpolated values
@@ -396,13 +398,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
             .builder
             .build_global_string_ptr(&format_string, "format")?;
 
-        // Build the sprintf call with all arguments
-        let mut sprintf_args: Vec<BasicMetadataValueEnum> =
-            vec![buffer_ptr.into(), format_ptr.as_pointer_value().into()];
-        sprintf_args.extend(values);
+        // Build the snprintf call with buffer size for safety
+        let mut snprintf_args: Vec<BasicMetadataValueEnum> =
+            vec![buffer_ptr.into(), buffer_size_val.into(), format_ptr.as_pointer_value().into()];
+        snprintf_args.extend(values);
 
         self.builder
-            .build_call(sprintf_fn, &sprintf_args, "sprintf_call")?;
+            .build_call(snprintf_fn, &snprintf_args, "snprintf_call")?;
 
         // Return the buffer pointer
         Ok(buffer_ptr.into())

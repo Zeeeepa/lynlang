@@ -87,6 +87,7 @@ pub fn declare_variable_with_init(
 
 /// Mark a variable as initialized
 pub fn mark_variable_initialized(checker: &mut TypeChecker, name: &str) -> Result<()> {
+    let span = checker.get_current_span();
     for scope in checker.scopes.iter_mut().rev() {
         if let Some(var_info) = scope.get_mut(name) {
             var_info.is_initialized = true;
@@ -96,7 +97,7 @@ pub fn mark_variable_initialized(checker: &mut TypeChecker, name: &str) -> Resul
 
     Err(CompileError::TypeError(
         format!("Variable '{}' not found", name),
-        None,
+        span,
     ))
 }
 
@@ -136,7 +137,7 @@ pub fn get_variable_type(
 
     Err(CompileError::TypeError(
         format!("Undefined variable: {}", name),
-        None,
+        checker.get_current_span(),
     ))
 }
 
@@ -150,7 +151,7 @@ pub fn get_variable_info(checker: &TypeChecker, name: &str) -> Result<VariableIn
 
     Err(CompileError::TypeError(
         format!("Variable '{}' not found", name),
-        None,
+        checker.get_current_span(),
     ))
 }
 

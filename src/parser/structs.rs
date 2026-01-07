@@ -77,8 +77,9 @@ impl<'a> Parser<'a> {
         // Closing brace
         self.next_token();
 
-        // Parse methods (zero or more fn ...)
-        // TODO: Implement method parsing with correct syntax
+        // Methods are defined via `impl` blocks, not inline in struct definitions.
+        // This matches Rust's syntax: `impl MyStruct { fn method(&self) { ... } }`
+        // The methods field is kept for AST compatibility but remains empty during parsing.
         let methods = Vec::new();
 
         Ok(StructDefinition {
