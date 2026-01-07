@@ -582,12 +582,11 @@ pub fn compile_inline_c<'ctx>(
     let bc_file = temp_dir.join(format!("zen_inline_{}.bc", id));
 
     // Write C code to temp file
-    // Note: file operation errors don't have meaningful source spans
     let mut file = std::fs::File::create(&c_file).map_err(|e| {
-        CompileError::InternalError(format!("Failed to create temp C file: {}", e), None)
+        CompileError::InternalError(format!("Failed to create temp C file: {}", e), span.clone())
     })?;
     file.write_all(c_code.as_bytes()).map_err(|e| {
-        CompileError::InternalError(format!("Failed to write C code: {}", e), None)
+        CompileError::InternalError(format!("Failed to write C code: {}", e), span.clone())
     })?;
     drop(file);
 
@@ -605,7 +604,7 @@ pub fn compile_inline_c<'ctx>(
         .map_err(|e| {
             CompileError::InternalError(
                 format!("Failed to run clang (is it installed?): {}", e),
-                None,
+                span.clone(),
             )
         })?;
 
@@ -617,7 +616,7 @@ pub fn compile_inline_c<'ctx>(
         let _ = std::fs::remove_file(&bc_file);
         return Err(CompileError::InternalError(
             format!("Clang compilation failed:\n{}", stderr),
-            None,
+            span.clone(),
         ));
     }
 
@@ -625,7 +624,7 @@ pub fn compile_inline_c<'ctx>(
     let memory_buffer = inkwell::memory_buffer::MemoryBuffer::create_from_file(&bc_file)
         .map_err(|e| {
             let _ = std::fs::remove_file(&bc_file);
-            CompileError::InternalError(format!("Failed to load bitcode: {:?}", e), None)
+            CompileError::InternalError(format!("Failed to load bitcode: {:?}", e), span.clone())
         })?;
 
     let inline_module = compiler
@@ -633,7 +632,7 @@ pub fn compile_inline_c<'ctx>(
         .create_module_from_ir(memory_buffer)
         .map_err(|e| {
             let _ = std::fs::remove_file(&bc_file);
-            CompileError::InternalError(format!("Failed to parse bitcode: {:?}", e), None)
+            CompileError::InternalError(format!("Failed to parse bitcode: {:?}", e), span.clone())
         })?;
 
     // Clean up bitcode file
@@ -644,7 +643,7 @@ pub fn compile_inline_c<'ctx>(
         .module
         .link_in_module(inline_module)
         .map_err(|e| {
-            CompileError::InternalError(format!("Failed to link inline C module: {:?}", e), None)
+            CompileError::InternalError(format!("Failed to link inline C module: {:?}", e), span)
         })?;
 
     Ok(compiler.context.i32_type().const_zero().into())

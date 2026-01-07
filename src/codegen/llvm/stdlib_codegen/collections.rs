@@ -58,7 +58,7 @@ pub fn compile_hashmap_new<'ctx>(
         .try_as_basic_value()
         .left()
         .ok_or_else(|| {
-            CompileError::InternalError("malloc should return a pointer".to_string(), None)
+            CompileError::InternalError("malloc should return a pointer".to_string(), compiler.get_current_span())
         })?;
 
     // Initialize buckets to zero
@@ -486,7 +486,7 @@ pub fn compile_hashset_new<'ctx>(
         .try_as_basic_value()
         .left()
         .ok_or_else(|| {
-            CompileError::InternalError("malloc should return a pointer".to_string(), None)
+            CompileError::InternalError("malloc should return a pointer".to_string(), compiler.get_current_span())
         })?;
 
     // Initialize buckets to zero
@@ -615,7 +615,7 @@ pub fn compile_dynvec_new<'ctx>(
         .try_as_basic_value()
         .left()
         .ok_or_else(|| {
-            CompileError::InternalError("malloc should return a pointer".to_string(), None)
+            CompileError::InternalError("malloc should return a pointer".to_string(), compiler.get_current_span())
         })?;
 
     // Create the DynVec struct
