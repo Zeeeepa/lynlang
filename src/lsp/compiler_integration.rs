@@ -7,8 +7,8 @@
 use crate::ast::{AstType, Declaration, Program};
 use crate::error::Result;
 use crate::lexer::Lexer;
+use crate::lsp::utils::format_type;
 use crate::parser::Parser;
-use crate::stdlib_types::StdlibTypeRegistry;
 use crate::typechecker::TypeChecker;
 use std::collections::HashMap;
 
@@ -306,28 +306,5 @@ impl CompilerIntegration {
     pub fn has_method(&self, receiver_type: &str, method_name: &str) -> bool {
         self.get_method_return_type(receiver_type, method_name)
             .is_some()
-    }
-}
-
-// Helper function to format AstType as string
-fn format_type(ty: &AstType) -> String {
-    match ty {
-        AstType::I32 => "i32".to_string(),
-        AstType::I64 => "i64".to_string(),
-        AstType::F32 => "f32".to_string(),
-        AstType::F64 => "f64".to_string(),
-        AstType::Bool => "bool".to_string(),
-        AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => "String".to_string(),
-        AstType::StaticString => "StaticString".to_string(),
-        AstType::Void => "void".to_string(),
-        AstType::Generic { name, type_args } => {
-            if type_args.is_empty() {
-                name.clone()
-            } else {
-                let args: Vec<String> = type_args.iter().map(format_type).collect();
-                format!("{}<{}>", name, args.join(", "))
-            }
-        }
-        _ => format!("{:?}", ty),
     }
 }

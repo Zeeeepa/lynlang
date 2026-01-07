@@ -5,21 +5,21 @@ use crate::lexer::{Lexer, Token};
 
 /// Information about braces and pattern matching on a single line
 #[derive(Debug, Default)]
-struct LineTokenInfo {
-    open_braces: usize,
-    close_braces: usize,
-    open_brackets: usize,
-    close_brackets: usize,
-    ends_with_question: bool,
-    starts_with_pipe: bool,
-    first_token_is_close_brace: bool,
-    first_token_is_close_bracket: bool,
+pub struct LineTokenInfo {
+    pub open_braces: usize,
+    pub close_braces: usize,
+    pub open_brackets: usize,
+    pub close_brackets: usize,
+    pub ends_with_question: bool,
+    pub starts_with_pipe: bool,
+    pub first_token_is_close_brace: bool,
+    pub first_token_is_close_bracket: bool,
 }
 
 /// Analyze a single line using the lexer to get accurate token information.
 /// This properly handles strings, comments, and other contexts where
 /// braces/brackets/operators might appear but shouldn't be counted.
-fn analyze_line_tokens(line: &str) -> LineTokenInfo {
+pub fn analyze_line_tokens(line: &str) -> LineTokenInfo {
     let mut info = LineTokenInfo::default();
     let mut lexer = Lexer::new(line);
     let mut is_first_token = true;
@@ -65,7 +65,7 @@ fn analyze_line_tokens(line: &str) -> LineTokenInfo {
 }
 
 /// Check if a line is a pattern match arm (starts with `|` token).
-fn is_pattern_arm_line(line: &str) -> bool {
+pub fn is_pattern_arm_line(line: &str) -> bool {
     analyze_line_tokens(line.trim()).starts_with_pipe
 }
 

@@ -6,66 +6,8 @@ use crate::lexer::{Lexer, Token};
 use crate::stdlib_types::StdlibTypeRegistry;
 use lsp_types::*;
 
-/// Information about braces and pattern matching on a single line
-#[derive(Debug, Default)]
-pub struct LineTokenInfo {
-    pub open_braces: usize,
-    pub close_braces: usize,
-    pub open_brackets: usize,
-    pub close_brackets: usize,
-    pub ends_with_question: bool,
-    pub starts_with_pipe: bool,
-    pub first_token_is_close_brace: bool,
-    pub first_token_is_close_bracket: bool,
-}
-
-/// Analyze a single line using the lexer to get accurate token information.
-/// This properly handles strings, comments, and other contexts where
-/// braces/brackets/operators might appear but shouldn't be counted.
-pub fn analyze_line_tokens(line: &str) -> LineTokenInfo {
-    let mut info = LineTokenInfo::default();
-    let mut lexer = Lexer::new(line);
-    let mut is_first_token = true;
-    let mut last_token: Option<Token> = None;
-
-    loop {
-        let token_with_span = lexer.next_token_with_span();
-        let token = token_with_span.token.clone();
-
-        if token == Token::Eof {
-            break;
-        }
-
-        // Track first non-whitespace token
-        if is_first_token {
-            match &token {
-                Token::Symbol('}') => info.first_token_is_close_brace = true,
-                Token::Symbol(']') => info.first_token_is_close_bracket = true,
-                Token::Pipe => info.starts_with_pipe = true,
-                _ => {}
-            }
-            is_first_token = false;
-        }
-
-        // Count braces and brackets
-        match &token {
-            Token::Symbol('{') => info.open_braces += 1,
-            Token::Symbol('}') => info.close_braces += 1,
-            Token::Symbol('[') => info.open_brackets += 1,
-            Token::Symbol(']') => info.close_brackets += 1,
-            _ => {}
-        }
-
-        last_token = Some(token);
-    }
-
-    // Check if line ends with '?'
-    if let Some(Token::Question) = last_token {
-        info.ends_with_question = true;
-    }
-
-    info
-}
+// Re-export shared line analysis utilities from formatting module
+pub use crate::formatting::{analyze_line_tokens, is_pattern_arm_line, LineTokenInfo};
 
 /// Tokenize content and return tokens with their line numbers.
 /// Used for accurate folding range detection.
@@ -108,11 +50,6 @@ pub fn find_pattern_match_question(line: &str) -> Option<usize> {
     } else {
         None
     }
-}
-
-/// Check if a line is a pattern match arm (starts with `|` token).
-pub fn is_pattern_arm_line(line: &str) -> bool {
-    analyze_line_tokens(line.trim()).starts_with_pipe
 }
 
 /// Convert a byte offset to LSP Position (line and character)

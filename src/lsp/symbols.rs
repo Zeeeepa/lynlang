@@ -5,7 +5,6 @@ use lsp_server::{ErrorCode, Request, Response, ResponseError};
 use lsp_types::*;
 use serde_json::Value;
 
-// use super::types::SymbolInfo; // unused
 use super::document_store::DocumentStore;
 
 // ============================================================================

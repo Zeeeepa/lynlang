@@ -546,18 +546,3 @@ impl<'ctx> LLVMCompiler<'ctx> {
         Ok(())
     }
 }
-
-// Dead code helper for backwards compatibility
-impl<'ctx> LLVMCompiler<'ctx> {
-    #[allow(dead_code)]
-    fn compile_struct_field_from_value(
-        &mut self,
-        _struct_val: BasicValueEnum<'ctx>,
-        _field: &str,
-        original_expr: &Expression,
-    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        Err(CompileError::TypeError(
-            format!("Nested struct field access not fully implemented for: {:?}", original_expr), self.get_current_span()
-        ))
-    }
-}

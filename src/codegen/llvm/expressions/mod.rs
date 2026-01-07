@@ -2,7 +2,6 @@ pub mod calls;
 pub mod collections;
 pub mod control;
 pub mod enums;
-pub mod enums_variant;
 pub mod inference;
 pub mod literals;
 pub mod operations;
