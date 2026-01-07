@@ -872,17 +872,21 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
 
-        // First pass: Declare all functions
+        // First pass: Declare all functions (skip generic functions - they're instantiated when called)
         for declaration in &program.declarations {
             if let ast::Declaration::Function(func) = declaration {
-                self.declare_function(func)?;
+                if func.type_params.is_empty() {
+                    self.declare_function(func)?;
+                }
             }
         }
 
-        // Second pass: Define and compile all functions
+        // Second pass: Define and compile all functions (skip generic functions)
         for declaration in &program.declarations {
             if let ast::Declaration::Function(func) = declaration {
-                self.compile_function_body(func)?;
+                if func.type_params.is_empty() {
+                    self.compile_function_body(func)?;
+                }
             }
         }
 

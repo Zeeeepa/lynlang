@@ -13,6 +13,7 @@ fn build_fn_type_from_params<'ctx>(
     param_types: &[AstType],
     return_type: &AstType,
 ) -> Result<FunctionType<'ctx>, CompileError> {
+    let span = compiler.get_current_span();
     let param_types_basic: Result<Vec<_>, _> = param_types
         .iter()
         .map(|ty| {
@@ -22,7 +23,7 @@ fn build_fn_type_from_params<'ctx>(
                 Type::Struct(s) => Ok(s.into()),
                 _ => Err(CompileError::InternalError(
                     format!("Unsupported function argument type: {:?}", ty),
-                    None,
+                    span.clone(),
                 )),
             }
         })
@@ -52,7 +53,7 @@ pub fn build_fn_type_from_ret<'ctx>(
         Type::Void => Ok(compiler.context.void_type().fn_type(param_metadata, false)),
         _ => Err(CompileError::InternalError(
             "Function return type must be a basic type, struct or void".to_string(),
-            None,
+            compiler.get_current_span(),
         )),
     }
 }
@@ -301,8 +302,18 @@ fn dispatch_compiler_function<'ctx>(
         "set_payload" => stdlib_codegen::compile_set_payload(compiler, args),
         "gep" => stdlib_codegen::compile_gep(compiler, args),
         "gep_struct" => stdlib_codegen::compile_gep_struct(compiler, args),
-        "load" => stdlib_codegen::compile_load(compiler, args, None),
-        "store" => stdlib_codegen::compile_store(compiler, args, None),
+        "load" => {
+            let type_arg = func.find('<').and_then(|pos| {
+                crate::parser::parse_type_from_string(&func[pos + 1..func.len() - 1]).ok()
+            });
+            stdlib_codegen::compile_load(compiler, args, type_arg.as_ref())
+        }
+        "store" => {
+            let type_arg = func.find('<').and_then(|pos| {
+                crate::parser::parse_type_from_string(&func[pos + 1..func.len() - 1]).ok()
+            });
+            stdlib_codegen::compile_store(compiler, args, type_arg.as_ref())
+        }
         "sizeof" => {
             let type_arg = func.find('<').and_then(|pos| {
                 crate::parser::parse_type_from_string(&func[pos + 1..func.len() - 1]).ok()

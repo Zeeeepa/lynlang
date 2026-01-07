@@ -193,7 +193,10 @@ pub fn compile_function_body<'ctx>(
         .module
         .get_function(&function.name)
         .ok_or_else(|| {
-            CompileError::InternalError(format!("Function {} not declared", function.name), None)
+            CompileError::InternalError(
+                format!("Function {} not declared", function.name),
+                compiler.get_current_span(),
+            )
         })?;
 
     // Get the actual return type (handles main() void -> i32 conversion)
