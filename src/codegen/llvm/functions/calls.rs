@@ -418,14 +418,14 @@ fn compile_cast_builtin<'ctx>(
     if args.len() != 2 {
         return Err(CompileError::TypeError(
             format!("cast() expects 2 arguments (value, type), got {}", args.len()),
-            None,
+            compiler.get_current_span(),
         ));
     }
     let source_type =
         crate::codegen::llvm::expressions::inference::infer_expression_type(compiler, &args[0])
             .unwrap_or(AstType::I32);
     let value = compiler.compile_expression(&args[0])?;
-    let target_type = parse_cast_target_type(&args[1])?;
+    let target_type = parse_cast_target_type(&args[1], compiler.get_current_span())?;
     let llvm_target = compiler.to_llvm_type(&target_type)?;
     let Type::Basic(target_basic) = llvm_target else {
         return Err(CompileError::TypeError("cast() target must be a basic type".to_string(), compiler.get_current_span()));
@@ -433,11 +433,11 @@ fn compile_cast_builtin<'ctx>(
     perform_cast(compiler, value, target_basic, &source_type, &target_type)
 }
 
-fn parse_cast_target_type(expr: &ast::Expression) -> Result<AstType, CompileError> {
+fn parse_cast_target_type(expr: &ast::Expression, span: Option<crate::error::Span>) -> Result<AstType, CompileError> {
     let ast::Expression::Identifier(name) = expr else {
         return Err(CompileError::TypeError(
             "cast() second argument must be a type name (e.g., i32, f64)".to_string(),
-            None,
+            span.clone(),
         ));
     };
     match name.as_str() {
@@ -454,7 +454,7 @@ fn parse_cast_target_type(expr: &ast::Expression) -> Result<AstType, CompileErro
         "f64" => Ok(AstType::F64),
         _ => Err(CompileError::TypeError(
             format!("cast() target type '{}' is not a valid primitive type", name),
-            None,
+            span,
         )),
     }
 }
@@ -489,7 +489,7 @@ fn perform_cast<'ctx>(
         }
         _ => Err(CompileError::TypeError(
             format!("Cannot cast {:?} to {:?}", value.get_type(), target),
-            None,
+            compiler.get_current_span(),
         )),
     }
 }

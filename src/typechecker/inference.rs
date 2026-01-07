@@ -64,7 +64,7 @@ pub fn infer_binary_op_type(
             // Numeric operations
             if left_type.is_numeric() && right_type.is_numeric() {
                 // Promote to the larger type
-                promote_numeric_types(&left_type, &right_type)
+                promote_numeric_types(&left_type, &right_type, checker.get_current_span())
             } else {
                 Err(CompileError::TypeError(
                     format!(
@@ -246,7 +246,7 @@ pub fn infer_member_type(
 
 /// Promote two numeric types to their common type
 #[allow(dead_code)]
-fn promote_numeric_types(left: &AstType, right: &AstType) -> Result<AstType> {
+fn promote_numeric_types(left: &AstType, right: &AstType, span: Option<crate::error::Span>) -> Result<AstType> {
     // If either is a float, promote to float
     if left.is_float() || right.is_float() {
         if matches!(left, AstType::F64) || matches!(right, AstType::F64) {
@@ -305,7 +305,7 @@ fn promote_numeric_types(left: &AstType, right: &AstType) -> Result<AstType> {
     } else {
         Err(CompileError::TypeError(
             format!("Cannot promote types {:?} and {:?}", left, right),
-            None,
+            span,
         ))
     }
 }
@@ -457,7 +457,7 @@ pub fn infer_function_call_type(
     }
 
     if name == "cast" {
-        return infer_cast_type(args);
+        return infer_cast_type(args, checker.get_current_span());
     }
 
     if name.contains('<') && name.contains('>') {
@@ -495,7 +495,7 @@ pub fn infer_function_call_type(
     }
 }
 
-fn infer_cast_type(args: &[Expression]) -> Result<AstType> {
+fn infer_cast_type(args: &[Expression], span: Option<crate::error::Span>) -> Result<AstType> {
     if args.len() == 2 {
         if let Expression::Identifier(type_name) = &args[1] {
             return match type_name.as_str() {
@@ -515,14 +515,14 @@ fn infer_cast_type(args: &[Expression]) -> Result<AstType> {
                         "cast() target type '{}' is not a valid primitive type",
                         type_name
                     ),
-                    None,
+                    span.clone(),
                 )),
             };
         }
     }
     Err(CompileError::TypeError(
         "cast() expects 2 arguments: cast(value, type)".to_string(),
-        None,
+        span,
     ))
 }
 
@@ -723,7 +723,7 @@ pub fn infer_raise_type(checker: &mut TypeChecker, expr: &Expression) -> Result<
                 ".raise() can only be used on Result<T, E> types, found: {:?}",
                 result_type
             ),
-            None,
+            checker.get_current_span(),
         )),
     }
 }

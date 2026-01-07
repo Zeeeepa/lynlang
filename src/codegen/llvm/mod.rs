@@ -68,6 +68,9 @@ pub struct VariableInfo<'ctx> {
     pub ast_type: AstType,
     pub is_mutable: bool,
     pub is_initialized: bool,
+    /// The source location where this variable was defined.
+    /// Used for "previous declaration was here" diagnostics.
+    pub definition_span: Option<Span>,
 }
 
 pub struct LLVMCompiler<'ctx> {
@@ -406,6 +409,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 ast_type,
                 is_mutable: false,
                 is_initialized: true,
+                definition_span: self.current_span.clone(),
             });
         }
     }

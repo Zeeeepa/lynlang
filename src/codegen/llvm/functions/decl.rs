@@ -13,10 +13,20 @@ pub fn declare_external_function<'ctx>(
     let ret_type = compiler.to_llvm_type(&ext_func.return_type)?;
 
     // First get the basic types for the parameters
+    let span = compiler.get_current_span();
     let param_basic_types: Result<Vec<BasicTypeEnum>, CompileError> = ext_func
         .args
         .iter()
-        .map(|t| compiler.to_llvm_type(t).and_then(|t| t.into_basic_type()))
+        .map(|t| {
+            compiler.to_llvm_type(t).and_then(|t| {
+                t.into_basic_type().map_err(|e| match e {
+                    CompileError::TypeMismatch { expected, found, span: None } => {
+                        CompileError::TypeMismatch { expected, found, span: span.clone() }
+                    }
+                    other => other,
+                })
+            })
+        })
         .collect();
 
     // Convert basic types to metadata types for the function signature
@@ -56,7 +66,7 @@ pub fn declare_external_function<'ctx>(
         Type::Pointer(_) => {
             return Err(CompileError::UnsupportedFeature(
                 "Cannot use pointer type as function return type".to_string(),
-                None,
+                compiler.get_current_span(),
             ));
         }
         Type::Struct(st) => st.fn_type(&param_metadata, false),
@@ -143,7 +153,7 @@ pub fn declare_function<'ctx>(
         Type::Pointer(_) => {
             return Err(CompileError::UnsupportedFeature(
                 "Cannot use pointer type as function return type".to_string(),
-                None,
+                compiler.get_current_span(),
             ));
         }
         Type::Struct(st) => st.fn_type(&param_metadata, false),

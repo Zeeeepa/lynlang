@@ -170,7 +170,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             Err(_) => {
                                 return Err(CompileError::TypeError(
                                     "Invalid pointer type for Vec element".to_string(),
-                                    None,
+                                    self.get_current_span(),
                                 ));
                             }
                         }
@@ -179,13 +179,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // Function types can't be Vec elements
                         return Err(CompileError::TypeError(
                             "Vec element cannot be function type".to_string(),
-                            None,
+                            self.get_current_span(),
                         ));
                     }
                     Type::Void => {
                         return Err(CompileError::TypeError(
                             "Vec element cannot be void type".to_string(),
-                            None,
+                            self.get_current_span(),
                         ));
                     }
                 };

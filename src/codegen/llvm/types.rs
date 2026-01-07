@@ -415,7 +415,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 } else {
                     Err(CompileError::InternalError(
                         format!("Unresolved generic type '{}' found after monomorphization. This is a compiler bug.", name),
-                        None
+                        self.get_current_span()
                     ))
                 }
             }

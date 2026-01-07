@@ -1,32 +1,10 @@
 use super::super::LLVMCompiler;
 use crate::ast::Expression;
 use crate::error::CompileError;
-use inkwell::values::{BasicValueEnum, PointerValue};
+use inkwell::values::PointerValue;
 
-/// NOTE: Legacy collection constructors
-/// Vec, DynVec, Array are now implemented in Zen stdlib using compiler intrinsics.
-/// Use: `Vec.new(allocator)` instead of `Vec<T, size>()`
-/// See: stdlib/vec.zen, stdlib/compiler/compiler.zen
-pub fn compile_array_literal<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    _expr: &Expression,
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    Err(CompileError::InternalError(
-        "Array literals are deprecated. Use Vec.new(allocator) from stdlib/vec.zen".to_string(),
-        compiler.get_current_span(),
-    ))
-}
-
-pub fn compile_array_index<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    _expr: &Expression,
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    Err(CompileError::InternalError(
-        "Use Vec.get(index) from stdlib/vec.zen for array indexing".to_string(),
-        compiler.get_current_span(),
-    ))
-}
-
+/// Compile array index to get the address (for pointer arithmetic)
+/// Note: General array/vec operations now use stdlib/vec.zen
 pub fn compile_array_index_address<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     array: &Expression,
@@ -42,7 +20,7 @@ pub fn compile_array_index_address<'ctx>(
                 "Array indexing requires pointer type, got {:?}",
                 array_val.get_type()
             ),
-            None,
+            compiler.get_current_span(),
         ));
     };
 
@@ -57,34 +35,4 @@ pub fn compile_array_index_address<'ctx>(
         )?
     };
     Ok(gep)
-}
-
-pub fn compile_vec_constructor<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    _expr: &Expression,
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    Err(CompileError::InternalError(
-        "Vec<T, size>() syntax is deprecated. Use Vec.new(allocator) from stdlib/vec.zen".to_string(),
-        compiler.get_current_span(),
-    ))
-}
-
-pub fn compile_dynvec_constructor<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    _expr: &Expression,
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    Err(CompileError::InternalError(
-        "DynVec<T>() syntax is deprecated. Use Vec.new(allocator) from stdlib/vec.zen".to_string(),
-        compiler.get_current_span(),
-    ))
-}
-
-pub fn compile_array_constructor<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    _expr: &Expression,
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    Err(CompileError::InternalError(
-        "Array<T>() syntax is deprecated. Use Vec.new(allocator) from stdlib/vec.zen".to_string(),
-        compiler.get_current_span(),
-    ))
 }

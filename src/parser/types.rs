@@ -124,10 +124,10 @@ impl<'a> Parser<'a> {
                             allocator_type: None, // Allocator is specified at construction time
                         })
                     }
-                    "string" => {
+                    "str" | "string" => {
                         // Provide helpful error for common mistake
                         Err(self.syntax_error(
-                            "Use 'StaticString' for static strings or 'String' for dynamic strings (lowercase 'string' is not a valid type)"
+                            "Use 'StaticString' for static strings or 'String' for dynamic strings ('str' and 'string' are not valid types)"
                         ))
                     }
                     _ => {

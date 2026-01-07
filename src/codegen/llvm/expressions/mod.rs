@@ -68,16 +68,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Expression::Some(value) => enums::compile_some(self, value),
             Expression::None => enums::compile_none(self),
 
-            // Collections
-            Expression::ArrayLiteral(_) => collections::compile_array_literal(self, expr),
-            Expression::ArrayIndex { .. } => collections::compile_array_index(self, expr),
-            Expression::VecConstructor { .. } => collections::compile_vec_constructor(self, expr),
-            Expression::DynVecConstructor { .. } => {
-                collections::compile_dynvec_constructor(self, expr)
-            }
-            Expression::ArrayConstructor { .. } => {
-                collections::compile_array_constructor(self, expr)
-            }
+            // Collections - deprecated syntax, all use stdlib/vec.zen now
+            Expression::ArrayLiteral(_)
+            | Expression::ArrayIndex { .. }
+            | Expression::VecConstructor { .. }
+            | Expression::DynVecConstructor { .. }
+            | Expression::ArrayConstructor { .. } => Err(CompileError::InternalError(
+                "Array/Vec syntax is deprecated. Use Vec.new(allocator) from stdlib/vec.zen"
+                    .to_string(),
+                self.get_current_span(),
+            )),
 
             // Control flow
             Expression::Loop { .. } => control::compile_loop(self, expr),
