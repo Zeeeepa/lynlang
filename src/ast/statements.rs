@@ -39,21 +39,28 @@ pub enum Statement {
     PointerAssignment {
         pointer: Expression,
         value: Expression,
+        span: Option<Span>,
     },
     // Loop construct supporting all Zen loop variations
     Loop {
         kind: LoopKind,
         label: Option<String>, // For labeled loops
         body: Vec<Statement>,
+        span: Option<Span>,
     },
     Break {
         label: Option<String>, // For labeled break
+        span: Option<Span>,
     },
     Continue {
         label: Option<String>, // For labeled continue
+        span: Option<Span>,
     },
     // New statements for enhanced features
-    ComptimeBlock(Vec<Statement>),
+    ComptimeBlock {
+        statements: Vec<Statement>,
+        span: Option<Span>,
+    },
     #[allow(dead_code)]
     ModuleImport {
         alias: String,
@@ -61,14 +68,21 @@ pub enum Statement {
     },
     // Defer statement for cleanup - traditional defer syntax
     #[allow(dead_code)]
-    Defer(Box<Statement>),
+    Defer {
+        statement: Box<Statement>,
+        span: Option<Span>,
+    },
     // @this.defer() for scope-based cleanup
     #[allow(dead_code)]
-    ThisDefer(Expression),
+    ThisDefer {
+        expr: Expression,
+        span: Option<Span>,
+    },
     // Destructuring import: { io, maths } = @std
     DestructuringImport {
         names: Vec<String>,
         source: Expression,
+        span: Option<Span>,
     },
     // Block of statements - used for defer blocks, etc.
     Block {

@@ -568,12 +568,14 @@ impl<'a> Parser<'a> {
                 }
             }
             Token::Identifier(id) if id == "break" => {
+                let span = Some(self.current_span.clone());
                 self.next_token();
                 let label = self.current_identifier().map(|name| { self.next_token(); name });
                 self.skip_optional_semicolon();
-                Ok(Statement::Break { label })
+                Ok(Statement::Break { label, span })
             }
             Token::Identifier(id) if id == "defer" => {
+                let span = Some(self.current_span.clone());
                 self.next_token();
                 let deferred_stmt = if self.current_token == Token::Symbol('{') {
                     let statements = self.parse_brace_block("defer block")?;
@@ -581,13 +583,14 @@ impl<'a> Parser<'a> {
                 } else {
                     self.parse_statement()?
                 };
-                Ok(Statement::Defer(Box::new(deferred_stmt)))
+                Ok(Statement::Defer { statement: Box::new(deferred_stmt), span })
             }
             Token::Identifier(id) if id == "continue" => {
+                let span = Some(self.current_span.clone());
                 self.next_token();
                 let label = self.current_identifier().map(|name| { self.next_token(); name });
                 self.skip_optional_semicolon();
-                Ok(Statement::Continue { label })
+                Ok(Statement::Continue { label, span })
             }
             Token::Identifier(id) if id == "comptime" => {
                 let span = Some(self.current_span.clone());
@@ -598,9 +601,10 @@ impl<'a> Parser<'a> {
                     return Ok(Statement::Expression { expr, span });
                 }
                 let statements = self.parse_brace_block("comptime block")?;
-                Ok(Statement::ComptimeBlock(statements))
+                Ok(Statement::ComptimeBlock { statements, span })
             }
             Token::AtThis => {
+                let span = Some(self.current_span.clone());
                 self.next_token(); // consume '@this'
                 self.expect_symbol('.')?;
                 if !self.is_keyword("defer") {
@@ -611,7 +615,7 @@ impl<'a> Parser<'a> {
                 let expr = self.parse_expression()?;
                 self.expect_symbol(')')?;
                 self.skip_optional_semicolon();
-                Ok(Statement::ThisDefer(expr))
+                Ok(Statement::ThisDefer { expr, span })
             }
             // Generic identifier case (after all specific keywords)
             Token::Identifier(_name) => {
@@ -646,7 +650,7 @@ impl<'a> Parser<'a> {
                             self.next_token(); // consume '='
                             let value = self.parse_expression()?;
                             self.skip_optional_semicolon();
-                            Ok(Statement::PointerAssignment { pointer: lhs, value })
+                            Ok(Statement::PointerAssignment { pointer: lhs, value, span })
                         } else {
                             self.skip_optional_semicolon();
                             Ok(Statement::Expression { expr: lhs, span })
@@ -788,6 +792,7 @@ impl<'a> Parser<'a> {
 
     fn parse_loop_statement(&mut self) -> Result<Statement> {
         use crate::ast::LoopKind;
+        let span = Some(self.current_span.clone());
 
         // Skip 'loop' keyword
         self.next_token();
@@ -821,7 +826,7 @@ impl<'a> Parser<'a> {
 
         // Parse loop body using helper
         let body = self.parse_brace_block("loop body")?;
-        Ok(Statement::Loop { kind, label, body })
+        Ok(Statement::Loop { kind, label, body, span })
     }
 
     #[allow(dead_code)]
@@ -929,6 +934,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_destructuring_import(&mut self) -> Result<Statement> {
+        let span = Some(self.current_span.clone());
         // Parse { io, maths } = @std
         self.next_token(); // consume '{'
 
@@ -971,6 +977,6 @@ impl<'a> Parser<'a> {
         // Parse the source (should be @std or @std.something)
         let source = self.parse_expression()?;
         self.skip_optional_semicolon();
-        Ok(Statement::DestructuringImport { names, source })
+        Ok(Statement::DestructuringImport { names, source, span })
     }
 }

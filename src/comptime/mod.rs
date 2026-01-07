@@ -377,7 +377,7 @@ impl ComptimeInterpreter {
                 Ok(Some(value))
             }
 
-            Statement::ComptimeBlock(stmts) => {
+            Statement::ComptimeBlock { statements: stmts, .. } => {
                 // Nested comptime block
                 self.execute_comptime_block(stmts)?;
                 Ok(None)

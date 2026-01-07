@@ -229,9 +229,10 @@ impl<'ctx> Compiler<'ctx> {
                     span,
                 })
             }
-            Statement::PointerAssignment { pointer, value } => Ok(Statement::PointerAssignment {
+            Statement::PointerAssignment { pointer, value, span } => Ok(Statement::PointerAssignment {
                 pointer: self.process_expression_comptime(pointer, interpreter)?,
                 value: self.process_expression_comptime(value, interpreter)?,
+                span,
             }),
             Statement::Return { expr, span } => Ok(Statement::Return {
                 expr: self.process_expression_comptime(expr, interpreter)?,
@@ -241,12 +242,13 @@ impl<'ctx> Compiler<'ctx> {
                 expr: self.process_expression_comptime(expr, interpreter)?,
                 span,
             }),
-            Statement::Loop { kind, label, body } => Ok(Statement::Loop {
+            Statement::Loop { kind, label, body, span } => Ok(Statement::Loop {
                 kind,
                 label,
                 body: self.process_statements_comptime(body, interpreter)?,
+                span,
             }),
-            Statement::ComptimeBlock(statements) => {
+            Statement::ComptimeBlock { statements, .. } => {
                 // Execute the comptime block inline
                 interpreter.execute_comptime_block(&statements)?;
                 // Comptime blocks don't produce runtime statements - use the block's span if available

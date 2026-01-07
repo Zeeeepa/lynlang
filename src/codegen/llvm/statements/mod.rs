@@ -29,9 +29,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Statement::Loop { .. } => control::compile_loop(self, statement),
             Statement::Break { .. } => control::compile_break(self),
             Statement::Continue { .. } => control::compile_continue(self),
-            Statement::Defer(_) => deferred::compile_defer(self, statement),
-            Statement::ThisDefer(_) => deferred::compile_defer(self, statement),
-            Statement::ComptimeBlock(_) => Ok(()),
+            Statement::Defer { .. } => deferred::compile_defer(self, statement),
+            Statement::ThisDefer { .. } => deferred::compile_defer(self, statement),
+            Statement::ComptimeBlock { .. } => Ok(()),
             Statement::ModuleImport { .. } | Statement::DestructuringImport { .. } => Ok(()),
             Statement::Block { statements, span } => {
                 self.set_span(span.clone());

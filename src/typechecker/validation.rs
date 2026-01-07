@@ -248,7 +248,7 @@ pub fn validate_import_not_in_comptime(stmt: &crate::ast::Statement) -> Result<(
     }
 
     // Check for nested comptime blocks that might contain imports
-    if let Statement::ComptimeBlock(nested_stmts) = stmt {
+    if let Statement::ComptimeBlock { statements: nested_stmts, .. } = stmt {
         for nested_stmt in nested_stmts {
             validate_import_not_in_comptime(nested_stmt)?;
         }

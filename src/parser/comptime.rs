@@ -7,6 +7,7 @@ impl<'a> Parser<'a> {
     /// Parse a comptime block: comptime { ... }
     #[allow(dead_code)]
     pub fn parse_comptime_block(&mut self) -> Result<Statement> {
+        let span = Some(self.current_span.clone());
         // Expect 'comptime' keyword (already consumed)
 
         // Expect '{'
@@ -92,7 +93,7 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
 
-        Ok(Statement::ComptimeBlock(statements))
+        Ok(Statement::ComptimeBlock { statements, span })
     }
 
     /// Parse a comptime expression: comptime expr

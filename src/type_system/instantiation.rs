@@ -198,7 +198,7 @@ impl<'a> TypeInstantiator<'a> {
                 expr: self.instantiate_expression(expr, substitution),
                 span: span.clone(),
             }),
-            Statement::Loop { kind, label, body } => {
+            Statement::Loop { kind, label, body, span } => {
                 use crate::ast::LoopKind;
                 let new_kind = match kind {
                     LoopKind::Infinite => LoopKind::Infinite,
@@ -210,6 +210,7 @@ impl<'a> TypeInstantiator<'a> {
                     kind: new_kind,
                     label: label.clone(),
                     body: self.instantiate_statements(body, substitution)?,
+                    span: span.clone(),
                 })
             }
             _ => Ok(statement.clone()),

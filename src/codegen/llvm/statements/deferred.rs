@@ -8,13 +8,13 @@ pub fn compile_defer<'ctx>(
 ) -> Result<(), CompileError> {
     // Extract deferred statement
     match statement {
-        Statement::Defer(_deferred_stmt) => {
+        Statement::Defer { .. } => {
             // Push the deferred statement onto the defer stack (LIFO order)
             compiler.defer_stack.push(crate::ast::Expression::Unit);
             // The actual execution happens in execute_deferred_expressions
             Ok(())
         }
-        Statement::ThisDefer(expr) => {
+        Statement::ThisDefer { expr, .. } => {
             // Push the deferred expression onto the defer stack
             compiler.defer_stack.push(expr.clone());
             Ok(())

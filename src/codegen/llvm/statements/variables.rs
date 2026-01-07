@@ -523,7 +523,7 @@ pub fn compile_assignment<'ctx>(
 
             Ok(())
         }
-        Statement::PointerAssignment { pointer, value } => {
+        Statement::PointerAssignment { pointer, value, .. } => {
             if let Expression::ArrayIndex { array, index } = pointer {
                 let element_ptr = compiler.compile_array_index_address(array, index)?;
                 let val = compiler.compile_expression(value)?;

@@ -160,11 +160,12 @@ fn transform_statement_self_types(stmt: &Statement, concrete_type: &str) -> Resu
             expr: transform_expression_self_types(expr, concrete_type)?,
             span: span.clone(),
         }),
-        Statement::Loop { kind, label, body } => {
+        Statement::Loop { kind, label, body, span } => {
             Ok(Statement::Loop {
                 kind: kind.clone(), // LoopKind doesn't contain types
                 label: label.clone(),
                 body: transform_statements_self_types(body, concrete_type)?,
+                span: span.clone(),
             })
         }
         // For other statements, clone as-is for now

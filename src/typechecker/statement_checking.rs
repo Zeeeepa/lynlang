@@ -207,21 +207,21 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
             }
             checker.exit_scope();
         }
-        Statement::ComptimeBlock(statements) => {
+        Statement::ComptimeBlock { statements, .. } => {
             checker.enter_scope();
             for stmt in statements {
                 checker.check_statement(stmt)?;
             }
             checker.exit_scope();
         }
-        Statement::PointerAssignment { pointer, value } => {
+        Statement::PointerAssignment { pointer, value, .. } => {
             // For array indexing like arr[i] = value
             // The pointer expression should be a pointer type
             let _pointer_type = checker.infer_expression_type(pointer)?;
             let _value_type = checker.infer_expression_type(value)?;
             // TODO: Type check that value is compatible with the pointed-to type
         }
-        Statement::DestructuringImport { names, source: _ } => {
+        Statement::DestructuringImport { names, .. } => {
             // Handle destructuring imports: { io, math } = @std
             // Register each imported module as a variable with StdModule type
             for name in names {

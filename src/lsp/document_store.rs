@@ -807,7 +807,7 @@ impl DocumentStore {
                 Statement::VariableAssignment { value, .. } => {
                     self.find_references_in_expression(value, symbols);
                 }
-                Statement::PointerAssignment { pointer, value } => {
+                Statement::PointerAssignment { pointer, value, .. } => {
                     self.find_references_in_expression(pointer, symbols);
                     self.find_references_in_expression(value, symbols);
                 }

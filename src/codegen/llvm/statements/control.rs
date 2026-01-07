@@ -94,7 +94,7 @@ pub fn compile_loop<'ctx>(
         Statement::Loop {
             kind,
             body,
-            label: _,
+            ..
         } => {
             match kind {
                 LoopKind::Infinite => {
