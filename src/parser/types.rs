@@ -30,7 +30,7 @@ impl<'a> Parser<'a> {
                     "f32" => Ok(AstType::F32),
                     "f64" => Ok(AstType::F64),
                     "bool" => Ok(AstType::Bool),
-                    "StaticString" => Ok(AstType::StaticString), // User-facing: static strings (compile-time, no allocator)
+                    "StringLiteral" | "StaticString" => Ok(AstType::StaticString), // User-facing: string literals (compile-time, no allocator)
                     // String is a struct type - return as Generic to be resolved later
                     // IMPORTANT: Do NOT call resolve_string_struct_type() here as it causes
                     // circular dependency with stdlib_types() OnceLock initialization
@@ -127,7 +127,7 @@ impl<'a> Parser<'a> {
                     "str" | "string" => {
                         // Provide helpful error for common mistake
                         Err(self.syntax_error(
-                            "Use 'StaticString' for static strings or 'String' for dynamic strings ('str' and 'string' are not valid types)"
+                            "Use 'StringLiteral' for string literals or 'String' for dynamic strings ('str' and 'string' are not valid types)"
                         ))
                     }
                     _ => {

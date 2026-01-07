@@ -192,14 +192,14 @@ allocate_zeroed = (size: usize) RawPtr<u8> {
 // Load a dynamic library by path
 // Returns a handle (opaque pointer) or null on failure
 // Example: lib = load_library("libm.so")
-load_library = (path: StaticString) RawPtr<u8> {
+load_library = (path: StringLiteral) RawPtr<u8> {
     return @builtin.load_library(path)
 }
 
 // Get a symbol (function/variable) from a loaded library
 // Returns a pointer to the symbol or null if not found
 // Example: sin_fn = get_symbol(lib, "sin")
-get_symbol = (lib_handle: RawPtr<u8>, symbol_name: StaticString) RawPtr<u8> {
+get_symbol = (lib_handle: RawPtr<u8>, symbol_name: StringLiteral) RawPtr<u8> {
     return @builtin.get_symbol(lib_handle, symbol_name)
 }
 

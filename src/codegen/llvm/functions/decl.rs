@@ -256,6 +256,7 @@ pub fn compile_function_body<'ctx>(
                 ast_type: AstType::StdModule,
                 is_mutable: false,
                 is_initialized: true,
+                definition_span: compiler.get_current_span(),
             },
         );
     }
@@ -274,6 +275,7 @@ pub fn compile_function_body<'ctx>(
                 ast_type: type_.clone(),
                 is_mutable: false,
                 is_initialized: true,
+                definition_span: compiler.get_current_span(),
             },
         );
     }

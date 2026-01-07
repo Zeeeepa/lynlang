@@ -30,7 +30,7 @@ pub enum AstType {
     F64,
     Bool,
     StaticLiteral, // Internal: Compiler-known string literals (LLVM use only)
-    StaticString,  // User-facing: Static strings (compile-time, immutable, no allocator)
+    StaticString,  // User-facing: StringLiteral (compile-time, immutable, no allocator)
     // String is defined in stdlib/string.zen as a struct, not a compiler primitive
     // Use resolve_string_struct_type() helper to get the struct type
     Void,
@@ -178,8 +178,8 @@ impl fmt::Display for AstType {
             AstType::F32 => write!(f, "f32"),
             AstType::F64 => write!(f, "f64"),
             AstType::Bool => write!(f, "bool"),
-            AstType::StaticLiteral => write!(f, "StaticString"), // Display as StaticString to users
-            AstType::StaticString => write!(f, "StaticString"),
+            AstType::StaticLiteral => write!(f, "StringLiteral"), // Display as StringLiteral to users
+            AstType::StaticString => write!(f, "StringLiteral"),
             // String is now a struct type from stdlib, resolved via Struct variant
             AstType::Void => write!(f, "void"),
             AstType::Array(inner) => write!(f, "Array<{}>", inner),

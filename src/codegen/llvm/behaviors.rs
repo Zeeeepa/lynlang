@@ -236,6 +236,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         ast_type: actual_type,
                         is_mutable: false,
                         is_initialized: true,
+                        definition_span: self.get_current_span(),
                     });
                 }
             }

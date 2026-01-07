@@ -338,6 +338,7 @@ pub fn compile_variable_declaration<'ctx>(
                                 ast_type: type_.clone(),
                                 is_mutable: *is_mutable,
                                 is_initialized: true,
+                                definition_span: compiler.get_current_span(),
                             },
                         );
                         return Ok(());
@@ -366,6 +367,7 @@ pub fn compile_variable_declaration<'ctx>(
                         ast_type: type_.clone(),
                         is_mutable: *is_mutable,
                         is_initialized: true,
+                        definition_span: compiler.get_current_span(),
                     },
                 );
                 return Ok(());
@@ -392,6 +394,7 @@ pub fn compile_variable_declaration<'ctx>(
                         ast_type: type_.clone(),
                         is_mutable: *is_mutable,
                         is_initialized: true,
+                        definition_span: compiler.get_current_span(),
                     },
                 );
                 return Ok(());
@@ -438,6 +441,7 @@ pub fn compile_variable_declaration<'ctx>(
                 ast_type: ast_type_to_store,
                 is_mutable: *is_mutable,
                 is_initialized: true,
+                definition_span: compiler.get_current_span(),
             },
         );
         Ok(())
@@ -464,6 +468,7 @@ pub fn compile_variable_declaration<'ctx>(
                     ast_type: type_.clone(),
                     is_mutable: *is_mutable,
                     is_initialized: false, // Forward declaration without initializer
+                    definition_span: compiler.get_current_span(),
                 },
             );
             Ok(())
@@ -476,6 +481,7 @@ pub fn compile_variable_declaration<'ctx>(
                     ast_type: AstType::I64,
                     is_mutable: *is_mutable,
                     is_initialized: false, // Forward declaration without initializer
+                    definition_span: compiler.get_current_span(),
                 },
             );
             Ok(())

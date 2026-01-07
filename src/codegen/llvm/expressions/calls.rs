@@ -97,7 +97,7 @@ pub fn compile_closure<'ctx>(
                 let basic_type = compiler.expect_basic_type(llvm_param_type)?;
                 let alloca = compiler.builder.build_alloca(basic_type, param_name)?;
                 let param_value = closure_fn.get_nth_param(i as u32).ok_or_else(|| {
-                    CompileError::InternalError(format!("Missing parameter {}", i), None)
+                    CompileError::InternalError(format!("Missing parameter {}", i), compiler.get_current_span())
                 })?;
                 compiler.builder.build_store(alloca, param_value)?;
                 compiler.variables.insert(
@@ -107,6 +107,7 @@ pub fn compile_closure<'ctx>(
                         ast_type: param_type,
                         is_mutable: true,
                         is_initialized: true,
+                        definition_span: compiler.get_current_span(),
                     },
                 );
             }

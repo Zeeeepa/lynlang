@@ -168,12 +168,6 @@ impl<'a> Parser<'a> {
         Ok(full_name)
     }
 
-    /// Check if current token is a specific operator
-    #[inline]
-    pub fn is_operator(&self, op: &str) -> bool {
-        self.current_token == Token::Operator(op.to_string())
-    }
-
     /// Get current identifier without consuming, or None
     pub fn current_identifier(&self) -> Option<String> {
         if let Token::Identifier(name) = &self.current_token {
@@ -181,27 +175,6 @@ impl<'a> Parser<'a> {
         } else {
             None
         }
-    }
-
-    /// Get peek identifier without consuming, or None
-    pub fn peek_identifier(&self) -> Option<String> {
-        if let Token::Identifier(name) = &self.peek_token {
-            Some(name.clone())
-        } else {
-            None
-        }
-    }
-
-    /// Check if peek token is a specific symbol
-    #[inline]
-    pub fn peek_is_symbol(&self, symbol: char) -> bool {
-        self.peek_token == Token::Symbol(symbol)
-    }
-
-    /// Check if peek token is a specific operator
-    #[inline]
-    pub fn peek_is_operator(&self, op: &str) -> bool {
-        self.peek_token == Token::Operator(op.to_string())
     }
 
     // ========================================================================
