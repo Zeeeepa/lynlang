@@ -106,7 +106,7 @@ fn malloc<'ctx>(
         .try_as_basic_value()
         .left()
         .map(|v| v.into_pointer_value())
-        .ok_or_else(|| CompileError::InternalError("malloc returned void".to_string(), None))
+        .ok_or_else(|| CompileError::InternalError("malloc returned void".to_string(), compiler.get_current_span()))
 }
 
 /// Box a value for storage in an array (allocates heap memory and stores value)

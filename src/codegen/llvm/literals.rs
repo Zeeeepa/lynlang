@@ -69,7 +69,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Use empty string to let LLVM auto-generate unique names
                     match self.builder.build_load(self.context.bool_type(), ptr, "") {
                         Ok(val) => val,
-                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), self.get_current_span())),
                     }
                 }
                 AstType::I32 => {
@@ -81,7 +81,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         .build_load(self.context.i32_type(), ptr, &load_name)
                     {
                         Ok(val) => val,
-                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), self.get_current_span())),
                     }
                 }
                 AstType::I64 => {
@@ -93,7 +93,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         .build_load(self.context.i64_type(), ptr, &load_name)
                     {
                         Ok(val) => val,
-                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), self.get_current_span())),
                     }
                 }
                 AstType::F32 => {
@@ -101,7 +101,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Use empty string to let LLVM auto-generate unique names
                     match self.builder.build_load(self.context.f32_type(), ptr, "") {
                         Ok(val) => val,
-                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), self.get_current_span())),
                     }
                 }
                 AstType::F64 => {
@@ -109,7 +109,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Use empty string to let LLVM auto-generate unique names
                     match self.builder.build_load(self.context.f64_type(), ptr, "") {
                         Ok(val) => val,
-                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), self.get_current_span())),
                     }
                 }
                 AstType::StaticLiteral | AstType::StaticString => {
@@ -121,7 +121,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         "",
                     ) {
                         Ok(val) => val,
-                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), self.get_current_span())),
                     }
                 }
                 AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => {
@@ -131,7 +131,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         "",
                     ) {
                         Ok(val) => val,
-                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), self.get_current_span())),
                     }
                 }
                 t if t.is_ptr_type() => {
@@ -145,7 +145,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         "",
                     ) {
                         Ok(val) => val,
-                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), self.get_current_span())),
                     }
                 }
                 AstType::Function { .. } => {
@@ -156,7 +156,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         "",
                     ) {
                         Ok(val) => val,
-                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), self.get_current_span())),
                     }
                 }
                 AstType::EnumType { .. } => {
@@ -172,7 +172,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Use empty string to let LLVM auto-generate unique names
                     match self.builder.build_load(enum_struct_type, ptr, "") {
                         Ok(val) => val,
-                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), self.get_current_span())),
                     }
                 }
                 AstType::StdModule => {
@@ -181,7 +181,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Use empty string to let LLVM auto-generate unique names
                     match self.builder.build_load(self.context.i64_type(), ptr, "") {
                         Ok(val) => val,
-                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), self.get_current_span())),
                     }
                 }
                 AstType::Generic {
@@ -201,7 +201,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     let loaded: BasicValueEnum =
                         match self.builder.build_load(enum_struct_type, ptr, "") {
                             Ok(val) => val,
-                            Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                            Err(e) => return Err(CompileError::InternalError(e.to_string(), self.get_current_span())),
                         };
                     loaded
                 }
@@ -211,7 +211,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Use empty string to let LLVM auto-generate unique names
                     match self.builder.build_load(basic_type, ptr, "") {
                         Ok(val) => val,
-                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), self.get_current_span())),
                     }
                 }
             };
@@ -387,7 +387,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             .try_as_basic_value()
             .left()
             .ok_or_else(|| {
-                CompileError::InternalError("malloc should return a pointer".to_string(), None)
+                CompileError::InternalError("malloc should return a pointer".to_string(), self.get_current_span())
             })?
             .into_pointer_value();
 

@@ -306,7 +306,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let cmp_result = call
             .try_as_basic_value()
             .left()
-            .ok_or_else(|| CompileError::InternalError("strcmp did not return a value".to_string(), None))?
+            .ok_or_else(|| CompileError::InternalError("strcmp did not return a value".to_string(), self.get_current_span()))?
             .into_int_value();
 
         let zero = self.context.i32_type().const_int(0, false);

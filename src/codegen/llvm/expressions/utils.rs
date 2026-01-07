@@ -148,7 +148,7 @@ pub fn compile_comptime_expression<'ctx>(
         }
         Err(e) => Err(CompileError::InternalError(
             format!("Comptime evaluation error: {}", e),
-            None,
+            compiler.get_current_span()
         ))
     }
 }
@@ -164,7 +164,7 @@ pub fn compile_raise_expression<'ctx>(
     };
 
     let parent_function = compiler.current_function.ok_or_else(|| {
-        CompileError::InternalError("No current function for .raise()".to_string(), None)
+        CompileError::InternalError("No current function for .raise()".to_string(), compiler.get_current_span())
     })?;
 
     // Get the current function's name to look up its return type
@@ -347,7 +347,7 @@ pub fn compile_raise_expression<'ctx>(
                     .build_struct_gep(struct_type, temp_alloca, 1, "payload_ptr")?;
             // Get the actual payload type from the struct
             let payload_field_type = struct_type.get_field_type_at_index(1).ok_or_else(|| {
-                CompileError::InternalError("Result payload field not found".to_string(), None)
+                CompileError::InternalError("Result payload field not found".to_string(), compiler.get_current_span())
             })?;
 
             // Load the payload value (which is a pointer to the actual value)

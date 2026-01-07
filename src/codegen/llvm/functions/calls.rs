@@ -73,11 +73,12 @@ fn compile_and_convert_args<'ctx>(
         }
         compiled_args.push(val);
     }
+    let span = compiler.get_current_span();
     compiled_args
         .iter()
         .map(|arg| {
             BasicMetadataValueEnum::try_from(*arg).map_err(|_| {
-                CompileError::InternalError("Failed to convert argument to metadata".to_string(), None)
+                CompileError::InternalError("Failed to convert argument to metadata".to_string(), span.clone())
             })
         })
         .collect()
@@ -209,7 +210,7 @@ fn compile_io_print<'ctx>(
     newline: bool,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     if args.is_empty() {
-        return Err(CompileError::TypeError("print expects 1 argument".to_string(), None));
+        return Err(CompileError::TypeError("print expects 1 argument".to_string(), compiler.get_current_span()));
     }
     let val = compiler.compile_expression(&args[0])?;
     let (data_ptr, len) = extract_string_data(compiler, val)?;
@@ -269,7 +270,7 @@ fn extract_string_data<'ctx>(
         return Ok((ptr, len));
     }
 
-    Err(CompileError::TypeError("Expected string value for print".to_string(), None))
+    Err(CompileError::TypeError("Expected string value for print".to_string(), compiler.get_current_span()))
 }
 
 fn dispatch_compiler_function<'ctx>(
@@ -341,7 +342,7 @@ fn try_compile_direct_call<'ctx>(
         Ok(Some(compiler.context.i32_type().const_zero().into()))
     } else {
         Ok(Some(call.try_as_basic_value().left().ok_or_else(|| {
-            CompileError::InternalError("Function call did not return a value".to_string(), None)
+            CompileError::InternalError("Function call did not return a value".to_string(), compiler.get_current_span())
         })?))
     }
 }
@@ -371,7 +372,7 @@ fn try_compile_indirect_call<'ctx>(
         Ok(Some(compiler.context.i32_type().const_zero().into()))
     } else {
         Ok(Some(call.try_as_basic_value().left().ok_or_else(|| {
-            CompileError::InternalError("Function call did not return a value".to_string(), None)
+            CompileError::InternalError("Function call did not return a value".to_string(), compiler.get_current_span())
         })?))
     }
 }
@@ -430,7 +431,7 @@ fn compile_cast_builtin<'ctx>(
     let target_type = parse_cast_target_type(&args[1])?;
     let llvm_target = compiler.to_llvm_type(&target_type)?;
     let Type::Basic(target_basic) = llvm_target else {
-        return Err(CompileError::TypeError("cast() target must be a basic type".to_string(), None));
+        return Err(CompileError::TypeError("cast() target must be a basic type".to_string(), compiler.get_current_span()));
     };
     perform_cast(compiler, value, target_basic, &source_type, &target_type)
 }
@@ -605,7 +606,7 @@ fn build_string_struct_from_ptr<'ctx>(
         .build_call(strlen_fn, &[ptr_val.into()], "str_len")?
         .try_as_basic_value()
         .left()
-        .ok_or_else(|| CompileError::InternalError("strlen should return a value".to_string(), None))?
+        .ok_or_else(|| CompileError::InternalError("strlen should return a value".to_string(), compiler.get_current_span()))?
         .into_int_value();
 
     let null_ptr = compiler.context.ptr_type(AddressSpace::default()).const_null();
