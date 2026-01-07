@@ -23,14 +23,15 @@ struct FieldInfo {
 impl<'ctx> LLVMCompiler<'ctx> {
     /// Get field info from struct type
     fn get_field_info(&self, struct_name: &str, field_name: &str) -> Result<FieldInfo, CompileError> {
+        let span = self.get_current_span();
         let struct_info = self.struct_types.get(struct_name).ok_or_else(|| {
-            CompileError::TypeError(format!("Struct type '{}' not found", struct_name), None)
+            CompileError::TypeError(format!("Struct type '{}' not found", struct_name), span.clone())
         })?;
 
         let (index, ast_type) = struct_info.fields.get(field_name).ok_or_else(|| {
             CompileError::TypeError(
                 format!("Field '{}' not found in struct '{}'", field_name, struct_name),
-                None,
+                span,
             )
         })?;
 
@@ -42,7 +43,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         match llvm_type {
             Type::Basic(ty) => Ok(*ty),
             Type::Struct(st) => Ok(st.as_basic_type_enum()),
-            _ => Err(CompileError::TypeError("Field type must be basic type".to_string(), None)),
+            _ => Err(CompileError::TypeError("Field type must be basic type".to_string(), self.get_current_span())),
         }
     }
 
@@ -54,7 +55,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         field_name: &str,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         let struct_info = self.struct_types.get(struct_name).ok_or_else(|| {
-            CompileError::TypeError(format!("Struct type '{}' not found", struct_name), None)
+            CompileError::TypeError(format!("Struct type '{}' not found", struct_name), self.get_current_span())
         })?;
 
         let field_info = self.get_field_info(struct_name, field_name)?;
@@ -175,7 +176,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 return self.compile_enum_variant(name, field, &None);
             }
             return Err(CompileError::TypeError(
-                format!("Unknown variant '{}' for enum '{}'", field, name), None
+                format!("Unknown variant '{}' for enum '{}'", field, name), self.get_current_span()
             ));
         }
 
@@ -200,7 +201,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         }
 
         Err(CompileError::TypeError(
-            format!("'{}' is not a struct type, it's {:?}", name, var_type), None
+            format!("'{}' is not a struct type, it's {:?}", name, var_type), self.get_current_span()
         ))
     }
 
@@ -218,7 +219,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 };
                 return Ok((*ptr, inferred));
             }
-            return Err(CompileError::TypeError(format!("'{}' is not a variable", name), None));
+            return Err(CompileError::TypeError(format!("'{}' is not a variable", name), self.get_current_span()));
         }
 
         Err(CompileError::UndeclaredVariable(name.to_string(), self.get_current_span()))
@@ -245,7 +246,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
     fn compile_module_field_access(&mut self, _name: &str, field: &str) -> Result<BasicValueEnum<'ctx>, CompileError> {
         match field {
             "init" => Ok(self.context.i64_type().const_int(1, false).into()),
-            _ => Err(CompileError::TypeError(format!("Unknown module method '{}'", field), None)),
+            _ => Err(CompileError::TypeError(format!("Unknown module method '{}'", field), self.get_current_span())),
         }
     }
 
@@ -257,7 +258,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         field: &str,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         let struct_info = self.struct_types.get(struct_name).ok_or_else(|| {
-            CompileError::TypeError(format!("Struct type '{}' not found", struct_name), None)
+            CompileError::TypeError(format!("Struct type '{}' not found", struct_name), self.get_current_span())
         })?;
         let field_info = self.get_field_info(struct_name, field)?;
 
@@ -282,7 +283,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         let ptr_val = self.compile_expression(inner)?;
         let BasicValueEnum::PointerValue(ptr) = ptr_val else {
-            return Err(CompileError::TypeError("Expected pointer value".to_string(), None));
+            return Err(CompileError::TypeError("Expected pointer value".to_string(), self.get_current_span()));
         };
 
         let struct_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
@@ -303,7 +304,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
 
-        Err(CompileError::TypeError("Cannot determine struct type for dereference".to_string(), None))
+        Err(CompileError::TypeError("Cannot determine struct type for dereference".to_string(), self.get_current_span()))
     }
 
     fn compile_nested_field_access(
@@ -323,25 +324,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
         })?;
 
         let parent_struct_name = self.struct_name_from_type(&var_info.ast_type).ok_or_else(|| {
-            CompileError::TypeError(format!("'{}' is not a struct type", name), None)
+            CompileError::TypeError(format!("'{}' is not a struct type", name), self.get_current_span())
         })?;
 
         let parent_struct_ptr = var_info.pointer;
 
         // Get parent struct llvm type and inner field info
         let parent_info = self.struct_types.get(&parent_struct_name).ok_or_else(|| {
-            CompileError::TypeError(format!("Struct '{}' not found", parent_struct_name), None)
+            CompileError::TypeError(format!("Struct '{}' not found", parent_struct_name), self.get_current_span())
         })?;
 
         let inner_field_info = self.get_field_info(&parent_struct_name, inner_member)?;
 
         // Get nested struct name from inner field type
         let nested_struct_name = self.struct_name_from_type(&inner_field_info.ast_type).ok_or_else(|| {
-            CompileError::TypeError(format!("Field '{}' is not a struct type", inner_member), None)
+            CompileError::TypeError(format!("Field '{}' is not a struct type", inner_member), self.get_current_span())
         })?;
 
         let nested_info = self.struct_types.get(&nested_struct_name).ok_or_else(|| {
-            CompileError::TypeError(format!("Struct '{}' not found", nested_struct_name), None)
+            CompileError::TypeError(format!("Struct '{}' not found", nested_struct_name), self.get_current_span())
         })?;
 
         let final_field_info = self.get_field_info(&nested_struct_name, field)?;
@@ -381,23 +382,23 @@ impl<'ctx> LLVMCompiler<'ctx> {
         })?;
 
         let parent_name = self.struct_name_from_type(&var_info.ast_type).ok_or_else(|| {
-            CompileError::TypeError(format!("'{}' is not a struct type", name), None)
+            CompileError::TypeError(format!("'{}' is not a struct type", name), self.get_current_span())
         })?;
 
         let parent_info = self.struct_types.get(&parent_name).ok_or_else(|| {
-            CompileError::TypeError(format!("Struct '{}' not found", parent_name), None)
+            CompileError::TypeError(format!("Struct '{}' not found", parent_name), self.get_current_span())
         })?;
 
         let (_, field_type) = parent_info.fields.get(inner_member).ok_or_else(|| {
-            CompileError::TypeError(format!("Field '{}' not found", inner_member), None)
+            CompileError::TypeError(format!("Field '{}' not found", inner_member), self.get_current_span())
         })?;
 
         let nested_name = self.struct_name_from_type(field_type).ok_or_else(|| {
-            CompileError::TypeError(format!("Field '{}' is not a struct type", inner_member), None)
+            CompileError::TypeError(format!("Field '{}' is not a struct type", inner_member), self.get_current_span())
         })?;
 
         let nested_info = self.struct_types.get(&nested_name).ok_or_else(|| {
-            CompileError::TypeError(format!("Struct '{}' not found", nested_name), None)
+            CompileError::TypeError(format!("Struct '{}' not found", nested_name), self.get_current_span())
         })?;
 
         let field_info = self.get_field_info(&nested_name, field)?;
@@ -465,7 +466,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         return Ok(n);
                     }
                 }
-                Err(CompileError::TypeError(format!("Unknown variable '{}'", name), None))
+                Err(CompileError::TypeError(format!("Unknown variable '{}'", name), self.get_current_span()))
             }
             Expression::StructLiteral { name, .. } => Ok(name.clone()),
             Expression::FunctionCall { name, .. } => {
@@ -474,12 +475,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         return Ok(sn.clone());
                     }
                 }
-                Err(CompileError::TypeError(format!("Function '{}' does not return a struct", name), None))
+                Err(CompileError::TypeError(format!("Function '{}' does not return a struct", name), self.get_current_span()))
             }
             Expression::MemberAccess { object, member } => {
                 let obj_type = self.infer_expression_type(object)?;
                 let obj_struct = self.struct_name_from_type(obj_type.ptr_inner().unwrap_or(&obj_type))
-                    .ok_or_else(|| CompileError::TypeError("Cannot infer object type".to_string(), None))?;
+                    .ok_or_else(|| CompileError::TypeError("Cannot infer object type".to_string(), self.get_current_span()))?;
 
                 if let Some(info) = self.struct_types.get(&obj_struct) {
                     if let Some((_, field_type)) = info.fields.get(member) {
@@ -488,7 +489,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                     }
                 }
-                Err(CompileError::TypeError(format!("Field '{}' is not a struct", member), None))
+                Err(CompileError::TypeError(format!("Field '{}' is not a struct", member), self.get_current_span()))
             }
             Expression::PointerDereference(ptr_expr) => {
                 if let Expression::Identifier(name) = ptr_expr.as_ref() {
@@ -500,10 +501,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                     }
                 }
-                Err(CompileError::TypeError("Cannot infer struct type from pointer".to_string(), None))
+                Err(CompileError::TypeError("Cannot infer struct type from pointer".to_string(), self.get_current_span()))
             }
             _ => Err(CompileError::TypeError(
-                format!("Cannot infer struct type from expression: {:?}", expr), None
+                format!("Cannot infer struct type from expression: {:?}", expr), self.get_current_span()
             )),
         }
     }
@@ -556,7 +557,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         original_expr: &Expression,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         Err(CompileError::TypeError(
-            format!("Nested struct field access not fully implemented for: {:?}", original_expr), None
+            format!("Nested struct field access not fully implemented for: {:?}", original_expr), self.get_current_span()
         ))
     }
 }
