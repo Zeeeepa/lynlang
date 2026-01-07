@@ -2,7 +2,7 @@
 // Extracted from ZenLanguageServer for better code organization
 
 use super::document_store::DocumentStore;
-use super::types::{Document, SymbolInfo};
+use super::types::Document;
 use super::utils::format_type;
 use crate::well_known::well_known;
 use lsp_types::*;
@@ -13,7 +13,7 @@ use std::collections::HashMap;
 // ============================================================================
 
 /// Split generic arguments by comma, respecting nested <> brackets
-pub fn split_generic_args(args: &str) -> Vec<String> {
+fn split_generic_args(args: &str) -> Vec<String> {
     let mut result = Vec::new();
     let mut current = String::new();
     let mut depth = 0;
@@ -108,119 +108,6 @@ pub fn parse_generic_type(type_str: &str) -> (String, Vec<String>) {
     }
 }
 
-pub fn infer_variable_type(
-    content: &str,
-    var_name: &str,
-    local_symbols: &HashMap<String, SymbolInfo>,
-    stdlib_symbols: &HashMap<String, SymbolInfo>,
-    workspace_symbols: &HashMap<String, SymbolInfo>,
-) -> Option<String> {
-    // Look for variable assignment: var_name = function_call() or var_name: Type = ...
-    let lines: Vec<&str> = content.lines().collect();
-
-    // Limit to first 1000 lines to prevent performance issues
-    let max_lines = lines.len().min(1000);
-    for line in lines.iter().take(max_lines) {
-        // Pattern: var_name = function_call()
-        if line.contains(&format!("{} =", var_name)) || line.contains(&format!("{}=", var_name)) {
-            // Check for type annotation first: var_name: Type = ...
-            if let Some(colon_pos) = line.find(':') {
-                if let Some(eq_pos) = line.find('=') {
-                    if colon_pos < eq_pos {
-                        // Extract type between : and =
-                        let type_str = line[colon_pos + 1..eq_pos].trim();
-                        if !type_str.is_empty() {
-                            return Some(format!(
-                                "```zen\n{}: {}\n```\n\n**Type:** `{}`",
-                                var_name, type_str, type_str
-                            ));
-                        }
-                    }
-                }
-            }
-
-            // Try to find function call and infer return type
-            if let Some(eq_pos) = line.find('=') {
-                let rhs = &line[eq_pos + 1..].trim();
-
-                // Check if it's a function call
-                if let Some(paren_pos) = rhs.find('(') {
-                    let func_name = rhs[..paren_pos].trim();
-
-                    // Look up function in symbols
-                    if let Some(func_info) = local_symbols
-                        .get(func_name)
-                        .or_else(|| stdlib_symbols.get(func_name))
-                        .or_else(|| workspace_symbols.get(func_name))
-                    {
-                        if let Some(type_info) = &func_info.type_info {
-                            let type_str = format_type(type_info);
-                            return Some(format!(
-                                "```zen\n{} = {}()\n```\n\n**Type:** `{}`\n\n**Inferred from:** `{}` function return type",
-                                var_name, func_name, type_str, func_name
-                            ));
-                        }
-
-                        // Try to parse from detail string
-                        if let Some(detail) = &func_info.detail {
-                            // Parse "func_name = (args) return_type"
-                            if let Some(arrow_or_paren_close) = detail.rfind(')') {
-                                let return_part = detail[arrow_or_paren_close + 1..].trim();
-                                if !return_part.is_empty() && return_part != "void" {
-                                    return Some(format!(
-                                        "```zen\n{} = {}()\n```\n\n**Type:** `{}`\n\n**Inferred from:** `{}` function return type",
-                                        var_name, func_name, return_part, func_name
-                                    ));
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Check for constructor calls (Type { ... } or Type(...))
-                if let Some(brace_pos) = rhs.find('{') {
-                    let type_name = rhs[..brace_pos].trim();
-                    if type_name.chars().next().is_some_and(|c| c.is_uppercase()) {
-                        return Some(format!(
-                            "```zen\n{} = {} {{ ... }}\n```\n\n**Type:** `{}`\n\n**Inferred from:** constructor",
-                            var_name, type_name, type_name
-                        ));
-                    }
-                }
-
-                // Check for literals
-                let trimmed = rhs.trim();
-                if trimmed.starts_with('"') || trimmed.starts_with('\'') {
-                    return Some(format!(
-                        "```zen\n{} = {}\n```\n\n**Type:** `StaticString`",
-                        var_name, trimmed
-                    ));
-                }
-                if trimmed.parse::<i32>().is_ok() {
-                    return Some(format!(
-                        "```zen\n{} = {}\n```\n\n**Type:** `i32`",
-                        var_name, trimmed
-                    ));
-                }
-                if trimmed.parse::<f64>().is_ok() && trimmed.contains('.') {
-                    return Some(format!(
-                        "```zen\n{} = {}\n```\n\n**Type:** `f64`",
-                        var_name, trimmed
-                    ));
-                }
-                if trimmed == "true" || trimmed == "false" {
-                    return Some(format!(
-                        "```zen\n{} = {}\n```\n\n**Type:** `bool`",
-                        var_name, trimmed
-                    ));
-                }
-            }
-        }
-    }
-
-    None
-}
-
 pub fn infer_receiver_type(receiver: &str, documents: &HashMap<Url, Document>) -> Option<String> {
     // Check common patterns first using helper
     if let Some(t) = infer_type_from_prefix(receiver) {
@@ -234,8 +121,7 @@ pub fn infer_receiver_type(receiver: &str, documents: &HashMap<Url, Document>) -
     }
 
     // Check if receiver is a known variable in symbols (limit search)
-    const MAX_DOCS_FOR_TYPE_INFERENCE: usize = 20;
-    for doc in documents.values().take(MAX_DOCS_FOR_TYPE_INFERENCE) {
+    for doc in documents.values().take(crate::lsp::search_limits::TYPE_INFERENCE_SEARCH) {
         if let Some(symbol) = doc.symbols.get(receiver) {
             if let Some(type_info) = &symbol.type_info {
                 return Some(format_type(type_info));
@@ -342,8 +228,7 @@ pub fn infer_base_expression_type(
 
     // Check if it's a known variable
     if let Some(type_name) = expr.split('(').next() {
-        const MAX_DOCS_SEARCH: usize = 20;
-        for doc in documents.values().take(MAX_DOCS_SEARCH) {
+        for doc in documents.values().take(crate::lsp::search_limits::TYPE_INFERENCE_SEARCH) {
             if let Some(symbol) = doc.symbols.get(type_name) {
                 if let Some(type_info) = &symbol.type_info {
                     let type_str = format_type(type_info);
@@ -463,30 +348,6 @@ fn extract_return_type_from_detail(detail: &str) -> Option<String> {
             }
         }
     }
-    None
-}
-
-pub fn find_stdlib_location(
-    stdlib_path: &str,
-    method_name: &str,
-    documents: &HashMap<Url, Document>,
-) -> Option<Location> {
-    // Try to find the method in the stdlib file
-    // First check if we have the stdlib file open
-    for (uri, doc) in documents {
-        if uri.path().contains(stdlib_path) {
-            // Look for the method in this file's symbols
-            if let Some(symbol) = doc.symbols.get(method_name) {
-                return Some(Location {
-                    uri: uri.clone(),
-                    range: symbol.range,
-                });
-            }
-        }
-    }
-
-    // If not found in open documents, we could potentially open and parse the stdlib file
-    // For now, return None to indicate it's a built-in method
     None
 }
 
@@ -677,45 +538,6 @@ pub fn parse_function_from_source(
                         let inner = line[option_pos + start + 1..option_pos + end].trim();
                         return (Some(inner.to_string()), None);
                     }
-                }
-            }
-        }
-    }
-
-    (None, None)
-}
-
-pub fn parse_return_type_generics(signature: &str) -> (Option<String>, Option<String>) {
-    // Parse function signature to extract Result<T, E> or Option<T>
-    // Example: "divide = (a: f64, b: f64) Result<f64, StaticString>"
-
-    // Find the return type (after the closing paren)
-    if let Some(paren_pos) = signature.rfind(')') {
-        let after_paren = signature[paren_pos + 1..].trim();
-
-        // Check for Result<T, E>
-        if after_paren.starts_with("Result<") {
-            if let Some(start) = after_paren.find('<') {
-                if let Some(end) = after_paren.rfind('>') {
-                    let generics = &after_paren[start + 1..end];
-
-                    // Smart split by comma - handle nested generics
-                    let parts = split_generic_args(generics);
-                    if parts.len() == 2 {
-                        return (Some(parts[0].to_string()), Some(parts[1].to_string()));
-                    } else if parts.len() == 1 {
-                        // Single type param (shouldn't happen for Result)
-                        return (Some(parts[0].to_string()), Some("unknown".to_string()));
-                    }
-                }
-            }
-        }
-        // Check for Option<T>
-        else if after_paren.starts_with("Option<") {
-            if let Some(start) = after_paren.find('<') {
-                if let Some(end) = after_paren.rfind('>') {
-                    let inner_type = after_paren[start + 1..end].trim();
-                    return (Some(inner_type.to_string()), None);
                 }
             }
         }

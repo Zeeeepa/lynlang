@@ -653,9 +653,8 @@ pub fn handle_definition(
             // Search for the symbol in other open documents
             let mut test_match: Option<(Url, Range)> = None;
             let current_uri = &params.text_document_position_params.text_document.uri;
-            const MAX_DOCS_DEFINITION_SEARCH: usize = 50;
 
-            for (uri, other_doc) in store.documents.iter().take(MAX_DOCS_DEFINITION_SEARCH) {
+            for (uri, other_doc) in store.documents.iter().take(crate::lsp::search_limits::DEFINITION_SEARCH) {
                 if uri == current_uri {
                     continue;
                 }

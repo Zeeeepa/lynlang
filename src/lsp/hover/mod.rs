@@ -341,8 +341,7 @@ mod handler {
         store: &DocumentStore,
         request_id: lsp_server::RequestId,
     ) -> Option<Response> {
-        const MAX_DOCS_HOVER_SEARCH: usize = 10;
-        for (_uri, other_doc) in store.documents.iter().take(MAX_DOCS_HOVER_SEARCH) {
+        for (_uri, other_doc) in store.documents.iter().take(crate::lsp::search_limits::HOVER_SEARCH) {
             if let Some(symbol_info) = other_doc.symbols.get(symbol_name) {
                 let mut hover_content = Vec::with_capacity(3);
 

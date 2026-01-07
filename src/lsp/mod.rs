@@ -1,5 +1,22 @@
 // LSP module for Zen Language Server
 
+// Performance tuning constants for cross-document searches
+// These limit how many documents we search to avoid blocking the LSP
+pub mod search_limits {
+    /// Maximum documents to search for definitions (high - definitions are important)
+    pub const DEFINITION_SEARCH: usize = 50;
+    /// Maximum documents to search for references (high - need completeness)
+    pub const REFERENCES_SEARCH: usize = 50;
+    /// Maximum documents to search for hover info (low - just need one match)
+    pub const HOVER_SEARCH: usize = 10;
+    /// Maximum documents to search for type inference (medium)
+    pub const TYPE_INFERENCE_SEARCH: usize = 20;
+    /// Maximum documents to search for enum variants (medium)
+    pub const ENUM_SEARCH: usize = 30;
+    /// Maximum documents for quick type lookups (low - fast path)
+    pub const QUICK_TYPE_SEARCH: usize = 10;
+}
+
 // Submodules
 pub mod analyzer;
 pub mod helpers;

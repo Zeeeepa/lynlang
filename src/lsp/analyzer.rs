@@ -227,9 +227,7 @@ pub fn infer_expression_type_string(
     expr: &Expression,
     documents: &HashMap<Url, super::types::Document>,
 ) -> Option<String> {
-    const MAX_DOCS_TYPE_SEARCH: usize = 10;
-
-    for doc in documents.values().take(MAX_DOCS_TYPE_SEARCH) {
+    for doc in documents.values().take(crate::lsp::search_limits::QUICK_TYPE_SEARCH) {
         if let Some(ast) = &doc.ast {
             let program = Program {
                 declarations: ast.clone(),
@@ -250,7 +248,7 @@ pub fn infer_expression_type_string(
     // Fallback to AST-based lookup for variables
     match expr {
         Expression::Identifier(name) => {
-            for doc in documents.values().take(MAX_DOCS_TYPE_SEARCH) {
+            for doc in documents.values().take(crate::lsp::search_limits::QUICK_TYPE_SEARCH) {
                 if let Some(ast) = &doc.ast {
                     if let Some(type_str) = find_variable_type_in_ast(name, ast) {
                         return Some(type_str);
@@ -347,9 +345,8 @@ pub fn infer_type_from_expression(
     documents: &HashMap<Url, super::types::Document>,
     compiler: &CompilerIntegration,
 ) -> Option<String> {
-    const MAX_DOCS_TYPE_SEARCH: usize = 5;
-
-    for doc in documents.values().take(MAX_DOCS_TYPE_SEARCH) {
+    // Use smaller limit for this fast-path lookup
+    for doc in documents.values().take(crate::lsp::search_limits::QUICK_TYPE_SEARCH / 2) {
         if let Some(ast) = &doc.ast {
             let program = Program {
                 declarations: ast.clone(),

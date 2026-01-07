@@ -1,7 +1,7 @@
 // UFC (Uniform Function Call) method resolution helpers
 
 use crate::lsp::document_store::DocumentStore;
-use crate::lsp::type_inference::infer_receiver_type_from_store;
+use crate::lsp::type_inference::{infer_receiver_type_from_store, parse_generic_type};
 use crate::lsp::types::UfcMethodInfo;
 use crate::well_known::well_known;
 use lsp_types::*;
@@ -69,49 +69,6 @@ pub fn find_ufc_method_at_position(content: &str, position: Position) -> Option<
         }
     }
     None
-}
-
-/// Parse a generic type like HashMap<K, V> into ("HashMap", ["K", "V"])
-fn parse_generic_type(type_str: &str) -> (String, Vec<String>) {
-    if let Some(angle_pos) = type_str.find('<') {
-        let base = type_str[..angle_pos].to_string();
-        let params_end = type_str.rfind('>').unwrap_or(type_str.len());
-        let params_str = &type_str[angle_pos + 1..params_end];
-
-        let params = if params_str.is_empty() {
-            Vec::new()
-        } else {
-            let mut params = Vec::new();
-            let mut current = String::new();
-            let mut depth = 0;
-
-            for ch in params_str.chars() {
-                match ch {
-                    '<' => {
-                        depth += 1;
-                        current.push(ch);
-                    }
-                    '>' => {
-                        depth -= 1;
-                        current.push(ch);
-                    }
-                    ',' if depth == 0 => {
-                        params.push(current.trim().to_string());
-                        current.clear();
-                    }
-                    _ => current.push(ch),
-                }
-            }
-
-            if !current.is_empty() {
-                params.push(current.trim().to_string());
-            }
-            params
-        };
-        (base, params)
-    } else {
-        (type_str.to_string(), Vec::new())
-    }
 }
 
 /// Find a method in a stdlib file

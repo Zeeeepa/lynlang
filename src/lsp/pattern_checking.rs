@@ -239,8 +239,7 @@ pub fn find_missing_variants(
         let mut found_variants: Option<Vec<String>> = None;
 
         // 1. Check current document symbols (limit search for performance)
-        const MAX_DOCS_ENUM_SEARCH: usize = 30;
-        for doc in documents.values().take(MAX_DOCS_ENUM_SEARCH) {
+        for doc in documents.values().take(crate::lsp::search_limits::ENUM_SEARCH) {
             if let Some(symbol) = doc.symbols.get(enum_name) {
                 if let Some(ref variants) = symbol.enum_variants {
                     found_variants = Some(variants.clone());

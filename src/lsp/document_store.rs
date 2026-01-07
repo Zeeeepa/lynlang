@@ -357,7 +357,6 @@ impl DocumentStore {
             diagnostics: Vec::new(),
             symbols,
             last_analysis: Some(Instant::now()),
-            cached_lines: None,
         };
 
         self.documents.insert(uri.clone(), doc);
@@ -423,7 +422,6 @@ impl DocumentStore {
             doc.ast = ast;
             doc.diagnostics = diagnostics.clone(); // Need clone for return value
             doc.symbols = symbols;
-            doc.cached_lines = None; // Invalidate cache on content change
             if should_run_analysis {
                 doc.last_analysis = Some(Instant::now());
             }

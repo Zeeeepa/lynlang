@@ -144,9 +144,8 @@ pub fn handle_references(
                 }
                 SymbolScope::ModuleLevel | SymbolScope::Unknown => {
                     // Module-level symbol - search across documents (limited for performance)
-                    const MAX_DOCS_REFERENCES_SEARCH: usize = 50;
                     for (uri, search_doc) in
-                        store_lock.documents.iter().take(MAX_DOCS_REFERENCES_SEARCH)
+                        store_lock.documents.iter().take(crate::lsp::search_limits::REFERENCES_SEARCH)
                     {
                         let refs = find_references_in_document(&search_doc.content, &symbol_name);
                         for range in refs {
