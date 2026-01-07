@@ -488,7 +488,7 @@ pub fn compile_raise_expression<'ctx>(
                     struct_type.get_field_type_at_index(1).ok_or_else(|| {
                         CompileError::InternalError(
                             "Result payload field not found".to_string(),
-                            None,
+                            compiler.get_current_span(),
                         )
                     })?;
 
@@ -783,7 +783,7 @@ pub fn compile_raise_expression<'ctx>(
                     struct_type.get_field_type_at_index(1).ok_or_else(|| {
                         CompileError::InternalError(
                             "Result payload field not found".to_string(),
-                            None,
+                            compiler.get_current_span(),
                         )
                     })?;
 
@@ -869,7 +869,7 @@ pub fn compile_raise_expression<'ctx>(
                         struct_type.get_field_type_at_index(1).ok_or_else(|| {
                             CompileError::InternalError(
                                 "Result payload field not found".to_string(),
-                                None,
+                                compiler.get_current_span(),
                             )
                         })?;
 
@@ -967,7 +967,7 @@ pub fn compile_raise_expression<'ctx>(
                     "Unsupported Result type for .raise(): {:?}",
                     result_value.get_type()
                 ),
-                None,
+                compiler.get_current_span(),
             ));
         }
     }

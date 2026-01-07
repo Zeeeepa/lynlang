@@ -305,11 +305,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
 
-        // Handle Array methods
-        if let Some(result) = self.try_compile_array_method(object, method_name, args)? {
-            return Ok(result);
-        }
-
         // Handle HashMap methods
         if let Some(result) = self.try_compile_hashmap_method(object, method_name, args)? {
             return Ok(result);
@@ -343,62 +338,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
         }
         let qualified = format!("Std.{}", method_name);
         super::functions::calls::compile_function_call(self, &qualified, args)
-    }
-
-    fn try_compile_array_method(
-        &mut self,
-        object: &Expression,
-        method_name: &str,
-        args: &[Expression],
-    ) -> Result<Option<BasicValueEnum<'ctx>>, CompileError> {
-        let Expression::Identifier(name) = object else { return Ok(None) };
-
-        let array_info = self.variables.get(name).and_then(|v| {
-            if let AstType::Generic { name: tn, type_args } = &v.ast_type {
-                if tn == "Array" && !type_args.is_empty() {
-                    return Some((v.pointer, type_args[0].clone()));
-                }
-            }
-            None
-        });
-
-        let Some((array_ptr, element_type)) = array_info else { return Ok(None) };
-
-        let array_struct_type = self.context.struct_type(&[
-            self.context.ptr_type(inkwell::AddressSpace::default()).into(),
-            self.context.i64_type().into(),
-            self.context.i64_type().into(),
-        ], false);
-        let object_val = self.builder.build_load(array_struct_type, array_ptr, "array_val")?;
-
-        let span = self.get_current_span();
-        match method_name {
-            "push" => {
-                if args.len() != 1 { return Err(CompileError::TypeError(format!("Array.push expects 1 argument, got {}", args.len()), span)); }
-                let value = self.compile_expression(&args[0])?;
-                Ok(Some(super::functions::arrays::compile_array_push_by_ptr(self, array_ptr, value)?))
-            }
-            "get" => {
-                if args.len() != 1 { return Err(CompileError::TypeError(format!("Array.get expects 1 argument, got {}", args.len()), span)); }
-                let index = self.compile_expression(&args[0])?;
-                Ok(Some(super::functions::arrays::compile_array_get(self, object_val, index, &element_type)?))
-            }
-            "len" => {
-                if !args.is_empty() { return Err(CompileError::TypeError(format!("Array.len expects no arguments, got {}", args.len()), span)); }
-                Ok(Some(super::functions::arrays::compile_array_len(self, object_val)?))
-            }
-            "set" => {
-                if args.len() != 2 { return Err(CompileError::TypeError(format!("Array.set expects 2 arguments, got {}", args.len()), span)); }
-                let index = self.compile_expression(&args[0])?;
-                let value = self.compile_expression(&args[1])?;
-                Ok(Some(super::functions::arrays::compile_array_set(self, object_val, index, value)?))
-            }
-            "pop" => {
-                if !args.is_empty() { return Err(CompileError::TypeError(format!("Array.pop expects no arguments, got {}", args.len()), span)); }
-                Ok(Some(super::functions::arrays::compile_array_pop_by_ptr(self, array_ptr, &element_type)?))
-            }
-            _ => Ok(None),
-        }
     }
 
     fn try_compile_hashmap_method(

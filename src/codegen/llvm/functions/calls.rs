@@ -384,9 +384,6 @@ pub fn compile_function_call<'ctx>(
     name: &str,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if name == "Array.new" {
-        return compiler.compile_array_new(args);
-    }
     if let Some(result) = try_compile_collection_constructor(compiler, name, args) {
         return result;
     }
