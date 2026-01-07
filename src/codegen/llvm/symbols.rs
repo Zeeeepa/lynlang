@@ -52,9 +52,8 @@ pub struct SymbolTable<'ctx> {
     current_scope: usize,
 }
 
-impl<'ctx> SymbolTable<'ctx> {
-    /// Create a new symbol table with a global scope
-    pub fn new() -> Self {
+impl<'ctx> Default for SymbolTable<'ctx> {
+    fn default() -> Self {
         let global_scope = Scope {
             symbols: HashMap::new(),
             parent: None,
@@ -64,6 +63,13 @@ impl<'ctx> SymbolTable<'ctx> {
             scopes: vec![global_scope],
             current_scope: 0,
         }
+    }
+}
+
+impl<'ctx> SymbolTable<'ctx> {
+    /// Create a new symbol table with a global scope
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Enter a new scope

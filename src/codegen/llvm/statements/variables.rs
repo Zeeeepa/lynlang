@@ -324,7 +324,7 @@ pub fn compile_variable_declaration<'ctx>(
             if matches!(type_, AstType::Function { .. }) {
                 // For function pointers, we need to get the function and store its pointer
                 if let Expression::Identifier(func_name) = init_expr {
-                    if let Some(function) = compiler.module.get_function(&func_name) {
+                    if let Some(function) = compiler.module.get_function(func_name) {
                         // Store the function pointer
                         let func_ptr = function.as_global_value().as_pointer_value();
                         compiler

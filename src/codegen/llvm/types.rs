@@ -510,7 +510,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 "Vec" => {
                     // Vec<T, N> where N is the size
                     let parts = self.parse_comma_separated_types(type_params_str);
-                    if parts.len() >= 1 {
+                    if !parts.is_empty() {
                         // For now, default size to 10 if not specified
                         AstType::Vec {
                             element_type: Box::new(parts[0].clone()),

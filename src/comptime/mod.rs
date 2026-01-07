@@ -128,12 +128,18 @@ pub struct Environment {
     parent: Option<Box<Environment>>,
 }
 
-impl Environment {
-    pub fn new() -> Self {
+impl Default for Environment {
+    fn default() -> Self {
         Environment {
             variables: Rc::new(RefCell::new(HashMap::new())),
             parent: None,
         }
+    }
+}
+
+impl Environment {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn with_parent(parent: Environment) -> Self {
@@ -180,8 +186,8 @@ pub struct ComptimeInterpreter {
     modules: HashMap<String, ComptimeValue>,
 }
 
-impl ComptimeInterpreter {
-    pub fn new() -> Self {
+impl Default for ComptimeInterpreter {
+    fn default() -> Self {
         let mut interpreter = ComptimeInterpreter {
             env: Environment::new(),
             generated_declarations: Vec::new(),
@@ -191,6 +197,12 @@ impl ComptimeInterpreter {
         // Initialize built-in compile-time functions
         interpreter.init_builtins();
         interpreter
+    }
+}
+
+impl ComptimeInterpreter {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     // Helper methods for testing

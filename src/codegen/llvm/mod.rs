@@ -483,19 +483,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.generic_tracker.track_generic_type(type_, prefix);
 
         // Also update the old system for backwards compatibility
-        match type_ {
-            AstType::Generic { name, type_args } => {
-                if self.well_known.is_result(name) && type_args.len() == 2 {
-                    self.generic_type_context
-                        .insert(format!("{}_Ok_Type", prefix), type_args[0].clone());
-                    self.generic_type_context
-                        .insert(format!("{}_Err_Type", prefix), type_args[1].clone());
-                } else if self.well_known.is_option(name) && type_args.len() == 1 {
-                    self.generic_type_context
-                        .insert(format!("{}_Some_Type", prefix), type_args[0].clone());
-                }
+        if let AstType::Generic { name, type_args } = type_ {
+            if self.well_known.is_result(name) && type_args.len() == 2 {
+                self.generic_type_context
+                    .insert(format!("{}_Ok_Type", prefix), type_args[0].clone());
+                self.generic_type_context
+                    .insert(format!("{}_Err_Type", prefix), type_args[1].clone());
+            } else if self.well_known.is_option(name) && type_args.len() == 1 {
+                self.generic_type_context
+                    .insert(format!("{}_Some_Type", prefix), type_args[0].clone());
             }
-            _ => {}
         }
     }
 
@@ -798,7 +795,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Exports are handled at module level, no codegen needed
                 }
                 ast::Declaration::ModuleImport { alias, module_path, .. } => {
-                    let module_name = module_path.split('.').last().unwrap_or(alias);
+                    let module_name = module_path.split('.').next_back().unwrap_or(alias);
                     let module_id = self.get_module_id(module_name);
                     self.module_imports.insert(alias.clone(), module_id);
                 }

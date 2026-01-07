@@ -262,10 +262,11 @@ fn promote_numeric_types(left: &AstType, right: &AstType, span: Option<crate::er
             return Ok(AstType::Usize);
         }
         // If one is Usize and other is compatible unsigned, promote to Usize
-        if matches!(left, AstType::Usize) || matches!(right, AstType::Usize) {
-            if left.is_unsigned_integer() && right.is_unsigned_integer() {
-                return Ok(AstType::Usize);
-            }
+        if (matches!(left, AstType::Usize) || matches!(right, AstType::Usize))
+            && left.is_unsigned_integer()
+            && right.is_unsigned_integer()
+        {
+            return Ok(AstType::Usize);
         }
 
         // Promote to the larger size

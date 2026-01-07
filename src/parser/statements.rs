@@ -260,15 +260,13 @@ impl<'a> Parser<'a> {
                             if self.current_identifier().is_some() {
                                 let type_name = self.parse_type_name_with_generics()?;
                                 // Check if next is '.' followed by 'impl'
-                                if self.try_consume_symbol('.') {
-                                    if self.is_keyword("impl") {
-                                        self.next_token(); // consume 'impl'
-                                        if self.try_consume_operator("=") {
-                                            declarations.push(Declaration::ImplBlock(
-                                                self.parse_impl_block(type_name)?,
-                                            ));
-                                            continue; // Skip to next declaration
-                                        }
+                                if self.try_consume_symbol('.') && self.is_keyword("impl") {
+                                    self.next_token(); // consume 'impl'
+                                    if self.try_consume_operator("=") {
+                                        declarations.push(Declaration::ImplBlock(
+                                            self.parse_impl_block(type_name)?,
+                                        ));
+                                        continue; // Skip to next declaration
                                     }
                                 }
                             }

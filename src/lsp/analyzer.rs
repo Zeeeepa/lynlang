@@ -236,11 +236,8 @@ pub fn infer_expression_type_string(
 
             let mut compiler_integration = CompilerIntegration::new();
 
-            match compiler_integration.infer_expression_type(&program, expr) {
-                Ok(ast_type) => {
-                    return Some(format_type(&ast_type));
-                }
-                Err(_) => {}
+            if let Ok(ast_type) = compiler_integration.infer_expression_type(&program, expr) {
+                return Some(format_type(&ast_type));
             }
         }
     }

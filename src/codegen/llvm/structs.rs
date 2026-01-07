@@ -278,7 +278,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
     fn compile_deref_field_access(
         &mut self,
-        inner: &Box<Expression>,
+        inner: &Expression,
         field: &str,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         let ptr_val = self.compile_expression(inner)?;
@@ -290,7 +290,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let struct_ptr = self.builder.build_load(struct_ptr_type, ptr, "load_struct_ptr")?;
         let struct_ptr = struct_ptr.into_pointer_value();
 
-        if let Expression::Identifier(ptr_name) = &**inner {
+        if let Expression::Identifier(ptr_name) = inner {
             let struct_name = self.variables.get(ptr_name).and_then(|v| {
                 v.ast_type.ptr_inner().and_then(|inner_type| {
                     if let AstType::Struct { name, .. } = inner_type {
@@ -309,12 +309,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
     fn compile_nested_field_access(
         &mut self,
-        object: &Box<Expression>,
+        object: &Expression,
         inner_member: &str,
         field: &str,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         // Get parent struct info
-        let Expression::Identifier(name) = &**object else {
+        let Expression::Identifier(name) = object else {
             let inner_val = self.compile_struct_field(object, inner_member)?;
             return self.compile_nested_from_value(object, inner_member, inner_val, field);
         };
@@ -365,13 +365,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
     fn compile_nested_from_value(
         &mut self,
-        object: &Box<Expression>,
+        object: &Expression,
         inner_member: &str,
         inner_val: BasicValueEnum<'ctx>,
         field: &str,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         // Infer nested struct name from parent
-        let Expression::Identifier(name) = &**object else {
+        let Expression::Identifier(name) = object else {
             return Err(CompileError::TypeError(
                 "Cannot infer struct type for nested access".to_string(), self.get_current_span()
             ));
@@ -470,10 +470,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             Expression::StructLiteral { name, .. } => Ok(name.clone()),
             Expression::FunctionCall { name, .. } => {
-                if let Some(func_type) = self.function_types.get(name) {
-                    if let AstType::Struct { name: sn, .. } = func_type {
-                        return Ok(sn.clone());
-                    }
+                if let Some(AstType::Struct { name: sn, .. }) = self.function_types.get(name) {
+                    return Ok(sn.clone());
                 }
                 Err(CompileError::TypeError(format!("Function '{}' does not return a struct", name), self.get_current_span()))
             }

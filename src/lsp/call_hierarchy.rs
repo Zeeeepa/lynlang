@@ -312,7 +312,7 @@ fn find_function_calls_in_range(content: &str, range: &Range) -> Vec<(String, Ve
             for (func_name, call_range) in func_calls {
                 call_map
                     .entry(func_name)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(call_range);
             }
         }

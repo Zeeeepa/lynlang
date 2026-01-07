@@ -139,9 +139,9 @@ pub fn compile_enum_variant<'ctx>(
             (Some(info), tag_val)
         } else {
             // If enum not found, infer enum name from variant for common types
-            let inferred_enum = if compiler.well_known.is_result_variant(variant) {
-                compiler.well_known.get_variant_parent_name(variant)
-            } else if compiler.well_known.is_option_variant(variant) {
+            let inferred_enum = if compiler.well_known.is_result_variant(variant)
+                || compiler.well_known.is_option_variant(variant)
+            {
                 compiler.well_known.get_variant_parent_name(variant)
             } else {
                 None
@@ -370,10 +370,10 @@ pub fn compile_enum_literal<'ctx>(
 
 pub fn compile_some<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
-    value: &Box<Expression>,
+    value: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     // Some(value) is Option::Some(value)
-    compile_enum_variant(compiler, compiler.well_known.option_name(), compiler.well_known.some_name(), &Some(value.clone()))
+    compile_enum_variant(compiler, compiler.well_known.option_name(), compiler.well_known.some_name(), &Some(Box::new(value.clone())))
 }
 
 pub fn compile_none<'ctx>(

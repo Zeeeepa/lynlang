@@ -146,7 +146,7 @@ pub fn handle_code_lens(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Resp
                 let _ = writeln!(f, "  - Line {}: {}", lens.range.start.line, cmd.title);
             }
         }
-        let _ = writeln!(f, "");
+        let _ = writeln!(f);
     }
 
     success_response(&req, lenses)

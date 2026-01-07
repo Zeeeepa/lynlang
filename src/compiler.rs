@@ -264,6 +264,7 @@ impl<'ctx> Compiler<'ctx> {
     }
 
     /// Process a single expression for comptime evaluation
+    #[allow(clippy::only_used_in_recursion)]
     fn process_expression_comptime(
         &self,
         expr: crate::ast::Expression,

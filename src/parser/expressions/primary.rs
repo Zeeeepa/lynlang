@@ -159,11 +159,10 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
             if !matches!(
                 &parser.current_token,
                 Token::Symbol('}') | Token::Eof | Token::Symbol(';')
-            ) {
-                if label.is_none() {
-                    // This must be a value expression
-                    value = Some(Box::new(parser.parse_expression()?));
-                }
+            ) && label.is_none()
+            {
+                // This must be a value expression
+                value = Some(Box::new(parser.parse_expression()?));
             }
 
             Ok(Expression::Break { label, value })

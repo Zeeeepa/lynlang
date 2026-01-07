@@ -459,7 +459,7 @@ mod handler {
                 .unwrap_or("");
             let file_name = uri
                 .path_segments()
-                .and_then(|s| s.last())
+                .and_then(|mut s| s.next_back())
                 .unwrap_or("unknown");
 
             let mut hover_content = Vec::with_capacity(3);

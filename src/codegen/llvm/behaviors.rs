@@ -10,6 +10,7 @@ use std::collections::HashMap;
 // ============================================================================
 
 #[allow(dead_code)]
+#[derive(Default)]
 pub struct BehaviorCodegen<'ctx> {
     vtables: HashMap<(String, String), PointerValue<'ctx>>,
     pub method_impls: HashMap<(String, String), FunctionValue<'ctx>>,
@@ -18,7 +19,7 @@ pub struct BehaviorCodegen<'ctx> {
 impl<'ctx> BehaviorCodegen<'ctx> {
     #[allow(dead_code)]
     pub fn new() -> Self {
-        Self { vtables: HashMap::new(), method_impls: HashMap::new() }
+        Self::default()
     }
 
     pub fn generate_vtable(
@@ -245,10 +246,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.compile_statement(stmt)?;
             }
 
-            if matches!(llvm_return_type, super::Type::Void) {
-                if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
-                    self.builder.build_return(None)?;
-                }
+            if matches!(llvm_return_type, super::Type::Void)
+                && self.builder.get_insert_block().unwrap().get_terminator().is_none()
+            {
+                self.builder.build_return(None)?;
             }
 
             self.symbols.exit_scope();
@@ -405,7 +406,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         }
 
         let args_meta: Vec<_> = compiled_args.iter()
-            .map(|a| inkwell::values::BasicMetadataValueEnum::try_from(*a).unwrap())
+            .map(|a| inkwell::values::BasicMetadataValueEnum::from(*a))
             .collect();
 
         let call = self.builder.build_call(function, &args_meta, "method_call")?;

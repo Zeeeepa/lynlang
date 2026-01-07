@@ -10,11 +10,17 @@ pub struct GenericTypeTracker {
     contexts: Vec<HashMap<String, AstType>>,
 }
 
-impl GenericTypeTracker {
-    pub fn new() -> Self {
+impl Default for GenericTypeTracker {
+    fn default() -> Self {
         Self {
             contexts: vec![HashMap::new()],
         }
+    }
+}
+
+impl GenericTypeTracker {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Push a new generic context scope

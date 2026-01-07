@@ -59,16 +59,6 @@ pub struct EnumInfo {
 }
 
 impl TypeChecker {
-    /// Resolve String type from stdlib - returns the struct type definition
-    /// String is defined in stdlib/string.zen as:
-    /// struct String {
-    ///     data: Ptr<u8>
-    ///     len: u64
-    ///     capacity: u64
-    ///     allocator: Allocator
-    /// }
-    // Use crate::ast::resolve_string_struct_type() instead
-
     /// Resolve Generic types to Struct types if they're known structs
     /// This handles the case where the parser represents struct types as Generic
     /// Recursively resolves nested Generic types in fields

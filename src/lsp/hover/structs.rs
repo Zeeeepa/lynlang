@@ -17,7 +17,7 @@ pub fn format_struct_definition(struct_def: &crate::ast::StructDefinition) -> St
             format_type(&field.type_)
         ));
     }
-    result.push_str("}");
+    result.push('}');
     result
 }
 
@@ -39,7 +39,7 @@ pub fn find_struct_definition(
     }
 
     // Check other documents in the store
-    for (_uri, other_doc) in &store.documents {
+    for other_doc in store.documents.values() {
         if let Some(ast) = &other_doc.ast {
             for decl in ast {
                 if let Declaration::Struct(struct_def) = decl {
@@ -59,7 +59,7 @@ pub fn find_struct_definition_in_documents(
     struct_name: &str,
     documents: &HashMap<lsp_types::Url, Document>,
 ) -> Option<crate::ast::StructDefinition> {
-    for (_uri, doc) in documents {
+    for doc in documents.values() {
         if let Some(ast) = &doc.ast {
             for decl in ast {
                 if let Declaration::Struct(struct_def) = decl {

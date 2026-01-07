@@ -526,7 +526,7 @@ impl CompileError {
             CompileError::TypeMismatch {
                 expected, found, ..
             } => {
-                result.push_str(&"\n\nType conversion needed:".to_string());
+                result.push_str("\n\nType conversion needed:");
                 result.push_str(&format!("\n  Expected: {}", expected));
                 result.push_str(&format!("\n  Found: {}", found));
 
