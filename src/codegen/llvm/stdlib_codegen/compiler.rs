@@ -20,7 +20,7 @@ fn to_i64<'ctx>(
     signed: bool,
 ) -> Result<IntValue<'ctx>, CompileError> {
     if !val.is_int_value() {
-        return Err(CompileError::TypeError("Expected integer".to_string(), None));
+        return Err(CompileError::TypeError("Expected integer".to_string(), compiler.get_current_span()));
     }
     let int_val = val.into_int_value();
     let bits = int_val.get_type().get_bit_width();
@@ -87,12 +87,13 @@ fn call_int_intrinsic<'ctx>(
     val: IntValue<'ctx>,
     extra_args: &[BasicValueEnum<'ctx>],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    let span = compiler.get_current_span();
     let intrinsic = Intrinsic::find(name)
-        .ok_or_else(|| CompileError::InternalError(format!("{} intrinsic not found", name), None))?;
+        .ok_or_else(|| CompileError::InternalError(format!("{} intrinsic not found", name), span.clone()))?;
     let int_type = val.get_type();
     let intrinsic_fn = intrinsic
         .get_declaration(&compiler.module, &[int_type.into()])
-        .ok_or_else(|| CompileError::InternalError(format!("Failed to get {} declaration", name), None))?;
+        .ok_or_else(|| CompileError::InternalError(format!("Failed to get {} declaration", name), span.clone()))?;
 
     let mut args: Vec<BasicValueEnum> = vec![val.into()];
     args.extend_from_slice(extra_args);
@@ -103,7 +104,7 @@ fn call_int_intrinsic<'ctx>(
         .build_call(intrinsic_fn, &args_meta, "intrinsic")?
         .try_as_basic_value()
         .left()
-        .ok_or_else(|| CompileError::InternalError("Intrinsic should return value".to_string(), None))
+        .ok_or_else(|| CompileError::InternalError("Intrinsic should return value".to_string(), span))
 }
 
 /// Extract data pointer from String struct or return pointer directly
@@ -111,16 +112,17 @@ fn extract_string_ptr<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     value: BasicValueEnum<'ctx>,
 ) -> Result<PointerValue<'ctx>, CompileError> {
+    let span = compiler.get_current_span();
     match value {
         BasicValueEnum::PointerValue(ptr) => Ok(ptr),
         BasicValueEnum::StructValue(s) => {
             let ptr = compiler.builder.build_extract_value(s, 0, "str_data")?;
             match ptr {
                 BasicValueEnum::PointerValue(p) => Ok(p),
-                _ => Err(CompileError::InternalError("String field 0 not a pointer".to_string(), None)),
+                _ => Err(CompileError::InternalError("String field 0 not a pointer".to_string(), span)),
             }
         }
-        _ => Err(CompileError::InternalError(format!("Expected String, got {:?}", value.get_type()), None)),
+        _ => Err(CompileError::InternalError(format!("Expected String, got {:?}", value.get_type()), span)),
     }
 }
 
@@ -128,9 +130,9 @@ fn ptr_type<'ctx>(compiler: &LLVMCompiler<'ctx>) -> inkwell::types::PointerType<
     compiler.context.ptr_type(AddressSpace::default())
 }
 
-fn require_args(args: &[ast::Expression], expected: usize, name: &str) -> Result<(), CompileError> {
+fn require_args(args: &[ast::Expression], expected: usize, name: &str, span: Option<crate::error::Span>) -> Result<(), CompileError> {
     if args.len() != expected {
-        Err(CompileError::TypeError(format!("{} expects {} args, got {}", name, expected, args.len()), None))
+        Err(CompileError::TypeError(format!("{} expects {} args, got {}", name, expected, args.len()), span))
     } else {
         Ok(())
     }
@@ -144,7 +146,7 @@ pub fn compile_raw_allocate<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 1, "raw_allocate")?;
+    require_args(args, 1, "raw_allocate", compiler.get_current_span())?;
     let size_val = compiler.compile_expression(&args[0])?;
     let size = to_i64(compiler, size_val, false)?;
     let malloc = get_or_declare_fn(compiler, "malloc", Some(ptr_type(compiler).into()), &[compiler.context.i64_type().into()]);
@@ -155,7 +157,7 @@ pub fn compile_raw_deallocate<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 2, "raw_deallocate")?;
+    require_args(args, 2, "raw_deallocate", compiler.get_current_span())?;
     let ptr = compiler.compile_expression(&args[0])?;
     let _size = compiler.compile_expression(&args[1])?;
     let free = get_or_declare_fn(compiler, "free", None, &[ptr_type(compiler).into()]);
@@ -167,7 +169,7 @@ pub fn compile_raw_reallocate<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 3, "raw_reallocate")?;
+    require_args(args, 3, "raw_reallocate", compiler.get_current_span())?;
     let ptr = compiler.compile_expression(&args[0])?;
     let _old = compiler.compile_expression(&args[1])?;
     let new_size_val = compiler.compile_expression(&args[2])?;
@@ -184,7 +186,7 @@ pub fn compile_raw_ptr_offset<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 2, "raw_ptr_offset")?;
+    require_args(args, 2, "raw_ptr_offset", compiler.get_current_span())?;
     let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
     let offset_val = compiler.compile_expression(&args[1])?;
     let offset = to_i64(compiler, offset_val, true)?;
@@ -196,7 +198,7 @@ pub fn compile_raw_ptr_cast<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 1, "raw_ptr_cast")?;
+    require_args(args, 1, "raw_ptr_cast", compiler.get_current_span())?;
     compiler.compile_expression(&args[0]) // No-op at LLVM level
 }
 
@@ -211,7 +213,7 @@ pub fn compile_is_null<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 1, "is_null")?;
+    require_args(args, 1, "is_null", compiler.get_current_span())?;
     let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
     let null = ptr_type(compiler).const_null();
     Ok(compiler.builder.build_int_compare(inkwell::IntPredicate::EQ, ptr, null, "is_null")?.into())
@@ -221,7 +223,7 @@ pub fn compile_ptr_to_int<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 1, "ptr_to_int")?;
+    require_args(args, 1, "ptr_to_int", compiler.get_current_span())?;
     let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
     Ok(compiler.builder.build_ptr_to_int(ptr, compiler.context.i64_type(), "p2i")?.into())
 }
@@ -230,7 +232,7 @@ pub fn compile_int_to_ptr<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 1, "int_to_ptr")?;
+    require_args(args, 1, "int_to_ptr", compiler.get_current_span())?;
     let addr = compiler.compile_expression(&args[0])?.into_int_value();
     Ok(compiler.builder.build_int_to_ptr(addr, ptr_type(compiler), "i2p")?.into())
 }
@@ -243,7 +245,7 @@ pub fn compile_load_library<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 1, "load_library")?;
+    require_args(args, 1, "load_library", compiler.get_current_span())?;
     let path_val = compiler.compile_expression(&args[0])?;
     let path = extract_string_ptr(compiler, path_val)?;
     let dlopen = get_or_declare_fn(compiler, "dlopen", Some(ptr_type(compiler).into()), &[ptr_type(compiler).into(), compiler.context.i32_type().into()]);
@@ -255,7 +257,7 @@ pub fn compile_get_symbol<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 2, "get_symbol")?;
+    require_args(args, 2, "get_symbol", compiler.get_current_span())?;
     let handle = compiler.compile_expression(&args[0])?;
     let name_val = compiler.compile_expression(&args[1])?;
     let name = extract_string_ptr(compiler, name_val)?;
@@ -267,7 +269,7 @@ pub fn compile_unload_library<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 1, "unload_library")?;
+    require_args(args, 1, "unload_library", compiler.get_current_span())?;
     let handle = compiler.compile_expression(&args[0])?;
     let dlclose = get_or_declare_fn(compiler, "dlclose", Some(compiler.context.i32_type().into()), &[ptr_type(compiler).into()]);
     Ok(compiler.builder.build_call(dlclose, &[handle.into()], "result")?.try_as_basic_value().left().unwrap())
@@ -289,7 +291,7 @@ pub fn compile_discriminant<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 1, "discriminant")?;
+    require_args(args, 1, "discriminant", compiler.get_current_span())?;
     let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
     Ok(compiler.builder.build_load(compiler.context.i32_type(), ptr, "disc")?)
 }
@@ -298,7 +300,7 @@ pub fn compile_set_discriminant<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 2, "set_discriminant")?;
+    require_args(args, 2, "set_discriminant", compiler.get_current_span())?;
     let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
     let disc = compiler.compile_expression(&args[1])?;
     compiler.builder.build_store(ptr, disc)?;
@@ -309,7 +311,7 @@ pub fn compile_get_payload<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 1, "get_payload")?;
+    require_args(args, 1, "get_payload", compiler.get_current_span())?;
     let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
     // Payload after 4-byte discriminant
     let offset = compiler.context.i32_type().const_int(4, false);
@@ -321,7 +323,7 @@ pub fn compile_set_payload<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 2, "set_payload")?;
+    require_args(args, 2, "set_payload", compiler.get_current_span())?;
     let _ptr = compiler.compile_expression(&args[0])?;
     let _payload = compiler.compile_expression(&args[1])?;
     // TODO: needs size information for proper copy
@@ -336,7 +338,7 @@ pub fn compile_gep<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 2, "gep")?;
+    require_args(args, 2, "gep", compiler.get_current_span())?;
     let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
     let offset_val = compiler.compile_expression(&args[1])?;
     let offset = to_i64(compiler, offset_val, true)?;
@@ -348,7 +350,7 @@ pub fn compile_gep_struct<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 2, "gep_struct")?;
+    require_args(args, 2, "gep_struct", compiler.get_current_span())?;
     let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
     let idx = compiler.compile_expression(&args[1])?.into_int_value();
     // Approximate: field_index * 8 bytes
@@ -364,7 +366,7 @@ pub fn compile_load<'ctx>(
     args: &[ast::Expression],
     type_arg: Option<&AstType>,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 1, "load")?;
+    require_args(args, 1, "load", compiler.get_current_span())?;
     let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
     let load_type = match type_arg {
         Some(ty) => compiler.to_llvm_type(ty)?,
@@ -372,7 +374,7 @@ pub fn compile_load<'ctx>(
     };
     let basic = match load_type {
         Type::Basic(b) => b,
-        _ => return Err(CompileError::TypeError("load: need basic type".to_string(), None)),
+        _ => return Err(CompileError::TypeError("load: need basic type".to_string(), compiler.get_current_span())),
     };
     Ok(compiler.builder.build_load(basic, ptr, "val")?)
 }
@@ -382,7 +384,7 @@ pub fn compile_store<'ctx>(
     args: &[ast::Expression],
     _type_arg: Option<&AstType>,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 2, "store")?;
+    require_args(args, 2, "store", compiler.get_current_span())?;
     let ptr = compiler.compile_expression(&args[0])?.into_pointer_value();
     let val = compiler.compile_expression(&args[1])?;
     compiler.builder.build_store(ptr, val)?;
@@ -426,7 +428,7 @@ pub fn compile_memset<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 3, "memset")?;
+    require_args(args, 3, "memset", compiler.get_current_span())?;
     let dest = compiler.compile_expression(&args[0])?;
     let val_expr = compiler.compile_expression(&args[1])?.into_int_value();
     let val = to_int_width(compiler, val_expr, compiler.context.i8_type(), false)?;
@@ -442,7 +444,7 @@ pub fn compile_memcpy<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 3, "memcpy")?;
+    require_args(args, 3, "memcpy", compiler.get_current_span())?;
     let dest = compiler.compile_expression(&args[0])?;
     let src = compiler.compile_expression(&args[1])?;
     let size_val = compiler.compile_expression(&args[2])?;
@@ -457,7 +459,7 @@ pub fn compile_memmove<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 3, "memmove")?;
+    require_args(args, 3, "memmove", compiler.get_current_span())?;
     let dest = compiler.compile_expression(&args[0])?;
     let src = compiler.compile_expression(&args[1])?;
     let size_val = compiler.compile_expression(&args[2])?;
@@ -472,7 +474,7 @@ pub fn compile_memcmp<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 3, "memcmp")?;
+    require_args(args, 3, "memcmp", compiler.get_current_span())?;
     let p1 = compiler.compile_expression(&args[0])?;
     let p2 = compiler.compile_expression(&args[1])?;
     let size_val = compiler.compile_expression(&args[2])?;
@@ -491,13 +493,14 @@ fn compile_bswap<'ctx>(
     args: &[ast::Expression],
     bits: u32,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 1, &format!("bswap{}", bits))?;
+    let span = compiler.get_current_span();
+    require_args(args, 1, &format!("bswap{}", bits), span.clone())?;
     let val = compiler.compile_expression(&args[0])?.into_int_value();
     let target_type = match bits {
         16 => compiler.context.i16_type(),
         32 => compiler.context.i32_type(),
         64 => compiler.context.i64_type(),
-        _ => return Err(CompileError::InternalError("Invalid bswap width".to_string(), None)),
+        _ => return Err(CompileError::InternalError("Invalid bswap width".to_string(), span)),
     };
     let converted = to_int_width(compiler, val, target_type, false)?;
     call_int_intrinsic(compiler, &format!("llvm.bswap.i{}", bits), converted, &[])
@@ -521,7 +524,7 @@ fn compile_bit_count<'ctx>(
     intrinsic_name: &str,
     has_zero_poison: bool,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    require_args(args, 1, intrinsic_name)?;
+    require_args(args, 1, intrinsic_name, compiler.get_current_span())?;
     let val = compiler.compile_expression(&args[0])?.into_int_value();
     let val_i64 = to_int_width(compiler, val, compiler.context.i64_type(), false)?;
     let extra = if has_zero_poison {
@@ -555,7 +558,8 @@ pub fn compile_inline_c<'ctx>(
     use std::io::Write;
     use std::process::Command;
 
-    require_args(args, 1, "inline_c")?;
+    let span = compiler.get_current_span();
+    require_args(args, 1, "inline_c", span.clone())?;
 
     // Extract C code from string literal argument
     let c_code = match &args[0] {
@@ -563,7 +567,7 @@ pub fn compile_inline_c<'ctx>(
         _ => {
             return Err(CompileError::TypeError(
                 "inline_c requires a string literal argument".to_string(),
-                None,
+                span,
             ))
         }
     };
@@ -578,6 +582,7 @@ pub fn compile_inline_c<'ctx>(
     let bc_file = temp_dir.join(format!("zen_inline_{}.bc", id));
 
     // Write C code to temp file
+    // Note: file operation errors don't have meaningful source spans
     let mut file = std::fs::File::create(&c_file).map_err(|e| {
         CompileError::InternalError(format!("Failed to create temp C file: {}", e), None)
     })?;

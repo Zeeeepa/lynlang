@@ -30,7 +30,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             _ => Err(CompileError::UnsupportedFeature(
                 "AddressOf only supported for identifiers".to_string(),
-                None,
+                self.get_current_span(),
             )),
         }
     }

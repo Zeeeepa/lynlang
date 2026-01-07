@@ -371,29 +371,30 @@ impl<'ctx> LLVMCompiler<'ctx> {
         ], false);
         let object_val = self.builder.build_load(array_struct_type, array_ptr, "array_val")?;
 
+        let span = self.get_current_span();
         match method_name {
             "push" => {
-                if args.len() != 1 { return Err(CompileError::TypeError(format!("Array.push expects 1 argument, got {}", args.len()), None)); }
+                if args.len() != 1 { return Err(CompileError::TypeError(format!("Array.push expects 1 argument, got {}", args.len()), span)); }
                 let value = self.compile_expression(&args[0])?;
                 Ok(Some(super::functions::arrays::compile_array_push_by_ptr(self, array_ptr, value)?))
             }
             "get" => {
-                if args.len() != 1 { return Err(CompileError::TypeError(format!("Array.get expects 1 argument, got {}", args.len()), None)); }
+                if args.len() != 1 { return Err(CompileError::TypeError(format!("Array.get expects 1 argument, got {}", args.len()), span)); }
                 let index = self.compile_expression(&args[0])?;
                 Ok(Some(super::functions::arrays::compile_array_get(self, object_val, index, &element_type)?))
             }
             "len" => {
-                if !args.is_empty() { return Err(CompileError::TypeError(format!("Array.len expects no arguments, got {}", args.len()), None)); }
+                if !args.is_empty() { return Err(CompileError::TypeError(format!("Array.len expects no arguments, got {}", args.len()), span)); }
                 Ok(Some(super::functions::arrays::compile_array_len(self, object_val)?))
             }
             "set" => {
-                if args.len() != 2 { return Err(CompileError::TypeError(format!("Array.set expects 2 arguments, got {}", args.len()), None)); }
+                if args.len() != 2 { return Err(CompileError::TypeError(format!("Array.set expects 2 arguments, got {}", args.len()), span)); }
                 let index = self.compile_expression(&args[0])?;
                 let value = self.compile_expression(&args[1])?;
                 Ok(Some(super::functions::arrays::compile_array_set(self, object_val, index, value)?))
             }
             "pop" => {
-                if !args.is_empty() { return Err(CompileError::TypeError(format!("Array.pop expects no arguments, got {}", args.len()), None)); }
+                if !args.is_empty() { return Err(CompileError::TypeError(format!("Array.pop expects no arguments, got {}", args.len()), span)); }
                 Ok(Some(super::functions::arrays::compile_array_pop_by_ptr(self, array_ptr, &element_type)?))
             }
             _ => Ok(None),
@@ -419,15 +420,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         let Some((hashmap_ptr, key_type, value_type)) = hashmap_info else { return Ok(None) };
 
+        let span = self.get_current_span();
         match method_name {
             "insert" => {
-                if args.len() != 2 { return Err(CompileError::TypeError(format!("HashMap.insert expects 2 arguments, got {}", args.len()), None)); }
+                if args.len() != 2 { return Err(CompileError::TypeError(format!("HashMap.insert expects 2 arguments, got {}", args.len()), span)); }
                 let key = self.compile_expression(&args[0])?;
                 let value = self.compile_expression(&args[1])?;
                 Ok(Some(super::stdlib_codegen::compile_hashmap_insert(self, hashmap_ptr, key, value, &key_type)?))
             }
             "get" => {
-                if args.len() != 1 { return Err(CompileError::TypeError(format!("HashMap.get expects 1 argument, got {}", args.len()), None)); }
+                if args.len() != 1 { return Err(CompileError::TypeError(format!("HashMap.get expects 1 argument, got {}", args.len()), span)); }
                 let key = self.compile_expression(&args[0])?;
                 Ok(Some(super::stdlib_codegen::compile_hashmap_get(self, hashmap_ptr, key, &value_type)?))
             }
@@ -468,7 +470,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         let call = self.builder.build_call(function, &args_meta, "method_call")?;
         call.try_as_basic_value().left().ok_or_else(|| {
-            CompileError::TypeError("Method call returned void where value expected".to_string(), None)
+            CompileError::TypeError("Method call returned void where value expected".to_string(), self.get_current_span())
         }).map(Some)
     }
 

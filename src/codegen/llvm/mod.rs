@@ -146,6 +146,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
             CompileError::SyntaxError(msg, None) => {
                 CompileError::SyntaxError(msg, self.current_span.clone())
             }
+            CompileError::TypeError(msg, None) => {
+                CompileError::TypeError(msg, self.current_span.clone())
+            }
             // If error already has a span, keep it
             other => other,
         }
