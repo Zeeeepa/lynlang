@@ -91,6 +91,9 @@ impl CompilerModule {
         register_fn!(functions, "alignof" => () -> AstType::Usize);
 
         // Function calling primitives
+        // NOTE: call_external is registered but NOT YET IMPLEMENTED in codegen.
+        // Use inline_c to declare external C functions, then call them directly.
+        // Full libffi integration for dynamic calls is planned but pending.
         register_fn!(functions, "call_external" => (func_ptr: raw_ptr_u8.clone(), args: raw_ptr_u8.clone()) -> raw_ptr_u8.clone());
 
         // Library loading primitives

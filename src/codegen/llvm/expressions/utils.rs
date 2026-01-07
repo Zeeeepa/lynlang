@@ -3,6 +3,7 @@ use crate::ast::{AstType, Expression};
 use crate::error::CompileError;
 use crate::stdlib_types::StdlibTypeRegistry;
 use inkwell::{types::BasicTypeEnum, values::BasicValueEnum, AddressSpace};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 // ============================================================================
 // HELPER FUNCTIONS FOR REDUCING DUPLICATION
@@ -152,16 +153,15 @@ pub fn compile_comptime_expression<'ctx>(
         ))
     }
 }
+/// Thread-safe counter for generating unique raise block IDs
+static RAISE_ID: AtomicU32 = AtomicU32::new(0);
+
 pub fn compile_raise_expression<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     expr: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     // Generate a unique ID for this raise to avoid block name collisions
-    static mut RAISE_ID: u32 = 0;
-    let raise_id = unsafe {
-        RAISE_ID += 1;
-        RAISE_ID
-    };
+    let raise_id = RAISE_ID.fetch_add(1, Ordering::Relaxed);
 
     let parent_function = compiler.current_function.ok_or_else(|| {
         CompileError::InternalError("No current function for .raise()".to_string(), compiler.get_current_span())
@@ -690,6 +690,10 @@ pub fn compile_raise_expression<'ctx>(
 
         // Check if this is a Result struct (2 fields) even if it's presented as an array or aggregate type
         // This can happen with nested Results where the loaded value becomes an aggregate
+        //
+        // KNOWN LIMITATION: This heuristic (checking for 2 fields) could false-positive on
+        // user-defined structs. A more robust solution would track AST type information
+        // alongside LLVM values to positively identify Result/Option types.
         let is_result_like = if result_type.is_struct_type() {
             let struct_type = result_type.into_struct_type();
             struct_type.count_fields() == 2 // Result/Option structs have 2 fields: tag + payload

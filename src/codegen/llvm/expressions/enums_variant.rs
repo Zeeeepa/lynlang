@@ -222,6 +222,11 @@ pub fn compile_enum_variant<'ctx>(
 
                 // Check if this is a Result/Option enum struct (has 2 fields: discriminant + payload ptr)
                 // These need heap allocation to preserve nested payloads
+                //
+                // KNOWN LIMITATION: This heuristic checks for 2 fields, which could false-positive
+                // on user-defined structs with exactly 2 fields where one is i64 and one is pointer.
+                // A more robust solution would use the WellKnownTypes registry or track AST type
+                // information alongside LLVM values. See review note about this fragility.
                 if struct_type.count_fields() == 2 {
                     // eprintln!("[DEBUG] Heap allocating nested enum struct as payload for {}.{}", enum_name, variant);
                     // This looks like an enum struct - heap allocate it

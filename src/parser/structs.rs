@@ -5,6 +5,9 @@ use crate::lexer::Token;
 
 impl<'a> Parser<'a> {
     pub fn parse_struct(&mut self) -> Result<StructDefinition> {
+        // Capture span at the start of the struct definition
+        let start_span = self.current_span.clone();
+
         // Struct name
         let name = self.expect_identifier("struct name")?;
 
@@ -87,6 +90,7 @@ impl<'a> Parser<'a> {
             type_params,
             fields,
             methods,
+            span: Some(start_span),
         })
     }
 

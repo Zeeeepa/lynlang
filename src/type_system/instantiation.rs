@@ -88,6 +88,7 @@ impl<'a> TypeInstantiator<'a> {
             type_params: Vec::new(),
             fields: instantiated_fields,
             methods: instantiated_methods,
+            span: struct_def.span.clone(), // Preserve original span
         })
     }
 
@@ -128,6 +129,7 @@ impl<'a> TypeInstantiator<'a> {
             variants: instantiated_variants,
             methods: instantiated_methods,
             required_traits: enum_def.required_traits.clone(),
+            span: enum_def.span.clone(), // Preserve original span
         })
     }
 

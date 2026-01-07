@@ -337,6 +337,9 @@ impl<'a> Parser<'a> {
     pub fn parse_type_alias(&mut self) -> Result<crate::ast::TypeAlias> {
         use crate::ast::{TypeAlias, TypeParameter};
 
+        // Capture span at the start of the type alias definition
+        let start_span = self.current_span.clone();
+
         // Skip 'type' keyword
         self.next_token();
 
@@ -371,6 +374,7 @@ impl<'a> Parser<'a> {
             name,
             type_params,
             target_type,
+            span: Some(start_span),
         })
     }
 }

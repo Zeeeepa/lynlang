@@ -93,7 +93,7 @@ impl<'ctx> Compiler<'ctx> {
 
         // Process all module imports
         for decl in &program.declarations {
-            if let Declaration::ModuleImport { alias, module_path } = decl {
+            if let Declaration::ModuleImport { alias, module_path, .. } = decl {
                 // Load the module (including @std modules - they'll load from stdlib files)
                 module_system.load_module(module_path)?;
 

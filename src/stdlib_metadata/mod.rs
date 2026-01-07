@@ -115,17 +115,16 @@ pub mod core;
 pub mod fs;
 pub mod io;
 pub mod math;
-pub mod net;
-pub mod result;
 pub mod vec;
 
 /// The @std namespace provides built-in compiler intrinsics and standard library access
-#[allow(dead_code)]
+/// Note: Some fields/methods are scaffolding for planned module system integration
 pub struct StdNamespace {
+    #[allow(dead_code)] // Stored for future get_module() usage
     modules: HashMap<String, StdModule>,
 }
 
-#[allow(dead_code)]
+#[allow(dead_code)] // Enum variants hold modules for future dynamic dispatch
 pub enum StdModule {
     Core(core::CoreModule),
     Compiler(compiler::CompilerModule),
@@ -136,8 +135,8 @@ pub enum StdModule {
     Fs(fs::FsModule),
 }
 
-#[allow(dead_code)]
 impl StdNamespace {
+    #[allow(dead_code)] // Part of planned module system
     pub fn new() -> Self {
         let mut modules = HashMap::new();
 
@@ -158,16 +157,19 @@ impl StdNamespace {
         StdNamespace { modules }
     }
 
+    #[allow(dead_code)] // Part of planned module system
     pub fn get_module(&self, name: &str) -> Option<&StdModule> {
         self.modules.get(name)
     }
 
     /// Check if an identifier refers to @std namespace
+    #[allow(dead_code)] // Used by typechecker
     pub fn is_std_reference(name: &str) -> bool {
         name == "@std"
     }
 
     /// Resolve @std.module access
+    #[allow(dead_code)] // Part of planned module system
     pub fn resolve_std_access(module_name: &str) -> Option<Expression> {
         // For now, just return StdReference for any valid module name
         // The actual module resolution will happen at a different layer
@@ -183,7 +185,7 @@ impl StdNamespace {
 }
 
 /// Trait for standard library modules
-#[allow(dead_code)]
+#[allow(dead_code)] // name() and get_type() reserved for future use
 pub trait StdModuleTrait {
     fn name(&self) -> &str;
     fn get_function(&self, name: &str) -> Option<StdFunction>;
@@ -191,7 +193,7 @@ pub trait StdModuleTrait {
 }
 
 #[derive(Clone)]
-#[allow(dead_code)]
+#[allow(dead_code)] // name and is_builtin reserved for future introspection
 pub struct StdFunction {
     pub name: String,
     pub params: Vec<(String, AstType)>,

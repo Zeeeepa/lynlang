@@ -21,6 +21,7 @@ pub struct TypeAlias {
     pub name: String,
     pub type_params: Vec<TypeParameter>,
     pub target_type: AstType,
+    pub span: Option<Span>,
 }
 
 // For C FFI support
@@ -38,6 +39,7 @@ pub struct StructDefinition {
     pub type_params: Vec<TypeParameter>,
     pub fields: Vec<StructField>,
     pub methods: Vec<Function>,
+    pub span: Option<Span>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -55,6 +57,7 @@ pub struct EnumDefinition {
     pub variants: Vec<EnumVariant>,
     pub methods: Vec<Function>,
     pub required_traits: Vec<String>, // Traits that all variants must implement (.requires())
+    pub span: Option<Span>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -130,10 +133,12 @@ pub enum Declaration {
         name: String,
         value: Expression,
         type_: Option<AstType>,
+        span: Option<Span>,
     },
     ModuleImport {
         alias: String,
         module_path: String,
+        span: Option<Span>,
     },
     Export {
         symbols: Vec<String>,

@@ -797,7 +797,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 ast::Declaration::Export { .. } => {
                     // Exports are handled at module level, no codegen needed
                 }
-                ast::Declaration::ModuleImport { alias, module_path } => {
+                ast::Declaration::ModuleImport { alias, module_path, .. } => {
                     let module_name = module_path.split('.').last().unwrap_or(alias);
                     let module_id = self.get_module_id(module_name);
                     self.module_imports.insert(alias.clone(), module_id);

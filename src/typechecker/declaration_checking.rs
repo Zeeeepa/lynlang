@@ -126,7 +126,7 @@ pub fn collect_declaration_types(
                 .behavior_resolver
                 .register_trait_requirement(trait_req)?;
         }
-        Declaration::Constant { name, value, type_ } => {
+        Declaration::Constant { name, value, type_, .. } => {
             // Check if this is a struct definition pattern: Name = { field: Type, ... }
             if let Expression::StructLiteral { name: _, fields } = value {
                 // This is a struct definition in the form: Point = { x: f64, y: f64 }
@@ -174,7 +174,7 @@ pub fn collect_declaration_types(
                 checker.declare_variable(name, inferred_type, false)?;
             }
         }
-        Declaration::ModuleImport { alias, module_path } => {
+        Declaration::ModuleImport { alias, module_path, .. } => {
             // Track module imports
             checker
                 .module_imports
@@ -215,7 +215,7 @@ pub fn check_declaration(checker: &mut TypeChecker, declaration: &Declaration) -
             // Check for imports in comptime blocks
             for stmt in statements {
                 if let Err(msg) = validation::validate_import_not_in_comptime(stmt) {
-                    return Err(CompileError::SyntaxError(msg, None));
+                    return Err(CompileError::SyntaxError(msg, checker.get_current_span()));
                 }
             }
 
@@ -253,6 +253,7 @@ pub fn check_declaration(checker: &mut TypeChecker, declaration: &Declaration) -
         Declaration::ModuleImport {
             alias,
             module_path: _,
+            ..
         } => {
             // Handle module imports like { io, math } = @std which become
             // ModuleImport declarations at the top level

@@ -134,6 +134,7 @@ impl ModuleSystem {
                     if let Declaration::ModuleImport {
                         alias: _,
                         module_path: import_path,
+                        ..
                     } = decl
                     {
                         self.load_module(import_path)?;
@@ -175,6 +176,7 @@ impl ModuleSystem {
             if let Declaration::ModuleImport {
                 alias: _,
                 module_path: import_path,
+                ..
             } = decl
             {
                 // Recursively load imported modules

@@ -151,6 +151,7 @@ impl<'a> Parser<'a> {
                 declarations.push(Declaration::ModuleImport {
                     alias: name.clone(),
                     module_path: actual_module_path,
+                    span: Some(self.current_span.clone()),
                 });
             }
             Ok(declarations)
@@ -180,6 +181,7 @@ impl<'a> Parser<'a> {
                     declarations.push(Declaration::ModuleImport {
                         alias: name.clone(),
                         module_path: format!("{}.{}", module_path, name),
+                        span: Some(self.current_span.clone()),
                     });
                 }
                 Ok(declarations)
@@ -281,6 +283,7 @@ impl<'a> Parser<'a> {
                 Ok(Declaration::ModuleImport {
                     alias,
                     module_path: format!("std.{}", module_name),
+                    span: Some(self.current_span.clone()),
                 })
             } else {
                 let module_path = id.clone();
@@ -306,6 +309,7 @@ impl<'a> Parser<'a> {
                 Ok(Declaration::ModuleImport {
                     alias,
                     module_path: full_path,
+                    span: Some(self.current_span.clone()),
                 })
             }
         } else {
@@ -331,6 +335,7 @@ impl<'a> Parser<'a> {
                     name,
                     type_,
                     value: init,
+                    span: Some(self.current_span.clone()),
                 })
             } else {
                 Err(CompileError::SyntaxError(
@@ -369,6 +374,7 @@ impl<'a> Parser<'a> {
             name,
             value,
             type_: Some(type_),
+            span: Some(self.current_span.clone()),
         })
     }
 }

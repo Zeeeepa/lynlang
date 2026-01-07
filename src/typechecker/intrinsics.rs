@@ -4,7 +4,35 @@
 use crate::ast::AstType;
 use crate::error::Result;
 use crate::stdlib_metadata::compiler as compiler_intrinsics;
-use crate::well_known::well_known;
+use crate::stdlib_metadata::{
+    core::CoreModule, fs::FsModule, io::IOModule, math::MathModule, StdModuleTrait,
+};
+use std::sync::OnceLock;
+
+/// Global singleton for core module
+static CORE_MODULE: OnceLock<CoreModule> = OnceLock::new();
+/// Global singleton for IO module
+static IO_MODULE: OnceLock<IOModule> = OnceLock::new();
+/// Global singleton for math module
+static MATH_MODULE: OnceLock<MathModule> = OnceLock::new();
+/// Global singleton for fs module
+static FS_MODULE: OnceLock<FsModule> = OnceLock::new();
+
+fn get_core_module() -> &'static CoreModule {
+    CORE_MODULE.get_or_init(CoreModule::new)
+}
+
+fn get_io_module() -> &'static IOModule {
+    IO_MODULE.get_or_init(IOModule::new)
+}
+
+fn get_math_module() -> &'static MathModule {
+    MATH_MODULE.get_or_init(MathModule::new)
+}
+
+fn get_fs_module() -> &'static FsModule {
+    FS_MODULE.get_or_init(FsModule::new)
+}
 
 /// Check compiler intrinsic function calls and return their type
 /// Returns None if not a compiler intrinsic, otherwise returns Ok(type) or error
@@ -27,66 +55,18 @@ pub fn check_compiler_intrinsic(
 }
 
 /// Check stdlib function calls and return their type
+/// Uses stdlib_metadata modules as the single source of truth
 /// Returns None if not a known stdlib function, otherwise returns the type
 pub fn check_stdlib_function(module: &str, func: &str) -> Option<AstType> {
-    match (module, func) {
-        // Core library functions
-        ("core", "assert" | "panic") => Some(AstType::Void),
-
-        // IO functions
-        ("io", "print" | "println" | "print_int" | "print_float" | "eprint" | "eprintln") => {
-            Some(AstType::Void)
-        }
-        ("io", "read_line" | "read_input") => Some(crate::ast::resolve_string_struct_type()),
-
-        // Math functions
-        ("math", "abs") => Some(AstType::I32),
-        ("math", "sqrt") => Some(AstType::F64),
-        ("math", "sin" | "cos" | "tan") => Some(AstType::F64),
-        ("math", "floor" | "ceil") => Some(AstType::I32),
-        ("math", "pow") => Some(AstType::F64),
-        ("math", "min" | "max") => Some(AstType::I32),
-
-        // String functions
-        ("string", "len") => Some(AstType::I32),
-        ("string", "concat") => Some(crate::ast::resolve_string_struct_type()),
-
-        // Memory functions
-        ("mem", "alloc") => Some(AstType::ptr(AstType::U8)),
-        ("mem", "free") => Some(AstType::Void),
-
-        // Filesystem functions
-        ("fs", "read_file") => {
-            let wk = well_known();
-            let string_type = crate::ast::resolve_string_struct_type();
-            Some(AstType::Generic {
-                name: wk.result_name().to_string(),
-                type_args: vec![string_type.clone(), string_type],
-            })
-        }
-        ("fs", "write_file") => {
-            let wk = well_known();
-            Some(AstType::Generic {
-                name: wk.result_name().to_string(),
-                type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
-            })
-        }
-        ("fs", "exists") => Some(AstType::Bool),
-        ("fs", "remove_file") => {
-            let wk = well_known();
-            Some(AstType::Generic {
-                name: wk.result_name().to_string(),
-                type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
-            })
-        }
-        ("fs", "create_dir") => {
-            let wk = well_known();
-            Some(AstType::Generic {
-                name: wk.result_name().to_string(),
-                type_args: vec![AstType::Void, crate::ast::resolve_string_struct_type()],
-            })
-        }
-
+    match module {
+        "core" => get_core_module()
+            .get_function(func)
+            .map(|f| f.return_type),
+        "io" => get_io_module().get_function(func).map(|f| f.return_type),
+        "math" => get_math_module()
+            .get_function(func)
+            .map(|f| f.return_type),
+        "fs" => get_fs_module().get_function(func).map(|f| f.return_type),
         _ => None,
     }
 }

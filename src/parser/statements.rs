@@ -421,6 +421,7 @@ impl<'a> Parser<'a> {
                         name,
                         value,
                         type_: None,
+                        span: Some(self.current_span.clone()),
                     });
                 } else if self.peek_token == Token::Operator("=".to_string()) {
                     // Could be either:
@@ -489,6 +490,7 @@ impl<'a> Parser<'a> {
                                         declarations.push(Declaration::ModuleImport {
                                             alias: name,
                                             module_path: format!("@std.{}", imported_module),
+                                            span: Some(self.current_span.clone()),
                                         });
                                     } else {
                                         return Err(CompileError::SyntaxError(
@@ -501,6 +503,7 @@ impl<'a> Parser<'a> {
                                     declarations.push(Declaration::ModuleImport {
                                         alias: name,
                                         module_path: full_path,
+                                        span: Some(self.current_span.clone()),
                                     });
                                 }
                             }
@@ -512,6 +515,7 @@ impl<'a> Parser<'a> {
                                 name,
                                 value,
                                 type_: None,
+                                span: Some(self.current_span.clone()),
                             });
                         }
                     }

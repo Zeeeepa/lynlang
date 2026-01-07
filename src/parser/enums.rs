@@ -5,6 +5,9 @@ use crate::lexer::Token;
 
 impl<'a> Parser<'a> {
     pub fn parse_enum(&mut self) -> Result<EnumDefinition> {
+        // Capture span at the start of the enum definition
+        let start_span = self.current_span.clone();
+
         // Enum name
         let name = self.expect_identifier("enum name")?;
 
@@ -82,6 +85,7 @@ impl<'a> Parser<'a> {
             variants,
             methods: Vec::new(),
             required_traits: Vec::new(), // Will be populated by .requires() statements
+            span: Some(start_span),
         })
     }
 }

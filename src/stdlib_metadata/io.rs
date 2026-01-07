@@ -102,17 +102,6 @@ impl IOModule {
 
         IOModule { functions }
     }
-
-    #[allow(dead_code)]
-    pub fn get_function(&self, name: &str) -> Option<&StdFunction> {
-        self.functions.get(name)
-    }
-
-    /// Get all available IO functions
-    #[allow(dead_code)]
-    pub fn list_functions(&self) -> Vec<String> {
-        self.functions.keys().cloned().collect()
-    }
 }
 
 impl super::StdModuleTrait for IOModule {
