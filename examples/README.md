@@ -1,42 +1,30 @@
 # Zen Language Examples
 
-Concise, practical examples demonstrating Zen's core features.
+Practical examples demonstrating Zen's core features.
 
 ## Running Examples
 
 ```bash
 zen run examples/hello_world.zen
-zen run examples/showcase.zen
-zen run examples/todo_app.zen
+zen run examples/ffi_demo.zen
+zen run examples/demo_project/main.zen
 ```
 
 ## Examples
 
-### 🌟 hello_world.zen
+### hello_world.zen
 The classic first program - minimal and clear.
 
-### ⚡ async_unified_demo.zen **MUST SEE**
-**Revolutionary allocator-based async system:**
-- Same functions work sync AND async based on allocator choice
-- No async/await keywords needed
-- Eliminates the red/blue function coloring problem
-- Shows how Zen solves async without splitting the ecosystem
+### ffi_demo.zen
+Foreign Function Interface demonstration - calling C from Zen.
 
-### 🎯 showcase.zen  
-Interactive tour of Zen's unique features:
-- Universal Function Call (UFC)
-- Pattern matching with `?` operator
-- Algebraic Data Types
-- Functional pipelines
-- Everything-is-an-expression philosophy
-
-### 📝 todo_app.zen
-Complete application demonstrating:
-- Type definitions and enums
-- Method definitions via UFC
-- Collections and iterators  
-- Pattern matching for control flow
-- Practical application structure
+### demo_project/
+Complete multi-file project demonstrating:
+- Build system using `@std.build`
+- Standard library imports (`@std.char`, `@std.math`)
+- Test framework using `@std.testing.runner`
+- Structs, enums, pattern matching, UFC
+- Practical project organization
 
 ## Key Language Features
 
@@ -45,5 +33,3 @@ Complete application demonstrating:
 - **UFC**: Any function becomes a method
 - **Expression-Based**: Everything returns a value
 - **Type Safety**: Algebraic data types, no null
-
-See `LANGUAGE_SPEC.zen` for complete language specification.
