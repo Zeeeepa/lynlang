@@ -111,7 +111,7 @@ Iter<T>: behavior {
 - [x] Implement `VecIterator<T>` for `Vec<T>`
 - [x] Add iterator combinators for Range: `sum`, `product`, `min`, `max`, `skip`, `take`
 - [x] Add predicate methods: `any_ge`, `all_lt`, `find_ge`
-- [ ] Implement for `HashMap<K,V>` - needs Entry iterator
+- [x] Implement `HashMapIterator<K,V>` with `iter()`, `keys()`, `values()`
 - [ ] Add `map`, `filter`, `fold`, `collect` combinators (needs closures)
 
 **Note:** Full functional iterator chains (`.map(fn).filter(fn).collect()`) require
@@ -215,10 +215,13 @@ This blocks runtime testing of collections from .zen files.
 
 1. **Iterator System Enhanced** - Range now has sum, product, min, max, skip, take, find_ge
 2. **VecIterator<T>** - Full iterator for Vec<T> with next() and has_next()
-3. **LSP Complete** - All modern LSP features implemented
-4. **Architecture Cleanup** - Fixed duplicate module declarations
-5. **Dead Code Audit** - Identified legitimate vs false positive dead_code markers
-6. **Typechecker Integration** - Now in main compilation pipeline
+3. **HashMapIterator<K,V>** - Iterates over key-value pairs, plus keys() and values() iterators
+4. **LSP Complete** - All modern LSP features implemented
+5. **Architecture Cleanup** - Fixed duplicate module declarations
+6. **Dead Code Audit** - Identified legitimate vs false positive dead_code markers
+7. **Typechecker Integration** - Now in main compilation pipeline
+8. **Pattern Matching Refactor** - Extracted to dedicated patterns.rs module (290 LOC)
+9. **Module Size Reduction** - codegen/llvm/mod.rs: 992 → 702 LOC (-29%)
 
 ---
 

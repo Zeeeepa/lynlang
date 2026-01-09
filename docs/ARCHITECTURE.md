@@ -98,11 +98,18 @@ src/
 ### Target Metrics
 | Metric | Current | Target |
 |--------|---------|--------|
-| Total LOC | 41,292 | < 35,000 |
-| Dead code | ~500 | 0 |
-| `#[allow(dead_code)]` | 133 | < 20 |
-| Max module LOC | 11,691 | < 2,000 |
+| Total LOC | 41,322 | < 35,000 |
+| Dead code | ~0 | 0 |
+| `#[allow(dead_code)]` | ~130 | < 20 |
+| Max module LOC | 1,023 | < 2,000 ✅ |
 | Typechecker integration | ✅ Integrated | Required |
+
+### Module Size Progress
+| Module | Before | After | Target |
+|--------|--------|-------|--------|
+| codegen/llvm/mod.rs | 992 | 702 | < 500 |
+| codegen/llvm/expressions/inference.rs | 1,023 | 1,023 | Remove (dedupe) |
+| typechecker/inference.rs | 1,008 | 1,008 | Keep (single source) |
 
 ---
 
