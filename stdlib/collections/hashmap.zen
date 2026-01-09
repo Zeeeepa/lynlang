@@ -392,3 +392,119 @@ HashMap<K, V>.free = (self: MutPtr<HashMap<K, V>>) void {
     self.val.size = 0
     self.val.capacity = 0
 }
+
+// ============================================================================
+// Iterator Support
+// ============================================================================
+
+// HashMapIterator - Iterates over key-value pairs in HashMap
+HashMapIterator<K, V>: {
+    entries: Vec<Entry<K, V>>,
+    index: usize,
+    capacity: usize
+}
+
+// Create an iterator over the hashmap
+HashMap<K, V>.iter = (self: HashMap<K, V>) HashMapIterator<K, V> {
+    return HashMapIterator<K, V> {
+        entries: self.entries,
+        index: 0,
+        capacity: self.capacity
+    }
+}
+
+// KeyValuePair - Returned by iterator
+KeyValuePair<K, V>: {
+    key: K,
+    value: V
+}
+
+// Helper: find next occupied entry (recursive)
+find_next_occupied<K, V> = (entries: Vec<Entry<K, V>>, start: usize, capacity: usize) Option<usize> {
+    start >= capacity ?
+        | true { return Option.None }
+        | false {
+            entry_opt = entries.get(start)
+            entry_opt ?
+                | Some(entry) {
+                    entry.occupied ?
+                        | true { return Option.Some(start) }
+                        | false { return find_next_occupied<K, V>(entries, start + 1, capacity) }
+                }
+                | None { return Option.None }
+        }
+}
+
+// Get next key-value pair from iterator
+HashMapIterator<K, V>.next = (self: MutPtr<HashMapIterator<K, V>>) Option<KeyValuePair<K, V>> {
+    // Find next occupied entry starting from current index
+    next_idx_opt = find_next_occupied<K, V>(self.val.entries, self.val.index, self.val.capacity)
+
+    next_idx_opt ?
+        | Some(idx) {
+            // Get the entry at this index
+            entry_opt = self.val.entries.get(idx)
+
+            // Move index past this entry
+            self.val.index = idx + 1
+
+            entry_opt ?
+                | Some(entry) {
+                    pair = KeyValuePair<K, V> {
+                        key: entry.key,
+                        value: entry.value
+                    }
+                    return Option.Some(pair)
+                }
+                | None { return Option.None }
+        }
+        | None { return Option.None }
+}
+
+// Check if iterator has more elements
+HashMapIterator<K, V>.has_next = (self: HashMapIterator<K, V>) bool {
+    next_idx_opt = find_next_occupied<K, V>(self.entries, self.index, self.capacity)
+    next_idx_opt ?
+        | Some(_) { return true }
+        | None { return false }
+}
+
+// Keys iterator - iterate over just keys
+HashMapKeyIterator<K, V>: {
+    inner: HashMapIterator<K, V>
+}
+
+// Create keys iterator
+HashMap<K, V>.keys = (self: HashMap<K, V>) HashMapKeyIterator<K, V> {
+    return HashMapKeyIterator<K, V> {
+        inner: self.iter()
+    }
+}
+
+// Get next key
+HashMapKeyIterator<K, V>.next = (self: MutPtr<HashMapKeyIterator<K, V>>) Option<K> {
+    pair_opt = self.val.inner.mut_ref().next()
+    pair_opt ?
+        | Some(pair) { return Option.Some(pair.key) }
+        | None { return Option.None }
+}
+
+// Values iterator - iterate over just values
+HashMapValueIterator<K, V>: {
+    inner: HashMapIterator<K, V>
+}
+
+// Create values iterator
+HashMap<K, V>.values = (self: HashMap<K, V>) HashMapValueIterator<K, V> {
+    return HashMapValueIterator<K, V> {
+        inner: self.iter()
+    }
+}
+
+// Get next value
+HashMapValueIterator<K, V>.next = (self: MutPtr<HashMapValueIterator<K, V>>) Option<V> {
+    pair_opt = self.val.inner.mut_ref().next()
+    pair_opt ?
+        | Some(pair) { return Option.Some(pair.value) }
+        | None { return Option.None }
+}
