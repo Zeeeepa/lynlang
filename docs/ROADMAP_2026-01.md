@@ -216,13 +216,17 @@ This blocks runtime testing of collections from .zen files.
 1. **Iterator System Enhanced** - Range now has sum, product, min, max, skip, take, find_ge
 2. **VecIterator<T>** - Full iterator for Vec<T> with next() and has_next()
 3. **HashMapIterator<K,V>** - Iterates over key-value pairs, plus keys() and values() iterators
-4. **Syscall-based File I/O** - Linux x86-64 file operations without FFI (474 LOC)
-5. **LSP Complete** - All modern LSP features implemented
-6. **Architecture Cleanup** - Fixed duplicate module declarations
-7. **Dead Code Audit** - Identified legitimate vs false positive dead_code markers
-8. **Typechecker Integration** - Now in main compilation pipeline
-9. **Pattern Matching Refactor** - Extracted to dedicated patterns.rs module (290 LOC)
-10. **Module Size Reduction** - codegen/llvm/mod.rs: 992 → 702 LOC (-29%)
+4. **StackIterator<T>** - Forward and reverse iterators for Stack
+5. **QueueIterator<T>** - Front-to-back iteration
+6. **SetIterator<T>** - Element iteration
+7. **Syscall-based File I/O** - Linux x86-64 file operations without FFI (474 LOC)
+8. **LSP Complete** - All modern LSP features implemented
+9. **Architecture Cleanup** - Fixed duplicate module declarations
+10. **Dead Code Audit** - Identified legitimate vs false positive dead_code markers
+11. **Typechecker Integration** - Now in main compilation pipeline
+12. **Pattern Matching Refactor** - Extracted to dedicated patterns.rs module (290 LOC)
+13. **Module Size Reduction** - codegen/llvm/mod.rs: 992 → 702 LOC (-29%)
+14. **Parser Module Split** - primary.rs: 943 → 802 LOC, control_flow.rs now used
 
 ---
 
