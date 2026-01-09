@@ -1,7 +1,7 @@
 use crate::codegen::llvm::{symbols, LLVMCompiler};
 use crate::ast::{AstType, Expression};
 use crate::error::CompileError;
-use crate::stdlib_metadata::compiler as compiler_intrinsics;
+use crate::intrinsics as compiler_intrinsics;
 
 // ============================================================================
 // HELPER FUNCTIONS - Shared logic for type inference
@@ -76,6 +76,18 @@ pub fn infer_expression_type(
             payload,
         } => infer_enum_variant_type(compiler, enum_name, variant, payload),
         Expression::FunctionCall { name, .. } => {
+            // Handle Range constructors
+            if name == "Range.new" || name == "Range.with_step" {
+                return Ok(AstType::Struct {
+                    name: "Range".to_string(),
+                    fields: vec![
+                        ("current".to_string(), AstType::I64),
+                        ("end".to_string(), AstType::I64),
+                        ("step".to_string(), AstType::I64),
+                    ],
+                });
+            }
+
             // Handle both "compiler." and "builtin." prefixes for intrinsics
             if name.starts_with("compiler.") || name.starts_with("builtin.") {
                 let prefix_len = if name.starts_with("compiler.") { 9 } else { 8 };
@@ -711,7 +723,7 @@ fn infer_method_call_type(
     } else {
         method
     };
-    if base_method == "new" || base_method == "init" {
+    if base_method == "new" || base_method == "init" || base_method == "with_step" {
         return infer_constructor_type(compiler, object, method);
     }
 
@@ -799,6 +811,14 @@ fn infer_constructor_type(
                 name: "String".to_string(),
                 fields: vec![],
             },
+            "Range" => AstType::Struct {
+                name: "Range".to_string(),
+                fields: vec![
+                    ("current".to_string(), AstType::I64),
+                    ("end".to_string(), AstType::I64),
+                    ("step".to_string(), AstType::I64),
+                ],
+            },
             _ => AstType::Void,
         });
     }
@@ -862,6 +882,47 @@ fn infer_common_method_type(
             infer_set_operation_type(compiler, object)
         }
         "is_subset" | "is_superset" | "is_disjoint" => Ok(AstType::Bool),
+
+        // Range iterator methods
+        "next" => {
+            // Check if object is Range or MutPtr<Range>
+            if let Ok(object_type) = compiler.infer_expression_type(object) {
+                let inner_type = object_type.ptr_inner().unwrap_or(&object_type);
+                if let AstType::Struct { name, .. } = inner_type {
+                    if name == "Range" {
+                        return Ok(AstType::Generic {
+                            name: compiler.well_known.option_name().to_string(),
+                            type_args: vec![AstType::I64],
+                        });
+                    }
+                }
+            }
+            infer_ufc_method_type(compiler, object, method)
+        }
+        "has_next" => {
+            // Check if object is Range type
+            if let Ok(object_type) = compiler.infer_expression_type(object) {
+                let inner_type = object_type.ptr_inner().unwrap_or(&object_type);
+                if let AstType::Struct { name, .. } = inner_type {
+                    if name == "Range" {
+                        return Ok(AstType::Bool);
+                    }
+                }
+            }
+            infer_ufc_method_type(compiler, object, method)
+        }
+        "count" => {
+            // Check if object is Range type
+            if let Ok(object_type) = compiler.infer_expression_type(object) {
+                let inner_type = object_type.ptr_inner().unwrap_or(&object_type);
+                if let AstType::Struct { name, .. } = inner_type {
+                    if name == "Range" {
+                        return Ok(AstType::I64);
+                    }
+                }
+            }
+            infer_ufc_method_type(compiler, object, method)
+        }
 
         // Default: try UFC lookup
         _ => infer_ufc_method_type(compiler, object, method),
@@ -940,10 +1001,16 @@ fn infer_ufc_method_type(
         _ => None,
     };
 
-    if let Some(type_name) = type_name {
+    if let Some(ref type_name) = type_name {
         let qualified_name = format!("{}.{}", type_name, method);
         if let Some(func_return_type) = compiler.function_types.get(&qualified_name) {
             return Ok(func_return_type.clone());
+        }
+
+        // Check stdlib_types for method return type
+        let registry = crate::stdlib_types::stdlib_types();
+        if let Some(return_type) = registry.get_method_return_type(type_name, method) {
+            return Ok(return_type.clone());
         }
     }
 

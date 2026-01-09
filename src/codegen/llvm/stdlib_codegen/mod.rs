@@ -1,15 +1,9 @@
 //! Standard library codegen - only compiler intrinsics
 //! High-level stdlib (io, fs, core, math) should be implemented in Zen
+//! Collections (HashMap, HashSet, Vec) are implemented in stdlib Zen using intrinsics
 
-pub mod collections;
 pub mod compiler;
 pub mod helpers;
-
-// Re-export collections functions
-pub use collections::{
-    compile_dynvec_new, compile_hashmap_get, compile_hashmap_insert, compile_hashmap_new,
-    compile_hashset_new,
-};
 
 // Re-export compiler intrinsics
 pub use compiler::{
@@ -60,4 +54,12 @@ pub use compiler::{
     compile_ctlz,
     compile_ctpop,
     compile_cttz,
+    // Syscall intrinsics
+    compile_syscall0,
+    compile_syscall1,
+    compile_syscall2,
+    compile_syscall3,
+    compile_syscall4,
+    compile_syscall5,
+    compile_syscall6,
 };

@@ -93,6 +93,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
         name: &str,
         fields: &[(String, Expression)],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Try to register struct from stdlib if not found locally
+        self.ensure_struct_type(name)?;
+
         let (llvm_type, fields_with_info) = {
             let struct_info = self.struct_types.get(name).ok_or_else(|| {
                 CompileError::TypeError(format!("Undefined struct type: {}", name), self.get_current_span())

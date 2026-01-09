@@ -5,7 +5,6 @@ use super::stdlib_resolver::StdlibResolver;
 use super::types::{AnalysisJob, Document, SymbolInfo};
 use super::utils::format_type;
 use crate::ast::*;
-use crate::stdlib_metadata::StdModuleTrait;
 use crate::lexer::{Lexer, Token};
 use crate::parser::Parser;
 use crate::well_known::well_known;
@@ -159,9 +158,7 @@ impl DocumentStore {
     }
 
     fn register_compiler_intrinsics(&mut self, range: &Range) {
-        use crate::stdlib_metadata::compiler::get_compiler_module;
-
-        let compiler_module = get_compiler_module();
+        use crate::intrinsics::get_intrinsic;
 
         // (name, description, category)
         let intrinsics: &[(&str, &str, &str)] = &[
@@ -219,7 +216,7 @@ impl DocumentStore {
         ];
 
         for &(name, doc, category) in intrinsics {
-            if let Some(func) = compiler_module.get_function(name) {
+            if let Some(func) = get_intrinsic(name) {
                 let params_str = func.params.iter()
                     .map(|(pname, ptype)| format!("{}: {}", pname, format_type(ptype)))
                     .collect::<Vec<_>>().join(", ");

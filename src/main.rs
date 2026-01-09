@@ -7,20 +7,6 @@ use std::io::{self, BufRead, Write};
 use std::path::Path;
 use std::process::Command;
 
-mod ast;
-mod codegen;
-mod compiler;
-mod comptime;
-mod error;
-mod lexer;
-mod module_system;
-mod parser;
-mod stdlib_metadata;
-mod stdlib_types;
-mod type_system;
-mod typechecker;
-mod well_known;
-
 use zen::compiler::Compiler;
 use zen::error::{CompileError, Result};
 use zen::lexer::Lexer;

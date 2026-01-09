@@ -3,18 +3,15 @@ use crate::ast::{AstType, EnumDefinition, Expression, Function, Statement, Struc
 use crate::error::CompileError;
 use crate::stdlib_types::StdlibTypeRegistry;
 
-#[allow(dead_code)]
 pub struct TypeInstantiator<'a> {
     env: &'a mut TypeEnvironment,
 }
 
 impl<'a> TypeInstantiator<'a> {
-    #[allow(dead_code)]
     pub fn new(env: &'a mut TypeEnvironment) -> Self {
         Self { env }
     }
 
-    #[allow(dead_code)]
     pub fn instantiate_function(
         &mut self,
         func: &Function,
@@ -50,7 +47,6 @@ impl<'a> TypeInstantiator<'a> {
         })
     }
 
-    #[allow(dead_code)]
     pub fn instantiate_struct(
         &mut self,
         struct_def: &StructDefinition,
@@ -92,7 +88,6 @@ impl<'a> TypeInstantiator<'a> {
         })
     }
 
-    #[allow(dead_code)]
     pub fn instantiate_enum(
         &mut self,
         enum_def: &EnumDefinition,

@@ -99,12 +99,13 @@ pub fn compile_loop<'ctx>(
             match kind {
                 LoopKind::Infinite => {
                     // Create blocks for infinite loop
+                    let current_fn = compiler.current_fn()?;
                     let loop_body = compiler
                         .context
-                        .append_basic_block(compiler.current_function.unwrap(), "loop_body");
+                        .append_basic_block(current_fn, "loop_body");
                     let after_loop_block = compiler
                         .context
-                        .append_basic_block(compiler.current_function.unwrap(), "after_loop");
+                        .append_basic_block(current_fn, "after_loop");
 
                     // Push loop context for break/continue
                     compiler.loop_stack.push((loop_body, after_loop_block));
@@ -122,7 +123,7 @@ pub fn compile_loop<'ctx>(
                     }
 
                     // Loop back if no terminator
-                    let current_block = compiler.builder.get_insert_block().unwrap();
+                    let current_block = compiler.current_block()?;
                     if current_block.get_terminator().is_none() {
                         compiler
                             .builder
@@ -136,15 +137,16 @@ pub fn compile_loop<'ctx>(
                 }
                 LoopKind::Condition(cond_expr) => {
                     // Create blocks
+                    let current_fn = compiler.current_fn()?;
                     let loop_header = compiler
                         .context
-                        .append_basic_block(compiler.current_function.unwrap(), "loop_header");
+                        .append_basic_block(current_fn, "loop_header");
                     let loop_body = compiler
                         .context
-                        .append_basic_block(compiler.current_function.unwrap(), "loop_body");
+                        .append_basic_block(current_fn, "loop_body");
                     let after_loop_block = compiler
                         .context
-                        .append_basic_block(compiler.current_function.unwrap(), "after_loop");
+                        .append_basic_block(current_fn, "after_loop");
 
                     compiler.loop_stack.push((loop_header, after_loop_block));
 
@@ -193,7 +195,7 @@ pub fn compile_loop<'ctx>(
                     }
 
                     // Loop back if no terminator
-                    let current_block = compiler.builder.get_insert_block().unwrap();
+                    let current_block = compiler.current_block()?;
                     if current_block.get_terminator().is_none() {
                         compiler
                             .builder

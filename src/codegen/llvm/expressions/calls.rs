@@ -115,9 +115,7 @@ pub fn compile_closure<'ctx>(
             let result = compiler.compile_expression(body)?;
 
             if compiler
-                .builder
-                .get_insert_block()
-                .unwrap()
+                .current_block()?
                 .get_terminator()
                 .is_none()
             {

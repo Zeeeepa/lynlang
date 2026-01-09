@@ -39,3 +39,22 @@ read_input = (prompt: String) Result<String, String> {
     // Built-in implemented in Rust codegen
     return Result.Err("Not implemented")
 }
+
+// Syscall-based I/O (no libc dependency, Linux x86-64 only)
+// Write a string literal with known length to stdout
+sys_write = (msg: StaticString, len: i64) i64 {
+    // Built-in implemented in Rust codegen using inline assembly syscall
+    return 0
+}
+
+// Write a string literal with known length to stderr
+sys_ewrite = (msg: StaticString, len: i64) i64 {
+    // Built-in implemented in Rust codegen using inline assembly syscall
+    return 0
+}
+
+// Raw syscall write to any file descriptor
+sys_write_raw = (fd: i64, buf: RawPtr<u8>, count: i64) i64 {
+    // Built-in implemented in Rust codegen using inline assembly syscall
+    return 0
+}

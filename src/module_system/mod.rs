@@ -7,18 +7,17 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Module system for Zen language
-#[allow(dead_code)]
 pub struct ModuleSystem {
     /// Map from module paths to their resolved AST
     modules: HashMap<String, Program>,
     /// Search paths for modules
     search_paths: Vec<PathBuf>,
     /// Current working directory
+    #[allow(dead_code)] // Stored for future use
     cwd: PathBuf,
 }
 
 impl ModuleSystem {
-    #[allow(dead_code)]
     pub fn new() -> Self {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         let mut search_paths = vec![cwd.clone(), cwd.join("lib"), cwd.join("modules")];
@@ -59,13 +58,12 @@ impl ModuleSystem {
     }
 
     /// Add a search path for modules
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Used in tests, public API for future use
     pub fn add_search_path(&mut self, path: PathBuf) {
         self.search_paths.push(path);
     }
 
     /// Resolve and load a module
-    #[allow(dead_code)]
     pub fn load_module(&mut self, module_path: &str) -> Result<&Program, CompileError> {
         // Check if already loaded
         if self.modules.contains_key(module_path) {
@@ -191,7 +189,6 @@ impl ModuleSystem {
     }
 
     /// Resolve a module path to a file path
-    #[allow(dead_code)]
     fn resolve_module_path(&self, module_path: &str) -> Result<PathBuf, CompileError> {
         // Convert module path (e.g., "std.io") to file path (e.g., "std/io.zen")
         let relative_path = module_path.replace('.', "/") + ".zen";
@@ -219,13 +216,11 @@ impl ModuleSystem {
     }
 
     /// Get all loaded modules
-    #[allow(dead_code)]
     pub fn get_modules(&self) -> &HashMap<String, Program> {
         &self.modules
     }
 
     /// Merge all loaded modules into a single program
-    #[allow(dead_code)]
     pub fn merge_programs(&self, main_program: Program) -> Program {
         let mut merged = main_program;
 

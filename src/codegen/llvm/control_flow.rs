@@ -32,20 +32,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.builder.position_at_end(then_bb);
         let then_val = self.compile_expression(&arms[0].1)?;
         // Branch to merge only if block isn't already terminated (e.g., by return)
-        let then_current_block = self.builder.get_insert_block().unwrap();
+        let then_current_block = self.current_block()?;
         if then_current_block.get_terminator().is_none() {
             self.builder.build_unconditional_branch(merge_bb)?;
         }
-        let then_bb_end = self.builder.get_insert_block().unwrap();
+        let then_bb_end = self.current_block()?;
         // Emit 'else' block
         self.builder.position_at_end(else_bb);
         let else_val = self.compile_expression(&arms[1].1)?;
         // Branch to merge only if block isn't already terminated (e.g., by return)
-        let else_current_block = self.builder.get_insert_block().unwrap();
+        let else_current_block = self.current_block()?;
         if else_current_block.get_terminator().is_none() {
             self.builder.build_unconditional_branch(merge_bb)?;
         }
-        let else_bb_end = self.builder.get_insert_block().unwrap();
+        let else_bb_end = self.current_block()?;
         // Emit 'merge' block
         self.builder.position_at_end(merge_bb);
         let phi = self.builder.build_phi(then_val.get_type(), "iftmp")?;

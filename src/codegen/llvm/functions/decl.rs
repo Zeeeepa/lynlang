@@ -266,7 +266,12 @@ pub fn compile_function_body<'ctx>(
 
     // Store function parameters in variables
     for (i, (name, type_)) in function.args.iter().enumerate() {
-        let param = function_value.get_nth_param(i as u32).unwrap();
+        let param = function_value.get_nth_param(i as u32).ok_or_else(|| {
+            CompileError::InternalError(
+                format!("Missing parameter {} in function {}", i, function.name),
+                compiler.get_current_span(),
+            )
+        })?;
         let llvm_type = compiler.to_llvm_type(type_)?;
         let basic_type = compiler.expect_basic_type(llvm_type)?;
         let alloca = compiler.builder.build_alloca(basic_type, name)?;

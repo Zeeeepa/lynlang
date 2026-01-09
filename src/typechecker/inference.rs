@@ -340,6 +340,11 @@ pub fn infer_identifier_type(checker: &mut TypeChecker, name: &str) -> Result<As
         return Ok(var_type);
     }
 
+    // Built-in modules are always available without explicit import
+    if crate::intrinsics::is_builtin_module(name) {
+        return Ok(AstType::StdModule);
+    }
+
     if let Some(sig) = checker.get_function_signatures().get(name) {
         return Ok(AstType::FunctionPointer {
             param_types: sig.params.iter().map(|(_, t)| t.clone()).collect(),
@@ -431,10 +436,6 @@ pub fn infer_function_call_type(
 
             if let Some(return_type) = stdlib_types().get_function_return_type(module, base_func) {
                 return Ok(return_type.clone());
-            }
-
-            if let Some(return_type) = intrinsics::check_stdlib_function(module, base_func) {
-                return Ok(return_type);
             }
 
             // Handle generic constructors like HashMap.new<K, V> or Vec.new<T>

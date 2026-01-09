@@ -5,7 +5,6 @@ use crate::stdlib_types::StdlibTypeRegistry;
 use crate::typechecker::TypeChecker;
 use std::collections::{HashMap, HashSet};
 
-#[allow(dead_code)]
 pub struct Monomorphizer {
     env: TypeEnvironment,
     instantiated_functions: HashMap<String, Function>,
@@ -15,7 +14,6 @@ pub struct Monomorphizer {
 }
 
 impl Monomorphizer {
-    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             env: TypeEnvironment::new(),
@@ -26,7 +24,6 @@ impl Monomorphizer {
         }
     }
 
-    #[allow(dead_code)]
     pub fn monomorphize_program(&mut self, program: &Program) -> Result<Program, CompileError> {
         let mut declarations = Vec::new();
 

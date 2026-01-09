@@ -9,6 +9,7 @@ use super::utils::{
 };
 use crate::ast::{Declaration, Expression, Program, Statement};
 use crate::lexer::Lexer;
+use crate::module_system::ModuleSystem;
 use crate::parser::Parser;
 use crate::typechecker::TypeChecker;
 use lsp_types::*;
@@ -59,13 +60,33 @@ pub fn analyze_document(
 fn run_compiler_analysis(program: &Program, content: &str) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
+    // Load imported modules using the module system
+    let merged_program = load_imports_for_program(program);
+
     let mut type_checker = TypeChecker::new();
 
-    if let Err(err) = type_checker.check_program(program) {
+    if let Err(err) = type_checker.check_program(&merged_program) {
         diagnostics.push(compile_error_to_diagnostic_with_content(err, Some(content)));
     }
 
     diagnostics
+}
+
+/// Load imported modules and merge them with the main program
+fn load_imports_for_program(program: &Program) -> Program {
+    let mut module_system = ModuleSystem::new();
+
+    // Load all imported modules
+    for decl in &program.declarations {
+        if let Declaration::ModuleImport { module_path, .. } = decl {
+            // Try to load the module - ignore errors for LSP analysis
+            // (we don't want to fail on missing modules, just show what we can)
+            let _ = module_system.load_module(module_path);
+        }
+    }
+
+    // Merge all loaded modules with the main program
+    module_system.merge_programs(program.clone())
 }
 
 /// Check for allocator usage in statements

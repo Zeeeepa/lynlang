@@ -1,48 +1,14 @@
 //! Literal expression parsing: integers, floats, strings
-//! Extracted from primary.rs
 
 #![allow(dead_code)]
 
-use crate::parser::core::Parser;
 use crate::ast::Expression;
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
+use crate::parser::core::Parser;
 
-// ============================================================================
-// UFC Helper - DRY: extracted from duplicate code in literal parsers
-// ============================================================================
-
-/// Parse UFC (Universal Function Call) chain on an expression.
-/// Handles: expr.method() and expr.field patterns.
-pub fn parse_ufc_chain(parser: &mut Parser, mut expr: Expression) -> Result<Expression> {
-    loop {
-        if parser.current_token != Token::Symbol('.') {
-            break;
-        }
-        parser.next_token(); // consume '.'
-
-        let member = match &parser.current_token {
-            Token::Identifier(name) => name.clone(),
-            _ => {
-                return Err(CompileError::SyntaxError(
-                    "Expected identifier after '.'".to_string(),
-                    Some(parser.current_span.clone()),
-                ));
-            }
-        };
-        parser.next_token();
-
-        if parser.current_token == Token::Symbol('(') {
-            return super::calls::parse_call_expression_with_object(parser, expr, member);
-        } else {
-            expr = Expression::MemberAccess {
-                object: Box::new(expr),
-                member,
-            };
-        }
-    }
-    Ok(expr)
-}
+// Re-export parse_method_chain for use in this module
+use super::calls::parse_method_chain;
 
 // ============================================================================
 // Literal Parsers
@@ -64,7 +30,7 @@ pub fn parse_integer_literal(parser: &mut Parser, value_str: &str) -> Result<Exp
         Expression::Integer64(value)
     };
 
-    parse_ufc_chain(parser, expr)
+    parse_method_chain(parser, expr)
 }
 
 /// Parse float literal with UFC support
@@ -77,7 +43,7 @@ pub fn parse_float_literal(parser: &mut Parser, value_str: &str) -> Result<Expre
     })?;
     parser.next_token();
 
-    parse_ufc_chain(parser, Expression::Float64(value))
+    parse_method_chain(parser, Expression::Float64(value))
 }
 
 /// Parse string literal with interpolation and UFC support
@@ -91,7 +57,7 @@ pub fn parse_string_literal(parser: &mut Parser, value: &str) -> Result<Expressi
         Expression::String(value)
     };
 
-    parse_ufc_chain(parser, expr)
+    parse_method_chain(parser, expr)
 }
 
 /// Parse shorthand enum variant syntax: .VariantName or .VariantName(payload)

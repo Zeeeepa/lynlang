@@ -77,11 +77,19 @@ pub fn index_stdlib_directory(path: &Path, symbols: &mut HashMap<String, SymbolI
 
 /// Find stdlib directory from common locations
 pub fn find_stdlib_path() -> Option<std::path::PathBuf> {
-    let stdlib_paths = vec![
+    // Check environment variable first
+    if let Ok(path) = std::env::var("ZEN_STDLIB_PATH") {
+        let p = std::path::PathBuf::from(path);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+
+    // Try relative paths
+    let stdlib_paths = [
         std::path::PathBuf::from("./stdlib"),
         std::path::PathBuf::from("../stdlib"),
         std::path::PathBuf::from("../../stdlib"),
-        std::path::PathBuf::from("/home/ubuntu/zenlang/stdlib"),
     ];
 
     for stdlib_path in stdlib_paths {

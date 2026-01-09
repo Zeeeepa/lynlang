@@ -1,46 +1,11 @@
-use crate::parser::core::Parser;
 use crate::ast::{AstType, Expression, Statement};
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
+use crate::parser::core::Parser;
 use crate::well_known::well_known;
 
-// ============================================================================
-// HELPER FUNCTIONS FOR REDUCING DUPLICATION
-// ============================================================================
-
-/// Handle UFC method chaining after a parenthesized expression.
-/// Parses chains like: (expr).method().field.another_method()
-fn parse_ufc_chain_after_parens(parser: &mut Parser, mut expr: Expression) -> Result<Expression> {
-    loop {
-        if parser.current_token != Token::Symbol('.') {
-            break;
-        }
-        parser.next_token(); // consume '.'
-
-        if let Token::Identifier(member) = &parser.current_token.clone() {
-            let member_clone = member.clone();
-            parser.next_token();
-
-            if parser.current_token == Token::Symbol('(') {
-                expr = super::calls::parse_call_expression_with_object(parser, expr, member_clone)?;
-            } else {
-                expr = Expression::MemberAccess {
-                    object: Box::new(expr),
-                    member: member_clone,
-                };
-            }
-        } else {
-            return Err(CompileError::SyntaxError(
-                format!(
-                    "Expected identifier after '.' in member access, got {:?}",
-                    parser.current_token
-                ),
-                Some(parser.current_span.clone()),
-            ));
-        }
-    }
-    Ok(expr)
-}
+// Use shared method chain parser from calls module
+use super::calls::parse_method_chain;
 
 pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
     match &parser.current_token {
@@ -768,7 +733,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                     ));
                 }
                 parser.next_token(); // consume ')'
-                return parse_ufc_chain_after_parens(parser, expr);
+                return parse_method_chain(parser, expr);
             }
 
             // Check if this looks like a closure parameter list
@@ -875,7 +840,7 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                     ));
                 }
                 parser.next_token(); // consume ')'
-                parse_ufc_chain_after_parens(parser, expr)
+                parse_method_chain(parser, expr)
             }
         }
         Token::Symbol('[') => {

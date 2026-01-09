@@ -29,13 +29,20 @@ impl StdlibResolver {
     }
 
     fn find_stdlib_root(workspace_root: Option<&Path>) -> PathBuf {
-        // Try multiple locations
+        // Check environment variable first
+        if let Ok(path) = std::env::var("ZEN_STDLIB_PATH") {
+            let p = PathBuf::from(&path);
+            if p.exists() && p.is_dir() {
+                return p;
+            }
+        }
+
+        // Try workspace-relative and common locations
         let candidates = vec![
             workspace_root.map(|p| p.join("stdlib")),
             Some(PathBuf::from("./stdlib")),
             Some(PathBuf::from("../stdlib")),
             Some(PathBuf::from("../../stdlib")),
-            Some(PathBuf::from("/home/ubuntu/zenlang/stdlib")),
         ];
 
         for candidate in candidates.into_iter().flatten() {

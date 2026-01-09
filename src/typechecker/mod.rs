@@ -7,14 +7,12 @@ pub mod method_types;
 pub mod scope;
 pub mod self_resolution;
 pub mod statement_checking;
-pub mod stdlib;
 pub mod type_resolution;
 pub mod types;
 pub mod validation;
 
 use crate::ast::{AstType, Declaration, Expression, Function, Program, Statement};
 use crate::error::{CompileError, Result, Span};
-use crate::stdlib_metadata::StdNamespace;
 use crate::well_known::WellKnownTypes;
 use behaviors::BehaviorResolver;
 use std::collections::HashMap;
@@ -33,7 +31,6 @@ pub struct TypeChecker {
     structs: HashMap<String, StructInfo>,
     enums: HashMap<String, EnumInfo>,
     behavior_resolver: BehaviorResolver,
-    std_namespace: StdNamespace,
     module_imports: HashMap<String, String>,
     current_impl_type: Option<String>,
     current_span: Option<Span>,
@@ -168,7 +165,6 @@ impl TypeChecker {
             structs: HashMap::new(),
             enums,
             behavior_resolver: BehaviorResolver::new(),
-            std_namespace: StdNamespace::new(),
             module_imports: HashMap::new(),
             current_impl_type: None,
             current_span: None,
@@ -294,7 +290,7 @@ impl TypeChecker {
             Expression::MemberAccess { object, member } => {
                 // Check if accessing @std namespace
                 if let Expression::Identifier(name) = &**object {
-                    if StdNamespace::is_std_reference(name) {
+                    if name == "@std" {
                         // Resolve @std.module access
                         return Ok(AstType::Generic {
                             name: format!("StdModule::{}", member),
@@ -326,12 +322,25 @@ impl TypeChecker {
                         fields: struct_def.fields.clone(),
                     })
                 } else {
-                    // It might be a generic struct that will be monomorphized
-                    // For now, return a struct type with empty fields
-                    Ok(AstType::Struct {
-                        name: name.clone(),
-                        fields: vec![],
-                    })
+                    // Check if it's a stdlib struct
+                    let registry = crate::stdlib_types::stdlib_types();
+                    if let Some(struct_def) = registry.get_struct_definition(name) {
+                        let fields: Vec<(String, AstType)> = struct_def.fields
+                            .iter()
+                            .map(|f| (f.name.clone(), f.type_.clone()))
+                            .collect();
+                        Ok(AstType::Struct {
+                            name: name.clone(),
+                            fields,
+                        })
+                    } else {
+                        // It might be a generic struct that will be monomorphized
+                        // For now, return a struct type with empty fields
+                        Ok(AstType::Struct {
+                            name: name.clone(),
+                            fields: vec![],
+                        })
+                    }
                 }
             }
             Expression::StdReference => {
@@ -722,8 +731,10 @@ impl TypeChecker {
         self.behavior_resolver.resolve_method(type_name, method_name)
     }
 
-    fn register_stdlib_module(&mut self, alias: &str, module_path: &str) -> Result<()> {
-        stdlib::register_stdlib_module(self, alias, module_path)
+    fn register_stdlib_module(&mut self, _alias: &str, _module_path: &str) -> Result<()> {
+        // Stdlib function signatures are looked up dynamically via stdlib_types.rs
+        // which parses the actual .zen files. No need for hardcoded registration.
+        Ok(())
     }
 
     fn enter_scope(&mut self) {

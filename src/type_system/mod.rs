@@ -22,24 +22,21 @@ pub struct TypeSubstitution {
 }
 
 impl TypeSubstitution {
-    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             mappings: HashMap::new(),
         }
     }
 
-    #[allow(dead_code)]
     pub fn add(&mut self, param: String, concrete: AstType) {
         self.mappings.insert(param, concrete);
     }
 
-    #[allow(dead_code)]
+    #[allow(dead_code)] // get() is public API, may be used externally
     pub fn get(&self, param: &str) -> Option<&AstType> {
         self.mappings.get(param)
     }
 
-    #[allow(dead_code)]
     pub fn apply(&self, ast_type: &AstType) -> AstType {
         match ast_type {
             AstType::Generic { name, type_args } => {

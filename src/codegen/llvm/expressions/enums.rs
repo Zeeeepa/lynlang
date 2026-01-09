@@ -247,7 +247,12 @@ pub fn compile_enum_variant<'ctx>(
                     let heap_ptr = malloc_call
                         .try_as_basic_value()
                         .left()
-                        .unwrap()
+                        .ok_or_else(|| {
+                            CompileError::InternalError(
+                                "malloc must return a value".to_string(),
+                                compiler.get_current_span(),
+                            )
+                        })?
                         .into_pointer_value();
 
                     // Store the entire struct - this preserves the discriminant and payload pointer
@@ -298,7 +303,12 @@ pub fn compile_enum_variant<'ctx>(
                     let heap_ptr = malloc_call
                         .try_as_basic_value()
                         .left()
-                        .unwrap()
+                        .ok_or_else(|| {
+                            CompileError::InternalError(
+                                "malloc must return a value".to_string(),
+                                compiler.get_current_span(),
+                            )
+                        })?
                         .into_pointer_value();
                     compiler.builder.build_store(heap_ptr, struct_val)?;
                     heap_ptr.into()
@@ -323,7 +333,12 @@ pub fn compile_enum_variant<'ctx>(
                 let heap_ptr = malloc_call
                     .try_as_basic_value()
                     .left()
-                    .unwrap()
+                    .ok_or_else(|| {
+                        CompileError::InternalError(
+                            "malloc must return a value".to_string(),
+                            compiler.get_current_span(),
+                        )
+                    })?
                     .into_pointer_value();
 
                 compiler.builder.build_store(heap_ptr, compiled)?;

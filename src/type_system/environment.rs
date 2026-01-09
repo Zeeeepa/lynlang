@@ -4,16 +4,15 @@ use crate::error::CompileError;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct TypeEnvironment {
     generic_functions: HashMap<String, Function>,
     generic_structs: HashMap<String, StructDefinition>,
     generic_enums: HashMap<String, EnumDefinition>,
+    #[allow(dead_code)] // instantiated_types reserved for future use
     instantiated_types: HashMap<String, Vec<GenericInstance>>,
 }
 
 impl TypeEnvironment {
-    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             generic_functions: HashMap::new(),
@@ -23,14 +22,12 @@ impl TypeEnvironment {
         }
     }
 
-    #[allow(dead_code)]
     pub fn register_generic_function(&mut self, func: Function) {
         if !func.type_params.is_empty() {
             self.generic_functions.insert(func.name.clone(), func);
         }
     }
 
-    #[allow(dead_code)]
     pub fn register_generic_struct(&mut self, struct_def: StructDefinition) {
         if !struct_def.type_params.is_empty() {
             self.generic_structs
@@ -38,29 +35,25 @@ impl TypeEnvironment {
         }
     }
 
-    #[allow(dead_code)]
     pub fn register_generic_enum(&mut self, enum_def: EnumDefinition) {
         if !enum_def.type_params.is_empty() {
             self.generic_enums.insert(enum_def.name.clone(), enum_def);
         }
     }
 
-    #[allow(dead_code)]
     pub fn get_generic_function(&self, name: &str) -> Option<&Function> {
         self.generic_functions.get(name)
     }
 
-    #[allow(dead_code)]
     pub fn get_generic_struct(&self, name: &str) -> Option<&StructDefinition> {
         self.generic_structs.get(name)
     }
 
-    #[allow(dead_code)]
     pub fn get_generic_enum(&self, name: &str) -> Option<&EnumDefinition> {
         self.generic_enums.get(name)
     }
 
-    #[allow(dead_code)]
+    #[allow(dead_code)] // validate_type_args is public API for future use
     pub fn validate_type_args(
         &self,
         expected: &[TypeParameter],

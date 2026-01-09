@@ -155,23 +155,72 @@ fn try_compile_collection_constructor<'ctx>(
     name: &str,
     args: &[ast::Expression],
 ) -> Option<Result<BasicValueEnum<'ctx>, CompileError>> {
-    let base_type = if name.contains(".new<") {
-        name.split('.').next()
-    } else if name.contains('<') {
-        name.split('<').next()
-    } else {
-        match name {
-            "hashmap_new" => Some("HashMap"),
-            "hashset_new" => Some("HashSet"),
-            "dynvec_new" => Some("DynVec"),
-            _ => None,
+    // Handle Range constructors only
+    // HashMap/HashSet/DynVec should use stdlib Zen implementations
+    if name == "Range.new" || name == "Range.with_step" {
+        return Some(compile_range_constructor(compiler, name, args));
+    }
+
+    None
+}
+
+fn compile_range_constructor<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    name: &str,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    let i64_type = compiler.context.i64_type();
+    let range_struct_type = compiler.context.struct_type(
+        &[i64_type.into(), i64_type.into(), i64_type.into()],
+        false,
+    );
+
+    if name == "Range.new" {
+        // Range.new(start, end) -> Range { current: start, end: end, step: 1 }
+        if args.len() != 2 {
+            return Err(CompileError::TypeError(
+                format!("Range.new expects 2 arguments (start, end), got {}", args.len()),
+                compiler.get_current_span(),
+            ));
         }
-    };
-    match base_type? {
-        "HashMap" => Some(stdlib_codegen::compile_hashmap_new(compiler, args)),
-        "HashSet" => Some(stdlib_codegen::compile_hashset_new(compiler, args)),
-        "DynVec" => Some(stdlib_codegen::compile_dynvec_new(compiler, args)),
-        _ => None,
+        let start = compiler.compile_expression(&args[0])?;
+        let end = compiler.compile_expression(&args[1])?;
+        let step = i64_type.const_int(1, false);
+
+        let range_alloca = compiler.builder.build_alloca(range_struct_type, "range")?;
+        let current_ptr = compiler.builder.build_struct_gep(range_struct_type, range_alloca, 0, "current_ptr")?;
+        let end_ptr = compiler.builder.build_struct_gep(range_struct_type, range_alloca, 1, "end_ptr")?;
+        let step_ptr = compiler.builder.build_struct_gep(range_struct_type, range_alloca, 2, "step_ptr")?;
+
+        compiler.builder.build_store(current_ptr, start)?;
+        compiler.builder.build_store(end_ptr, end)?;
+        compiler.builder.build_store(step_ptr, step)?;
+
+        let range_val = compiler.builder.build_load(range_struct_type, range_alloca, "range_val")?;
+        Ok(range_val)
+    } else {
+        // Range.with_step(start, end, step) -> Range { current: start, end: end, step: step }
+        if args.len() != 3 {
+            return Err(CompileError::TypeError(
+                format!("Range.with_step expects 3 arguments (start, end, step), got {}", args.len()),
+                compiler.get_current_span(),
+            ));
+        }
+        let start = compiler.compile_expression(&args[0])?;
+        let end = compiler.compile_expression(&args[1])?;
+        let step = compiler.compile_expression(&args[2])?;
+
+        let range_alloca = compiler.builder.build_alloca(range_struct_type, "range")?;
+        let current_ptr = compiler.builder.build_struct_gep(range_struct_type, range_alloca, 0, "current_ptr")?;
+        let end_ptr = compiler.builder.build_struct_gep(range_struct_type, range_alloca, 1, "end_ptr")?;
+        let step_ptr = compiler.builder.build_struct_gep(range_struct_type, range_alloca, 2, "step_ptr")?;
+
+        compiler.builder.build_store(current_ptr, start)?;
+        compiler.builder.build_store(end_ptr, end)?;
+        compiler.builder.build_store(step_ptr, step)?;
+
+        let range_val = compiler.builder.build_load(range_struct_type, range_alloca, "range_val")?;
+        Ok(range_val)
     }
 }
 
@@ -200,6 +249,9 @@ fn dispatch_io_function<'ctx>(
         "println" => compile_io_print(compiler, args, 1, true),
         "eprint" => compile_io_print(compiler, args, 2, false),
         "eprintln" => compile_io_print(compiler, args, 2, true),
+        "sys_write" => compile_io_syscall_write(compiler, args, 1),
+        "sys_ewrite" => compile_io_syscall_write(compiler, args, 2),
+        "sys_write_raw" => compile_io_syscall_write_raw(compiler, args),
         _ => return None,
     })
 }
@@ -266,12 +318,107 @@ fn extract_string_data<'ctx>(
             );
             compiler.module.add_function("strlen", fn_type, None)
         });
-        let len = compiler.builder.build_call(strlen_fn, &[ptr.into()], "len")?
-            .try_as_basic_value().left().unwrap().into_int_value();
+        let call = compiler.builder.build_call(strlen_fn, &[ptr.into()], "len")?;
+        let len = call.try_as_basic_value().left().ok_or_else(|| {
+            CompileError::InternalError("strlen must return a value".to_string(), compiler.get_current_span())
+        })?.into_int_value();
         return Ok((ptr, len));
     }
 
     Err(CompileError::TypeError("Expected string value for print".to_string(), compiler.get_current_span()))
+}
+
+/// Syscall-based write using inline assembly (no libc)
+fn compile_io_syscall_write<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+    fd: i64,
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 2 {
+        return Err(CompileError::TypeError("sys_write expects 2 arguments (msg, len)".to_string(), compiler.get_current_span()));
+    }
+    let msg = compiler.compile_expression(&args[0])?;
+    let len_val = compiler.compile_expression(&args[1])?;
+
+    let i64_type = compiler.context.i64_type();
+
+    // Get pointer to string data
+    let msg_ptr = if msg.is_pointer_value() {
+        msg.into_pointer_value()
+    } else if msg.is_struct_value() {
+        compiler.builder.build_extract_value(msg.into_struct_value(), 0, "str_data")?
+            .into_pointer_value()
+    } else {
+        return Err(CompileError::TypeError("Expected string for sys_write".to_string(), compiler.get_current_span()));
+    };
+
+    // Convert pointer to i64 for syscall
+    let msg_int = compiler.builder.build_ptr_to_int(msg_ptr, i64_type, "msg_addr")?;
+    let len = len_val.into_int_value();
+    let fd_val = i64_type.const_int(fd as u64, false);
+    let syscall_num = i64_type.const_int(1, false); // SYS_write = 1
+
+    // Build inline assembly: syscall(1, fd, buf, count)
+    let fn_type = i64_type.fn_type(&[i64_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
+    let asm_fn = compiler.context.create_inline_asm(
+        fn_type,
+        "syscall".to_string(),
+        "={rax},{rax},{rdi},{rsi},{rdx},~{rcx},~{r11},~{memory}".to_string(),
+        true,
+        false,
+        None,
+        false,
+    );
+
+    let result = compiler.builder.build_indirect_call(
+        fn_type,
+        asm_fn,
+        &[syscall_num.into(), fd_val.into(), msg_int.into(), len.into()],
+        "syscall_result"
+    )?;
+
+    Ok(result.try_as_basic_value().left().unwrap_or_else(|| i64_type.const_zero().into()))
+}
+
+/// Syscall-based write to any fd using inline assembly (no libc)
+fn compile_io_syscall_write_raw<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    if args.len() != 3 {
+        return Err(CompileError::TypeError("sys_write_raw expects 3 arguments (fd, buf, count)".to_string(), compiler.get_current_span()));
+    }
+    let fd_val = compiler.compile_expression(&args[0])?.into_int_value();
+    let buf = compiler.compile_expression(&args[1])?;
+    let count_val = compiler.compile_expression(&args[2])?.into_int_value();
+
+    let i64_type = compiler.context.i64_type();
+
+    // Get pointer and convert to i64
+    let buf_ptr = buf.into_pointer_value();
+    let buf_int = compiler.builder.build_ptr_to_int(buf_ptr, i64_type, "buf_addr")?;
+    let syscall_num = i64_type.const_int(1, false); // SYS_write = 1
+
+    // Build inline assembly: syscall(1, fd, buf, count)
+    let fn_type = i64_type.fn_type(&[i64_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
+    let asm_fn = compiler.context.create_inline_asm(
+        fn_type,
+        "syscall".to_string(),
+        "={rax},{rax},{rdi},{rsi},{rdx},~{rcx},~{r11},~{memory}".to_string(),
+        true,
+        false,
+        None,
+        false,
+    );
+
+    let result = compiler.builder.build_indirect_call(
+        fn_type,
+        asm_fn,
+        &[syscall_num.into(), fd_val.into(), buf_int.into(), count_val.into()],
+        "syscall_result"
+    )?;
+
+    Ok(result.try_as_basic_value().left().unwrap_or_else(|| i64_type.const_zero().into()))
 }
 
 fn dispatch_compiler_function<'ctx>(
@@ -330,6 +477,13 @@ fn dispatch_compiler_function<'ctx>(
         "ctlz" => stdlib_codegen::compile_ctlz(compiler, args),
         "cttz" => stdlib_codegen::compile_cttz(compiler, args),
         "ctpop" => stdlib_codegen::compile_ctpop(compiler, args),
+        "syscall0" => stdlib_codegen::compile_syscall0(compiler, args),
+        "syscall1" => stdlib_codegen::compile_syscall1(compiler, args),
+        "syscall2" => stdlib_codegen::compile_syscall2(compiler, args),
+        "syscall3" => stdlib_codegen::compile_syscall3(compiler, args),
+        "syscall4" => stdlib_codegen::compile_syscall4(compiler, args),
+        "syscall5" => stdlib_codegen::compile_syscall5(compiler, args),
+        "syscall6" => stdlib_codegen::compile_syscall6(compiler, args),
         _ => return None,
     })
 }

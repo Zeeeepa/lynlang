@@ -220,7 +220,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
             self.symbols.enter_scope();
             for (i, (param_name, param_type)) in method.args.iter().enumerate() {
                 if i < function.count_params() as usize {
-                    let param_value = function.get_nth_param(i as u32).unwrap();
+                    let param_value = function.get_nth_param(i as u32).ok_or_else(|| {
+                        CompileError::InternalError(
+                            format!("Missing parameter {} in method", i),
+                            self.get_current_span(),
+                        )
+                    })?;
                     let alloca = self.builder.build_alloca(param_value.get_type(), param_name)?;
                     self.builder.build_store(alloca, param_value)?;
                     self.symbols.insert(param_name.clone(), super::symbols::Symbol::Variable(alloca));
@@ -246,10 +251,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.compile_statement(stmt)?;
             }
 
-            if matches!(llvm_return_type, super::Type::Void)
-                && self.builder.get_insert_block().unwrap().get_terminator().is_none()
-            {
-                self.builder.build_return(None)?;
+            if matches!(llvm_return_type, super::Type::Void) {
+                if let Ok(block) = self.current_block() {
+                    if block.get_terminator().is_none() {
+                        self.builder.build_return(None)?;
+                    }
+                }
             }
 
             self.symbols.exit_scope();
@@ -307,8 +314,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
 
-        // Handle HashMap methods
-        if let Some(result) = self.try_compile_hashmap_method(object, method_name, args)? {
+        // Handle Range constructors (Range.new, Range.with_step)
+        if let Expression::Identifier(name) = object {
+            if name == "Range" && (method_name == "new" || method_name == "with_step") {
+                let qualified = format!("Range.{}", method_name);
+                return super::functions::calls::compile_function_call(self, &qualified, args);
+            }
+        }
+
+        // HashMap methods now use stdlib Zen implementation via normal resolution
+
+        // Handle Range methods
+        if let Some(result) = self.try_compile_range_method(object, method_name, args)? {
             return Ok(result);
         }
 
@@ -342,37 +359,198 @@ impl<'ctx> LLVMCompiler<'ctx> {
         super::functions::calls::compile_function_call(self, &qualified, args)
     }
 
-    fn try_compile_hashmap_method(
+    // HashMap methods removed - now use stdlib Zen implementation
+
+    fn try_compile_range_method(
         &mut self,
         object: &Expression,
         method_name: &str,
-        args: &[Expression],
+        _args: &[Expression],
     ) -> Result<Option<BasicValueEnum<'ctx>>, CompileError> {
-        let Expression::Identifier(name) = object else { return Ok(None) };
-
-        let hashmap_info = self.variables.get(name).and_then(|v| {
-            if let AstType::Generic { name: tn, type_args } = &v.ast_type {
-                if tn == "HashMap" && type_args.len() == 2 {
-                    return Some((v.pointer, type_args[0].clone(), type_args[1].clone()));
+        // Handle direct identifier (e.g., range.has_next())
+        let range_ptr = if let Expression::Identifier(name) = object {
+            self.variables.get(name).and_then(|v| {
+                if let AstType::Struct { name: tn, .. } = &v.ast_type {
+                    if tn == "Range" {
+                        return Some(v.pointer);
+                    }
                 }
+                None
+            })
+        // Handle CreateMutableReference (e.g., range.mut_ref().next())
+        } else if let Expression::CreateMutableReference(inner_obj) = object {
+            if let Expression::Identifier(name) = inner_obj.as_ref() {
+                self.variables.get(name).and_then(|v| {
+                    if let AstType::Struct { name: tn, .. } = &v.ast_type {
+                        if tn == "Range" {
+                            return Some(v.pointer);
+                        }
+                    }
+                    None
+                })
+            } else {
+                None
             }
+        } else {
             None
-        });
+        };
 
-        let Some((hashmap_ptr, key_type, value_type)) = hashmap_info else { return Ok(None) };
+        let Some(range_ptr) = range_ptr else { return Ok(None) };
 
-        let span = self.get_current_span();
+        // Ensure Range struct is registered from stdlib
+        self.ensure_struct_type("Range")?;
+
+        // Range struct: { current: i64, end: i64, step: i64 }
+        let i64_type = self.context.i64_type();
+
+        // Get the registered struct type (should be available after ensure_struct_type)
+        let range_struct_type = self.struct_types.get("Range")
+            .map(|info| info.llvm_type)
+            .unwrap_or_else(|| self.context.struct_type(
+                &[i64_type.into(), i64_type.into(), i64_type.into()],
+                false,
+            ));
+
         match method_name {
-            "insert" => {
-                if args.len() != 2 { return Err(CompileError::TypeError(format!("HashMap.insert expects 2 arguments, got {}", args.len()), span)); }
-                let key = self.compile_expression(&args[0])?;
-                let value = self.compile_expression(&args[1])?;
-                Ok(Some(super::stdlib_codegen::compile_hashmap_insert(self, hashmap_ptr, key, value, &key_type)?))
+            "has_next" => {
+                // return self.current < self.end
+                let current_ptr = self.builder.build_struct_gep(
+                    range_struct_type, range_ptr, 0, "current_ptr")?;
+                let end_ptr = self.builder.build_struct_gep(
+                    range_struct_type, range_ptr, 1, "end_ptr")?;
+                let current = self.builder.build_load(i64_type, current_ptr, "current")?
+                    .into_int_value();
+                let end = self.builder.build_load(i64_type, end_ptr, "end")?
+                    .into_int_value();
+                let result = self.builder.build_int_compare(
+                    inkwell::IntPredicate::SLT, current, end, "has_next")?;
+                Ok(Some(result.into()))
             }
-            "get" => {
-                if args.len() != 1 { return Err(CompileError::TypeError(format!("HashMap.get expects 1 argument, got {}", args.len()), span)); }
-                let key = self.compile_expression(&args[0])?;
-                Ok(Some(super::stdlib_codegen::compile_hashmap_get(self, hashmap_ptr, key, &value_type)?))
+            "count" => {
+                // return (self.end - self.current) / self.step
+                let current_ptr = self.builder.build_struct_gep(
+                    range_struct_type, range_ptr, 0, "current_ptr")?;
+                let end_ptr = self.builder.build_struct_gep(
+                    range_struct_type, range_ptr, 1, "end_ptr")?;
+                let step_ptr = self.builder.build_struct_gep(
+                    range_struct_type, range_ptr, 2, "step_ptr")?;
+                let current = self.builder.build_load(i64_type, current_ptr, "current")?
+                    .into_int_value();
+                let end = self.builder.build_load(i64_type, end_ptr, "end")?
+                    .into_int_value();
+                let step = self.builder.build_load(i64_type, step_ptr, "step")?
+                    .into_int_value();
+
+                // Check if end > current
+                let is_positive = self.builder.build_int_compare(
+                    inkwell::IntPredicate::SGT, end, current, "is_positive")?;
+
+                let diff = self.builder.build_int_sub(end, current, "diff")?;
+                let count = self.builder.build_int_signed_div(diff, step, "count")?;
+
+                let zero = i64_type.const_int(0, false);
+                let result = self.builder.build_select(is_positive, count, zero, "count_result")?;
+                Ok(Some(result))
+            }
+            "next" => {
+                // Range.next() returns Option<i64>
+                // if current < end { Some(current), current += step } else { None }
+
+                // Get current block and function for branching
+                let current_fn = self.builder.get_insert_block()
+                    .ok_or_else(|| CompileError::InternalError("No current block".to_string(), None))?
+                    .get_parent()
+                    .ok_or_else(|| CompileError::InternalError("No parent function".to_string(), None))?;
+
+                // Load current and end values
+                let current_ptr = self.builder.build_struct_gep(
+                    range_struct_type, range_ptr, 0, "current_ptr")?;
+                let end_ptr = self.builder.build_struct_gep(
+                    range_struct_type, range_ptr, 1, "end_ptr")?;
+                let step_ptr = self.builder.build_struct_gep(
+                    range_struct_type, range_ptr, 2, "step_ptr")?;
+
+                let current = self.builder.build_load(i64_type, current_ptr, "current")?
+                    .into_int_value();
+                let end = self.builder.build_load(i64_type, end_ptr, "end")?
+                    .into_int_value();
+                let step = self.builder.build_load(i64_type, step_ptr, "step")?
+                    .into_int_value();
+
+                // Create blocks for branching
+                let has_next_block = self.context.append_basic_block(current_fn, "range_has_next");
+                let exhausted_block = self.context.append_basic_block(current_fn, "range_exhausted");
+                let merge_block = self.context.append_basic_block(current_fn, "range_merge");
+
+                // Compare current < end
+                let is_valid = self.builder.build_int_compare(
+                    inkwell::IntPredicate::SLT, current, end, "is_valid")?;
+                self.builder.build_conditional_branch(is_valid, has_next_block, exhausted_block)?;
+
+                // has_next block: return Some(current), advance current
+                self.builder.position_at_end(has_next_block);
+                let new_current = self.builder.build_int_add(current, step, "new_current")?;
+                self.builder.build_store(current_ptr, new_current)?;
+
+                // Create Option.Some(current) - enum struct: { discriminant: i64, payload_ptr: ptr }
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let option_struct_type = self.context.struct_type(
+                    &[i64_type.into(), ptr_type.into()],
+                    false,
+                );
+
+                // Heap allocate the payload (i64)
+                let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                    let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
+                    self.module.add_function("malloc", malloc_type, None)
+                });
+                let payload_size = i64_type.const_int(8, false); // 8 bytes for i64
+                let malloc_call = self.builder.build_call(malloc_fn, &[payload_size.into()], "payload_heap")?;
+                let payload_heap_ptr = malloc_call
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        CompileError::InternalError(
+                            "malloc must return a value".to_string(),
+                            self.get_current_span(),
+                        )
+                    })?
+                    .into_pointer_value();
+                self.builder.build_store(payload_heap_ptr, current)?;
+
+                let some_alloca = self.builder.build_alloca(option_struct_type, "option_some")?;
+                let some_disc_ptr = self.builder.build_struct_gep(
+                    option_struct_type, some_alloca, 0, "some_disc")?;
+                let some_payload_ptr = self.builder.build_struct_gep(
+                    option_struct_type, some_alloca, 1, "some_payload_ptr")?;
+                self.builder.build_store(some_disc_ptr, i64_type.const_int(0, false))?; // Some = 0 (first variant)
+                self.builder.build_store(some_payload_ptr, payload_heap_ptr)?;
+                let some_value = self.builder.build_load(option_struct_type, some_alloca, "some_val")?;
+                self.builder.build_unconditional_branch(merge_block)?;
+
+                // exhausted block: return None
+                self.builder.position_at_end(exhausted_block);
+                let none_alloca = self.builder.build_alloca(option_struct_type, "option_none")?;
+                let none_disc_ptr = self.builder.build_struct_gep(
+                    option_struct_type, none_alloca, 0, "none_disc")?;
+                let none_payload_ptr = self.builder.build_struct_gep(
+                    option_struct_type, none_alloca, 1, "none_payload_ptr")?;
+                self.builder.build_store(none_disc_ptr, i64_type.const_int(1, false))?; // None = 1 (second variant)
+                // Store null pointer for None's payload
+                let null_ptr = ptr_type.const_null();
+                self.builder.build_store(none_payload_ptr, null_ptr)?;
+                let none_value = self.builder.build_load(option_struct_type, none_alloca, "none_val")?;
+                self.builder.build_unconditional_branch(merge_block)?;
+
+                // Merge block with PHI
+                self.builder.position_at_end(merge_block);
+                let phi = self.builder.build_phi(option_struct_type, "range_next_result")?;
+                phi.add_incoming(&[
+                    (&some_value, has_next_block),
+                    (&none_value, exhausted_block),
+                ]);
+
+                Ok(Some(phi.as_basic_value()))
             }
             _ => Ok(None),
         }
@@ -390,7 +568,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         let self_value = match object {
             Expression::Identifier(name) => {
-                self.variables.get(name).map(|v| v.pointer.into()).unwrap_or_else(|| self.compile_expression(object).unwrap())
+                if let Some(var_info) = self.variables.get(name) {
+                    var_info.pointer.into()
+                } else {
+                    self.compile_expression(object)?
+                }
             }
             _ => {
                 let value = self.compile_expression(object)?;

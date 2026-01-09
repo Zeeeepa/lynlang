@@ -11,12 +11,13 @@ pub fn compile_loop<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     if let Expression::Loop { body } = expr {
         // Create blocks for the loop
+        let current_fn = compiler.current_fn()?;
         let loop_body = compiler
             .context
-            .append_basic_block(compiler.current_function.unwrap(), "loop_body");
+            .append_basic_block(current_fn, "loop_body");
         let after_loop_block = compiler
             .context
-            .append_basic_block(compiler.current_function.unwrap(), "after_loop");
+            .append_basic_block(current_fn, "after_loop");
 
         // Extract the actual body from the closure wrapper if present
         let actual_body = match body.as_ref() {
@@ -46,7 +47,7 @@ pub fn compile_loop<'ctx>(
         let body_value = compiler.compile_expression(actual_body)?;
 
         // If body didn't terminate (no break/return), loop back
-        let current_block = compiler.builder.get_insert_block().unwrap();
+        let current_block = compiler.current_block()?;
         if current_block.get_terminator().is_none() {
             compiler
                 .builder

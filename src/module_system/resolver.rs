@@ -2,7 +2,6 @@ use crate::ast::{Declaration, Expression, Function, Program, Statement};
 use std::collections::{HashMap, HashSet};
 
 /// Resolves module imports and manages symbol visibility
-#[allow(dead_code)]
 pub struct ModuleResolver {
     /// Map from module alias to actual module path
     imports: HashMap<String, String>,
@@ -11,7 +10,6 @@ pub struct ModuleResolver {
 }
 
 impl ModuleResolver {
-    #[allow(dead_code)]
     pub fn new() -> Self {
         ModuleResolver {
             imports: HashMap::new(),
@@ -20,19 +18,17 @@ impl ModuleResolver {
     }
 
     /// Register an import alias
-    #[allow(dead_code)]
     pub fn add_import(&mut self, alias: String, module_path: String) {
         self.imports.insert(alias, module_path);
     }
 
     /// Register exported symbols from a module
-    #[allow(dead_code)]
     pub fn add_exports(&mut self, module_path: String, symbols: HashSet<String>) {
         self.exports.insert(module_path, symbols);
     }
 
     /// Resolve a qualified name (e.g., "io.println") to its full module path
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Used in tests, public API for future use
     pub fn resolve_qualified_name(&self, name: &str) -> Option<(String, String)> {
         if let Some(dot_pos) = name.find('.') {
             let module_alias = &name[..dot_pos];
@@ -46,7 +42,7 @@ impl ModuleResolver {
     }
 
     /// Check if a symbol is exported from a module
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Used in tests, public API for future use
     pub fn is_exported(&self, module_path: &str, symbol: &str) -> bool {
         self.exports
             .get(module_path)
@@ -55,7 +51,6 @@ impl ModuleResolver {
     }
 
     /// Extract exported symbols from a module
-    #[allow(dead_code)]
     pub fn extract_exports(program: &Program) -> HashSet<String> {
         let mut exports = HashSet::new();
 
@@ -84,7 +79,6 @@ impl ModuleResolver {
     }
 
     /// Rewrite a program to resolve module references
-    #[allow(dead_code)]
     pub fn resolve_program(&self, program: &mut Program) -> Result<(), String> {
         // Process each declaration
         for decl in &mut program.declarations {
@@ -96,7 +90,6 @@ impl ModuleResolver {
     }
 
     /// Resolve module references in a function
-    #[allow(dead_code)]
     fn resolve_function(&self, func: &mut Function) -> Result<(), String> {
         for stmt in &mut func.body {
             self.resolve_statement(stmt)?;
@@ -105,7 +98,6 @@ impl ModuleResolver {
     }
 
     /// Resolve module references in a statement
-    #[allow(dead_code)]
     fn resolve_statement(&self, stmt: &mut Statement) -> Result<(), String> {
         match stmt {
             Statement::Expression { expr, .. } => self.resolve_expression(expr),
@@ -131,7 +123,6 @@ impl ModuleResolver {
     /// Note: We no longer rewrite function names because:
     /// 1. The codegen handles module.function patterns directly (e.g., io.println)
     /// 2. The typechecker registers functions with the original names
-    #[allow(dead_code)]
     fn resolve_expression(&self, expr: &mut Expression) -> Result<(), String> {
         match expr {
             Expression::FunctionCall { name: _, args } => {

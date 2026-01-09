@@ -60,6 +60,21 @@ fn to_int_width<'ctx>(
     })
 }
 
+/// Safely extract return value from a function call
+/// Use this instead of `.try_as_basic_value().left().unwrap()`
+fn extract_call_result<'ctx>(
+    call_result: inkwell::values::CallSiteValue<'ctx>,
+    func_name: &str,
+    compiler: &LLVMCompiler<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    call_result.try_as_basic_value().left().ok_or_else(|| {
+        CompileError::InternalError(
+            format!("Call to '{}' must return a value", func_name),
+            compiler.get_current_span(),
+        )
+    })
+}
+
 /// Get or declare a libc function
 fn get_or_declare_fn<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
@@ -150,7 +165,8 @@ pub fn compile_raw_allocate<'ctx>(
     let size_val = compiler.compile_expression(&args[0])?;
     let size = to_i64(compiler, size_val, false)?;
     let malloc = get_or_declare_fn(compiler, "malloc", Some(ptr_type(compiler).into()), &[compiler.context.i64_type().into()]);
-    Ok(compiler.builder.build_call(malloc, &[size.into()], "ptr")?.try_as_basic_value().left().unwrap())
+    let call = compiler.builder.build_call(malloc, &[size.into()], "ptr")?;
+    extract_call_result(call, "malloc", compiler)
 }
 
 pub fn compile_raw_deallocate<'ctx>(
@@ -175,7 +191,8 @@ pub fn compile_raw_reallocate<'ctx>(
     let new_size_val = compiler.compile_expression(&args[2])?;
     let new_size = to_i64(compiler, new_size_val, false)?;
     let realloc = get_or_declare_fn(compiler, "realloc", Some(ptr_type(compiler).into()), &[ptr_type(compiler).into(), compiler.context.i64_type().into()]);
-    Ok(compiler.builder.build_call(realloc, &[ptr.into(), new_size.into()], "ptr")?.try_as_basic_value().left().unwrap())
+    let call = compiler.builder.build_call(realloc, &[ptr.into(), new_size.into()], "ptr")?;
+    extract_call_result(call, "realloc", compiler)
 }
 
 // =============================================================================
@@ -250,7 +267,8 @@ pub fn compile_load_library<'ctx>(
     let path = extract_string_ptr(compiler, path_val)?;
     let dlopen = get_or_declare_fn(compiler, "dlopen", Some(ptr_type(compiler).into()), &[ptr_type(compiler).into(), compiler.context.i32_type().into()]);
     let rtld_lazy = compiler.context.i32_type().const_int(1, false);
-    Ok(compiler.builder.build_call(dlopen, &[path.into(), rtld_lazy.into()], "handle")?.try_as_basic_value().left().unwrap())
+    let call = compiler.builder.build_call(dlopen, &[path.into(), rtld_lazy.into()], "handle")?;
+    extract_call_result(call, "dlopen", compiler)
 }
 
 pub fn compile_get_symbol<'ctx>(
@@ -262,7 +280,8 @@ pub fn compile_get_symbol<'ctx>(
     let name_val = compiler.compile_expression(&args[1])?;
     let name = extract_string_ptr(compiler, name_val)?;
     let dlsym = get_or_declare_fn(compiler, "dlsym", Some(ptr_type(compiler).into()), &[ptr_type(compiler).into(), ptr_type(compiler).into()]);
-    Ok(compiler.builder.build_call(dlsym, &[handle.into(), name.into()], "sym")?.try_as_basic_value().left().unwrap())
+    let call = compiler.builder.build_call(dlsym, &[handle.into(), name.into()], "sym")?;
+    extract_call_result(call, "dlsym", compiler)
 }
 
 pub fn compile_unload_library<'ctx>(
@@ -272,7 +291,8 @@ pub fn compile_unload_library<'ctx>(
     require_args(args, 1, "unload_library", compiler.get_current_span())?;
     let handle = compiler.compile_expression(&args[0])?;
     let dlclose = get_or_declare_fn(compiler, "dlclose", Some(compiler.context.i32_type().into()), &[ptr_type(compiler).into()]);
-    Ok(compiler.builder.build_call(dlclose, &[handle.into()], "result")?.try_as_basic_value().left().unwrap())
+    let call = compiler.builder.build_call(dlclose, &[handle.into()], "result")?;
+    extract_call_result(call, "dlclose", compiler)
 }
 
 pub fn compile_dlerror<'ctx>(
@@ -280,7 +300,8 @@ pub fn compile_dlerror<'ctx>(
     _args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     let dlerror = get_or_declare_fn(compiler, "dlerror", Some(ptr_type(compiler).into()), &[]);
-    Ok(compiler.builder.build_call(dlerror, &[], "err")?.try_as_basic_value().left().unwrap())
+    let call = compiler.builder.build_call(dlerror, &[], "err")?;
+    extract_call_result(call, "dlerror", compiler)
 }
 
 // =============================================================================
@@ -481,7 +502,8 @@ pub fn compile_memcmp<'ctx>(
     let size = to_i64(compiler, size_val, false)?;
     let memcmp = get_or_declare_fn(compiler, "memcmp", Some(compiler.context.i32_type().into()),
         &[ptr_type(compiler).into(), ptr_type(compiler).into(), compiler.context.i64_type().into()]);
-    Ok(compiler.builder.build_call(memcmp, &[p1.into(), p2.into(), size.into()], "cmp")?.try_as_basic_value().left().unwrap())
+    let call = compiler.builder.build_call(memcmp, &[p1.into(), p2.into(), size.into()], "cmp")?;
+    extract_call_result(call, "memcmp", compiler)
 }
 
 // =============================================================================
@@ -657,4 +679,171 @@ pub fn compile_call_external<'ctx>(
         "call_external not implemented - use inline_c to define C functions, then call them directly".to_string(),
         None,
     ))
+}
+
+// =============================================================================
+// Syscall Intrinsics (Linux x86-64)
+// =============================================================================
+
+/// Helper to build a syscall with inline assembly
+fn build_syscall<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    syscall_num: IntValue<'ctx>,
+    args: &[IntValue<'ctx>],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    let i64_type = compiler.context.i64_type();
+
+    // Build constraint strings based on number of arguments
+    // Linux x86-64 syscall: number in rax, args in rdi, rsi, rdx, r10, r8, r9
+    // Returns in rax, clobbers rcx and r11
+    let (asm_template, constraints, num_inputs) = match args.len() {
+        0 => ("syscall", "={rax},{rax},~{rcx},~{r11},~{memory}", 1),
+        1 => ("syscall", "={rax},{rax},{rdi},~{rcx},~{r11},~{memory}", 2),
+        2 => ("syscall", "={rax},{rax},{rdi},{rsi},~{rcx},~{r11},~{memory}", 3),
+        3 => ("syscall", "={rax},{rax},{rdi},{rsi},{rdx},~{rcx},~{r11},~{memory}", 4),
+        4 => ("syscall", "={rax},{rax},{rdi},{rsi},{rdx},{r10},~{rcx},~{r11},~{memory}", 5),
+        5 => ("syscall", "={rax},{rax},{rdi},{rsi},{rdx},{r10},{r8},~{rcx},~{r11},~{memory}", 6),
+        6 => ("syscall", "={rax},{rax},{rdi},{rsi},{rdx},{r10},{r8},{r9},~{rcx},~{r11},~{memory}", 7),
+        _ => return Err(CompileError::InternalError("Too many syscall arguments".to_string(), compiler.get_current_span())),
+    };
+
+    // Build input values array
+    let mut inputs: Vec<BasicValueEnum> = vec![syscall_num.into()];
+    for arg in args {
+        inputs.push((*arg).into());
+    }
+
+    // Create inline assembly function type
+    let param_types: Vec<inkwell::types::BasicMetadataTypeEnum> = (0..num_inputs)
+        .map(|_| i64_type.into())
+        .collect();
+    let fn_type = i64_type.fn_type(&param_types, false);
+
+    // Build the inline assembly call
+    let asm_fn = compiler.context.create_inline_asm(
+        fn_type,
+        asm_template.to_string(),
+        constraints.to_string(),
+        true,   // has_side_effects
+        false,  // is_alignstack
+        None,   // dialect (Intel/AT&T) - None uses default
+        false,  // can_throw
+    );
+
+    let input_metas: Vec<inkwell::values::BasicMetadataValueEnum> = inputs.iter().map(|v| (*v).into()).collect();
+    let result = compiler.builder.build_indirect_call(fn_type, asm_fn, &input_metas, "syscall_result")?;
+
+    Ok(result.try_as_basic_value().left().unwrap_or_else(|| i64_type.const_zero().into()))
+}
+
+pub fn compile_syscall0<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 1, "syscall0", compiler.get_current_span())?;
+    let num_val = compiler.compile_expression(&args[0])?;
+    let num = to_i64(compiler, num_val, true)?;
+    build_syscall(compiler, num, &[])
+}
+
+pub fn compile_syscall1<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 2, "syscall1", compiler.get_current_span())?;
+    let num_val = compiler.compile_expression(&args[0])?;
+    let a0_val = compiler.compile_expression(&args[1])?;
+    let num = to_i64(compiler, num_val, true)?;
+    let a0 = to_i64(compiler, a0_val, true)?;
+    build_syscall(compiler, num, &[a0])
+}
+
+pub fn compile_syscall2<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 3, "syscall2", compiler.get_current_span())?;
+    let num_val = compiler.compile_expression(&args[0])?;
+    let a0_val = compiler.compile_expression(&args[1])?;
+    let a1_val = compiler.compile_expression(&args[2])?;
+    let num = to_i64(compiler, num_val, true)?;
+    let a0 = to_i64(compiler, a0_val, true)?;
+    let a1 = to_i64(compiler, a1_val, true)?;
+    build_syscall(compiler, num, &[a0, a1])
+}
+
+pub fn compile_syscall3<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 4, "syscall3", compiler.get_current_span())?;
+    let num_val = compiler.compile_expression(&args[0])?;
+    let a0_val = compiler.compile_expression(&args[1])?;
+    let a1_val = compiler.compile_expression(&args[2])?;
+    let a2_val = compiler.compile_expression(&args[3])?;
+    let num = to_i64(compiler, num_val, true)?;
+    let a0 = to_i64(compiler, a0_val, true)?;
+    let a1 = to_i64(compiler, a1_val, true)?;
+    let a2 = to_i64(compiler, a2_val, true)?;
+    build_syscall(compiler, num, &[a0, a1, a2])
+}
+
+pub fn compile_syscall4<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 5, "syscall4", compiler.get_current_span())?;
+    let num_val = compiler.compile_expression(&args[0])?;
+    let a0_val = compiler.compile_expression(&args[1])?;
+    let a1_val = compiler.compile_expression(&args[2])?;
+    let a2_val = compiler.compile_expression(&args[3])?;
+    let a3_val = compiler.compile_expression(&args[4])?;
+    let num = to_i64(compiler, num_val, true)?;
+    let a0 = to_i64(compiler, a0_val, true)?;
+    let a1 = to_i64(compiler, a1_val, true)?;
+    let a2 = to_i64(compiler, a2_val, true)?;
+    let a3 = to_i64(compiler, a3_val, true)?;
+    build_syscall(compiler, num, &[a0, a1, a2, a3])
+}
+
+pub fn compile_syscall5<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 6, "syscall5", compiler.get_current_span())?;
+    let num_val = compiler.compile_expression(&args[0])?;
+    let a0_val = compiler.compile_expression(&args[1])?;
+    let a1_val = compiler.compile_expression(&args[2])?;
+    let a2_val = compiler.compile_expression(&args[3])?;
+    let a3_val = compiler.compile_expression(&args[4])?;
+    let a4_val = compiler.compile_expression(&args[5])?;
+    let num = to_i64(compiler, num_val, true)?;
+    let a0 = to_i64(compiler, a0_val, true)?;
+    let a1 = to_i64(compiler, a1_val, true)?;
+    let a2 = to_i64(compiler, a2_val, true)?;
+    let a3 = to_i64(compiler, a3_val, true)?;
+    let a4 = to_i64(compiler, a4_val, true)?;
+    build_syscall(compiler, num, &[a0, a1, a2, a3, a4])
+}
+
+pub fn compile_syscall6<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 7, "syscall6", compiler.get_current_span())?;
+    let num_val = compiler.compile_expression(&args[0])?;
+    let a0_val = compiler.compile_expression(&args[1])?;
+    let a1_val = compiler.compile_expression(&args[2])?;
+    let a2_val = compiler.compile_expression(&args[3])?;
+    let a3_val = compiler.compile_expression(&args[4])?;
+    let a4_val = compiler.compile_expression(&args[5])?;
+    let a5_val = compiler.compile_expression(&args[6])?;
+    let num = to_i64(compiler, num_val, true)?;
+    let a0 = to_i64(compiler, a0_val, true)?;
+    let a1 = to_i64(compiler, a1_val, true)?;
+    let a2 = to_i64(compiler, a2_val, true)?;
+    let a3 = to_i64(compiler, a3_val, true)?;
+    let a4 = to_i64(compiler, a4_val, true)?;
+    let a5 = to_i64(compiler, a5_val, true)?;
+    build_syscall(compiler, num, &[a0, a1, a2, a3, a4, a5])
 }

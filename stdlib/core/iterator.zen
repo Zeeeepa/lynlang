@@ -1,0 +1,252 @@
+// Zen Standard Library: Iterator Types
+// Core iteration abstractions for collections
+
+{ Option } = @std.core.option
+
+// ============================================================================
+// Range Iterator
+// ============================================================================
+
+// Range iterator for numeric sequences
+Range: {
+    current: i64,
+    end: i64,
+    step: i64
+}
+
+// Create a range from start to end (exclusive)
+Range.new = (start: i64, end: i64) Range {
+    return Range { current: start, end: end, step: 1 }
+}
+
+// Create a range with custom step
+Range.with_step = (start: i64, end: i64, step: i64) Range {
+    return Range { current: start, end: end, step: step }
+}
+
+// Get next value from range
+Range.next = (self: MutPtr<Range>) Option<i64> {
+    self.val.current < self.val.end ?
+        | true {
+            value = self.val.current
+            self.val.current = self.val.current + self.val.step
+            return Option.Some(value)
+        }
+        | false { return Option.None }
+}
+
+// Check if range has more elements
+Range.has_next = (self: Range) bool {
+    return self.current < self.end
+}
+
+// Count remaining elements in range
+Range.count = (self: Range) i64 {
+    self.end > self.current ?
+        | true { return (self.end - self.current) / self.step }
+        | false { return 0 }
+}
+
+// Convenience function: create a range from 0 to n
+range = (n: i64) Range {
+    return Range.new(0, n)
+}
+
+// Convenience function: create a range with step
+range_step = (start: i64, end: i64, step: i64) Range {
+    return Range.with_step(start, end, step)
+}
+
+// ============================================================================
+// Enumerate Iterator
+// ============================================================================
+
+// Enumerate adds index to iteration
+Enumerate<T>: {
+    index: usize,
+    // Note: Actual iterator is passed by reference to next()
+    // This is a simplified version that tracks index only
+    _phantom: T // Phantom type parameter
+}
+
+// ============================================================================
+// Map Iterator (Lazy Transformation)
+// ============================================================================
+
+// MapIterator transforms elements lazily
+// Note: Full implementation requires higher-kinded types or closures
+// For now, map operations are best done inline with while loops
+
+// ============================================================================
+// Filter Iterator (Lazy Filtering)
+// ============================================================================
+
+// FilterIterator filters elements lazily
+// Note: Full implementation requires closures
+// For now, filter operations are best done inline
+
+// ============================================================================
+// Fold/Reduce (Eager Accumulation)
+// ============================================================================
+
+// Fold for Range - accumulates values using a binary operation
+// Since we don't have closures yet, specific folds are implemented:
+
+// Sum all values in range
+Range.sum = (self: MutPtr<Range>) i64 {
+    total: i64 = 0
+    loop {
+        result = self.next()
+        result ?
+            | Some(val) { total = total + val }
+            | None { return total }
+    }
+    return total
+}
+
+// Product of all values in range
+Range.product = (self: MutPtr<Range>) i64 {
+    result: i64 = 1
+    loop {
+        item = self.next()
+        item ?
+            | Some(val) { result = result * val }
+            | None { return result }
+    }
+    return result
+}
+
+// Count elements in range (consumes iterator)
+Range.count_all = (self: MutPtr<Range>) i64 {
+    count: i64 = 0
+    loop {
+        item = self.next()
+        item ?
+            | Some(_) { count = count + 1 }
+            | None { return count }
+    }
+    return count
+}
+
+// Get last element (consumes iterator)
+Range.last = (self: MutPtr<Range>) Option<i64> {
+    last_val: Option<i64> = Option.None
+    loop {
+        item = self.next()
+        item ?
+            | Some(val) { last_val = Option.Some(val) }
+            | None { return last_val }
+    }
+    return last_val
+}
+
+// Find first element satisfying a condition
+// Since we don't have closures, this finds first value >= target
+Range.find_ge = (self: MutPtr<Range>, target: i64) Option<i64> {
+    loop {
+        item = self.next()
+        item ?
+            | Some(val) {
+                val >= target ?
+                    | true { return Option.Some(val) }
+                    | false { }
+            }
+            | None { return Option.None }
+    }
+    return Option.None
+}
+
+// Skip n elements
+Range.skip = (self: MutPtr<Range>, n: i64) void {
+    i: i64 = 0
+    loop {
+        i >= n ?
+            | true { return }
+            | false {
+                item = self.next()
+                item ?
+                    | Some(_) { i = i + 1 }
+                    | None { return }
+            }
+    }
+}
+
+// Take at most n elements (modifies the iterator to stop after n)
+Range.take = (self: MutPtr<Range>, n: i64) void {
+    remaining = n
+    self.val.end > self.val.current + remaining ?
+        | true { self.val.end = self.val.current + remaining }
+        | false { }
+}
+
+// Check if any element in range satisfies condition (>= target)
+Range.any_ge = (self: MutPtr<Range>, target: i64) bool {
+    loop {
+        item = self.next()
+        item ?
+            | Some(val) {
+                val >= target ?
+                    | true { return true }
+                    | false { }
+            }
+            | None { return false }
+    }
+    return false
+}
+
+// Check if all elements satisfy condition (< target)
+Range.all_lt = (self: MutPtr<Range>, target: i64) bool {
+    loop {
+        item = self.next()
+        item ?
+            | Some(val) {
+                val < target ?
+                    | true { }
+                    | false { return false }
+            }
+            | None { return true }
+    }
+    return true
+}
+
+// Min value in range (consumes iterator)
+Range.min = (self: MutPtr<Range>) Option<i64> {
+    first = self.next()
+    first ?
+        | Some(initial) {
+            min_val = initial
+            loop {
+                item = self.next()
+                item ?
+                    | Some(val) {
+                        val < min_val ?
+                            | true { min_val = val }
+                            | false { }
+                    }
+                    | None { return Option.Some(min_val) }
+            }
+            return Option.Some(min_val)
+        }
+        | None { return Option.None }
+}
+
+// Max value in range (consumes iterator)
+Range.max = (self: MutPtr<Range>) Option<i64> {
+    first = self.next()
+    first ?
+        | Some(initial) {
+            max_val = initial
+            loop {
+                item = self.next()
+                item ?
+                    | Some(val) {
+                        val > max_val ?
+                            | true { max_val = val }
+                            | false { }
+                    }
+                    | None { return Option.Some(max_val) }
+            }
+            return Option.Some(max_val)
+        }
+        | None { return Option.None }
+}

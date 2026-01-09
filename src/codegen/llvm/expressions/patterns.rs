@@ -58,7 +58,7 @@ pub fn compile_pattern_match<'ctx>(
                 .context
                 .append_basic_block(current_fn, "pattern_default");
 
-            let current_block = compiler.builder.get_insert_block().unwrap();
+            let current_block = compiler.current_block()?;
             let scrutinee_type = compiler.infer_expression_type(scrutinee).ok();
 
             if arms.is_empty() {
@@ -140,7 +140,7 @@ pub fn compile_pattern_match<'ctx>(
                     first_arm_value = Some(arm_value);
                 }
 
-                let arm_end_block = compiler.builder.get_insert_block().unwrap();
+                let arm_end_block = compiler.current_block()?;
                 if arm_end_block.get_terminator().is_none() {
                     // Coerce arm value to match the first arm's type if possible
                     let coerced_value = if let Some(first_val) = first_arm_value {
@@ -229,7 +229,7 @@ pub fn compile_pattern_match<'ctx>(
                 compiler.context.i32_type().const_int(0, false).into()
             };
 
-            let then_end_block = compiler.builder.get_insert_block().unwrap();
+            let then_end_block = compiler.current_block()?;
             if then_end_block.get_terminator().is_none() {
                 incoming_values.push((then_value, then_end_block));
                 compiler.builder.build_unconditional_branch(merge_block)?;
@@ -266,7 +266,7 @@ pub fn compile_pattern_match<'ctx>(
                 compiler.context.i32_type().const_int(0, false).into()
             };
 
-            let else_end_block = compiler.builder.get_insert_block().unwrap();
+            let else_end_block = compiler.current_block()?;
             if else_end_block.get_terminator().is_none() {
                 incoming_values.push((else_value, else_end_block));
                 compiler.builder.build_unconditional_branch(merge_block)?;

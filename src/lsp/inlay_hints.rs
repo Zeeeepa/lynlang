@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::sync::{Arc, Mutex};
 
 use crate::ast::{AstType, Declaration, Expression, Statement};
-use crate::stdlib_metadata::compiler::get_intrinsic_return_type;
+use crate::intrinsics::get_intrinsic_return_type;
 use crate::stdlib_types::stdlib_types;
 
 use super::document_store::DocumentStore;

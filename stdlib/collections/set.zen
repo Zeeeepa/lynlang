@@ -5,6 +5,7 @@
 { compiler } = @std
 { Ptr, Option } = @std.core
 { Allocator } = @std.memory.allocator
+{ Vec } = @std.vec
 
 // Set<T> - implemented using Vec<T> (simplified: linear search)
 Set<T>: {

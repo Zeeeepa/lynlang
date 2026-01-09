@@ -62,6 +62,7 @@ impl StdlibTypeRegistry {
         let files_to_parse = [
             "core/option.zen",
             "core/result.zen",
+            "core/iterator.zen",
             "string.zen",
             "memory/gpa.zen",
             "memory/allocator.zen",
@@ -81,10 +82,19 @@ impl StdlibTypeRegistry {
     }
 
     fn find_stdlib_root() -> PathBuf {
-        let candidates = vec![
+        // Check environment variable first
+        if let Ok(path) = std::env::var("ZEN_STDLIB_PATH") {
+            let p = PathBuf::from(path);
+            if p.exists() && p.is_dir() {
+                return p;
+            }
+        }
+
+        // Try relative paths
+        let candidates = [
             PathBuf::from("./stdlib"),
             PathBuf::from("../stdlib"),
-            PathBuf::from("/home/ubuntu/zenlang/stdlib"),
+            PathBuf::from("../../stdlib"),
         ];
 
         for candidate in candidates {
@@ -216,6 +226,11 @@ impl StdlibTypeRegistry {
         name == "String"
     }
 
+    /// Get a struct definition by name from stdlib
+    pub fn get_struct_definition(&self, name: &str) -> Option<&StructDefinition> {
+        self.structs.get(name)
+    }
+
     pub fn get_method_signature(&self, receiver: &str, method: &str) -> Option<&MethodSignature> {
         let key = format!("{}::{}", receiver, method);
         self.methods.get(&key)
@@ -239,6 +254,11 @@ impl StdlibTypeRegistry {
     #[allow(dead_code)] // Used in tests
     pub fn debug_list_functions(&self) -> Vec<String> {
         self.functions.keys().cloned().collect()
+    }
+
+    #[allow(dead_code)] // Used in tests
+    pub fn debug_list_methods(&self) -> Vec<String> {
+        self.methods.keys().cloned().collect()
     }
 }
 
@@ -271,7 +291,24 @@ mod tests {
         
         let ret2 = registry.get_method_return_type("String", "push");
         println!("String::push return type: {:?}", ret2);
-        
+
         assert!(ret.is_some(), "String::len should be registered");
+    }
+
+    #[test]
+    fn test_range_methods() {
+        let registry = stdlib_types();
+
+        let methods = registry.debug_list_methods();
+        println!("All registered methods: {:?}", methods);
+
+        let range_methods: Vec<_> = methods.iter().filter(|m| m.starts_with("Range")).collect();
+        println!("Range methods: {:?}", range_methods);
+
+        let ret = registry.get_method_return_type("Range", "has_next");
+        println!("Range::has_next return type: {:?}", ret);
+
+        let ret2 = registry.get_method_return_type("Range", "count");
+        println!("Range::count return type: {:?}", ret2);
     }
 }

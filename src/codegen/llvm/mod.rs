@@ -29,7 +29,6 @@ mod strings;
 mod structs;
 mod symbols;
 mod types;
-mod vec_support;
 
 #[derive(Debug, Clone)]
 pub enum Type<'ctx> {
@@ -155,6 +154,33 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // If error already has a span, keep it
             other => other,
         }
+    }
+
+    // ============================================================================
+    // BLOCK AND FUNCTION CONTEXT HELPERS
+    // Safe accessors for current compilation context
+    // ============================================================================
+
+    /// Get current basic block with proper error handling
+    /// Use this instead of `builder.get_insert_block().unwrap()`
+    pub fn current_block(&self) -> Result<BasicBlock<'ctx>, CompileError> {
+        self.builder.get_insert_block().ok_or_else(|| {
+            CompileError::InternalError(
+                "No current block - builder not positioned".to_string(),
+                self.current_span.clone(),
+            )
+        })
+    }
+
+    /// Get current function with proper error handling
+    /// Use this instead of `current_function.unwrap()`
+    pub fn current_fn(&self) -> Result<FunctionValue<'ctx>, CompileError> {
+        self.current_function.ok_or_else(|| {
+            CompileError::InternalError(
+                "No current function context".to_string(),
+                self.current_span.clone(),
+            )
+        })
     }
 
     // ============================================================================
@@ -541,6 +567,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
             current_span: None,
             well_known: WellKnownTypes::new(),
         };
+
+        // Auto-inject built-in modules (always available without explicit import)
+        for (name, id) in crate::intrinsics::BUILTIN_MODULES {
+            compiler.module_imports.insert(name.to_string(), *id);
+        }
 
         // Declare standard library functions
         compiler.declare_stdlib_functions();

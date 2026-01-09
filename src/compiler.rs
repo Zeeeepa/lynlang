@@ -7,6 +7,7 @@ use crate::comptime::ComptimeInterpreter;
 use crate::error::{CompileError, Result};
 use crate::module_system::{resolver::ModuleResolver, ModuleSystem};
 use crate::type_system::Monomorphizer;
+use crate::typechecker::TypeChecker;
 use inkwell::context::Context;
 use inkwell::module::Module;
 
@@ -34,6 +35,10 @@ impl<'ctx> Compiler<'ctx> {
 
         // Resolve Self types in trait implementations
         let processed_program = self.resolve_self_types(processed_program)?;
+
+        // Type check the program
+        let mut typechecker = TypeChecker::new();
+        typechecker.check_program(&processed_program)?;
 
         // Monomorphize the program to resolve all generic types
         let mut monomorphizer = Monomorphizer::new();
@@ -63,6 +68,10 @@ impl<'ctx> Compiler<'ctx> {
         let processed_program = self.process_imports(program)?;
         let processed_program = self.execute_comptime(processed_program)?;
         let processed_program = self.resolve_self_types(processed_program)?;
+
+        // Type check the program
+        let mut typechecker = TypeChecker::new();
+        typechecker.check_program(&processed_program)?;
 
         let mut monomorphizer = Monomorphizer::new();
         let monomorphized_program = monomorphizer.monomorphize_program(&processed_program)?;

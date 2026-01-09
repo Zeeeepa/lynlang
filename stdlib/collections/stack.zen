@@ -1,23 +1,207 @@
 // Zen Standard Library: Stack<T>
-// LIFO data structure - placeholder for full implementation
-// TODO: Implement with compiler.raw_allocate/gep/load/store once generic struct instantiation works
+// LIFO (Last-In-First-Out) data structure using safe pointers
 
 { compiler } = @std
+{ Ptr, Option } = @std.core
+{ Allocator } = @std.memory.allocator
 
+// Stack<T> - LIFO collection with dynamic growth
 Stack<T>: {
-    data: RawPtr<u8>,
+    data: Ptr<T>,
     len: usize,
-    capacity: usize
+    capacity: usize,
+    allocator: Allocator
 }
 
+// ============================================================================
+// Constructors
+// ============================================================================
+
+// Create new empty stack
+Stack<T>.new = (allocator: Allocator) Stack<T> {
+    return Stack<T> {
+        data: Ptr<T>.none(),
+        len: 0,
+        capacity: 0,
+        allocator: allocator
+    }
+}
+
+// Create stack with initial capacity
+Stack<T>.with_capacity = (allocator: Allocator, initial_capacity: usize) Stack<T> {
+    initial_capacity == 0 ?
+        | true { return Stack<T>.new(allocator) }
+        | false {
+            item_size = compiler.sizeof<T>()
+            total_size = initial_capacity * item_size
+            raw_ptr = allocator.allocate(total_size)
+            data = Ptr<T>.from_addr(raw_ptr)
+
+            return Stack<T> {
+                data: data,
+                len: 0,
+                capacity: initial_capacity,
+                allocator: allocator
+            }
+        }
+}
+
+// ============================================================================
+// Properties
+// ============================================================================
+
+// Get current size
+Stack<T>.len = (self: Stack<T>) usize {
+    return self.len
+}
+
+// Alias for len
 Stack<T>.size = (self: Stack<T>) usize {
     return self.len
 }
 
+// Get allocated capacity
+Stack<T>.capacity = (self: Stack<T>) usize {
+    return self.capacity
+}
+
+// Check if empty
 Stack<T>.is_empty = (self: Stack<T>) bool {
     return self.len == 0
 }
 
+// ============================================================================
+// Read Operations
+// ============================================================================
+
+// Peek at top element without removing
+Stack<T>.peek = (self: Stack<T>) Option<T> {
+    self.len == 0 ?
+        | true { return Option.None }
+        | false {
+            top_index = self.len - 1
+            elem_ptr = self.data.at(top_index)
+            elem_ptr ?
+                | Some(_) {
+                    addr = elem_ptr.addr()
+                    value = compiler.load<T>(addr)
+                    return Option.Some(value)
+                }
+                | None { return Option.None }
+        }
+}
+
+// Get element at index from bottom (0 = bottom, len-1 = top)
+Stack<T>.get = (self: Stack<T>, index: usize) Option<T> {
+    index >= self.len ?
+        | true { return Option.None }
+        | false {
+            elem_ptr = self.data.at(index)
+            elem_ptr ?
+                | Some(_) {
+                    addr = elem_ptr.addr()
+                    value = compiler.load<T>(addr)
+                    return Option.Some(value)
+                }
+                | None { return Option.None }
+        }
+}
+
+// ============================================================================
+// Write Operations (Mutable)
+// ============================================================================
+
+// Push element onto top of stack
+Stack<T>.push = (self: MutPtr<Stack<T>>, elem: T) void {
+    // Initial allocation if empty
+    self.val.len == 0 && self.val.capacity == 0 ?
+        | true {
+            self.val.capacity = 4
+            item_size = compiler.sizeof<T>()
+            total_size = 4 * item_size
+            raw_ptr = self.val.allocator.allocate(total_size)
+            self.val.data = Ptr<T>.from_addr(raw_ptr)
+        }
+        | false { }
+
+    // Grow capacity if full
+    self.val.len >= self.val.capacity ?
+        | true {
+            new_capacity = self.val.capacity * 2
+            item_size = compiler.sizeof<T>()
+            old_size = self.val.capacity * item_size
+            new_size = new_capacity * item_size
+            old_addr = self.val.data.addr()
+            new_addr = self.val.allocator.reallocate(old_addr, old_size, new_size)
+            self.val.data = Ptr<T>.from_addr(new_addr)
+            self.val.capacity = new_capacity
+        }
+        | false { }
+
+    // Write element at top
+    elem_ptr = self.val.data.at(self.val.len)
+    elem_ptr ?
+        | Some(_) {
+            addr = elem_ptr.addr()
+            compiler.store<T>(addr, elem)
+        }
+        | None { }
+
+    self.val.len = self.val.len + 1
+}
+
+// Pop element from top of stack
+Stack<T>.pop = (self: MutPtr<Stack<T>>) Option<T> {
+    self.val.len == 0 ?
+        | true { return Option.None }
+        | false {
+            top_index = self.val.len - 1
+            elem_ptr = self.val.data.at(top_index)
+            elem_ptr ?
+                | Some(_) {
+                    addr = elem_ptr.addr()
+                    value = compiler.load<T>(addr)
+                    self.val.len = self.val.len - 1
+                    return Option.Some(value)
+                }
+                | None { return Option.None }
+        }
+}
+
+// Clear stack without deallocating
 Stack<T>.clear = (self: MutPtr<Stack<T>>) void {
     self.val.len = 0
+}
+
+// ============================================================================
+// Memory Management
+// ============================================================================
+
+// Reserve additional capacity
+Stack<T>.reserve = (self: MutPtr<Stack<T>>, additional: usize) void {
+    needed = self.val.len + additional
+    needed > self.val.capacity ?
+        | true {
+            new_capacity = needed * 2
+            item_size = compiler.sizeof<T>()
+            old_size = self.val.capacity * item_size
+            new_size = new_capacity * item_size
+            old_addr = self.val.data.addr()
+            new_addr = self.val.allocator.reallocate(old_addr, old_size, new_size)
+            self.val.data = Ptr<T>.from_addr(new_addr)
+            self.val.capacity = new_capacity
+        }
+        | false { }
+}
+
+// Deallocate stack
+Stack<T>.free = (self: MutPtr<Stack<T>>) void {
+    raw_addr = self.val.data.addr()
+    item_size = compiler.sizeof<T>()
+    total_size = self.val.capacity * item_size
+    self.val.allocator.deallocate(raw_addr, total_size)
+
+    self.val.len = 0
+    self.val.capacity = 0
+    self.val.data = Ptr<T>.none()
 }

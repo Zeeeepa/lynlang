@@ -57,6 +57,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
             }
             AstType::Struct { name, fields: _ } => {
+                // Try to ensure the struct type is registered (might come from stdlib)
+                self.ensure_struct_type(name)?;
                 let struct_info = self.struct_types.get(name).ok_or_else(|| {
                     CompileError::TypeError(
                         format!("Undefined struct type: {}", name),
@@ -605,20 +607,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     ))
                 }
                 t if t.is_ptr_type() => {
-                    if let Some(inner) = t.ptr_inner() {
-                        match inner {
-                            AstType::Generic { name, .. } => {
-                                let _ = self.struct_types.get(name);
-                            }
-                            AstType::Struct { name, .. } => {
-                                let _ = self.struct_types.get(name);
-                            }
-                            _ => {}
-                        }
+                    // Ptr<T> and MutPtr<T> are enums with { i64 discriminant, ptr payload } (16 bytes)
+                    // RawPtr<T> is just a plain pointer (8 bytes)
+                    if t.is_raw_ptr() {
+                        self.context
+                            .ptr_type(AddressSpace::default())
+                            .as_basic_type_enum()
+                    } else {
+                        // Ptr<T> and MutPtr<T> are enums: { i64 discriminant, ptr payload }
+                        self.context.struct_type(
+                            &[
+                                self.context.i64_type().into(),
+                                self.context.ptr_type(AddressSpace::default()).into(),
+                            ],
+                            false,
+                        ).as_basic_type_enum()
                     }
-                    self.context
-                        .ptr_type(AddressSpace::default())
-                        .as_basic_type_enum()
                 }
                 AstType::Generic { name, .. } => {
                     if let Some(struct_info) = self.struct_types.get(name) {
@@ -666,6 +670,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
             .insert(struct_def.name.clone(), struct_info);
 
         Ok(())
+    }
+
+    /// Try to get a struct type, registering from stdlib if not found locally
+    pub fn ensure_struct_type(&mut self, name: &str) -> Result<bool, CompileError> {
+        // Already registered locally
+        if self.struct_types.contains_key(name) {
+            return Ok(true);
+        }
+
+        // Try to get from stdlib
+        let registry = crate::stdlib_types::stdlib_types();
+        if let Some(struct_def) = registry.get_struct_definition(name) {
+            // Clone the struct_def to avoid borrow issues
+            let struct_def = struct_def.clone();
+            self.register_struct_type(&struct_def)?;
+            return Ok(true);
+        }
+
+        Ok(false)
     }
 
     pub fn register_enum_type(
