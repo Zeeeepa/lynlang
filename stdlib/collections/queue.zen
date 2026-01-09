@@ -95,3 +95,39 @@ Queue<T>.free = (self: MutPtr<Queue<T>>) void {
     self.val.head = 0
     self.val.tail = 0
 }
+
+// ============================================================================
+// Iterator Support
+// ============================================================================
+
+// QueueIterator - Iterates over queue elements from front to back
+QueueIterator<T>: {
+    data: Vec<T>,
+    index: usize,
+    tail: usize
+}
+
+// Create an iterator over the queue (front to back)
+Queue<T>.iter = (self: Queue<T>) QueueIterator<T> {
+    return QueueIterator<T> {
+        data: self.data,
+        index: self.head,
+        tail: self.tail
+    }
+}
+
+// Get next element from iterator
+QueueIterator<T>.next = (self: MutPtr<QueueIterator<T>>) Option<T> {
+    self.val.index >= self.val.tail ?
+        | true { return Option.None }
+        | false {
+            elem_opt = self.val.data.get(self.val.index)
+            self.val.index = self.val.index + 1
+            return elem_opt
+        }
+}
+
+// Check if iterator has more elements
+QueueIterator<T>.has_next = (self: QueueIterator<T>) bool {
+    return self.index < self.tail
+}

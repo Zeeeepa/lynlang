@@ -205,3 +205,83 @@ Stack<T>.free = (self: MutPtr<Stack<T>>) void {
     self.val.capacity = 0
     self.val.data = Ptr<T>.none()
 }
+
+// ============================================================================
+// Iterator Support
+// ============================================================================
+
+// StackIterator - Iterates over stack elements from bottom to top
+StackIterator<T>: {
+    data: Ptr<T>,
+    index: usize,
+    len: usize
+}
+
+// Create an iterator over the stack (bottom to top)
+Stack<T>.iter = (self: Stack<T>) StackIterator<T> {
+    return StackIterator<T> {
+        data: self.data,
+        index: 0,
+        len: self.len
+    }
+}
+
+// Get next element from iterator
+StackIterator<T>.next = (self: MutPtr<StackIterator<T>>) Option<T> {
+    self.val.index >= self.val.len ?
+        | true { return Option.None }
+        | false {
+            elem_ptr = self.val.data.at(self.val.index)
+            self.val.index = self.val.index + 1
+            elem_ptr ?
+                | Some(_) {
+                    addr = elem_ptr.addr()
+                    value = compiler.load<T>(addr)
+                    return Option.Some(value)
+                }
+                | None { return Option.None }
+        }
+}
+
+// Check if iterator has more elements
+StackIterator<T>.has_next = (self: StackIterator<T>) bool {
+    return self.index < self.len
+}
+
+// Reverse iterator - iterates from top to bottom
+StackReverseIterator<T>: {
+    data: Ptr<T>,
+    index: i64,  // Can go negative to signal done
+    len: usize
+}
+
+// Create a reverse iterator over the stack (top to bottom)
+Stack<T>.iter_reverse = (self: Stack<T>) StackReverseIterator<T> {
+    return StackReverseIterator<T> {
+        data: self.data,
+        index: self.len - 1,
+        len: self.len
+    }
+}
+
+// Get next element from reverse iterator
+StackReverseIterator<T>.next = (self: MutPtr<StackReverseIterator<T>>) Option<T> {
+    self.val.index < 0 ?
+        | true { return Option.None }
+        | false {
+            elem_ptr = self.val.data.at(self.val.index)
+            self.val.index = self.val.index - 1
+            elem_ptr ?
+                | Some(_) {
+                    addr = elem_ptr.addr()
+                    value = compiler.load<T>(addr)
+                    return Option.Some(value)
+                }
+                | None { return Option.None }
+        }
+}
+
+// Check if reverse iterator has more elements
+StackReverseIterator<T>.has_next = (self: StackReverseIterator<T>) bool {
+    return self.index >= 0
+}

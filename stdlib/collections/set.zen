@@ -158,3 +158,39 @@ Set<T>.clear = (self: MutPtr<Set<T>>) void {
 Set<T>.free = (self: MutPtr<Set<T>>) void {
     self.val.data.mut_ref().free()
 }
+
+// ============================================================================
+// Iterator Support
+// ============================================================================
+
+// SetIterator - Iterates over set elements
+SetIterator<T>: {
+    data: Vec<T>,
+    index: usize,
+    len: usize
+}
+
+// Create an iterator over the set
+Set<T>.iter = (self: Set<T>) SetIterator<T> {
+    return SetIterator<T> {
+        data: self.data,
+        index: 0,
+        len: self.data.len()
+    }
+}
+
+// Get next element from iterator
+SetIterator<T>.next = (self: MutPtr<SetIterator<T>>) Option<T> {
+    self.val.index >= self.val.len ?
+        | true { return Option.None }
+        | false {
+            elem_opt = self.val.data.get(self.val.index)
+            self.val.index = self.val.index + 1
+            return elem_opt
+        }
+}
+
+// Check if iterator has more elements
+SetIterator<T>.has_next = (self: SetIterator<T>) bool {
+    return self.index < self.len
+}
