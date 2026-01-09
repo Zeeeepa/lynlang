@@ -74,10 +74,10 @@ All collection types now use safe pointers with explicit allocator management.
 - [x] `Set<T>` - wraps HashMap<T, bool>
 - [ ] `LinkedList<T>` - not started
 
-### I/O (Needs Syscall Layer)
-- [ ] `File` - needs direct syscall wrappers, not FFI
+### I/O (Syscall Layer)
+- [x] `File` - syscall-based file operations (Linux x86-64)
 - [ ] `TcpSocket` / `UdpSocket` - syscall-based networking
-- [ ] Build full primitive library using syscalls (Linux/Darwin/Windows)
+- [ ] Darwin/Windows syscall support
 
 **Note:** Avoid FFI for I/O. Build native syscall wrappers:
 ```zen
@@ -216,12 +216,13 @@ This blocks runtime testing of collections from .zen files.
 1. **Iterator System Enhanced** - Range now has sum, product, min, max, skip, take, find_ge
 2. **VecIterator<T>** - Full iterator for Vec<T> with next() and has_next()
 3. **HashMapIterator<K,V>** - Iterates over key-value pairs, plus keys() and values() iterators
-4. **LSP Complete** - All modern LSP features implemented
-5. **Architecture Cleanup** - Fixed duplicate module declarations
-6. **Dead Code Audit** - Identified legitimate vs false positive dead_code markers
-7. **Typechecker Integration** - Now in main compilation pipeline
-8. **Pattern Matching Refactor** - Extracted to dedicated patterns.rs module (290 LOC)
-9. **Module Size Reduction** - codegen/llvm/mod.rs: 992 → 702 LOC (-29%)
+4. **Syscall-based File I/O** - Linux x86-64 file operations without FFI (474 LOC)
+5. **LSP Complete** - All modern LSP features implemented
+6. **Architecture Cleanup** - Fixed duplicate module declarations
+7. **Dead Code Audit** - Identified legitimate vs false positive dead_code markers
+8. **Typechecker Integration** - Now in main compilation pipeline
+9. **Pattern Matching Refactor** - Extracted to dedicated patterns.rs module (290 LOC)
+10. **Module Size Reduction** - codegen/llvm/mod.rs: 992 → 702 LOC (-29%)
 
 ---
 
