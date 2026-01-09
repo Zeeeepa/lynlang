@@ -1,9 +1,9 @@
 ---
 active: true
 iteration: 1
-max_iterations: 0
+max_iterations: 20
 completion_promise: null
-started_at: "2026-01-09T12:04:12Z"
+started_at: "2026-01-09T13:57:32Z"
 ---
 
---max 100 go lets go /home/ubuntu/zenlang/docs/ARCHITECTURE.md keep going with the target archetecture
+keepo going with a - No FFI dependency - uses compiler.syscall* intrinsics

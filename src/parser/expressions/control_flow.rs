@@ -1,8 +1,6 @@
 //! Control flow expression parsing: loop, break, continue, return, comptime
 //! Extracted from primary.rs
 
-#![allow(dead_code)]
-
 use crate::parser::core::Parser;
 use crate::ast::Expression;
 use crate::error::{CompileError, Result};
