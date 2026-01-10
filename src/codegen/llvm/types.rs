@@ -337,7 +337,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
 
                 // Special handling for HashMap<K,V> type
-                if name == "HashMap" {
+                if self.well_known.is_hashmap(name) {
                     let hashmap_struct_type = self.context.struct_type(
                         &[
                             self.context
@@ -352,7 +352,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
 
                 // Special handling for HashSet<T> type
-                if name == "HashSet" {
+                if self.well_known.is_hashset(name) {
                     let hashset_struct_type = self.context.struct_type(
                         &[
                             self.context
@@ -368,7 +368,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                 // Special handling for String type (dynamic string from stdlib)
                 // String is defined in stdlib/string.zen - resolve it from there
-                if name == "String" && type_args.is_empty() {
+                if self.well_known.is_string(name) && type_args.is_empty() {
                     let string_type = crate::stdlib_types::stdlib_types().get_string_type();
                     // Now convert the resolved struct type to LLVM
                     return self.to_llvm_type(&string_type);
@@ -509,7 +509,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         allocator_type: None,
                     }
                 }
-                "Vec" => {
+                base if self.well_known.is_vec(base) => {
                     // Vec<T, N> where N is the size
                     let parts = self.parse_comma_separated_types(type_params_str);
                     if !parts.is_empty() {
@@ -532,10 +532,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         type_args,
                     }
                 }
-                "HashMap" | "HashSet" => {
+                base if self.well_known.is_hashmap(base) || self.well_known.is_hashset(base) => {
                     let type_args = self.parse_comma_separated_types(type_params_str);
                     AstType::Generic {
-                        name: base_type.to_string(),
+                        name: base.to_string(),
                         type_args,
                     }
                 }
@@ -564,8 +564,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 "bool" => AstType::Bool,
                 "string" => AstType::StaticLiteral,
                 "StaticString" => AstType::StaticString,
-                "String" => crate::ast::resolve_string_struct_type(),
                 "void" => AstType::Void,
+                s if self.well_known.is_string(s) => crate::ast::resolve_string_struct_type(),
                 _ => AstType::I32, // Default fallback
             }
         }
