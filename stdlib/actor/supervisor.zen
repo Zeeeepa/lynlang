@@ -4,7 +4,6 @@
 
 { compiler } = @std
 { Result } = @std.core.result
-{ Option } = @std.core.option
 { Allocator } = @std.memory.allocator
 { AtomicI32 } = @std.sync.atomic
 { ACTOR_RUNNING, ACTOR_STOPPED, ACTOR_FAILED } = @std.actor.actor
