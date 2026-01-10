@@ -4,17 +4,7 @@
 
 { compiler } = @std
 { Result } = @std.core.result
-
-// ============================================================================
-// Linux x86-64 Syscall Numbers
-// ============================================================================
-
-SYS_SPLICE = 275
-SYS_TEE = 276
-SYS_VMSPLICE = 278
-SYS_SENDFILE = 40
-SYS_COPY_FILE_RANGE = 326
-SYS_PIPE2 = 293
+{ SYS_SPLICE, SYS_TEE, SYS_VMSPLICE, SYS_SENDFILE, SYS_COPY_FILE_RANGE, SYS_PIPE2, SYS_CLOSE } = @std.sys.syscall
 
 // ============================================================================
 // Splice Flags
@@ -191,18 +181,18 @@ Pipe.with_flags = (flags: i32) Result<Pipe, i32> {
 
 // Close both ends
 Pipe.close = (self: MutPtr<Pipe>) void {
-    compiler.syscall1(3, self.val.read_fd)   // SYS_CLOSE
-    compiler.syscall1(3, self.val.write_fd)
+    compiler.syscall1(SYS_CLOSE, self.val.read_fd)   // SYS_CLOSE
+    compiler.syscall1(SYS_CLOSE, self.val.write_fd)
 }
 
 // Close read end
 Pipe.close_read = (self: MutPtr<Pipe>) void {
-    compiler.syscall1(3, self.val.read_fd)
+    compiler.syscall1(SYS_CLOSE, self.val.read_fd)
 }
 
 // Close write end
 Pipe.close_write = (self: MutPtr<Pipe>) void {
-    compiler.syscall1(3, self.val.write_fd)
+    compiler.syscall1(SYS_CLOSE, self.val.write_fd)
 }
 
 // ============================================================================

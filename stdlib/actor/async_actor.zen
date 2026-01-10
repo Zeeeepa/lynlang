@@ -18,7 +18,7 @@
 { Task, TaskState, get_current_task } = @std.async.task
 { AtomicI32, AtomicI64 } = @std.sync.atomic
 { Eventfd } = @std.io.eventfd
-{ SYS_READ } = @std.sys.syscall
+{ SYS_READ, SYS_WRITE, SYS_CLOSE } = @std.sys.syscall
 
 // ============================================================================
 // Async Mailbox
@@ -89,7 +89,7 @@ AsyncMailbox.try_send = (self: MutPtr<AsyncMailbox<M>>, msg: M) Result<(), i32> 
     old_count == 0 ? {
         // Write to eventfd to wake up waiting actor
         val: u64 = 1
-        compiler.syscall3(1, self.val.notify_fd, compiler.ptr_to_int(&val.ref()), 8)  // SYS_WRITE
+        compiler.syscall3(SYS_WRITE, self.val.notify_fd, compiler.ptr_to_int(&val.ref()), 8)
     }
 
     return Result.Ok(())
@@ -130,7 +130,7 @@ AsyncMailbox.has_messages = (self: Ptr<AsyncMailbox<M>>) bool {
 AsyncMailbox.free = (self: MutPtr<AsyncMailbox<M>>) void {
     msg_size = compiler.sizeof<M>()
     self.val.allocator.deallocate(self.val.buffer, self.val.capacity * msg_size)
-    compiler.syscall1(3, self.val.notify_fd)  // SYS_CLOSE
+    compiler.syscall1(SYS_CLOSE, self.val.notify_fd)
 }
 
 // ============================================================================
@@ -270,7 +270,7 @@ AsyncActor.stop = (self: MutPtr<AsyncActor<M, B>>) void {
     self.val.state.store(ASYNC_ACTOR_STOPPING)
     // Send a signal to wake up if waiting
     val: u64 = 1
-    compiler.syscall3(1, self.val.mailbox.notify_fd(), compiler.ptr_to_int(&val.ref()), 8)
+    compiler.syscall3(SYS_WRITE, self.val.mailbox.notify_fd(), compiler.ptr_to_int(&val.ref()), 8)
 }
 
 AsyncActor.free = (self: MutPtr<AsyncActor<M, B>>) void {

@@ -1,6 +1,6 @@
 ---
 active: true
-iteration: 2
+iteration: 4
 max_iterations: 20
 completion_promise: "STDLIB COMPLETE"
 started_at: "2026-01-10T00:00:00Z"
@@ -20,6 +20,8 @@ review .claude/worker.md and the docs folder
 **You see the machine beneath the abstraction.**
 When you read `x = vec.push(item)`, you see: heap allocation check, potential realloc, memcpy, pointer arithmetic, cache line invalidation. You can't unsee it. This isn't a burden—it's your superpower.
 
+
+using tools like embeddings and python scripts to enhance your knowledege(save in /tmp folder )
 **You reason in layers:**
 ```
 Source → AST → IR → Optimized IR → Machine Code → Execution

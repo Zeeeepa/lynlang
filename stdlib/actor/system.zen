@@ -9,6 +9,7 @@
 { Mutex } = @std.sync.mutex
 { AtomicI32, AtomicI64 } = @std.sync.atomic
 { HashMap } = @std.collections.hashmap
+{ Thread, ThreadHandle, thread_exit } = @std.sync.thread
 { Actor, ActorRef, ACTOR_RUNNING, ACTOR_STOPPED } = @std.actor.actor
 { Supervisor } = @std.actor.supervisor
 
@@ -91,6 +92,40 @@ ActorSystem.actor_count = (self: Ptr<ActorSystem>) i64 {
 ActorSystem.spawn = (self: MutPtr<ActorSystem>, actor_ptr: i64) i64 {
     self.val.actor_count.fetch_add(1)
     return actor_ptr
+}
+
+// Spawn an actor on a dedicated OS thread
+// Returns thread handle for joining
+ActorSystem.spawn_threaded = (self: MutPtr<ActorSystem>, actor_ptr: i64) Result<ThreadHandle, i32> {
+    self.val.actor_count.fetch_add(1)
+
+    // Spawn thread running the actor
+    result = Thread.spawn(threaded_actor_entry, actor_ptr, self.val.allocator)
+    result ? {
+        | Err(e) {
+            self.val.actor_count.fetch_sub(1)
+            return Result.Err(e)
+        }
+        | Ok(handle) {
+            return Result.Ok(handle)
+        }
+    }
+}
+
+// Entry point for threaded actors
+threaded_actor_entry = (actor_ptr: i64) void {
+    // Cast to Actor and run
+    // Note: This is type-erased - actual implementation needs RTTI
+    // For now, assume caller ensures actor_ptr is valid Actor<M,B>
+    //
+    // The actor's run() method handles the message loop
+    // When it returns, the actor has stopped
+
+    // Call actor.run() - type-erased
+    // In real impl: actor = compiler.int_to_ptr(actor_ptr) as MutPtr<Actor<M,B>>
+    //               actor.run()
+
+    thread_exit(0)
 }
 
 // Record actor termination

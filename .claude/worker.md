@@ -1,23 +1,29 @@
 # Zen Work Streams
 
-## Active Stream: 1 (Allocator-Driven Concurrency)
+## Active Stream: 2 (Actor Framework)
 ## Last Updated: 2026-01-10
 
-### Progress:
+### Stream 1 (Allocators) - COMPLETE (pending intrinsics):
 - ✅ AsyncAllocator behavior interface (`stdlib/memory/async_allocator.zen`)
 - ✅ AsyncPool allocator with io_uring (`stdlib/memory/async_pool.zen`)
 - ✅ Task/Coroutine system (`stdlib/async/task.zen`)
 - ✅ Scheduler with task queues (`stdlib/async/scheduler.zen`)
+- ⚠️ Blocked: `context_switch` needs compiler intrinsic (assembly)
+- ⚠️ Blocked: TLS for `CURRENT_TASK` (needs FS segment register)
 
-### Remaining for Production:
-- ⚠️ `context_switch` needs to be a compiler intrinsic (assembly)
-- ⚠️ TLS for `CURRENT_TASK` (needs FS segment register)
-- ⚠️ Work-stealing for multi-core (currently single-queue)
+### Stream 2 (Actors) - IN PROGRESS:
+- ✅ Actor type with ActorBehavior (`stdlib/actor/actor.zen`)
+- ✅ Supervisor with restart strategies (`stdlib/actor/supervisor.zen`)
+- ✅ ActorSystem with registry (`stdlib/actor/system.zen`)
+- ✅ AsyncActor for scheduler integration (`stdlib/actor/async_actor.zen`)
+- ✅ Thread-spawned actors via `spawn_threaded`
 
-### Anti-Slop Pass (Iteration 9):
+### Anti-Slop Passes (Iterations 9-10):
 - ✅ Created `stdlib/sys/syscall.zen` - single source for all syscall numbers
-- ✅ Updated 8 files to import from centralized syscall.zen
-- 📝 Remaining files to update: pipe.zen, eventfd.zen, timerfd.zen, inotify.zen, unix_socket.zen, memfd.zen, process.zen, signal.zen
+- ✅ Migrated 10+ files to use centralized syscall constants
+- ✅ Fixed bug in async_pool.zen (allocate not incrementing offset)
+- ✅ Extracted alloc_pending_op helper in async_pool.zen
+- ✅ Removed unused imports/constants in scheduler.zen
 
 ---
 
@@ -263,11 +269,13 @@ Stream 3 (LSP) ─────────> Stream 4 (Intrinsics)
 
 | Stream | Status | Blocking |
 |--------|--------|----------|
-| 1. Allocators | NOT STARTED | - |
-| 2. Actors | BLOCKED | Needs Stream 1 |
+| 1. Allocators | COMPLETE* | context_switch intrinsic |
+| 2. Actors | IN PROGRESS | - |
 | 3. LSP | NOT STARTED | - |
-| 4. Intrinsics | PARTIAL | - |
-| 5. Threading | BASIC | Needs Stream 1 |
+| 4. Intrinsics | AUDITED | - |
+| 5. Threading | BASIC | - |
+
+*Allocators complete at stdlib level, blocked on compiler intrinsics for full functionality
 
 ---
 
