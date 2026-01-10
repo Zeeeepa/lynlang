@@ -13,6 +13,7 @@ pub mod validation;
 
 use crate::ast::{AstType, Declaration, Expression, Function, Program, Statement};
 use crate::error::{CompileError, Result, Span};
+use crate::type_context::TypeContext;
 use crate::well_known::WellKnownTypes;
 use behaviors::BehaviorResolver;
 use std::collections::HashMap;
@@ -172,7 +173,7 @@ impl TypeChecker {
         }
     }
 
-    pub fn check_program(&mut self, program: &Program) -> Result<()> {
+    pub fn check_program(&mut self, program: &Program) -> Result<TypeContext> {
         // First pass: collect all type definitions and function signatures
         for declaration in program.declarations.iter() {
             self.collect_declaration_types(declaration)?;
@@ -230,7 +231,42 @@ impl TypeChecker {
             self.check_declaration(declaration)?;
         }
 
-        Ok(())
+        // Build TypeContext from collected type information
+        Ok(self.build_type_context())
+    }
+
+    /// Build TypeContext from typechecker's collected information
+    fn build_type_context(&self) -> TypeContext {
+        let mut ctx = TypeContext::new();
+
+        // Register functions
+        for (name, sig) in &self.functions {
+            ctx.register_function(
+                name.clone(),
+                sig.params.clone(),
+                sig.return_type.clone(),
+                sig.is_external,
+            );
+        }
+
+        // Register structs
+        for (name, info) in &self.structs {
+            ctx.register_struct(name.clone(), info.fields.clone());
+        }
+
+        // Register enums
+        for (name, info) in &self.enums {
+            ctx.register_enum(name.clone(), info.variants.clone());
+        }
+
+        // Register methods from behavior resolver
+        for (type_name, methods) in &self.behavior_resolver.inherent_methods {
+            for method in methods {
+                ctx.register_method(type_name, &method.name, method.return_type.clone());
+            }
+        }
+
+        ctx
     }
 
     fn collect_declaration_types(&mut self, declaration: &Declaration) -> Result<()> {

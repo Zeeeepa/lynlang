@@ -23,10 +23,9 @@ impl<'ctx> Compiler<'ctx> {
         Self { context }
     }
 
-    /// Compiles a program using the LLVM backend.
-    /// In the future, this could take a `target` enum.
+    /// Core compilation pipeline - shared by compile_llvm and get_module
     #[allow(dead_code)]
-    pub fn compile_llvm(&self, program: &Program) -> Result<String> {
+    fn run_pipeline(&self, program: &Program) -> Result<LLVMCompiler<'ctx>> {
         // Process module imports
         let processed_program = self.process_imports(program)?;
 
@@ -36,15 +35,16 @@ impl<'ctx> Compiler<'ctx> {
         // Resolve Self types in trait implementations
         let processed_program = self.resolve_self_types(processed_program)?;
 
-        // Type check the program
+        // Type check the program and get TypeContext
         let mut typechecker = TypeChecker::new();
-        typechecker.check_program(&processed_program)?;
+        let type_ctx = typechecker.check_program(&processed_program)?;
 
         // Monomorphize the program to resolve all generic types
         let mut monomorphizer = Monomorphizer::new();
         let monomorphized_program = monomorphizer.monomorphize_program(&processed_program)?;
 
-        let mut llvm_compiler = LLVMCompiler::new(self.context);
+        // Pass TypeContext to codegen so it can look up types instead of re-inferring
+        let mut llvm_compiler = LLVMCompiler::new(self.context, type_ctx);
         llvm_compiler.compile_program(&monomorphized_program)?;
 
         // Debug: Print LLVM IR before verification for debugging
@@ -59,38 +59,21 @@ impl<'ctx> Compiler<'ctx> {
             ));
         }
 
+        Ok(llvm_compiler)
+    }
+
+    /// Compiles a program using the LLVM backend.
+    /// Returns the LLVM IR as a string.
+    #[allow(dead_code)]
+    pub fn compile_llvm(&self, program: &Program) -> Result<String> {
+        let llvm_compiler = self.run_pipeline(program)?;
         Ok(llvm_compiler.module.print_to_string().to_string())
     }
 
     /// Gets the LLVM module after compilation for execution engine creation.
     #[allow(dead_code)]
     pub fn get_module(&self, program: &Program) -> Result<Module<'ctx>> {
-        let processed_program = self.process_imports(program)?;
-        let processed_program = self.execute_comptime(processed_program)?;
-        let processed_program = self.resolve_self_types(processed_program)?;
-
-        // Type check the program
-        let mut typechecker = TypeChecker::new();
-        typechecker.check_program(&processed_program)?;
-
-        let mut monomorphizer = Monomorphizer::new();
-        let monomorphized_program = monomorphizer.monomorphize_program(&processed_program)?;
-
-        let mut llvm_compiler = LLVMCompiler::new(self.context);
-        llvm_compiler.compile_program(&monomorphized_program)?;
-
-        // Debug: Print LLVM IR before verification for debugging
-        if std::env::var("DEBUG_LLVM").is_ok() {
-            eprintln!("LLVM IR:\n{}", llvm_compiler.module.print_to_string());
-        }
-
-        if let Err(e) = llvm_compiler.module.verify() {
-            return Err(CompileError::InternalError(
-                format!("LLVM verification error: {}", e.to_string()),
-                None,
-            ));
-        }
-
+        let llvm_compiler = self.run_pipeline(program)?;
         Ok(llvm_compiler.module)
     }
 
@@ -401,6 +384,16 @@ impl<'ctx> Compiler<'ctx> {
             }
         };
 
+        // Try to typecheck
+        let mut typechecker = TypeChecker::new();
+        let type_ctx = match typechecker.check_program(&processed_program) {
+            Ok(ctx) => ctx,
+            Err(err) => {
+                errors.push(err);
+                return errors; // Can't continue without type checking
+            }
+        };
+
         // Try to monomorphize
         let mut monomorphizer = Monomorphizer::new();
         let monomorphized_program = match monomorphizer.monomorphize_program(&processed_program) {
@@ -412,7 +405,7 @@ impl<'ctx> Compiler<'ctx> {
         };
 
         // Try to compile to LLVM
-        let mut llvm_compiler = LLVMCompiler::new(self.context);
+        let mut llvm_compiler = LLVMCompiler::new(self.context, type_ctx);
         if let Err(err) = llvm_compiler.compile_program(&monomorphized_program) {
             errors.push(err);
             return errors; // Compilation failed

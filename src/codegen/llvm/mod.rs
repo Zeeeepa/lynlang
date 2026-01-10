@@ -3,6 +3,7 @@
 use crate::ast::{self, AstType};
 use crate::comptime;
 use crate::error::{CompileError, Span};
+use crate::type_context::TypeContext;
 use crate::well_known::WellKnownTypes;
 use inkwell::{
     basic_block::BasicBlock,
@@ -95,6 +96,8 @@ pub struct LLVMCompiler<'ctx> {
     pub module_imports: HashMap<String, u64>,
     pub current_span: Option<Span>,
     pub well_known: WellKnownTypes,
+    /// Type context from typechecker - use this for type lookups instead of re-inferring
+    pub type_ctx: TypeContext,
 }
 
 impl<'ctx> LLVMCompiler<'ctx> {
@@ -232,7 +235,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         }
     }
 
-    pub fn new(context: &'ctx Context) -> Self {
+    pub fn new(context: &'ctx Context, type_ctx: TypeContext) -> Self {
         let module = context.create_module("main");
         let builder = context.create_builder();
         let mut symbols = symbols::SymbolTable::new();
@@ -276,6 +279,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             module_imports: HashMap::new(),
             current_span: None,
             well_known: WellKnownTypes::new(),
+            type_ctx,
         };
 
         // Auto-inject built-in modules (always available without explicit import)

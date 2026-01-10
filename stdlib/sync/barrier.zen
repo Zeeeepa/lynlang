@@ -1,0 +1,64 @@
+// Zen Standard Library: Barrier (Syscall-based)
+// No FFI - uses compiler.syscall* intrinsics
+// Thread synchronization barrier
+
+{ compiler } = @std
+{ futex_wait, futex_wake_all } = @std.sync.futex
+
+// ============================================================================
+// Barrier - Synchronization point for multiple threads
+// ============================================================================
+// A barrier blocks threads until all participants have arrived.
+// Once all threads reach the barrier, they are all released simultaneously.
+//
+// Use cases:
+// - Parallel algorithms requiring phase synchronization
+// - Ensuring all threads complete initialization before proceeding
+// - Multi-stage computations where each stage must complete before the next
+
+Barrier: {
+    expected: i32,   // Number of threads to wait for
+    count: i32,      // Current count of arrived threads
+    generation: i32  // Increments each time barrier is passed (prevents early wakeup)
+}
+
+// Create a barrier for n threads
+Barrier.new = (n: i32) Barrier {
+    return Barrier { expected: n, count: n, generation: 0 }
+}
+
+// Wait at the barrier until all threads arrive
+// Returns true for exactly one thread (the "leader"), false for others
+Barrier.wait = (self: MutPtr<Barrier>) bool {
+    gen = compiler.atomic_load(&self.val.generation.ref() as Ptr<u64>) as i32
+
+    // Decrement count
+    remaining = compiler.atomic_sub(&self.val.count.ref() as Ptr<u64>, 1) as i32 - 1
+
+    remaining == 0 ? {
+        // Last thread to arrive - reset and wake all
+        compiler.atomic_store(&self.val.count.ref() as Ptr<u64>, self.val.expected)
+        compiler.atomic_add(&self.val.generation.ref() as Ptr<u64>, 1)
+        futex_wake_all(&self.val.generation.ref())
+        return true  // Leader
+    }
+
+    // Wait for generation to change
+    current_gen = compiler.atomic_load(&self.val.generation.ref() as Ptr<u64>) as i32
+    current_gen == gen ? {
+        futex_wait(&self.val.generation.ref(), gen)
+    }
+
+    return false  // Follower
+}
+
+// Get the number of threads this barrier expects
+Barrier.party_count = (self: Ptr<Barrier>) i32 {
+    return self.val.expected
+}
+
+// Check if barrier is waiting (not all threads arrived)
+Barrier.is_waiting = (self: Ptr<Barrier>) bool {
+    count = compiler.atomic_load(&self.val.count.ref() as Ptr<u64>) as i32
+    return count < self.val.expected && count > 0
+}

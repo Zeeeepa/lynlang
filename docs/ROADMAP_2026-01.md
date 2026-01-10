@@ -59,7 +59,7 @@ All collection types now use safe pointers with explicit allocator management.
 
 ## Priority 2: Standard Library Hardening
 
-**Status: Collections Complete, I/O Pending**
+**Status: Collections Complete, I/O Core Complete ✅**
 
 ### Core Types (Done)
 - [x] `Option<T>` - fully integrated
@@ -72,11 +72,12 @@ All collection types now use safe pointers with explicit allocator management.
 - [x] `Stack<T>` - LIFO with push/pop/peek
 - [x] `Queue<T>` - circular buffer with enqueue/dequeue
 - [x] `Set<T>` - wraps HashMap<T, bool>
-- [ ] `LinkedList<T>` - not started
+- [x] `LinkedList<T>` - doubly-linked list with iterator
 
 ### I/O (Syscall Layer)
 - [x] `File` - syscall-based file operations (Linux x86-64)
-- [ ] `TcpSocket` / `UdpSocket` - syscall-based networking
+- [x] `TcpListener` / `TcpStream` - syscall-based TCP (no FFI)
+- [x] `UdpSocket` - syscall-based UDP (no FFI)
 - [ ] Darwin/Windows syscall support
 
 **Note:** Avoid FFI for I/O. Build native syscall wrappers:
@@ -227,6 +228,15 @@ This blocks runtime testing of collections from .zen files.
 12. **Pattern Matching Refactor** - Extracted to dedicated patterns.rs module (290 LOC)
 13. **Module Size Reduction** - codegen/llvm/mod.rs: 992 → 702 LOC (-29%)
 14. **Parser Module Split** - primary.rs: 943 → 802 LOC, control_flow.rs now used
+15. **Semaphore** - Counting semaphore with acquire/release/try_acquire
+16. **Barrier** - Thread synchronization barrier for phase-based parallel algorithms
+17. **Channel<T>** - Bounded MPMC message queue for thread communication
+18. **Unix Domain Sockets** - UnixListener, UnixStream, UnixDatagram, SocketPair
+19. **Documentation Cleanup** - Fixed dead links, updated STDLIB_DESIGN.md
+20. **AsyncAllocator** - Behavior interface for async-capable allocators
+21. **AsyncPool** - io_uring-based async allocator with completion callbacks
+22. **Task System** - Stackful coroutines for async task management
+23. **Scheduler** - Task scheduler with runnable/suspended queues
 
 ---
 

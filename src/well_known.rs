@@ -24,6 +24,20 @@ pub enum WellKnownType {
     MutPtr,
     /// RawPtr<T> - raw/unsafe pointer
     RawPtr,
+    /// Vec<T> - dynamic array
+    Vec,
+    /// String - dynamic string
+    String,
+    /// HashMap<K, V> - hash map
+    HashMap,
+    /// HashSet<T> - hash set (alias for HashMap<T, bool>)
+    HashSet,
+    /// Stack<T> - LIFO stack
+    Stack,
+    /// Queue<T> - FIFO queue
+    Queue,
+    /// Set<T> - set type
+    Set,
 }
 
 /// Well-known enum variants
@@ -52,15 +66,27 @@ impl WellKnownTypes {
     /// Create a new registry with all well-known types registered
     pub fn new() -> Self {
         let mut wkt = Self {
-            types: HashMap::with_capacity(5),
+            types: HashMap::with_capacity(12),
             variants: HashMap::with_capacity(4),
         };
 
+        // Core types
         wkt.types.insert("Option".into(), WellKnownType::Option);
         wkt.types.insert("Result".into(), WellKnownType::Result);
+
+        // Pointer types
         wkt.types.insert("Ptr".into(), WellKnownType::Ptr);
         wkt.types.insert("MutPtr".into(), WellKnownType::MutPtr);
         wkt.types.insert("RawPtr".into(), WellKnownType::RawPtr);
+
+        // Collection types
+        wkt.types.insert("Vec".into(), WellKnownType::Vec);
+        wkt.types.insert("String".into(), WellKnownType::String);
+        wkt.types.insert("HashMap".into(), WellKnownType::HashMap);
+        wkt.types.insert("HashSet".into(), WellKnownType::HashSet);
+        wkt.types.insert("Stack".into(), WellKnownType::Stack);
+        wkt.types.insert("Queue".into(), WellKnownType::Queue);
+        wkt.types.insert("Set".into(), WellKnownType::Set);
 
         // Register well-known variants
         wkt.variants
@@ -135,6 +161,66 @@ impl WellKnownTypes {
     }
 
     // ========================================================================
+    // Collection type checks
+    // ========================================================================
+
+    /// Check if a type name is Vec
+    #[inline]
+    pub fn is_vec(&self, name: &str) -> bool {
+        self.get_type(name) == Some(WellKnownType::Vec)
+    }
+
+    /// Check if a type name is String
+    #[inline]
+    pub fn is_string(&self, name: &str) -> bool {
+        self.get_type(name) == Some(WellKnownType::String)
+    }
+
+    /// Check if a type name is HashMap
+    #[inline]
+    pub fn is_hashmap(&self, name: &str) -> bool {
+        self.get_type(name) == Some(WellKnownType::HashMap)
+    }
+
+    /// Check if a type name is HashSet
+    #[inline]
+    pub fn is_hashset(&self, name: &str) -> bool {
+        self.get_type(name) == Some(WellKnownType::HashSet)
+    }
+
+    /// Check if a type name is any collection type (Vec, HashMap, HashSet, Stack, Queue, Set)
+    #[inline]
+    pub fn is_collection(&self, name: &str) -> bool {
+        matches!(
+            self.get_type(name),
+            Some(
+                WellKnownType::Vec
+                    | WellKnownType::HashMap
+                    | WellKnownType::HashSet
+                    | WellKnownType::Stack
+                    | WellKnownType::Queue
+                    | WellKnownType::Set
+            )
+        )
+    }
+
+    /// Check if a type name is a generic collection (takes type parameters)
+    #[inline]
+    pub fn is_generic_collection(&self, name: &str) -> bool {
+        matches!(
+            self.get_type(name),
+            Some(
+                WellKnownType::Vec
+                    | WellKnownType::HashMap
+                    | WellKnownType::HashSet
+                    | WellKnownType::Stack
+                    | WellKnownType::Queue
+                    | WellKnownType::Set
+            )
+        )
+    }
+
+    // ========================================================================
     // Variant checks
     // ========================================================================
 
@@ -195,6 +281,13 @@ impl WellKnownTypes {
             WellKnownType::Ptr => "Ptr",
             WellKnownType::MutPtr => "MutPtr",
             WellKnownType::RawPtr => "RawPtr",
+            WellKnownType::Vec => "Vec",
+            WellKnownType::String => "String",
+            WellKnownType::HashMap => "HashMap",
+            WellKnownType::HashSet => "HashSet",
+            WellKnownType::Stack => "Stack",
+            WellKnownType::Queue => "Queue",
+            WellKnownType::Set => "Set",
         })
     }
 

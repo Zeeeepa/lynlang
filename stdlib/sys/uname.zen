@@ -1,0 +1,43 @@
+// Zen Standard Library: System Info (Syscall-based)
+// No FFI - uses compiler.syscall* intrinsics
+
+{ compiler } = @std
+{ Result } = @std.core.result
+
+// Syscall numbers (Linux x86-64)
+SYS_UNAME = 63
+SYS_GETUID = 102
+SYS_GETGID = 104
+SYS_GETEUID = 107
+SYS_GETEGID = 108
+
+SysError: { code: i32 }
+
+SysError.from_errno = (errno: i64) SysError {
+    return SysError { code: (0 - errno) as i32 }
+}
+
+// Get user ID
+getuid = () u32 {
+    return compiler.syscall0(SYS_GETUID) as u32
+}
+
+// Get group ID
+getgid = () u32 {
+    return compiler.syscall0(SYS_GETGID) as u32
+}
+
+// Get effective user ID
+geteuid = () u32 {
+    return compiler.syscall0(SYS_GETEUID) as u32
+}
+
+// Get effective group ID
+getegid = () u32 {
+    return compiler.syscall0(SYS_GETEGID) as u32
+}
+
+// Check if running as root
+is_root = () bool {
+    return geteuid() == 0
+}

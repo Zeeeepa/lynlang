@@ -15,7 +15,7 @@ For contributors, read these in order:
 2. **[design/SEPARATION_OF_CONCERNS.md](design/SEPARATION_OF_CONCERNS.md)** - Compiler primitives vs Zen-defined types
 
 Additional design docs:
-- **[design/NEXT_STEPS.md](design/NEXT_STEPS.md)** - Development roadmap
+- **[ROADMAP_2026-01.md](ROADMAP_2026-01.md)** - Current development roadmap and status
 - **[design/STDLIB_DESIGN.md](design/STDLIB_DESIGN.md)** - Standard library architecture & API
 - **[design/SAFE_POINTERS_DESIGN.md](design/SAFE_POINTERS_DESIGN.md)** - Ptr<T> vs Ref<T> rationale
 - **[design/SAFE_TYPE_SYSTEM_DESIGN.md](design/SAFE_TYPE_SYSTEM_DESIGN.md)** - Type system architecture
@@ -80,19 +80,19 @@ cargo run --bin zen examples/hello_world.zen
 
 | File | Purpose |
 |------|---------|
-| `docs/design/NEXT_STEPS.md` | Development roadmap |
+| `docs/ROADMAP_2026-01.md` | Development roadmap and status |
 | `docs/design/STDLIB_DESIGN.md` | Stdlib architecture |
 | `docs/QUICK_START.md` | Getting started |
-| `examples/hello_world.zen` | Working examples |
 | `stdlib/string.zen` | String implementation |
 | `stdlib/vec.zen` | Vector implementation |
-| `src/stdlib_metadata/compiler.rs` | Compiler intrinsics |
+| `stdlib/sync/` | Thread synchronization (mutex, semaphore, channel) |
+| `stdlib/io/` | I/O (file, socket, pipe, epoll) |
 
 ---
 
 ## Getting Help
 
-1. Check **design/NEXT_STEPS.md** for current priorities
+1. Check **ROADMAP_2026-01.md** for current priorities
 2. Read **design/STDLIB_DESIGN.md** for stdlib details
 3. Look at **INTRINSICS_REFERENCE.md** for primitive docs
 4. Review **../tests/** for usage examples

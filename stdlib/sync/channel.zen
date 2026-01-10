@@ -1,0 +1,262 @@
+// Zen Standard Library: Channel (Syscall-based)
+// No FFI - uses compiler.syscall* intrinsics
+// Thread-safe bounded message queue
+
+{ compiler } = @std
+{ Result } = @std.core.result
+{ Option } = @std.core.option
+{ Allocator } = @std.memory.allocator
+{ futex_wait, futex_wake_one, futex_wake_all } = @std.sync.futex
+
+// ============================================================================
+// Channel<T> - Bounded MPSC/MPMC message queue
+// ============================================================================
+// A channel provides safe message passing between threads.
+// Uses a ring buffer with futex-based blocking.
+//
+// Capacity is fixed at creation. Sends block when full, receives block when empty.
+//
+// Use cases:
+// - Thread pool work queues
+// - Pipeline processing
+// - Event dispatch
+
+Channel<T>: {
+    buffer: Ptr<T>,       // Ring buffer
+    capacity: usize,      // Buffer size
+    head: i32,            // Read position
+    tail: i32,            // Write position
+    count: i32,           // Current item count (for blocking)
+    closed: i32,          // 1 if channel is closed
+    allocator: Allocator
+}
+
+// ============================================================================
+// Channel Creation
+// ============================================================================
+
+// Create a bounded channel with given capacity
+Channel.new = (capacity: usize, allocator: Allocator) Channel<T> {
+    buf_size = capacity * compiler.sizeof<T>()
+    buf_ptr = allocator.allocate(buf_size)
+
+    return Channel<T> {
+        buffer: compiler.int_to_ptr(buf_ptr),
+        capacity: capacity,
+        head: 0,
+        tail: 0,
+        count: 0,
+        closed: 0,
+        allocator: allocator
+    }
+}
+
+// ============================================================================
+// Sending Messages
+// ============================================================================
+
+// Channel error type
+ChannelError: { code: i32 }
+
+CHANNEL_OK = 0
+CHANNEL_CLOSED = 1
+CHANNEL_FULL = 2
+CHANNEL_EMPTY = 3
+
+// Send a value, blocking if full
+// Returns error if channel is closed
+Channel.send = (self: MutPtr<Channel<T>>, value: T) Result<(), ChannelError> {
+    // Check if closed
+    closed = compiler.atomic_load(&self.val.closed.ref() as Ptr<u64>) as i32
+    closed != 0 ? { return Result.Err(ChannelError { code: CHANNEL_CLOSED }) }
+
+    // Wait for space
+    count = compiler.atomic_load(&self.val.count.ref() as Ptr<u64>) as i32
+    count >= self.val.capacity as i32 ? {
+        // Block until space available
+        self.send_slow(value)
+        return Result.Ok(())
+    }
+
+    // Fast path: write directly
+    self.write_item(value)
+    return Result.Ok(())
+}
+
+// Slow path for send - handles blocking
+Channel.send_slow = (self: MutPtr<Channel<T>>, value: T) void {
+    sent = false
+    sent == false ? {
+        // Wait for count to decrease
+        count = compiler.atomic_load(&self.val.count.ref() as Ptr<u64>) as i32
+        count >= self.val.capacity as i32 ? {
+            futex_wait(&self.val.count.ref(), count)
+        }
+
+        // Check closed after waking
+        closed = compiler.atomic_load(&self.val.closed.ref() as Ptr<u64>) as i32
+        closed != 0 ? { return }
+
+        // Try to write
+        count = compiler.atomic_load(&self.val.count.ref() as Ptr<u64>) as i32
+        count < self.val.capacity as i32 ? {
+            self.write_item(value)
+            sent = true
+        }
+    }
+}
+
+// Write item to buffer (internal)
+Channel.write_item = (self: MutPtr<Channel<T>>, value: T) void {
+    // Get write position
+    tail = compiler.atomic_load(&self.val.tail.ref() as Ptr<u64>) as i32
+    idx = tail % (self.val.capacity as i32)
+
+    // Write value
+    buf_addr = compiler.ptr_to_int(self.val.buffer)
+    item_addr = buf_addr + (idx as usize * compiler.sizeof<T>())
+    compiler.store<T>(compiler.int_to_ptr(item_addr), value)
+
+    // Update tail and count
+    compiler.atomic_add(&self.val.tail.ref() as Ptr<u64>, 1)
+    compiler.atomic_add(&self.val.count.ref() as Ptr<u64>, 1)
+
+    // Wake a receiver
+    futex_wake_one(&self.val.count.ref())
+}
+
+// Try to send without blocking
+Channel.try_send = (self: MutPtr<Channel<T>>, value: T) Result<(), ChannelError> {
+    closed = compiler.atomic_load(&self.val.closed.ref() as Ptr<u64>) as i32
+    closed != 0 ? { return Result.Err(ChannelError { code: CHANNEL_CLOSED }) }
+
+    count = compiler.atomic_load(&self.val.count.ref() as Ptr<u64>) as i32
+    count >= self.val.capacity as i32 ? {
+        return Result.Err(ChannelError { code: CHANNEL_FULL })
+    }
+
+    self.write_item(value)
+    return Result.Ok(())
+}
+
+// ============================================================================
+// Receiving Messages
+// ============================================================================
+
+// Receive a value, blocking if empty
+// Returns None if channel is closed and empty
+Channel.recv = (self: MutPtr<Channel<T>>) Option<T> {
+    // Check for available items
+    count = compiler.atomic_load(&self.val.count.ref() as Ptr<u64>) as i32
+    count > 0 ? {
+        return Option.Some(self.read_item())
+    }
+
+    // Check if closed
+    closed = compiler.atomic_load(&self.val.closed.ref() as Ptr<u64>) as i32
+    closed != 0 ? { return Option.None }
+
+    // Block until item available
+    return self.recv_slow()
+}
+
+// Slow path for recv - handles blocking
+Channel.recv_slow = (self: MutPtr<Channel<T>>) Option<T> {
+    received = false
+    result = Option.None
+
+    received == false ? {
+        // Wait for items
+        count = compiler.atomic_load(&self.val.count.ref() as Ptr<u64>) as i32
+        count == 0 ? {
+            // Check closed before blocking
+            closed = compiler.atomic_load(&self.val.closed.ref() as Ptr<u64>) as i32
+            closed != 0 ? { return Option.None }
+            futex_wait(&self.val.count.ref(), 0)
+        }
+
+        // Check closed after waking
+        closed = compiler.atomic_load(&self.val.closed.ref() as Ptr<u64>) as i32
+        closed != 0 ? {
+            // Drain remaining items
+            count = compiler.atomic_load(&self.val.count.ref() as Ptr<u64>) as i32
+            count == 0 ? { return Option.None }
+        }
+
+        // Try to read
+        count = compiler.atomic_load(&self.val.count.ref() as Ptr<u64>) as i32
+        count > 0 ? {
+            result = Option.Some(self.read_item())
+            received = true
+        }
+    }
+
+    return result
+}
+
+// Read item from buffer (internal)
+Channel.read_item = (self: MutPtr<Channel<T>>) T {
+    // Get read position
+    head = compiler.atomic_load(&self.val.head.ref() as Ptr<u64>) as i32
+    idx = head % (self.val.capacity as i32)
+
+    // Read value
+    buf_addr = compiler.ptr_to_int(self.val.buffer)
+    item_addr = buf_addr + (idx as usize * compiler.sizeof<T>())
+    value = compiler.load<T>(compiler.int_to_ptr(item_addr))
+
+    // Update head and count
+    compiler.atomic_add(&self.val.head.ref() as Ptr<u64>, 1)
+    compiler.atomic_sub(&self.val.count.ref() as Ptr<u64>, 1)
+
+    // Wake a sender
+    futex_wake_one(&self.val.count.ref())
+
+    return value
+}
+
+// Try to receive without blocking
+Channel.try_recv = (self: MutPtr<Channel<T>>) Option<T> {
+    count = compiler.atomic_load(&self.val.count.ref() as Ptr<u64>) as i32
+    count > 0 ? {
+        return Option.Some(self.read_item())
+    }
+    return Option.None
+}
+
+// ============================================================================
+// Channel Lifecycle
+// ============================================================================
+
+// Close the channel (no more sends allowed)
+// Existing items can still be received
+Channel.close = (self: MutPtr<Channel<T>>) void {
+    compiler.atomic_store(&self.val.closed.ref() as Ptr<u64>, 1)
+    // Wake all waiters
+    futex_wake_all(&self.val.count.ref())
+}
+
+// Check if channel is closed
+Channel.is_closed = (self: Ptr<Channel<T>>) bool {
+    closed = compiler.atomic_load(&self.val.closed.ref() as Ptr<u64>) as i32
+    return closed != 0
+}
+
+// Check if channel is empty
+Channel.is_empty = (self: Ptr<Channel<T>>) bool {
+    count = compiler.atomic_load(&self.val.count.ref() as Ptr<u64>) as i32
+    return count == 0
+}
+
+// Get current item count
+Channel.len = (self: Ptr<Channel<T>>) usize {
+    count = compiler.atomic_load(&self.val.count.ref() as Ptr<u64>) as i32
+    return count as usize
+}
+
+// Free channel resources
+Channel.free = (self: MutPtr<Channel<T>>) void {
+    self.close()
+    buf_size = self.val.capacity * compiler.sizeof<T>()
+    self.val.allocator.deallocate(compiler.ptr_to_int(self.val.buffer), buf_size)
+}

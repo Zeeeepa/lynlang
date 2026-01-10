@@ -1,0 +1,168 @@
+// Zen Standard Library: Actor System (Syscall-based)
+// No FFI - uses compiler.syscall* intrinsics
+// Central registry and spawning for actors
+
+{ compiler } = @std
+{ Result } = @std.core.result
+{ Option } = @std.core.option
+{ Allocator } = @std.memory.allocator
+{ Mutex } = @std.sync.mutex
+{ AtomicI32, AtomicI64 } = @std.sync.atomic
+{ HashMap } = @std.collections.hashmap
+{ Actor, ActorRef, ACTOR_RUNNING, ACTOR_STOPPED } = @std.actor.actor
+{ Supervisor } = @std.actor.supervisor
+
+// ============================================================================
+// Actor System
+// ============================================================================
+// The ActorSystem is the entry point for creating and managing actors.
+// Simplified: Uses existing HashMap for registry.
+
+ActorSystem: {
+    name: i64,           // Pointer to name string
+    state: AtomicI32,
+    actor_count: AtomicI64,
+    registry: HashMap<u64, i64>,  // name_hash -> ActorRef pointer
+    registry_lock: Mutex,
+    root_supervisor: i64, // Pointer to root supervisor
+    allocator: Allocator
+}
+
+// System states
+SYSTEM_CREATED = 0
+SYSTEM_RUNNING = 1
+SYSTEM_STOPPING = 2
+SYSTEM_STOPPED = 3
+
+// Create a new actor system
+ActorSystem.new = (name_ptr: i64, allocator: Allocator) ActorSystem {
+    // Create root supervisor with one-for-one strategy
+    root_sup = Supervisor.new(0, 10, 60, allocator)  // STRATEGY_ONE_FOR_ONE
+
+    return ActorSystem {
+        name: name_ptr,
+        state: AtomicI32.new(SYSTEM_CREATED),
+        actor_count: AtomicI64.new(0),
+        registry: HashMap<u64, i64>.with_capacity(allocator, 64),
+        registry_lock: Mutex.new(),
+        root_supervisor: compiler.ptr_to_int(&root_sup.ref() as RawPtr<u8>),
+        allocator: allocator
+    }
+}
+
+// Start the actor system
+ActorSystem.start = (self: MutPtr<ActorSystem>) Result<(), i32> {
+    self.val.state.store(SYSTEM_RUNNING)
+
+    // Start root supervisor
+    root_sup = compiler.int_to_ptr(self.val.root_supervisor) as MutPtr<Supervisor>
+    return root_sup.start()
+}
+
+// Shutdown the actor system gracefully
+ActorSystem.shutdown = (self: MutPtr<ActorSystem>) void {
+    self.val.state.store(SYSTEM_STOPPING)
+
+    // Stop root supervisor (cascades to all children)
+    root_sup = compiler.int_to_ptr(self.val.root_supervisor) as MutPtr<Supervisor>
+    root_sup.stop()
+
+    self.val.state.store(SYSTEM_STOPPED)
+}
+
+// Check if system is running
+ActorSystem.is_running = (self: Ptr<ActorSystem>) bool {
+    return self.val.state.load() == SYSTEM_RUNNING
+}
+
+// Get number of active actors
+ActorSystem.actor_count = (self: Ptr<ActorSystem>) i64 {
+    return self.val.actor_count.load()
+}
+
+// ============================================================================
+// Actor Spawning
+// ============================================================================
+// Note: Full spawning requires Thread integration.
+// This provides the framework; actual thread creation handled separately.
+
+// Spawn an actor (returns ActorRef)
+// The actor runs in the current thread - for threaded actors, use spawn_threaded
+ActorSystem.spawn = (self: MutPtr<ActorSystem>, actor_ptr: i64) i64 {
+    self.val.actor_count.fetch_add(1)
+    return actor_ptr
+}
+
+// Record actor termination
+ActorSystem.actor_terminated = (self: MutPtr<ActorSystem>) void {
+    self.val.actor_count.fetch_sub(1)
+}
+
+// ============================================================================
+// Actor Registry (using HashMap)
+// ============================================================================
+
+// Simple hash function for names
+hash_name = (name_ptr: i64, len: usize) u64 {
+    hash: u64 = 5381
+    i: usize = 0
+    i < len ? {
+        c = compiler.load<u8>(compiler.int_to_ptr(name_ptr + i as i64))
+        hash = ((hash << 5) + hash) + c as u64
+        i = i + 1
+    }
+    return hash
+}
+
+// Register an actor by name
+ActorSystem.register = (self: MutPtr<ActorSystem>, name_ptr: i64, name_len: usize, actor_ref: i64) Result<(), i32> {
+    hash = hash_name(name_ptr, name_len)
+
+    self.val.registry_lock.lock()
+
+    // Check if already exists
+    existing = self.val.registry.get(hash)
+    existing ? {
+        | Some(_) {
+            self.val.registry_lock.unlock()
+            return Result.Err(-17)  // EEXIST
+        }
+        | None { }
+    }
+
+    self.val.registry.insert(hash, actor_ref)
+    self.val.registry_lock.unlock()
+    return Result.Ok(())
+}
+
+// Lookup actor by name
+ActorSystem.lookup = (self: MutPtr<ActorSystem>, name_ptr: i64, name_len: usize) Option<i64> {
+    hash = hash_name(name_ptr, name_len)
+
+    self.val.registry_lock.lock()
+    result = self.val.registry.get(hash)
+    self.val.registry_lock.unlock()
+
+    return result
+}
+
+// Unregister an actor
+ActorSystem.unregister = (self: MutPtr<ActorSystem>, name_ptr: i64, name_len: usize) void {
+    hash = hash_name(name_ptr, name_len)
+
+    self.val.registry_lock.lock()
+    self.val.registry.remove(hash)
+    self.val.registry_lock.unlock()
+}
+
+// Free actor system resources
+ActorSystem.free = (self: MutPtr<ActorSystem>) void {
+    self.shutdown()
+
+    // Free root supervisor
+    root_sup = compiler.int_to_ptr(self.val.root_supervisor) as MutPtr<Supervisor>
+    root_sup.free()
+
+    // HashMap cleans up via its own free method
+    self.val.registry.free()
+}

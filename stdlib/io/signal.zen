@@ -1,0 +1,62 @@
+// Zen Standard Library: Signal Handling (Syscall-based)
+// No FFI - uses compiler.syscall* intrinsics
+
+{ compiler } = @std
+{ Result } = @std.core.result
+
+// Syscall numbers (Linux x86-64)
+SYS_RT_SIGACTION = 13
+SYS_RT_SIGPROCMASK = 14
+SYS_KILL = 62
+SYS_GETPID = 39
+
+// Signals
+SIGHUP = 1
+SIGINT = 2
+SIGQUIT = 3
+SIGILL = 4
+SIGTRAP = 5
+SIGABRT = 6
+SIGBUS = 7
+SIGFPE = 8
+SIGKILL = 9
+SIGUSR1 = 10
+SIGSEGV = 11
+SIGUSR2 = 12
+SIGPIPE = 13
+SIGALRM = 14
+SIGTERM = 15
+SIGCHLD = 17
+SIGCONT = 18
+SIGSTOP = 19
+SIGTSTP = 20
+
+// Signal actions
+SIG_DFL = 0
+SIG_IGN = 1
+
+// Sigprocmask how
+SIG_BLOCK = 0
+SIG_UNBLOCK = 1
+SIG_SETMASK = 2
+
+SignalError: { code: i32 }
+
+SignalError.from_errno = (errno: i64) SignalError {
+    return SignalError { code: (0 - errno) as i32 }
+}
+
+// Send signal to current process
+raise_signal = (sig: i32) Result<(), SignalError> {
+    pid = compiler.syscall0(SYS_GETPID)
+    result = compiler.syscall2(SYS_KILL, pid, sig)
+    result < 0 ? { return Result.Err(SignalError.from_errno(result)) }
+    return Result.Ok(())
+}
+
+// Send signal to process
+kill = (pid: i32, sig: i32) Result<(), SignalError> {
+    result = compiler.syscall2(SYS_KILL, pid, sig)
+    result < 0 ? { return Result.Err(SignalError.from_errno(result)) }
+    return Result.Ok(())
+}

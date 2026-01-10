@@ -2,13 +2,13 @@
 
 ## Overview
 
-The Zen stdlib has a three-layer architecture:
+The Zen stdlib follows a syscall-first architecture. All I/O and synchronization
+uses direct Linux syscalls via `compiler.syscall*` intrinsics - **no FFI required**.
 
 | Layer | Location | Purpose |
 |-------|----------|---------|
 | **Zen Source** | `stdlib/` | User-facing `.zen` files |
-| **Rust Metadata** | `src/stdlib_metadata/` | Type checking & signatures |
-| **LLVM Codegen** | `src/codegen/llvm/stdlib_codegen/` | Runtime implementations |
+| **Compiler Intrinsics** | `compiler.*` | Memory, syscalls, atomics |
 
 ---
 
@@ -20,241 +20,207 @@ stdlib/
 ├── core/                # Core types
 │   ├── option.zen       # Option<T> enum
 │   ├── result.zen       # Result<T, E> enum
-│   ├── ptr.zen          # Ptr<T> safe pointer wrapper
+│   ├── ptr.zen          # Ptr<T>, MutPtr<T> safe pointers
+│   ├── iterator.zen     # Iterator behavior
 │   └── propagate.zen    # Error propagation helpers
 ├── memory/              # Memory management
-│   ├── allocator.zen    # Allocator trait
-│   └── gpa.zen          # General Purpose Allocator
+│   ├── allocator.zen    # Allocator behavior
+│   ├── gpa.zen          # General Purpose Allocator
+│   └── mmap.zen         # Memory mapping (syscall-based)
 ├── string.zen           # Dynamic String type
 ├── vec.zen              # Vec<T> growable array
-├── io/io.zen            # IO operations
-├── math/math.zen        # Math functions
 ├── collections/         # Data structures
-│   ├── stack.zen
-│   ├── queue.zen
-│   ├── set.zen
-│   └── hashmap.zen
-├── time.zen             # Duration, Instant, sleep
+│   ├── hashmap.zen      # HashMap<K,V> with iterators
+│   ├── stack.zen        # Stack<T> with iterators
+│   ├── queue.zen        # Queue<T> circular buffer
+│   ├── set.zen          # Set<T> (wraps HashMap)
+│   └── linkedlist.zen   # LinkedList<T> doubly-linked
+├── io/                  # I/O (syscall-based)
+│   ├── io.zen           # Basic I/O utilities
+│   ├── file.zen         # File operations
+│   ├── socket.zen       # TCP/UDP sockets
+│   ├── unix_socket.zen  # Unix domain sockets
+│   ├── pipe.zen         # Pipes
+│   ├── epoll.zen        # Event polling
+│   ├── poll.zen         # poll() interface
+│   ├── eventfd.zen      # Event file descriptors
+│   ├── timerfd.zen      # Timer file descriptors
+│   ├── inotify.zen      # File system notifications
+│   ├── process.zen      # Process management
+│   └── signal.zen       # Signal handling
+├── sync/                # Synchronization (syscall-based)
+│   ├── futex.zen        # Low-level futex
+│   ├── mutex.zen        # Blocking mutex
+│   ├── rwlock.zen       # Read-write lock
+│   ├── semaphore.zen    # Counting semaphore
+│   ├── barrier.zen      # Thread barrier
+│   ├── channel.zen      # Thread-safe message queue
+│   ├── condvar.zen      # Condition variable
+│   ├── once.zen         # One-time initialization
+│   └── thread.zen       # Thread spawning (clone)
+├── sys/                 # System interfaces
+│   ├── uname.zen        # User/group IDs
+│   ├── env.zen          # Environment variables
+│   ├── sched.zen        # Scheduler control
+│   └── random.zen       # Kernel random (getrandom)
+├── time/time.zen        # Time and sleep (syscall-based)
+├── math/math.zen        # Math functions
 ├── random.zen           # PRNG
+├── char.zen             # Character utilities
 ├── error.zen            # Error types
 ├── testing/runner.zen   # Test utilities
-├── fs/fs.zen            # File system (stubs)
-├── net/net.zen          # Networking (stubs)
-└── ffi/ffi.zen          # C FFI
+├── compiler/compiler.zen # Compiler intrinsics re-export
+├── build/build.zen      # Build configuration
+└── ffi/ffi.zen          # FFI (for external C libraries only)
 ```
+
+---
+
+## Design Principles
+
+1. **Syscall-First** - I/O uses `compiler.syscall*`, not libc
+2. **No Hidden FFI** - FFI module exists only for loading external C libs
+3. **Allocator-Aware** - All heap types take explicit `Allocator`
+4. **Safe Pointers** - `Ptr<T>` and `MutPtr<T>` instead of raw pointers
+5. **Error Handling** - `Result<T, E>` instead of exceptions
+6. **Type Safety** - Generics with compile-time bounds
 
 ---
 
 ## Compiler Intrinsics
 
-Defined in `src/stdlib_metadata/compiler.rs`, used via `@std.compiler`.
+Available via `{ compiler } = @std` or `@std.compiler`.
 
-> **Note**: Only 13 intrinsics have working LLVM codegen. See `docs/INTRINSICS_REFERENCE.md` for full status.
-
-### Working ✅ - Memory (3)
-```
-raw_allocate(size: usize) -> RawPtr<u8>
-raw_deallocate(ptr: RawPtr<u8>, size: usize) -> void
-raw_reallocate(ptr: RawPtr<u8>, old_size: usize, new_size: usize) -> RawPtr<u8>
-```
-
-### Working ✅ - Pointer (5)
-```
-gep(base: RawPtr<u8>, offset: i64) -> RawPtr<u8>           # GetElementPointer
-gep_struct(ptr: RawPtr<u8>, field: i32) -> RawPtr<u8>      # Struct field access
-raw_ptr_cast(ptr: RawPtr<u8>) -> RawPtr<u8>                # Type reinterpret
-ptr_to_int(ptr: RawPtr<u8>) -> i64                         # Pointer to integer
-int_to_ptr(addr: i64) -> RawPtr<u8>                        # Integer to pointer
-```
-
-### Working ✅ - Enum (3 of 4)
-```
-discriminant(enum_val: RawPtr<u8>) -> i32           # Read variant tag
-set_discriminant(ptr: RawPtr<u8>, tag: i32) -> void # Write variant tag
-get_payload(enum_val: RawPtr<u8>) -> RawPtr<u8>     # Extract payload pointer
-```
-- `set_payload` is partial (needs size info)
-
-### Working ✅ - Memory Access (2)
-```
-load<T>(ptr: RawPtr<u8>) -> T                       # Generic load
-store<T>(ptr: RawPtr<u8>, value: T) -> void         # Generic store
-```
-
-### NOT Working ❌ - FFI (all stubs)
-```
-inline_c(code: StaticString) -> void                        # Returns void, does nothing
-load_library(path: StaticString) -> RawPtr<u8>              # Returns error
-get_symbol(lib: RawPtr<u8>, symbol: StaticString) -> RawPtr<u8>  # Returns error
-unload_library(lib: RawPtr<u8>) -> void                     # Returns error
-```
-
-### NOT Working ❌ - Also defined but no codegen
-- `memcpy`, `memmove`, `memset`, `memcmp`
-- `atomic_*` (all 7 atomic operations)
-- `sizeof<T>()` (hardcoded to 8), `alignof<T>()`
-- `bswap*`, `ctlz`, `cttz`, `ctpop`
-- `add_overflow`, `sub_overflow`, `mul_overflow`
-
----
-
-## Core Types
-
-### Option<T>
+### Memory
 ```zen
-Option<T>:
-    Some: T,
-    None
-
-// Functions
-option_is_some(opt: Option<T>) bool
-option_is_none(opt: Option<T>) bool
-option_unwrap(opt: Option<T>) T
-option_map(opt: Option<T>, f: (T) U) Option<U>
+compiler.raw_allocate(size: usize) i64
+compiler.raw_deallocate(ptr: i64, size: usize) void
+compiler.memcpy(dst: i64, src: i64, len: usize) void
+compiler.memset(ptr: i64, val: u8, len: usize) void
+compiler.sizeof<T>() usize
+compiler.alignof<T>() usize
 ```
 
-### Result<T, E>
+### Pointers
 ```zen
-Result<T, E>:
-    Ok: T,
-    Err: E
-
-// Functions
-result_is_ok(res: Result<T, E>) bool
-result_is_err(res: Result<T, E>) bool
-result_unwrap(res: Result<T, E>) T
+compiler.gep(base: i64, offset: i64) i64
+compiler.gep_struct(ptr: i64, field: i32) i64
+compiler.ptr_to_int(ptr: Ptr<T>) i64
+compiler.int_to_ptr(addr: i64) Ptr<T>
+compiler.load<T>(ptr: i64) T
+compiler.store<T>(ptr: i64, value: T) void
 ```
 
-### Ptr<T>
+### Syscalls (Linux x86-64)
 ```zen
-Ptr<T>:
-    Some: *u8,
-    None
-
-// Functions
-ptr_allocate(size: usize) Ptr<T>
-ptr_at(p: Ptr<T>, index: usize) Ptr<T>
-ptr_free(p: Ptr<T>, size: usize)
+compiler.syscall0(nr: i64) i64
+compiler.syscall1(nr: i64, a1: i64) i64
+compiler.syscall2(nr: i64, a1: i64, a2: i64) i64
+compiler.syscall3(nr: i64, a1: i64, a2: i64, a3: i64) i64
+compiler.syscall4(nr: i64, a1: i64, a2: i64, a3: i64, a4: i64) i64
+compiler.syscall5(nr: i64, ...) i64
+compiler.syscall6(nr: i64, ...) i64
 ```
 
----
-
-## Memory Management
-
-### Allocator Interface
+### Atomics
 ```zen
-Allocator: {
-    allocate: (self, size: usize) RawPtr<u8>,
-    deallocate: (self, ptr: RawPtr<u8>, size: usize) void,
-    reallocate: (self, ptr: RawPtr<u8>, old_size: usize, new_size: usize) RawPtr<u8>
-}
+compiler.atomic_load(ptr: Ptr<u64>) u64
+compiler.atomic_store(ptr: Ptr<u64>, val: u64) void
+compiler.atomic_add(ptr: Ptr<u64>, val: i64) u64
+compiler.atomic_sub(ptr: Ptr<u64>, val: i64) u64
+compiler.atomic_cas(ptr: Ptr<u64>, expected: u64, desired: u64) u64
+compiler.atomic_xchg(ptr: Ptr<u64>, val: u64) u64
+compiler.atomic_fence() void
 ```
 
-### GPA (General Purpose Allocator)
+### Byte Swap
 ```zen
-GPA: { id: i32 }
-
-gpa_new() GPA
-gpa_allocate(alloc: GPA, size: usize) RawPtr<u8>
-gpa_deallocate(alloc: GPA, ptr: RawPtr<u8>, size: usize)
-gpa_reallocate(alloc: GPA, ptr: RawPtr<u8>, old_size: usize, new_size: usize) RawPtr<u8>
-default_allocator() GPA
-```
-
----
-
-## Collections
-
-### Vec<T>
-```zen
-Vec<T>: {
-    data: Ptr<T>,
-    len: usize,
-    capacity: usize,
-    allocator: Allocator
-}
-
-Vec<T>.new(allocator: Allocator) Vec<T>
-Vec<T>.push(self: MutPtr<Vec<T>>, elem: T)
-Vec<T>.pop(self: MutPtr<Vec<T>>)
-Vec<T>.get(self: Vec<T>, index: usize) Option<T>
-Vec<T>.len(self: Vec<T>) usize
-Vec<T>.free(self: MutPtr<Vec<T>>)
-```
-
-### String
-```zen
-String: {
-    data: Ptr<u8>,
-    len: usize,
-    capacity: usize,
-    allocator: Allocator
-}
-
-String.new(allocator: Allocator) String
-String.push(self: MutPtr<String>, byte: u8)
-String.len(self: String) usize
-String.at(self: String, index: usize) u8
-String.free(self: MutPtr<String>)
+compiler.bswap16(val: u16) u16
+compiler.bswap32(val: u32) u32
+compiler.bswap64(val: u64) u64
 ```
 
 ---
 
 ## Implementation Status
 
-| Module | Zen Source | Metadata | Codegen | Status |
-|--------|------------|----------|---------|--------|
-| core/option | ✅ Done | ✅ Done | N/A | **Working** |
-| core/result | ✅ Done | ✅ Done | N/A | **Working** |
-| core/ptr | ✅ Done | ✅ Done | N/A | Needs testing |
-| memory/gpa | ✅ Done | ✅ Done | ✅ Done | **Working** |
-| io | Stub | ✅ Done | Partial | print/println work |
-| math | Stub | ✅ Done | ✅ Done | **Working** |
-| string | ✅ Done | ✅ Done | N/A | **Working** |
-| vec | ✅ Done | ✅ Done | N/A | **Working** |
-| collections/hashmap | ❌ Stub | - | - | TODO placeholders |
-| collections/stack | ❌ Empty | - | - | Placeholder only |
-| collections/queue | ⚠️ Partial | - | - | Depends on Vec |
-| collections/set | ⚠️ Partial | - | - | Depends on Vec |
-| fs | Stub | ✅ Done | ❌ No | Not implemented |
-| net | Stub | ✅ Done | ❌ No | Not implemented |
-| ffi | Stub | ✅ Done | ❌ Stubs | inline_c returns void |
+| Module | Status | Notes |
+|--------|--------|-------|
+| **Core** | ✅ Complete | Option, Result, Ptr, MutPtr, Iterator |
+| **Memory** | ✅ Complete | Allocator, GPA, mmap |
+| **Collections** | ✅ Complete | Vec, HashMap, Stack, Queue, Set, LinkedList |
+| **I/O** | ✅ Complete | File, Socket, Pipe, Epoll, etc. (Linux x86-64) |
+| **Sync** | ✅ Complete | Mutex, RwLock, Semaphore, Barrier, Channel, Thread |
+| **Time** | ✅ Complete | Syscall-based clock_gettime, nanosleep |
+| **Sys** | ✅ Complete | uname, env, sched, random |
+| **FFI** | ⚠️ Basic | load_library/get_symbol work, call_external stub |
+
+### Platform Support
+- **Linux x86-64**: Full support via syscalls
+- **Darwin/macOS**: Not yet (different syscall numbers)
+- **Windows**: Not yet (needs NT API)
 
 ---
 
-## Design Principles
+## Example: Syscall-Based File I/O
 
-1. **No Null Pointers** - Use `Option<T>` instead
-2. **Type Safety** - Generics with bounds checking
-3. **Explicit Ownership** - `Ptr<T>` for heap allocations
-4. **Error Handling** - `Result<T, E>` instead of exceptions
-5. **Allocator Aware** - All allocations via `Allocator` trait
-6. **Self-Hosted** - Build stdlib in Zen using compiler intrinsics
+```zen
+// stdlib/io/file.zen
+{ compiler } = @std
 
----
+SYS_OPEN = 2
+SYS_READ = 0
+SYS_WRITE = 1
+SYS_CLOSE = 3
 
-## Known Limitations
+sys_open = (path_ptr: i64, flags: i32, mode: i32) i64 {
+    return compiler.syscall3(SYS_OPEN, path_ptr, flags, mode)
+}
 
-1. **Simplified collections** - HashMap uses linear probing
-2. **Manual iteration** - No iterator trait yet, use index loops
-3. **Limited generic inference** - Complex nested generics may need explicit types
-4. **FFI stubs** - Dynamic library loading not yet functional
-
-## Recently Implemented
-
-- ✅ `memcpy`, `memmove`, `memset`, `memcmp` intrinsics
-- ✅ `load<T>`, `store<T>` generic memory access
-- ✅ `sizeof<T>()`, `alignof<T>()` type introspection
-- ✅ Atomic operations (load, store, add, sub, cas, xchg, fence)
-- ✅ Overflow-checked arithmetic (add_overflow, sub_overflow, mul_overflow)
+sys_read = (fd: i32, buf_ptr: i64, count: usize) i64 {
+    return compiler.syscall3(SYS_READ, fd, buf_ptr, count)
+}
+```
 
 ---
 
-## Adding New Stdlib Functions
+## Example: Futex-Based Mutex
 
-Decision tree:
+```zen
+// stdlib/sync/mutex.zen
+{ compiler } = @std
+{ futex_wait, futex_wake_one } = @std.sync.futex
 
-1. **Can it be pure Zen?** → Add to `stdlib/*.zen`
-2. **Needs LLVM IR?** → Add to `src/codegen/llvm/stdlib_codegen/`
-3. **Needs type metadata?** → Add to `src/stdlib_metadata/`
-4. **Is it a compiler primitive?** → Add to `compiler.rs` in both metadata and codegen
+Mutex.lock = (self: MutPtr<Mutex>) void {
+    // Fast path: CAS 0 -> 1
+    old = compiler.atomic_cas(&self.val.state.ref() as Ptr<u64>, 0, 1)
+    old == 0 ? { return }
+
+    // Slow path: futex wait
+    futex_wait(&self.val.state.ref(), 1)
+}
+
+Mutex.unlock = (self: MutPtr<Mutex>) void {
+    compiler.atomic_store(&self.val.state.ref() as Ptr<u64>, 0)
+    futex_wake_one(&self.val.state.ref())
+}
+```
+
+---
+
+## Adding New Stdlib Modules
+
+1. **Can it use syscalls?** → Use `compiler.syscall*` intrinsics
+2. **Needs atomics?** → Use `compiler.atomic_*` intrinsics
+3. **Pure computation?** → Write in Zen using existing stdlib
+4. **Needs external C lib?** → Use FFI (last resort)
+
+All new modules should follow the header pattern:
+```zen
+// Zen Standard Library: ModuleName (Syscall-based)
+// No FFI - uses compiler.syscall* intrinsics
+// Brief description
+
+{ compiler } = @std
+// ... imports ...
+```

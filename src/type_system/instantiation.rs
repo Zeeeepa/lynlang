@@ -1,7 +1,6 @@
-use super::{TypeEnvironment, TypeSubstitution};
+use super::{TypeEnvironment, TypeSubstitution, generate_instantiated_name};
 use crate::ast::{AstType, EnumDefinition, Expression, Function, Statement, StructDefinition};
 use crate::error::CompileError;
-use crate::stdlib_types::StdlibTypeRegistry;
 
 pub struct TypeInstantiator<'a> {
     env: &'a mut TypeEnvironment,
@@ -274,48 +273,4 @@ impl<'a> TypeInstantiator<'a> {
     }
 }
 
-#[allow(dead_code)]
-fn generate_instantiated_name(base_name: &str, type_args: &[AstType]) -> String {
-    if type_args.is_empty() {
-        return base_name.to_string();
-    }
-
-    let type_names: Vec<String> = type_args.iter().map(type_to_string).collect();
-    format!("{}_{}", base_name, type_names.join("_"))
-}
-
-#[allow(dead_code)]
-fn type_to_string(ast_type: &AstType) -> String {
-    match ast_type {
-        AstType::I8 => "i8".to_string(),
-        AstType::I16 => "i16".to_string(),
-        AstType::I32 => "i32".to_string(),
-        AstType::I64 => "i64".to_string(),
-        AstType::U8 => "u8".to_string(),
-        AstType::U16 => "u16".to_string(),
-        AstType::U32 => "u32".to_string(),
-        AstType::U64 => "u64".to_string(),
-        AstType::F32 => "f32".to_string(),
-        AstType::F64 => "f64".to_string(),
-        AstType::Bool => "bool".to_string(),
-        AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => "string".to_string(),
-        AstType::Void => "void".to_string(),
-        t if t.is_ptr_type() => {
-            if let Some(inner) = t.ptr_inner() {
-                format!("ptr_{}", type_to_string(inner))
-            } else {
-                "ptr".to_string()
-            }
-        }
-        AstType::Array(inner) => format!("arr_{}", type_to_string(inner)),
-        AstType::Generic { name, type_args } => {
-            if type_args.is_empty() {
-                name.clone()
-            } else {
-                let args: Vec<String> = type_args.iter().map(type_to_string).collect();
-                format!("{}_{}", name, args.join("_"))
-            }
-        }
-        _ => "unknown".to_string(),
-    }
-}
+// generate_instantiated_name and type_to_string moved to mod.rs

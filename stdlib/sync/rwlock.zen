@@ -1,0 +1,168 @@
+// Zen Standard Library: RWLock (Syscall-based)
+// No FFI - uses compiler.syscall* intrinsics
+// Reader-writer lock: multiple readers OR one writer
+
+{ compiler } = @std
+{ futex_wait, futex_wake_one, futex_wake_all } = @std.sync.futex
+
+// ============================================================================
+// RWLock State Encoding
+// ============================================================================
+// Bits 0-30: reader count (max ~2 billion concurrent readers)
+// Bit 31: writer flag (0x80000000)
+// Special values:
+//   0 = unlocked
+//   N > 0, bit 31 clear = N readers holding lock
+//   bit 31 set = writer holding or waiting
+
+WRITER_BIT = 2147483648  // 0x80000000
+READER_MASK = 2147483647 // 0x7FFFFFFF
+
+// ============================================================================
+// RWLock - Reader-Writer Lock
+// ============================================================================
+
+RWLock: {
+    state: i32,
+    writer_wake: i32  // Separate futex for writer wakeup
+}
+
+RWLock.new = () RWLock {
+    return RWLock { state: 0, writer_wake: 0 }
+}
+
+// ============================================================================
+// Reader Operations
+// ============================================================================
+
+// Acquire read lock (blocks if writer holds or is waiting)
+RWLock.read_lock = (self: MutPtr<RWLock>) void {
+    // Fast path: try to increment reader count if no writer
+    state = compiler.atomic_load(&self.val.state.ref() as Ptr<u64>) as i32
+    (state & WRITER_BIT) == 0 ? {
+        old = compiler.atomic_cas(&self.val.state.ref() as Ptr<u64>, state, state + 1)
+        old == state ? { return }
+    }
+
+    // Slow path: writer present or CAS failed
+    self.read_lock_slow()
+}
+
+RWLock.read_lock_slow = (self: MutPtr<RWLock>) void {
+    acquired = false
+    acquired == false ? {
+        state = compiler.atomic_load(&self.val.state.ref() as Ptr<u64>) as i32
+
+        // If no writer, try to add ourselves as reader
+        (state & WRITER_BIT) == 0 ? {
+            old = compiler.atomic_cas(&self.val.state.ref() as Ptr<u64>, state, state + 1)
+            old == state ? { acquired = true }
+        }
+
+        // Writer present - wait on futex
+        acquired == false ? {
+            futex_wait(&self.val.state.ref(), state)
+        }
+    }
+}
+
+// Try to acquire read lock without blocking
+RWLock.try_read_lock = (self: MutPtr<RWLock>) bool {
+    state = compiler.atomic_load(&self.val.state.ref() as Ptr<u64>) as i32
+    // Fail if writer holds or is waiting
+    (state & WRITER_BIT) != 0 ? { return false }
+
+    old = compiler.atomic_cas(&self.val.state.ref() as Ptr<u64>, state, state + 1)
+    return old == state
+}
+
+// Release read lock
+RWLock.read_unlock = (self: MutPtr<RWLock>) void {
+    // Decrement reader count
+    done = false
+    done == false ? {
+        state = compiler.atomic_load(&self.val.state.ref() as Ptr<u64>) as i32
+        new_state = state - 1
+        old = compiler.atomic_cas(&self.val.state.ref() as Ptr<u64>, state, new_state)
+        old == state ? { done = true }
+    }
+
+    // If we were the last reader and a writer is waiting, wake it
+    state = compiler.atomic_load(&self.val.state.ref() as Ptr<u64>) as i32
+    state == WRITER_BIT ? {
+        futex_wake_one(&self.val.writer_wake.ref())
+    }
+}
+
+// ============================================================================
+// Writer Operations
+// ============================================================================
+
+// Acquire write lock (exclusive access)
+RWLock.write_lock = (self: MutPtr<RWLock>) void {
+    // Fast path: try to acquire if completely unlocked
+    old = compiler.atomic_cas(&self.val.state.ref() as Ptr<u64>, 0, WRITER_BIT)
+    old == 0 ? { return }
+
+    // Slow path
+    self.write_lock_slow()
+}
+
+RWLock.write_lock_slow = (self: MutPtr<RWLock>) void {
+    // First, set the writer waiting bit
+    done = false
+    done == false ? {
+        state = compiler.atomic_load(&self.val.state.ref() as Ptr<u64>) as i32
+        (state & WRITER_BIT) == 0 ? {
+            old = compiler.atomic_cas(&self.val.state.ref() as Ptr<u64>, state, state | WRITER_BIT)
+            old == state ? { done = true }
+        }
+        // Another writer - wait
+        done == false ? {
+            futex_wait(&self.val.state.ref(), state)
+        }
+    }
+
+    // Wait for readers to drain
+    acquired = false
+    acquired == false ? {
+        state = compiler.atomic_load(&self.val.state.ref() as Ptr<u64>) as i32
+        reader_count = state & READER_MASK
+        reader_count == 0 ? {
+            acquired = true
+        }
+        acquired == false ? {
+            futex_wait(&self.val.writer_wake.ref(), 0)
+        }
+    }
+}
+
+// Try to acquire write lock without blocking
+RWLock.try_write_lock = (self: MutPtr<RWLock>) bool {
+    old = compiler.atomic_cas(&self.val.state.ref() as Ptr<u64>, 0, WRITER_BIT)
+    return old == 0
+}
+
+// Release write lock
+RWLock.write_unlock = (self: MutPtr<RWLock>) void {
+    // Clear writer bit
+    compiler.atomic_store(&self.val.state.ref() as Ptr<u64>, 0)
+    // Wake all waiting readers (and potentially one writer)
+    futex_wake_all(&self.val.state.ref())
+}
+
+// ============================================================================
+// Utility
+// ============================================================================
+
+// Check if any readers hold the lock
+RWLock.reader_count = (self: Ptr<RWLock>) i32 {
+    state = compiler.atomic_load(&self.val.state.ref() as Ptr<u64>) as i32
+    return state & READER_MASK
+}
+
+// Check if writer holds the lock
+RWLock.is_write_locked = (self: Ptr<RWLock>) bool {
+    state = compiler.atomic_load(&self.val.state.ref() as Ptr<u64>) as i32
+    return (state & WRITER_BIT) != 0
+}
