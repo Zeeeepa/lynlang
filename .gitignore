@@ -89,3 +89,4 @@ secrets.yml
 *Bearer*
 *Authorization*
 .opencode/
+vscode-extension/out/extension.js
