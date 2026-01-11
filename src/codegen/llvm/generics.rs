@@ -79,25 +79,6 @@ impl GenericTypeTracker {
 
                     // Recursively track nested generics
                     self.track_generic_type(&type_args[0], &format!("{}_Some", prefix));
-                } else if name == "Array" && type_args.len() == 1 {
-                    self.insert(format!("{}_Element_Type", prefix), type_args[0].clone());
-
-                    // Recursively track nested generics
-                    self.track_generic_type(&type_args[0], &format!("{}_Element", prefix));
-                } else if name == "Vec" && type_args.len() == 1 {
-                    self.insert(format!("{}_Element_Type", prefix), type_args[0].clone());
-
-                    self.track_generic_type(&type_args[0], &format!("{}_Element", prefix));
-                } else if name == "HashMap" && type_args.len() == 2 {
-                    self.insert(format!("{}_Key_Type", prefix), type_args[0].clone());
-                    self.insert(format!("{}_Value_Type", prefix), type_args[1].clone());
-
-                    self.track_generic_type(&type_args[0], &format!("{}_Key", prefix));
-                    self.track_generic_type(&type_args[1], &format!("{}_Value", prefix));
-                } else if name == "HashSet" && type_args.len() == 1 {
-                    self.insert(format!("{}_Element_Type", prefix), type_args[0].clone());
-
-                    self.track_generic_type(&type_args[0], &format!("{}_Element", prefix));
                 } else {
                     // For other generic types, track type arguments by index
                     for (i, arg) in type_args.iter().enumerate() {
@@ -122,7 +103,9 @@ impl GenericTypeTracker {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::ast::AstType;
+    use crate::codegen::llvm::generics::GenericTypeTracker;
+    use crate::well_known::well_known;
 
     #[test]
     fn test_nested_generic_tracking() {
