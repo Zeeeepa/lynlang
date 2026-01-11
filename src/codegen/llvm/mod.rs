@@ -27,7 +27,6 @@ mod patterns;
 mod pointers;
 mod statements;
 mod stdlib_codegen;
-mod strings;
 mod structs;
 mod symbols;
 mod types;
