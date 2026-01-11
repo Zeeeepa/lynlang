@@ -145,7 +145,8 @@ impl ModuleResolver {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::module_system::resolver::ModuleResolver;
+    use std::collections::HashSet;
 
     #[test]
     fn test_resolve_qualified_name() {

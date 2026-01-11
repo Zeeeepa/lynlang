@@ -245,7 +245,7 @@ impl StdlibResolver {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::lsp::stdlib_resolver::StdlibResolver;
 
     #[test]
     fn test_resolve_simple_module() {

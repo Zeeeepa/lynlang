@@ -372,7 +372,7 @@ pub fn format_braces(content: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::formatting::{analyze_line_tokens, format_braces, is_pattern_arm_line};
 
     #[test]
     fn test_analyze_line_braces_in_string() {

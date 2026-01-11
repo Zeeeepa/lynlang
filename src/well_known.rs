@@ -24,14 +24,6 @@ pub enum WellKnownType {
     MutPtr,
     /// RawPtr<T> - raw/unsafe pointer
     RawPtr,
-    /// Vec<T> - growable array
-    Vec,
-    /// HashMap<K,V> - hash map
-    HashMap,
-    /// HashSet<T> - hash set
-    HashSet,
-    /// String - growable string
-    String,
 }
 
 /// Well-known enum variants
@@ -130,39 +122,6 @@ impl WellKnownTypes {
     #[inline]
     pub fn is_raw_ptr(&self, name: &str) -> bool {
         self.get_type(name) == Some(WellKnownType::RawPtr)
-    }
-
-    /// Check if a type name is Vec
-    #[inline]
-    pub fn is_vec(&self, name: &str) -> bool {
-        self.get_type(name) == Some(WellKnownType::Vec)
-    }
-
-    /// Check if a type name is HashMap
-    #[inline]
-    pub fn is_hashmap(&self, name: &str) -> bool {
-        self.get_type(name) == Some(WellKnownType::HashMap)
-    }
-
-    /// Check if a type name is HashSet
-    #[inline]
-    pub fn is_hashset(&self, name: &str) -> bool {
-        self.get_type(name) == Some(WellKnownType::HashSet)
-    }
-
-    /// Check if a type name is String
-    #[inline]
-    pub fn is_string(&self, name: &str) -> bool {
-        self.get_type(name) == Some(WellKnownType::String)
-    }
-
-    /// Check if a type name is any collection type
-    #[inline]
-    pub fn is_collection(&self, name: &str) -> bool {
-        matches!(
-            self.get_type(name),
-            Some(WellKnownType::Vec | WellKnownType::HashMap | WellKnownType::HashSet)
-        )
     }
 
     /// Check if a type name is Option or Result (types with success/failure variants)

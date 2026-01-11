@@ -173,7 +173,7 @@ impl<'ctx> SymbolTable<'ctx> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::codegen::llvm::symbols::{Symbol, SymbolTable};
     use inkwell::context::Context;
 
     #[test]

@@ -508,7 +508,12 @@ pub fn format_type(ast_type: &AstType) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::error::Span;
+    use crate::lexer::Token;
+    use crate::lsp::utils::{
+        analyze_line_tokens, byte_offset_to_lsp_position, find_pattern_match_question,
+        is_pattern_arm_line, span_to_lsp_range, tokenize_with_lines,
+    };
 
     #[test]
     fn test_byte_offset_to_lsp_position_simple() {

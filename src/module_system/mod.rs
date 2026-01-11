@@ -268,7 +268,8 @@ impl ModuleSystem {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::module_system::ModuleSystem;
+    use std::path::PathBuf;
 
     #[test]
     fn test_module_system_creation() {
