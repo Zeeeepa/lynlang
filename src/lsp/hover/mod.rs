@@ -142,12 +142,8 @@ mod handler {
                 }
 
                 // Check for built-in types FIRST (before fallback text search)
-                let builtin_text = builtins::get_builtin_hover_text(&symbol_name);
-                if builtin_text != "Zen language element" {
-                    return create_hover_response_from_string(
-                        request_id.clone(),
-                        builtin_text.to_string(),
-                    );
+                if let Some(builtin_text) = builtins::get_builtin_hover_text(&symbol_name) {
+                    return create_hover_response_from_string(request_id.clone(), builtin_text);
                 }
 
                 // Try to infer type from variable assignment in the current file

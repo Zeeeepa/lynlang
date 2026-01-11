@@ -1,8 +1,225 @@
 // Built-in types hover information
+//
+// This module provides hover text by querying compiler metadata sources:
+// - intrinsics.rs: Compiler intrinsics (@std.compiler.*)
+// - well_known.rs: Option, Result, Ptr types
+// - stdlib_types.rs: Parsed stdlib definitions (Vec, HashMap, String, etc.)
+//
+// Only truly primitive types and keywords are hardcoded here.
+
+use crate::ast::AstType;
+use crate::intrinsics::{get_intrinsic, Intrinsic};
+use crate::stdlib_types::stdlib_types;
+use crate::well_known::{well_known, WellKnownType};
 
 /// Get hover text for built-in types and keywords
-pub fn get_builtin_hover_text(symbol_name: &str) -> &'static str {
-    match symbol_name {
+pub fn get_builtin_hover_text(symbol_name: &str) -> Option<String> {
+    // 1. Check compiler intrinsics first (authoritative source)
+    if let Some(intrinsic) = get_intrinsic(symbol_name) {
+        return Some(format_intrinsic_hover(symbol_name, intrinsic));
+    }
+
+    // 2. Check well-known types (Option, Result, Ptr)
+    if let Some(wkt) = well_known().get_type(symbol_name) {
+        return Some(format_well_known_hover(symbol_name, wkt));
+    }
+
+    // 3. Check stdlib parsed types (Vec, HashMap, String, etc.)
+    if let Some(struct_def) = stdlib_types().get_struct_definition(symbol_name) {
+        return Some(format_stdlib_struct_hover(struct_def));
+    }
+
+    // 4. Primitives and keywords (truly static - OK to hardcode)
+    get_primitive_or_keyword_hover(symbol_name)
+}
+
+/// Format hover for a compiler intrinsic from intrinsics.rs
+fn format_intrinsic_hover(name: &str, intrinsic: &Intrinsic) -> String {
+    let params = intrinsic
+        .params
+        .iter()
+        .map(|(param_name, param_type)| format!("{}: {}", param_name, format_ast_type(param_type)))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let return_type = format_ast_type(&intrinsic.return_type);
+
+    // Check if it's a generic intrinsic (sizeof, alignof, load, store)
+    let generic_suffix = if name == "sizeof" || name == "alignof" || name == "load" || name == "store" {
+        "<T>"
+    } else {
+        ""
+    };
+
+    let description = get_intrinsic_description(name);
+
+    format!(
+        "```zen\n@std.compiler.{}{}({}) -> {}\n```\n\n**Compiler intrinsic**\n\n{}",
+        name, generic_suffix, params, return_type, description
+    )
+}
+
+/// Get description for intrinsics
+fn get_intrinsic_description(name: &str) -> &'static str {
+    match name {
+        // Memory allocation
+        "raw_allocate" => "Allocates raw memory using malloc. Returns null if allocation fails.",
+        "raw_deallocate" => "Deallocates memory previously allocated with raw_allocate.",
+        "raw_reallocate" => "Reallocates memory to new size, preserving existing data.",
+
+        // Pointer operations
+        "null_ptr" | "nullptr" => "Returns a null pointer (address 0).",
+        "gep" => "GetElementPointer - byte-level pointer arithmetic. Offset can be negative.",
+        "gep_struct" => "Returns pointer to struct field at given index.",
+        "raw_ptr_offset" => "Offset a raw pointer by bytes.",
+        "raw_ptr_cast" => "Cast pointer type (zero-cost, affects type only).",
+        "ptr_to_int" => "Convert pointer to integer address.",
+        "int_to_ptr" => "Convert integer address to pointer.",
+
+        // Memory operations
+        "load" => "Load a value from a pointer. Type T is inferred from context.",
+        "store" => "Store a value to a pointer. Type T is inferred from value.",
+        "memcpy" => "Copy bytes from src to dest. Regions must not overlap.",
+        "memmove" => "Copy bytes, safe for overlapping regions.",
+        "memset" => "Set all bytes in memory to a value.",
+        "memcmp" => "Compare bytes in memory. Returns 0 if equal.",
+
+        // Type introspection
+        "sizeof" => "Returns the size of type T in bytes.",
+        "alignof" => "Returns the alignment of type T in bytes.",
+
+        // Enum intrinsics
+        "discriminant" => "Reads the variant tag from an enum.",
+        "set_discriminant" => "Sets the variant tag of an enum.",
+        "get_payload" => "Returns pointer to enum payload data.",
+        "set_payload" => "Sets enum payload data.",
+
+        // Atomic operations
+        "atomic_load" => "Atomically load a value with sequential consistency.",
+        "atomic_store" => "Atomically store a value with sequential consistency.",
+        "atomic_add" => "Atomically add and return old value.",
+        "atomic_sub" => "Atomically subtract and return old value.",
+        "atomic_cas" => "Compare-and-swap. Returns true if swap succeeded.",
+        "atomic_xchg" => "Atomically exchange and return old value.",
+        "fence" => "Memory fence with sequential consistency.",
+
+        // Bitwise operations
+        "bswap16" | "bswap32" | "bswap64" => "Byte swap for endianness conversion.",
+        "ctlz" => "Count leading zero bits.",
+        "cttz" => "Count trailing zero bits.",
+        "ctpop" => "Population count - number of bits set to 1.",
+
+        // Overflow arithmetic
+        "add_overflow" => "Add with overflow detection. Returns {result, overflow}.",
+        "sub_overflow" => "Subtract with overflow detection. Returns {result, overflow}.",
+        "mul_overflow" => "Multiply with overflow detection. Returns {result, overflow}.",
+
+        // Type conversions
+        "trunc_f64_i64" => "Truncate f64 to i64.",
+        "trunc_f32_i32" => "Truncate f32 to i32.",
+        "sitofp_i64_f64" => "Convert signed i64 to f64.",
+        "uitofp_u64_f64" => "Convert unsigned u64 to f64.",
+
+        // Debug/trap
+        "trap" => "Trigger a trap/abort.",
+        "debugtrap" => "Trigger a debug trap (breakpoint).",
+        "unreachable" => "Mark code as unreachable. UB if reached.",
+
+        // Syscalls
+        "syscall0" | "syscall1" | "syscall2" | "syscall3" | "syscall4" | "syscall5" | "syscall6" => {
+            "Linux x86-64 syscall. Number is first arg, then up to 6 arguments."
+        }
+
+        // FFI
+        "load_library" => "Load a dynamic library by path. Returns handle or null.",
+        "get_symbol" => "Get symbol from loaded library. Returns pointer or null.",
+        "unload_library" => "Unload a dynamic library.",
+        "dlerror" => "Get last dynamic loading error message.",
+
+        // Inline C
+        "inline_c" => "Inline C code (for FFI interop).",
+
+        _ => "Compiler intrinsic.",
+    }
+}
+
+/// Format hover for well-known types (Option, Result, Ptr)
+fn format_well_known_hover(_name: &str, wkt: WellKnownType) -> String {
+    match wkt {
+        WellKnownType::Option => {
+            "```zen\nOption<T>:\n    Some: T,\n    None\n```\n\n\
+             **Optional value type**\n\n\
+             - Represents a value that may or may not exist\n\
+             - Use `?` for pattern matching: `opt? | Some(v) { ... } | None { ... }`\n\
+             - No null in Zen - use Option instead"
+                .to_string()
+        }
+        WellKnownType::Result => {
+            "```zen\nResult<T, E>:\n    Ok: T,\n    Err: E\n```\n\n\
+             **Result type for error handling**\n\n\
+             - Represents success (Ok) or failure (Err)\n\
+             - Use `.raise()` for error propagation (like Rust's `?`)\n\
+             - Pattern match with `?` operator"
+                .to_string()
+        }
+        WellKnownType::Ptr => {
+            "```zen\nPtr<T>\n```\n\n\
+             **Immutable pointer**\n\n\
+             - Safe, non-null pointer to T\n\
+             - Use `.deref()` to read the value\n\
+             - Cannot be reassigned after creation"
+                .to_string()
+        }
+        WellKnownType::MutPtr => {
+            "```zen\nMutPtr<T>\n```\n\n\
+             **Mutable pointer**\n\n\
+             - Safe, non-null pointer to T\n\
+             - Use `.val` to read/write the value\n\
+             - Required for mutating struct fields"
+                .to_string()
+        }
+        WellKnownType::RawPtr => {
+            "```zen\nRawPtr<T>\n```\n\n\
+             **Raw/unsafe pointer**\n\n\
+             - Can be null - check with `compiler.is_null()`\n\
+             - Used for FFI and low-level memory operations\n\
+             - No safety guarantees"
+                .to_string()
+        }
+    }
+}
+
+/// Format hover for stdlib struct from parsed .zen files
+fn format_stdlib_struct_hover(struct_def: &crate::ast::StructDefinition) -> String {
+    let fields = struct_def
+        .fields
+        .iter()
+        .map(|f| format!("    {}: {}", f.name, format_ast_type(&f.type_)))
+        .collect::<Vec<_>>()
+        .join(",\n");
+
+    let generic_params = if struct_def.type_params.is_empty() {
+        String::new()
+    } else {
+        let params: Vec<_> = struct_def.type_params.iter().map(|p| p.name.as_str()).collect();
+        format!("<{}>", params.join(", "))
+    };
+
+    format!(
+        "```zen\n{}{}: {{\n{}\n}}\n```\n\n**Stdlib type**",
+        struct_def.name, generic_params, fields
+    )
+}
+
+/// Format AstType for display
+fn format_ast_type(ty: &AstType) -> String {
+    // Use the Display impl which handles all cases correctly
+    format!("{}", ty)
+}
+
+/// Get hover for truly primitive types and keywords (OK to hardcode)
+fn get_primitive_or_keyword_hover(symbol_name: &str) -> Option<String> {
+    let text = match symbol_name {
         // Primitive integer types
         "i8" => "```zen\ni8\n```\n\n**Signed 8-bit integer**\n- Range: -128 to 127\n- Size: 1 byte",
         "i16" => "```zen\ni16\n```\n\n**Signed 16-bit integer**\n- Range: -32,768 to 32,767\n- Size: 2 bytes",
@@ -24,57 +241,18 @@ pub fn get_builtin_hover_text(symbol_name: &str) -> &'static str {
         // Void
         "void" => "```zen\nvoid\n```\n\n**Void type**\n- Represents the absence of a value\n- Used as return type for functions with no return",
 
-        // Option and Result
-        "Option" => "```zen\nOption<T>:\n    Some: T,\n    None\n```\n\n**Optional value type**\n- Represents a value that may or may not exist\n- No null/nil in Zen!",
-        "Result" => "```zen\nResult<T, E>:\n    Ok: T,\n    Err: E\n```\n\n**Result type for error handling**\n- Represents success (Ok) or failure (Err)\n- Use `.raise()` for error propagation",
-
-        // Collections
-        "HashMap" => "```zen\nHashMap<K, V>\n```\n\n**Hash map collection**\n- Key-value storage with O(1) average lookup\n- Requires allocator",
-        "DynVec" => "```zen\nDynVec<T>\n```\n\n**Dynamic vector**\n- Growable array\n- Requires allocator",
-        "Vec" => "```zen\nVec<T, size>\n```\n\n**Fixed-size vector**\n- Stack-allocated\n- Compile-time size\n- No allocator needed",
-        "Array" => "```zen\nArray<T>\n```\n\n**Dynamic array**\n- Requires allocator",
-
-        // String types
-        "String" => "```zen\nString\n```\n\n**Dynamic string type**\n- Mutable, heap-allocated\n- Requires allocator",
-        "StaticString" => "```zen\nStaticString\n```\n\n**Static string type**\n- Immutable, compile-time\n- No allocator needed",
-
         // Keywords
-        "loop" => "```zen\nloop() { ... }\nloop((handle) { ... })\n(range).loop((i) { ... })\n```\n\n**Loop construct**\n- Internal state management\n- Can provide control handle or iteration values",
-        "return" => "```zen\nreturn expr\n```\n\n**Return statement**\n- Returns a value from a function",
-        "break" => "```zen\nbreak\n```\n\n**Break statement**\n- Exits the current loop",
+        "loop" => "```zen\nloop { ... }\nloop (i in range) { ... }\n```\n\n**Loop construct**\n- Infinite loop or iterator-based\n- Use `break` to exit, `continue` to skip",
+        "return" => "```zen\nreturn expr\n```\n\n**Return statement**\n- Returns a value from a function\n- Type must match function return type",
+        "break" => "```zen\nbreak\n```\n\n**Break statement**\n- Exits the current loop immediately",
         "continue" => "```zen\ncontinue\n```\n\n**Continue statement**\n- Skips to the next loop iteration",
 
-        // Error handling
+        // Error handling keyword
         "raise" => "```zen\nexpr.raise()\n```\n\n**Error propagation**\n- Unwraps Result<T, E> or returns Err early\n- Equivalent to Rust's `?` operator",
 
-        "raw_allocate" => "```zen\n@std.compiler.raw_allocate(size: usize) -> *u8\n```\n\n**Memory allocation**\n- Allocates raw memory using malloc\n- Returns null if allocation fails",
-        "raw_deallocate" => "```zen\n@std.compiler.raw_deallocate(ptr: *u8, size: usize) -> void\n```\n\n**Memory deallocation**\n- Deallocates memory previously allocated with raw_allocate",
-        "raw_reallocate" => "```zen\n@std.compiler.raw_reallocate(ptr: *u8, old_size: usize, new_size: usize) -> *u8\n```\n\n**Memory reallocation**\n- Reallocates memory to new size, preserving data",
-        "gep" => "```zen\n@std.compiler.gep(base_ptr: *u8, offset: i64) -> *u8\n```\n\n**GetElementPointer**\n- Byte-level pointer arithmetic\n- Offset can be negative",
-        "gep_struct" => "```zen\n@std.compiler.gep_struct(struct_ptr: *u8, field_index: i32) -> *u8\n```\n\n**Struct field access**\n- Returns pointer to field at given index",
-        "null_ptr" | "nullptr" => "```zen\n@std.compiler.null_ptr() -> *u8\n```\n\n**Null pointer constant**\n- Returns a null pointer (address 0)",
-        "sizeof" => "```zen\n@std.compiler.sizeof<T>() -> usize\n```\n\n**Type size**\n- Returns the size of a type in bytes",
-        "alignof" => "```zen\n@std.compiler.alignof<T>() -> usize\n```\n\n**Type alignment**\n- Returns the alignment of a type in bytes",
-        "load" => "```zen\n@std.compiler.load(ptr: *u8) -> T\n```\n\n**Memory load**\n- Load a value from a pointer",
-        "store" => "```zen\n@std.compiler.store(ptr: *u8, value: T) -> void\n```\n\n**Memory store**\n- Store a value to a pointer",
-        "memcpy" => "```zen\n@std.compiler.memcpy(dest: *u8, src: *u8, size: usize) -> void\n```\n\n**Memory copy**\n- Copy bytes (regions must not overlap)",
-        "memmove" => "```zen\n@std.compiler.memmove(dest: *u8, src: *u8, size: usize) -> void\n```\n\n**Memory move**\n- Copy bytes (safe for overlapping regions)",
-        "memset" => "```zen\n@std.compiler.memset(dest: *u8, value: u8, size: usize) -> void\n```\n\n**Memory set**\n- Set all bytes in memory to a value",
-        "memcmp" => "```zen\n@std.compiler.memcmp(ptr1: *u8, ptr2: *u8, size: usize) -> i32\n```\n\n**Memory compare**\n- Compare bytes in memory",
-        "discriminant" => "```zen\n@std.compiler.discriminant(enum_ptr: *u8) -> i32\n```\n\n**Enum discriminant**\n- Reads the variant tag from an enum",
-        "set_discriminant" => "```zen\n@std.compiler.set_discriminant(enum_ptr: *u8, discriminant: i32) -> void\n```\n\n**Set enum discriminant**\n- Sets the variant tag of an enum",
-        "get_payload" => "```zen\n@std.compiler.get_payload(enum_ptr: *u8) -> *u8\n```\n\n**Get enum payload**\n- Returns pointer to payload data",
-        "atomic_load" => "```zen\n@std.compiler.atomic_load(ptr: *u64) -> u64\n```\n\n**Atomic load**\n- Atomically load a value",
-        "atomic_store" => "```zen\n@std.compiler.atomic_store(ptr: *u64, value: u64) -> void\n```\n\n**Atomic store**\n- Atomically store a value",
-        "atomic_add" => "```zen\n@std.compiler.atomic_add(ptr: *u64, value: u64) -> u64\n```\n\n**Atomic add**\n- Atomically add and return old value",
-        "atomic_cas" => "```zen\n@std.compiler.atomic_cas(ptr: *u64, expected: u64, new: u64) -> bool\n```\n\n**Compare-and-swap**\n- Returns true if swap succeeded",
-        "bswap16" | "bswap32" | "bswap64" => "```zen\n@std.compiler.bswap*(value) -> same_type\n```\n\n**Byte swap**\n- Swap bytes for endian conversion",
-        "ctlz" => "```zen\n@std.compiler.ctlz(value: u64) -> u64\n```\n\n**Count leading zeros**\n- Returns number of leading zero bits",
-        "cttz" => "```zen\n@std.compiler.cttz(value: u64) -> u64\n```\n\n**Count trailing zeros**\n- Returns number of trailing zero bits",
-        "ctpop" => "```zen\n@std.compiler.ctpop(value: u64) -> u64\n```\n\n**Population count**\n- Returns number of bits set to 1",
-        "trap" => "```zen\n@std.compiler.trap() -> void\n```\n\n**Trap**\n- Trigger a trap/abort",
-        "unreachable" => "```zen\n@std.compiler.unreachable() -> void\n```\n\n**Unreachable**\n- Mark code as unreachable (UB if reached)",
+        _ => return None,
+    };
 
-        _ => "Zen language element",
-    }
+    Some(text.to_string())
 }
+
