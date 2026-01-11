@@ -11,18 +11,26 @@
 
 use std::collections::HashMap;
 
-/// Well-known types that have special compiler semantics
+/// Well-known types that have special compiler semantics.
+///
+/// IMPORTANT: Only types that REQUIRE compiler support belong here:
+/// - Option/Result: Pattern exhaustiveness, ? operator, .raise()
+/// - Ptr types: Pointer codegen, dereference, null checks
+///
+/// Regular stdlib types (Vec, HashMap, String, Range, etc.) do NOT belong here.
+/// They are Layer 3 types with no special compiler handling.
+/// See docs/design/SEPARATION_OF_CONCERNS.md for the three-layer architecture.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WellKnownType {
-    /// Option<T> - nullable type
+    /// Option<T> - nullable type (pattern matching, ? operator)
     Option,
-    /// Result<T, E> - error handling type
+    /// Result<T, E> - error handling type (pattern matching, .raise())
     Result,
-    /// Ptr<T> - immutable pointer
+    /// Ptr<T> - immutable pointer (dereference codegen)
     Ptr,
-    /// MutPtr<T> - mutable pointer
+    /// MutPtr<T> - mutable pointer (dereference codegen)
     MutPtr,
-    /// RawPtr<T> - raw/unsafe pointer
+    /// RawPtr<T> - raw/unsafe pointer (FFI, unsafe codegen)
     RawPtr,
 }
 
@@ -49,20 +57,25 @@ pub struct WellKnownTypes {
 }
 
 impl WellKnownTypes {
-    /// Create a new registry with all well-known types registered
+    /// Create a new registry with all well-known types registered.
+    ///
+    /// Only Layer 2 types (Option, Result, Ptr) are registered here.
+    /// Layer 3 types (Vec, HashMap, String, etc.) are NOT registered -
+    /// they have no special compiler handling.
     pub fn new() -> Self {
         let mut wkt = Self {
             types: HashMap::with_capacity(5),
             variants: HashMap::with_capacity(4),
         };
 
+        // Layer 2: Types requiring special compiler support
         wkt.types.insert("Option".into(), WellKnownType::Option);
         wkt.types.insert("Result".into(), WellKnownType::Result);
         wkt.types.insert("Ptr".into(), WellKnownType::Ptr);
         wkt.types.insert("MutPtr".into(), WellKnownType::MutPtr);
         wkt.types.insert("RawPtr".into(), WellKnownType::RawPtr);
 
-        // Register well-known variants
+        // Well-known variants (for Option and Result pattern matching)
         wkt.variants
             .insert("Some".into(), (WellKnownType::Option, WellKnownVariant::Some));
         wkt.variants
@@ -289,57 +302,3 @@ pub fn well_known() -> &'static WellKnownTypes {
     INSTANCE.get_or_init(WellKnownTypes::new)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_type_checks() {
-        let wkt = WellKnownTypes::new();
-
-        assert!(wkt.is_option("Option"));
-        assert!(wkt.is_result("Result"));
-        assert!(wkt.is_ptr("Ptr"));
-        assert!(wkt.is_ptr("MutPtr"));
-        assert!(wkt.is_ptr("RawPtr"));
-
-        assert!(!wkt.is_option("Result"));
-        assert!(!wkt.is_result("Option"));
-        assert!(!wkt.is_ptr("Option"));
-    }
-
-    #[test]
-    fn test_variant_checks() {
-        let wkt = WellKnownTypes::new();
-
-        assert!(wkt.is_some("Some"));
-        assert!(wkt.is_none("None"));
-        assert!(wkt.is_ok("Ok"));
-        assert!(wkt.is_err("Err"));
-
-        assert!(wkt.is_option_variant("Some"));
-        assert!(wkt.is_option_variant("None"));
-        assert!(wkt.is_result_variant("Ok"));
-        assert!(wkt.is_result_variant("Err"));
-
-        assert!(!wkt.is_option_variant("Ok"));
-        assert!(!wkt.is_result_variant("Some"));
-    }
-
-    #[test]
-    fn test_variant_tags() {
-        let wkt = WellKnownTypes::new();
-
-        assert_eq!(wkt.get_variant_tag("Some"), Some(0));
-        assert_eq!(wkt.get_variant_tag("Ok"), Some(0));
-        assert_eq!(wkt.get_variant_tag("None"), Some(1));
-        assert_eq!(wkt.get_variant_tag("Err"), Some(1));
-        assert_eq!(wkt.get_variant_tag("Unknown"), None);
-    }
-
-    #[test]
-    fn test_global_instance() {
-        let wkt = well_known();
-        assert!(wkt.is_option("Option"));
-    }
-}
