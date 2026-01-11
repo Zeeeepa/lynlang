@@ -259,11 +259,51 @@ impl TypeChecker {
             ctx.register_enum(name.clone(), info.variants.clone());
         }
 
-        // Register methods from behavior resolver
+        // Register methods from behavior resolver (inherent methods - impl blocks without trait)
         for (type_name, methods) in &self.behavior_resolver.inherent_methods {
             for method in methods {
-                ctx.register_method(type_name, &method.name, method.return_type.clone());
+                // Convert param_types to named params (using index-based names)
+                let params: Vec<(String, AstType)> = method
+                    .param_types
+                    .iter()
+                    .enumerate()
+                    .map(|(i, t)| (format!("arg{}", i), t.clone()))
+                    .collect();
+                ctx.register_method_with_params(
+                    type_name,
+                    &method.name,
+                    params,
+                    method.return_type.clone(),
+                );
+
+                // Register constructors (methods that return the type itself)
+                // Common patterns: new, create, default, with_capacity, etc.
+                let is_constructor = method.name == "new"
+                    || method.name == "create"
+                    || method.name == "default"
+                    || method.name.starts_with("with_")
+                    || method.name.starts_with("from_");
+
+                if is_constructor {
+                    // The return type should resolve to an instance of the type
+                    let constructor_return = match &method.return_type {
+                        AstType::Generic { name, type_args } if name == type_name => {
+                            // Method returns Self or the implementing type
+                            AstType::Generic {
+                                name: type_name.clone(),
+                                type_args: type_args.clone(),
+                            }
+                        }
+                        other => other.clone(),
+                    };
+                    ctx.register_constructor(type_name, &method.name, constructor_return);
+                }
             }
+        }
+
+        // Register behavior implementations
+        for ((type_name, behavior_name), _impl_info) in self.behavior_resolver.implementations() {
+            ctx.register_behavior_impl(type_name, behavior_name);
         }
 
         ctx
@@ -988,9 +1028,10 @@ impl TypeChecker {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::error::CompileError;
     use crate::lexer::Lexer;
     use crate::parser::Parser;
+    use crate::typechecker::TypeChecker;
 
     #[test]
     fn test_basic_type_checking() {
