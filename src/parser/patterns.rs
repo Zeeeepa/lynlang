@@ -14,14 +14,15 @@ impl<'a> Parser<'a> {
             }
             Token::Integer(_) | Token::Float(_) | Token::StringLiteral(_) => {
                 // Literal pattern or range pattern
-                let expr = self.parse_expression()?;
+                // Use pattern expression parser to avoid treating | as bitwise OR
+                let expr = self.parse_pattern_expression()?;
 
                 // Check for range pattern: 0..10 or 0..=10
                 if let Token::Operator(op) = &self.current_token {
                     if op == ".." || op == "..=" {
                         let inclusive = op == "..=";
                         self.next_token(); // consume range operator
-                        let end_expr = self.parse_expression()?;
+                        let end_expr = self.parse_pattern_expression()?;
                         return Ok(Pattern::Range {
                             start: Box::new(expr),
                             end: Box::new(end_expr),
@@ -31,6 +32,43 @@ impl<'a> Parser<'a> {
                 }
 
                 Ok(Pattern::Literal(expr))
+            }
+            // Handle negative number patterns: -9, -3.14, etc.
+            Token::Operator(op) if op == "-" => {
+                self.next_token(); // consume '-'
+                match &self.current_token {
+                    Token::Integer(val) => {
+                        let val = val.clone();
+                        self.next_token();
+                        // Create a negative literal by negating the integer
+                        if let Ok(n) = val.parse::<i64>() {
+                            Ok(Pattern::Literal(Expression::Integer64(-n)))
+                        } else if let Ok(n) = val.parse::<i32>() {
+                            Ok(Pattern::Literal(Expression::Integer32(-n)))
+                        } else {
+                            Err(CompileError::SyntaxError(
+                                format!("Invalid negative integer: -{}", val),
+                                Some(self.current_span.clone()),
+                            ))
+                        }
+                    }
+                    Token::Float(val) => {
+                        let val = val.clone();
+                        self.next_token();
+                        if let Ok(n) = val.parse::<f64>() {
+                            Ok(Pattern::Literal(Expression::Float64(-n)))
+                        } else {
+                            Err(CompileError::SyntaxError(
+                                format!("Invalid negative float: -{}", val),
+                                Some(self.current_span.clone()),
+                            ))
+                        }
+                    }
+                    _ => Err(CompileError::SyntaxError(
+                        "Expected number after '-' in pattern".to_string(),
+                        Some(self.current_span.clone()),
+                    ))
+                }
             }
             Token::Symbol('.') => {
                 // Shorthand enum variant pattern: .Variant or .Variant(payload)

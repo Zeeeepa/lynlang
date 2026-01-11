@@ -500,7 +500,10 @@ fn try_compile_direct_call<'ctx>(
     let args_metadata = compile_and_convert_args(compiler, args, &param_types)?;
     let call = compiler.builder.build_call(function, &args_metadata, "calltmp")?;
 
-    if let Some(return_type) = compiler.function_types.get(name).cloned() {
+    // Check TypeContext first, then local cache
+    let return_type = compiler.type_ctx.get_function_return_type(name)
+        .or_else(|| compiler.function_types.get(name).cloned());
+    if let Some(return_type) = return_type {
         track_generic_return_type(compiler, &return_type);
     }
     if function.get_type().get_return_type().is_none() {

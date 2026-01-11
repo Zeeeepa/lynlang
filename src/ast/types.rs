@@ -160,6 +160,17 @@ impl AstType {
             _ => None,
         }
     }
+
+    /// Get the type name for struct, enum, and generic types
+    /// Returns None for primitive types
+    pub fn get_type_name(&self) -> Option<String> {
+        match self {
+            AstType::Struct { name, .. } => Some(name.clone()),
+            AstType::Enum { name, .. } => Some(name.clone()),
+            AstType::Generic { name, .. } => Some(name.clone()),
+            _ => None,
+        }
+    }
 }
 
 // Display implementation for generating clean type names

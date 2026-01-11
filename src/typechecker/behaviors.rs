@@ -5,7 +5,6 @@ use crate::error::{CompileError, Result};
 use std::collections::HashMap;
 
 /// Tracks behaviors, implementations, and provides trait resolution
-#[allow(dead_code)]
 pub struct BehaviorResolver {
     /// All defined behaviors/traits
     behaviors: HashMap<String, BehaviorInfo>,
@@ -16,7 +15,6 @@ pub struct BehaviorResolver {
 }
 
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub struct BehaviorInfo {
     pub name: String,
     pub type_params: Vec<String>,
@@ -24,7 +22,6 @@ pub struct BehaviorInfo {
 }
 
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub struct BehaviorMethodInfo {
     pub name: String,
     pub param_types: Vec<AstType>,
@@ -33,7 +30,6 @@ pub struct BehaviorMethodInfo {
 }
 
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub struct ImplInfo {
     pub type_name: String,
     pub trait_name: String,
@@ -42,7 +38,6 @@ pub struct ImplInfo {
 }
 
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub struct MethodInfo {
     pub name: String,
     pub param_types: Vec<AstType>,
@@ -50,7 +45,6 @@ pub struct MethodInfo {
 }
 
 impl BehaviorResolver {
-    #[allow(dead_code)]
     pub fn new() -> Self {
         let mut behaviors = HashMap::new();
 
@@ -113,7 +107,6 @@ impl BehaviorResolver {
     }
 
     /// Register a behavior definition
-    #[allow(dead_code)]
     pub fn register_behavior(&mut self, behavior: &BehaviorDefinition) -> Result<()> {
         if self.behaviors.contains_key(&behavior.name) {
             return Err(CompileError::TypeError(
@@ -152,7 +145,6 @@ impl BehaviorResolver {
     }
 
     /// Register a trait definition (using same storage as behaviors)
-    #[allow(dead_code)]
     pub fn register_trait(&mut self, trait_def: &TraitDefinition) -> Result<()> {
         let methods: Vec<BehaviorMethodInfo> = trait_def
             .methods
@@ -253,7 +245,6 @@ impl BehaviorResolver {
     }
 
     /// Register an implementation block
-    #[allow(dead_code)]
     pub fn register_trait_implementation(
         &mut self,
         trait_impl: &TraitImplementation,
@@ -312,7 +303,6 @@ impl BehaviorResolver {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub fn register_trait_requirement(&mut self, trait_req: &TraitRequirement) -> Result<()> {
         // Register that a type requires a trait
         // This is mainly for enum variants that must all implement a trait
@@ -327,7 +317,6 @@ impl BehaviorResolver {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub fn verify_trait_implementation(&mut self, trait_impl: &TraitImplementation) -> Result<()> {
         // Verify that the implementation satisfies the trait
         if let Some(behavior) = self.behaviors.get(&trait_impl.trait_name) {
@@ -459,7 +448,6 @@ impl BehaviorResolver {
         expected == actual
     }
 
-    #[allow(dead_code)]
     pub fn verify_trait_requirement(&mut self, trait_req: &TraitRequirement) -> Result<()> {
         // Verify that a trait requirement is valid
         if !self.behaviors.contains_key(&trait_req.trait_name) {
@@ -471,22 +459,7 @@ impl BehaviorResolver {
         Ok(())
     }
 
-    /// Check if a type implements a trait
-    #[allow(dead_code)]
-    pub fn type_implements(&self, type_name: &str, trait_name: &str) -> bool {
-        self.implementations
-            .contains_key(&(type_name.to_string(), trait_name.to_string()))
-    }
-
-    /// Get the implementation of a behavior for a type
-    #[allow(dead_code)]
-    pub fn get_impl(&self, type_name: &str, behavior_name: &str) -> Option<&ImplInfo> {
-        self.implementations
-            .get(&(type_name.to_string(), behavior_name.to_string()))
-    }
-
     /// Resolve a method call on a type
-    #[allow(dead_code)]
     pub fn resolve_method(&self, type_name: &str, method_name: &str) -> Option<MethodInfo> {
         // First check inherent methods
         if let Some(methods) = self.inherent_methods.get(type_name) {
@@ -507,14 +480,9 @@ impl BehaviorResolver {
         None
     }
 
-    /// Get all behaviors implemented by a type
-    #[allow(dead_code)]
-    pub fn get_implemented_behaviors(&self, type_name: &str) -> Vec<String> {
-        self.implementations
-            .keys()
-            .filter(|(t, _)| t == type_name)
-            .map(|(_, b)| b.clone())
-            .collect()
+    /// Get all implementations for building TypeContext
+    pub fn implementations(&self) -> &HashMap<(String, String), ImplInfo> {
+        &self.implementations
     }
 }
 

@@ -1,3 +1,21 @@
+//! Type inference for codegen.
+//!
+//! ⚠️  ARCHITECTURAL WARNING - READ BEFORE MODIFYING ⚠️
+//!
+//! This file contains TECHNICAL DEBT that should be removed, not extended.
+//!
+//! DO NOT add hardcoded type names for stdlib types (Vec, HashMap, String, etc.)
+//! These are Layer 3 types that should have NO special compiler handling.
+//! See ARCHITECTURE.md in this directory and docs/design/SEPARATION_OF_CONCERNS.md
+//!
+//! The correct approach:
+//! 1. Typechecker populates TypeContext with all type information
+//! 2. Codegen queries TypeContext (compiler.type_ctx)
+//! 3. NO hardcoded fallbacks for stdlib types
+//!
+//! Only Layer 1 primitives (i32, bool, intrinsics) and Layer 2 well-known types
+//! (Option, Result, Ptr via compiler.well_known) should have special handling.
+
 use crate::codegen::llvm::{symbols, LLVMCompiler};
 use crate::ast::{AstType, Expression};
 use crate::error::CompileError;
@@ -13,6 +31,11 @@ fn lookup_struct_field_type(
     struct_name: &str,
     member: &str,
 ) -> Result<AstType, CompileError> {
+    // Check TypeContext first (from typechecker)
+    if let Some(field_type) = compiler.type_ctx.get_struct_field_type(struct_name, member) {
+        return Ok(field_type);
+    }
+    // Fall back to local struct_types cache
     if let Some(struct_info) = compiler.struct_types.get(struct_name) {
         if let Some((_index, field_type)) = struct_info.fields.get(member) {
             Ok(field_type.clone())
@@ -76,16 +99,22 @@ pub fn infer_expression_type(
             payload,
         } => infer_enum_variant_type(compiler, enum_name, variant, payload),
         Expression::FunctionCall { name, .. } => {
-            // Handle Range constructors
-            if name == "Range.new" || name == "Range.with_step" {
-                return Ok(AstType::Struct {
-                    name: "Range".to_string(),
-                    fields: vec![
-                        ("current".to_string(), AstType::I64),
-                        ("end".to_string(), AstType::I64),
-                        ("step".to_string(), AstType::I64),
-                    ],
-                });
+            // Check TypeContext for function return type (includes Type.method style)
+            if let Some(return_type) = compiler.type_ctx.get_function_return_type(name) {
+                return Ok(return_type);
+            }
+            // Check function_types map
+            if let Some(return_type) = compiler.function_types.get(name) {
+                return Ok(return_type.clone());
+            }
+            // Check StdlibTypeRegistry for Type.method calls
+            if let Some(dot_pos) = name.find('.') {
+                let type_name = &name[..dot_pos];
+                let method_name = &name[dot_pos + 1..];
+                let registry = crate::stdlib_types::stdlib_types();
+                if let Some(return_type) = registry.get_method_return_type(type_name, method_name) {
+                    return Ok(return_type.clone());
+                }
             }
 
             // Handle both "compiler." and "builtin." prefixes for intrinsics
@@ -118,8 +147,10 @@ pub fn infer_expression_type(
                 }
             }
 
-            // Check if we know the function's return type
-            if let Some(return_type) = compiler.function_types.get(name) {
+            // Check TypeContext first (from typechecker), then fall back to local cache
+            if let Some(return_type) = compiler.type_ctx.get_function_return_type(name) {
+                Ok(return_type)
+            } else if let Some(return_type) = compiler.function_types.get(name) {
                 Ok(return_type.clone())
             } else if let Ok((_alloca, var_type)) = compiler.get_variable(name) {
                 // It's a function pointer variable - get the return type
@@ -515,8 +546,10 @@ pub fn infer_closure_return_type(
                     }],
                 })
             } else {
-                // Check if we know the function's return type
-                if let Some(return_type) = compiler.function_types.get(name) {
+                // Check TypeContext first, then local cache
+                if let Some(return_type) = compiler.type_ctx.get_function_return_type(name) {
+                    Ok(return_type)
+                } else if let Some(return_type) = compiler.function_types.get(name) {
                     Ok(return_type.clone())
                 } else {
                     Ok(AstType::I32) // Default
@@ -644,6 +677,22 @@ fn infer_custom_enum_type(
     compiler: &LLVMCompiler,
     enum_name: &str,
 ) -> Result<AstType, CompileError> {
+    // Check TypeContext first (from typechecker)
+    if let Some(variants) = compiler.type_ctx.get_enum_variants(enum_name) {
+        let variants = variants
+            .iter()
+            .map(|(name, payload)| crate::ast::EnumVariant {
+                name: name.clone(),
+                payload: payload.clone(),
+            })
+            .collect();
+        return Ok(AstType::Enum {
+            name: enum_name.to_string(),
+            variants,
+        });
+    }
+
+    // Fall back to symbol table
     if let Some(symbols::Symbol::EnumType(enum_info)) = compiler.symbols.lookup(enum_name) {
         let variants = enum_info
             .variants
@@ -777,49 +826,50 @@ fn infer_constructor_type(
             }
         }
 
-        // Non-generic constructors
-        return Ok(match name.as_str() {
-            "Array" => AstType::Generic {
-                name: "Array".to_string(),
-                type_args: vec![AstType::I32],
-            },
-            "HashMap" => AstType::Generic {
-                name: "HashMap".to_string(),
-                type_args: vec![crate::ast::resolve_string_struct_type(), AstType::I32],
-            },
-            "HashSet" => AstType::Generic {
-                name: "HashSet".to_string(),
-                type_args: vec![AstType::I32],
-            },
-            "DynVec" => AstType::Generic {
-                name: "DynVec".to_string(),
-                type_args: vec![AstType::I32],
-            },
-            "Vec" => AstType::Generic {
-                name: "Vec".to_string(),
-                type_args: vec![AstType::I32],
-            },
-            "GPA" => AstType::Struct {
-                name: "GPA".to_string(),
-                fields: vec![],
-            },
-            "AsyncPool" => AstType::Struct {
-                name: "AsyncPool".to_string(),
-                fields: vec![],
-            },
-            "String" => AstType::Struct {
-                name: "String".to_string(),
-                fields: vec![],
-            },
-            "Range" => AstType::Struct {
-                name: "Range".to_string(),
-                fields: vec![
-                    ("current".to_string(), AstType::I64),
-                    ("end".to_string(), AstType::I64),
-                    ("step".to_string(), AstType::I64),
-                ],
-            },
-            _ => AstType::Void,
+        // Check TypeContext for constructor return type (user-defined types)
+        let base_method = if let Some(angle_pos) = method.find('<') {
+            &method[..angle_pos]
+        } else {
+            method
+        };
+
+        // First check the dedicated constructors map
+        if let Some(return_type) = compiler.type_ctx.get_constructor_type(name, base_method) {
+            return Ok(return_type);
+        }
+
+        // Then check method return types
+        if let Some(return_type) = compiler.type_ctx.get_method_return_type(name, base_method) {
+            return Ok(return_type);
+        }
+
+        // Also check qualified function name
+        let qualified = format!("{}.{}", name, base_method);
+        if let Some(return_type) = compiler.type_ctx.get_function_return_type(&qualified) {
+            return Ok(return_type);
+        }
+
+        // Check StdlibTypeRegistry for constructor return type
+        let registry = crate::stdlib_types::stdlib_types();
+        if let Some(return_type) = registry.get_method_return_type(name, base_method) {
+            return Ok(return_type.clone());
+        }
+
+        // Check struct definitions (non-generic types like GPA, String)
+        if compiler.type_ctx.has_struct(name) {
+            if let Some(fields) = compiler.type_ctx.get_struct_fields(name) {
+                return Ok(AstType::Struct {
+                    name: name.to_string(),
+                    fields: fields.clone(),
+                });
+            }
+        }
+
+        // For unknown types, return struct with empty fields
+        // (typechecker should have caught any real errors)
+        return Ok(AstType::Struct {
+            name: name.to_string(),
+            fields: vec![],
         });
     }
     Ok(AstType::Void)
@@ -831,160 +881,118 @@ fn infer_common_method_type(
     object: &Expression,
     method: &str,
 ) -> Result<AstType, CompileError> {
-    let option_name = compiler
-        .well_known
-        .get_variant_parent_name(compiler.well_known.some_name())
-        .unwrap_or(compiler.well_known.option_name());
-
-    match method {
-        // Numeric methods - return same type as input
-        "abs" | "min" | "max" => compiler.infer_expression_type(object),
-
-        // Size methods
-        "len" | "size" | "length" => Ok(AstType::I64),
-        "is_empty" => Ok(AstType::Bool),
-
-        // Conversion methods
-        "to_i32" => Ok(AstType::Generic {
-            name: option_name.to_string(),
-            type_args: vec![AstType::I32],
-        }),
-        "to_i64" => Ok(AstType::Generic {
-            name: option_name.to_string(),
-            type_args: vec![AstType::I64],
-        }),
-        "to_f64" => Ok(AstType::Generic {
-            name: option_name.to_string(),
-            type_args: vec![AstType::F64],
-        }),
-
-        // String methods
-        "contains" | "starts_with" | "ends_with" => Ok(AstType::Bool),
-        "index_of" => Ok(AstType::I64),
-        "substr" | "trim" | "to_upper" | "to_lower" => Ok(AstType::StaticString),
-        "split" => Ok(AstType::Generic {
-            name: "Array".to_string(),
-            type_args: vec![AstType::StaticString],
-        }),
-        "char_at" => Ok(AstType::I32),
-
-        // Collection access methods
-        "get" | "remove" | "insert" | "pop" => {
-            infer_collection_access_type(compiler, object, method, option_name)
-        }
-
-        // Collection mutation methods
-        "push" | "set" | "clear" => Ok(AstType::Void),
-        "add" => Ok(AstType::Bool), // HashSet.add
-
-        // Set operations
-        "union" | "intersection" | "difference" | "symmetric_difference" => {
-            infer_set_operation_type(compiler, object)
-        }
-        "is_subset" | "is_superset" | "is_disjoint" => Ok(AstType::Bool),
-
-        // Range iterator methods
-        "next" => {
-            // Check if object is Range or MutPtr<Range>
-            if let Ok(object_type) = compiler.infer_expression_type(object) {
-                let inner_type = object_type.ptr_inner().unwrap_or(&object_type);
-                if let AstType::Struct { name, .. } = inner_type {
-                    if name == "Range" {
-                        return Ok(AstType::Generic {
-                            name: compiler.well_known.option_name().to_string(),
-                            type_args: vec![AstType::I64],
-                        });
-                    }
-                }
+    // Check TypeContext first for method return type
+    if let Ok(object_type) = compiler.infer_expression_type(object) {
+        if let Some(type_name) = object_type.get_type_name() {
+            if let Some(return_type) = compiler.type_ctx.get_method_return_type(&type_name, method)
+            {
+                return Ok(return_type);
             }
-            infer_ufc_method_type(compiler, object, method)
         }
-        "has_next" => {
-            // Check if object is Range type
-            if let Ok(object_type) = compiler.infer_expression_type(object) {
-                let inner_type = object_type.ptr_inner().unwrap_or(&object_type);
-                if let AstType::Struct { name, .. } = inner_type {
-                    if name == "Range" {
-                        return Ok(AstType::Bool);
-                    }
-                }
-            }
-            infer_ufc_method_type(compiler, object, method)
-        }
-        "count" => {
-            // Check if object is Range type
-            if let Ok(object_type) = compiler.infer_expression_type(object) {
-                let inner_type = object_type.ptr_inner().unwrap_or(&object_type);
-                if let AstType::Struct { name, .. } = inner_type {
-                    if name == "Range" {
-                        return Ok(AstType::I64);
-                    }
-                }
-            }
-            infer_ufc_method_type(compiler, object, method)
-        }
-
-        // Default: try UFC lookup
-        _ => infer_ufc_method_type(compiler, object, method),
     }
+
+    // Special case: numeric methods that return same type as input
+    // These are true intrinsics - they work on any numeric type
+    if matches!(method, "abs" | "min" | "max") {
+        return compiler.infer_expression_type(object);
+    }
+
+    // Special case: collection access methods need type arg extraction
+    // This handles generic return types like Option<T> where T comes from the collection
+    if matches!(method, "get" | "remove" | "insert" | "pop") {
+        let option_name = compiler
+            .well_known
+            .get_variant_parent_name(compiler.well_known.some_name())
+            .unwrap_or(compiler.well_known.option_name());
+        return infer_collection_access_type(compiler, object, method, option_name);
+    }
+
+    // Special case: set operations return the same set type
+    if matches!(
+        method,
+        "union" | "intersection" | "difference" | "symmetric_difference"
+    ) {
+        return infer_set_operation_type(compiler, object);
+    }
+
+    // All other methods: use UFC lookup (TypeContext → StdlibTypeRegistry → function_types)
+    infer_ufc_method_type(compiler, object, method)
 }
 
 /// Infer type for collection access methods (get, pop, etc.)
+///
+/// This handles generic return types where the return type depends on
+/// the collection's type parameters (e.g., Vec<T>.get() -> Option<T>).
 fn infer_collection_access_type(
     compiler: &LLVMCompiler,
     object: &Expression,
     method: &str,
     option_name: &str,
 ) -> Result<AstType, CompileError> {
-    if let Ok(object_type) = compiler.infer_expression_type(object) {
-        if let AstType::Generic { name, type_args } = object_type {
-            if name == "HashMap" && type_args.len() >= 2 {
-                return Ok(AstType::Generic {
-                    name: option_name.to_string(),
-                    type_args: vec![type_args[1].clone()],
-                });
-            } else if name == "HashSet" && !type_args.is_empty() && method == "remove" {
-                return Ok(AstType::Bool);
-            } else if name == "Array" && !type_args.is_empty() {
-                if method == "get" {
-                    return Ok(type_args[0].clone());
-                } else if method == "pop" {
-                    return Ok(AstType::Generic {
-                        name: option_name.to_string(),
-                        type_args: vec![type_args[0].clone()],
-                    });
-                }
-            } else if matches!(name.as_str(), "Vec" | "DynVec") && !type_args.is_empty() {
-                return Ok(AstType::Generic {
-                    name: option_name.to_string(),
-                    type_args: vec![type_args[0].clone()],
-                });
-            }
-        } else if let AstType::DynVec { element_types, .. } = &object_type {
-            if !element_types.is_empty() && (method == "get" || method == "pop") {
-                return Ok(AstType::Generic {
-                    name: option_name.to_string(),
-                    type_args: vec![element_types[0].clone()],
-                });
-            }
+    let object_type = compiler.infer_expression_type(object)?;
+
+    // First try TypeContext for method return type
+    if let Some(type_name) = object_type.get_type_name() {
+        if let Some(return_type) = compiler.type_ctx.get_method_return_type(&type_name, method) {
+            return Ok(return_type);
         }
     }
-    Ok(AstType::Void)
+
+    // For generic collections, infer return type from type parameters
+    // This is generic programming logic - works for any collection with matching structure
+    if let AstType::Generic { name: _, type_args } = &object_type {
+        // Two-param generics (like Map<K, V>): get/remove returns Option<V>
+        if type_args.len() >= 2 && matches!(method, "get" | "remove") {
+            return Ok(AstType::Generic {
+                name: option_name.to_string(),
+                type_args: vec![type_args[1].clone()],
+            });
+        }
+        // Single-param generics (like List<T>): get/pop returns Option<T>
+        if !type_args.is_empty() && matches!(method, "get" | "pop") {
+            return Ok(AstType::Generic {
+                name: option_name.to_string(),
+                type_args: vec![type_args[0].clone()],
+            });
+        }
+    }
+
+    // DynVec special case (has element_types field)
+    if let AstType::DynVec { element_types, .. } = &object_type {
+        if !element_types.is_empty() && matches!(method, "get" | "pop") {
+            return Ok(AstType::Generic {
+                name: option_name.to_string(),
+                type_args: vec![element_types[0].clone()],
+            });
+        }
+    }
+
+    // Fall back to UFC lookup
+    infer_ufc_method_type(compiler, object, method)
 }
 
 /// Infer type for set operations (union, intersection, etc.)
+///
+/// Set operations return the same type as the receiver.
 fn infer_set_operation_type(
     compiler: &LLVMCompiler,
     object: &Expression,
 ) -> Result<AstType, CompileError> {
-    if let Ok(AstType::Generic { name, type_args }) = compiler.infer_expression_type(object) {
-        if name == "HashSet" {
-            return Ok(AstType::Generic {
-                name: "HashSet".to_string(),
-                type_args,
-            });
+    let object_type = compiler.infer_expression_type(object)?;
+
+    // First try TypeContext for method return type
+    if let Some(type_name) = object_type.get_type_name() {
+        // Set operations don't have separate method names, check any of them
+        if let Some(return_type) = compiler.type_ctx.get_method_return_type(&type_name, "union") {
+            return Ok(return_type);
         }
     }
+
+    // Set operations return the same generic type as input
+    if let AstType::Generic { name, type_args } = object_type {
+        return Ok(AstType::Generic { name, type_args });
+    }
+
     Ok(AstType::Void)
 }
 
@@ -1002,7 +1010,15 @@ fn infer_ufc_method_type(
     };
 
     if let Some(ref type_name) = type_name {
+        // Check TypeContext first for method return type
+        if let Some(return_type) = compiler.type_ctx.get_method_return_type(type_name, method) {
+            return Ok(return_type);
+        }
+
         let qualified_name = format!("{}.{}", type_name, method);
+        if let Some(func_return_type) = compiler.type_ctx.get_function_return_type(&qualified_name) {
+            return Ok(func_return_type);
+        }
         if let Some(func_return_type) = compiler.function_types.get(&qualified_name) {
             return Ok(func_return_type.clone());
         }
@@ -1014,8 +1030,10 @@ fn infer_ufc_method_type(
         }
     }
 
-    // Fall back to plain UFC
-    if let Some(func_return_type) = compiler.function_types.get(method) {
+    // Fall back to plain UFC - check TypeContext first
+    if let Some(func_return_type) = compiler.type_ctx.get_function_return_type(method) {
+        Ok(func_return_type)
+    } else if let Some(func_return_type) = compiler.function_types.get(method) {
         Ok(func_return_type.clone())
     } else {
         Ok(AstType::Void)

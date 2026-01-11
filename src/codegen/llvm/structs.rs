@@ -473,7 +473,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             Expression::StructLiteral { name, .. } => Ok(name.clone()),
             Expression::FunctionCall { name, .. } => {
-                if let Some(AstType::Struct { name: sn, .. }) = self.function_types.get(name) {
+                // Check TypeContext first, then local cache
+                let return_type = self.type_ctx.get_function_return_type(name)
+                    .or_else(|| self.function_types.get(name).cloned());
+                if let Some(AstType::Struct { name: sn, .. }) = return_type {
                     return Ok(sn.clone());
                 }
                 Err(CompileError::TypeError(format!("Function '{}' does not return a struct", name), self.get_current_span()))

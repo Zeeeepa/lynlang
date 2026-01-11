@@ -200,8 +200,16 @@ impl<'a> Parser<'a> {
                 self.parse_pointer_or_function_pointer()
             }
             Token::Symbol('(') => {
-                // Function type: (params) ReturnType (for behaviors)
+                // Check for unit type () vs function type (params) ReturnType
                 self.next_token();
+
+                // If immediately followed by ')', this is the unit type ()
+                if self.current_token == Token::Symbol(')') {
+                    self.next_token(); // consume ')'
+                    return Ok(AstType::Void);
+                }
+
+                // Otherwise it's a function type: (params) ReturnType (for behaviors)
                 let mut param_types = Vec::new();
 
                 // Parse parameter types

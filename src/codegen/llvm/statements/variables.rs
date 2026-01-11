@@ -190,34 +190,13 @@ pub fn compile_variable_declaration<'ctx>(
                                     type_args[0].clone(),
                                 );
                                 compiler.generic_tracker.track_generic_type(&ast_type, name);
-                            } else if type_name == "Array" && type_args.len() == 1 {
-                                compiler.track_generic_type(
-                                    format!("{}_Array_Element_Type", name),
-                                    type_args[0].clone(),
-                                );
-                                compiler.generic_tracker.track_generic_type(&ast_type, name);
-                            } else if type_name == "HashMap" && type_args.len() == 2 {
-                                compiler.track_generic_type(
-                                    format!("{}_HashMap_Key_Type", name),
-                                    type_args[0].clone(),
-                                );
-                                compiler.track_generic_type(
-                                    format!("{}_HashMap_Value_Type", name),
-                                    type_args[1].clone(),
-                                );
-                                compiler.generic_tracker.track_generic_type(&ast_type, name);
-                            } else if type_name == "HashSet" && type_args.len() == 1 {
-                                compiler.track_generic_type(
-                                    format!("{}_HashSet_Element_Type", name),
-                                    type_args[0].clone(),
-                                );
-                                compiler.generic_tracker.track_generic_type(&ast_type, name);
-                            } else if type_name == "DynVec" {
-                                // DynVec can have multiple element types
-                                for (i, element_type) in type_args.iter().enumerate() {
+                            } else {
+                                // Generic type tracking for all other types
+                                // Track each type argument with a numbered suffix
+                                for (i, type_arg) in type_args.iter().enumerate() {
                                     compiler.track_generic_type(
-                                        format!("{}_DynVec_Element_{}_Type", name, i),
-                                        element_type.clone(),
+                                        format!("{}_{}_TypeArg_{}", name, type_name, i),
+                                        type_arg.clone(),
                                     );
                                 }
                                 compiler.generic_tracker.track_generic_type(&ast_type, name);

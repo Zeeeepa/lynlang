@@ -175,9 +175,12 @@ pub fn compile_raise_expression<'ctx>(
         .to_string();
 
     // Check if the function returns a Result type and if it's void
+    // Try TypeContext first, then fall back to local cache
+    let return_type_opt = compiler.type_ctx.get_function_return_type(&function_name)
+        .or_else(|| compiler.function_types.get(&function_name).cloned());
     let (returns_result, is_void_function) =
-        if let Some(return_type) = compiler.function_types.get(&function_name) {
-            match return_type {
+        if let Some(return_type) = return_type_opt {
+            match &return_type {
                 AstType::Generic { name, .. } if compiler.well_known.is_result(name) => (true, false),
                 AstType::Void => (false, true),
                 _ => (false, false),
@@ -192,8 +195,10 @@ pub fn compile_raise_expression<'ctx>(
     // Track the Result's generic types based on the expression type
     match expr {
         Expression::FunctionCall { name, .. } => {
-            // Check if we know the function's return type - clone to avoid borrow issues
-            if let Some(return_type) = compiler.function_types.get(name).cloned() {
+            // Check TypeContext first, then local cache
+            let return_type = compiler.type_ctx.get_function_return_type(name)
+                .or_else(|| compiler.function_types.get(name).cloned());
+            if let Some(return_type) = return_type {
                 compiler.track_complex_generic(&return_type, compiler.well_known.result_name());
                 if let AstType::Generic { name: type_name, type_args } = &return_type {
                     if compiler.well_known.is_result(type_name) {

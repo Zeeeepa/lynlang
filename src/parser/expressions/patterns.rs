@@ -3,31 +3,99 @@ use crate::ast::{Expression, MatchArm, Pattern};
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
 
+/// Parse an expression for a match arm body, but stop at tokens that could start a new pattern
+/// This prevents "-13" being interpreted as subtraction in cases like:
+///   9 => "value"
+///   -13 => "other"
+fn parse_match_arm_body(parser: &mut Parser) -> Result<Expression> {
+    // Check if we need to peek ahead to avoid consuming operators that start patterns
+    // For now, use a simple heuristic: parse only primary expressions and method chains
+    // If we need more complex expressions, users can use parentheses: (a + b)
+    super::primary::parse_primary_expression(parser)
+}
+
 pub fn parse_pattern_match(parser: &mut Parser, scrutinee: Expression) -> Result<Expression> {
     // Parse: scrutinee ? | pattern => expr | pattern => expr ...
     // OR bool short form: scrutinee ? { block }
     let scrutinee = Box::new(scrutinee);
 
-    // Check for bool pattern short form: expr ? { block }
+    // Check for block-style pattern match: expr ? { pattern => expr, ... }
+    // OR bool pattern short form: expr ? { block }
     if parser.current_token == Token::Symbol('{') {
-        // Bool pattern short form - execute block if scrutinee is true
-        let body = super::blocks::parse_block_expression(parser)?;
+        parser.next_token(); // consume '{'
 
-        // Convert to standard pattern match with true pattern
-        let arms = vec![
-            MatchArm {
-                pattern: Pattern::Literal(Expression::Boolean(true)),
-                guard: None,
-                body,
-            },
-            MatchArm {
-                pattern: Pattern::Wildcard,
-                guard: None,
-                body: Expression::Block(vec![]), // Empty block for else case (returns void like the true case)
-            },
-        ];
+        // Peek ahead to see if this is pattern match (pattern => expr) or bool short form
+        // First check if it could be a pattern (starts with identifier, number, _, -, etc.)
+        let is_pattern_match = match &parser.current_token {
+            Token::Integer(_) | Token::Float(_) | Token::StringLiteral(_) |
+            Token::Underscore | Token::Symbol('.') => true,
+            Token::Operator(op) if op == "-" => true, // negative number pattern
+            Token::Identifier(name) if name == "true" || name == "false" => true,
+            _ => false,
+        };
 
-        return Ok(Expression::QuestionMatch { scrutinee, arms });
+        if is_pattern_match {
+            // Block-based pattern match: { pattern => expr, pattern => expr, ... }
+            let mut arms = vec![];
+
+            while parser.current_token != Token::Symbol('}') && parser.current_token != Token::Eof {
+                // Parse pattern
+                let pattern = parser.parse_pattern()?;
+
+                // Expect '=>'
+                if parser.current_token != Token::Operator("=>".to_string()) {
+                    return Err(CompileError::SyntaxError(
+                        "Expected '=>' after pattern in block match".to_string(),
+                        Some(parser.current_span.clone()),
+                    ));
+                }
+                parser.next_token(); // consume '=>'
+
+                // Parse body expression - but stop before tokens that could start a new pattern
+                // This prevents "-13" being parsed as "body - 13" (subtraction)
+                let body = parse_match_arm_body(parser)?;
+
+                arms.push(MatchArm {
+                    pattern,
+                    guard: None,
+                    body,
+                });
+
+                // Optional newline or comma between arms
+                if parser.current_token == Token::Symbol(',') {
+                    parser.next_token();
+                }
+            }
+
+            if parser.current_token != Token::Symbol('}') {
+                return Err(CompileError::SyntaxError(
+                    "Expected '}' after pattern match block".to_string(),
+                    Some(parser.current_span.clone()),
+                ));
+            }
+            parser.next_token(); // consume '}'
+
+            return Ok(Expression::QuestionMatch { scrutinee, arms });
+        } else {
+            // Bool pattern short form - parse the rest of the block as statements
+            let body = super::blocks::continue_parsing_block(parser)?;
+
+            // Convert to standard pattern match with true pattern
+            let arms = vec![
+                MatchArm {
+                    pattern: Pattern::Literal(Expression::Boolean(true)),
+                    guard: None,
+                    body,
+                },
+                MatchArm {
+                    pattern: Pattern::Wildcard,
+                    guard: None,
+                    body: Expression::Block(vec![]), // Empty block for else case
+                },
+            ];
+
+            return Ok(Expression::QuestionMatch { scrutinee, arms });
+        }
     }
 
     // Standard pattern matching with | pattern => expr

@@ -120,6 +120,24 @@ pub fn infer_binary_op_type(
                 ))
             }
         }
+        // Bitwise operators - require integer operands, return promoted integer type
+        BinaryOperator::BitwiseAnd
+        | BinaryOperator::BitwiseOr
+        | BinaryOperator::BitwiseXor
+        | BinaryOperator::ShiftLeft
+        | BinaryOperator::ShiftRight => {
+            if left_type.is_integer() && right_type.is_integer() {
+                promote_numeric_types(&left_type, &right_type, checker.get_current_span())
+            } else {
+                Err(CompileError::TypeError(
+                    format!(
+                        "Bitwise operators require integer operands, got {:?} and {:?}",
+                        left_type, right_type
+                    ),
+                    checker.get_current_span(),
+                ))
+            }
+        }
     }
 }
 
@@ -356,6 +374,15 @@ pub fn infer_identifier_type(checker: &mut TypeChecker, name: &str) -> Result<As
         return Ok(AstType::Generic {
             name: "Array".to_string(),
             type_args: vec![],
+        });
+    }
+
+    // Check if name is a struct type - used for static method calls like MyStruct.new()
+    // Return a Struct type with empty fields (fields will be filled in during codegen)
+    if checker.structs.contains_key(name) {
+        return Ok(AstType::Struct {
+            name: name.to_string(),
+            fields: vec![],
         });
     }
 
@@ -749,6 +776,12 @@ pub fn infer_method_call_type(
         // Check for module functions (module.function style like gpa.default_gpa)
         if let Some(return_type) = stdlib_types().get_function_return_type(base_name, method) {
             return Ok(return_type.clone());
+        }
+
+        // Check for user-defined attached methods (like MyStruct.new)
+        let full_method_name = format!("{}.{}", base_name, method);
+        if let Some(func_sig) = checker.get_function_signatures().get(&full_method_name) {
+            return Ok(func_sig.return_type.clone());
         }
 
         // Extract base method name (e.g., "new" from "new<i32, i32>")

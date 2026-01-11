@@ -157,7 +157,7 @@ pub fn compile_return<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     if let Expression::Return(value_expr) = expr {
         // Compile the return value
-        let mut return_value = compiler.compile_expression(value_expr)?;
+        let return_value = compiler.compile_expression(value_expr)?;
 
         // Execute all deferred expressions before returning
         compiler.execute_deferred_expressions()?;
@@ -169,105 +169,25 @@ pub fn compile_return<'ctx>(
             false
         };
 
-        // Cast return value to match function return type if needed
-        if !is_void_function {
-            if let Some(func) = compiler.current_function {
-                if let Some(expected_ret_type) = func.get_type().get_return_type() {
-                    let actual_type = return_value.get_type();
-
-                    // If types don't match, cast the value
-                    if actual_type != expected_ret_type {
-                        if actual_type.is_int_type() && expected_ret_type.is_int_type() {
-                            let int_val = return_value.into_int_value();
-                            let expected_int_type = expected_ret_type.into_int_type();
-                            let actual_width = int_val.get_type().get_bit_width();
-                            let expected_width = expected_int_type.get_bit_width();
-
-                            if actual_width != expected_width {
-                                if actual_width < expected_width {
-                                    // Sign extend
-                                    return_value = compiler
-                                        .builder
-                                        .build_int_s_extend(
-                                            int_val,
-                                            expected_int_type,
-                                            "ret_extend",
-                                        )?
-                                        .into();
-                                } else {
-                                    // Truncate
-                                    return_value = compiler
-                                        .builder
-                                        .build_int_truncate(
-                                            int_val,
-                                            expected_int_type,
-                                            "ret_trunc",
-                                        )?
-                                        .into();
-                                }
-                            } else {
-                                return_value = int_val.into();
-                            }
-                        } else if actual_type.is_float_type() && expected_ret_type.is_float_type() {
-                            let float_val = return_value.into_float_value();
-                            let expected_float_type = expected_ret_type.into_float_type();
-                            let actual_float_type = float_val.get_type();
-
-                            if actual_float_type != expected_float_type {
-                                let source_width =
-                                    if actual_float_type == compiler.context.f32_type() {
-                                        32
-                                    } else {
-                                        64
-                                    };
-                                let target_width =
-                                    if expected_float_type == compiler.context.f32_type() {
-                                        32
-                                    } else {
-                                        64
-                                    };
-
-                                if source_width < target_width {
-                                    // Extend f32 to f64
-                                    return_value = compiler
-                                        .builder
-                                        .build_float_ext(
-                                            float_val,
-                                            expected_float_type,
-                                            "ret_extend",
-                                        )?
-                                        .into();
-                                } else if source_width > target_width {
-                                    // Truncate f64 to f32
-                                    return_value = compiler
-                                        .builder
-                                        .build_float_trunc(
-                                            float_val,
-                                            expected_float_type,
-                                            "ret_trunc",
-                                        )?
-                                        .into();
-                                } else {
-                                    return_value = float_val.into();
-                                }
-                            } else {
-                                return_value = float_val.into();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         // Build return instruction - use None for void functions
         if is_void_function {
             compiler.builder.build_return(None)?;
             // For void functions, return a dummy value
             Ok(compiler.context.i64_type().const_zero().into())
         } else {
-            compiler.builder.build_return(Some(&return_value))?;
-            // Return the value (though we've already returned)
-            Ok(return_value)
+            // Cast return value to match function return type using shared helper
+            let final_value = if let Some(func) = compiler.current_function {
+                if let Some(expected_ret_type) = func.get_type().get_return_type() {
+                    compiler.cast_value_to_type(return_value, expected_ret_type)?
+                } else {
+                    return_value
+                }
+            } else {
+                return_value
+            };
+
+            compiler.builder.build_return(Some(&final_value))?;
+            Ok(final_value)
         }
     } else {
         Err(CompileError::InternalError(

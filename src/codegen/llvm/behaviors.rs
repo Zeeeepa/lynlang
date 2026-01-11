@@ -616,9 +616,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
         };
 
         if let Some(name) = method_to_use {
-            let mut ufc_args = vec![object.clone()];
-            ufc_args.extend_from_slice(args);
-            if let Ok(result) = super::functions::calls::compile_function_call(self, &name, &ufc_args) {
+            // Check if object is a type name (not a variable) - for static method calls
+            let is_static_call = if let Expression::Identifier(id) = object {
+                // It's static if the identifier is a type name, not a variable
+                !self.variables.contains_key(id) &&
+                (self.type_ctx.has_struct(id) || self.type_ctx.has_enum(id) || self.struct_types.contains_key(id))
+            } else {
+                false
+            };
+
+            let call_args: Vec<Expression> = if is_static_call {
+                // Static call - don't pass the type as first arg
+                args.to_vec()
+            } else {
+                // Instance method - pass object as first arg (UFC)
+                let mut ufc_args = vec![object.clone()];
+                ufc_args.extend_from_slice(args);
+                ufc_args
+            };
+
+            if let Ok(result) = super::functions::calls::compile_function_call(self, &name, &call_args) {
                 return Ok(Some(result));
             }
         }
@@ -655,6 +672,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     return Ok(name[..pos].to_string());
                 }
                 if crate::well_known::well_known().get_type(name).is_some() {
+                    return Ok(name.clone());
+                }
+                // Check if this is a known struct type (for static method calls like MyType.new())
+                if self.type_ctx.has_struct(name) || self.struct_types.contains_key(name) {
+                    return Ok(name.clone());
+                }
+                // Check if this is a known enum type
+                if self.type_ctx.has_enum(name) {
                     return Ok(name.clone());
                 }
                 if let Ok(ast_type) = self.infer_expression_type(expr) {

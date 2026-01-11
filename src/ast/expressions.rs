@@ -20,6 +20,12 @@ pub enum BinaryOperator {
     StringConcat,
     And,
     Or,
+    // Bitwise operators
+    BitwiseAnd,
+    BitwiseOr,
+    BitwiseXor,
+    ShiftLeft,
+    ShiftRight,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -231,4 +237,84 @@ pub struct ConditionalArm {
     pub pattern: Pattern,
     pub guard: Option<Expression>, // Optional guard condition
     pub body: Expression,
+}
+
+/// Expression with optional resolved type information.
+///
+/// This wrapper carries type information computed by the typechecker,
+/// allowing codegen and other phases to access it without re-inferring.
+///
+/// # Usage
+///
+/// After parsing, expressions have no resolved type:
+/// ```ignore
+/// let expr = TypedExpr::untyped(Expression::Integer32(42));
+/// assert!(expr.resolved_type.is_none());
+/// ```
+///
+/// After type checking, the type is populated:
+/// ```ignore
+/// expr.resolved_type = Some(AstType::I32);
+/// assert_eq!(expr.get_type(), Some(&AstType::I32));
+/// ```
+#[derive(Debug, Clone, PartialEq)]
+pub struct TypedExpr {
+    pub expr: Expression,
+    pub resolved_type: Option<AstType>,
+}
+
+impl TypedExpr {
+    /// Create an expression without type information (used by parser)
+    pub fn untyped(expr: Expression) -> Self {
+        Self {
+            expr,
+            resolved_type: None,
+        }
+    }
+
+    /// Create an expression with known type (used by typechecker)
+    pub fn typed(expr: Expression, ty: AstType) -> Self {
+        Self {
+            expr,
+            resolved_type: Some(ty),
+        }
+    }
+
+    /// Get the resolved type, if available
+    pub fn get_type(&self) -> Option<&AstType> {
+        self.resolved_type.as_ref()
+    }
+
+    /// Check if type has been resolved
+    pub fn is_typed(&self) -> bool {
+        self.resolved_type.is_some()
+    }
+
+    /// Set the resolved type (used during type checking)
+    pub fn set_type(&mut self, ty: AstType) {
+        self.resolved_type = Some(ty);
+    }
+}
+
+/// Allow converting Expression to TypedExpr (untyped)
+impl From<Expression> for TypedExpr {
+    fn from(expr: Expression) -> Self {
+        Self::untyped(expr)
+    }
+}
+
+/// Allow dereferencing TypedExpr to get the inner Expression
+impl std::ops::Deref for TypedExpr {
+    type Target = Expression;
+
+    fn deref(&self) -> &Self::Target {
+        &self.expr
+    }
+}
+
+/// Allow mutable dereferencing
+impl std::ops::DerefMut for TypedExpr {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.expr
+    }
 }

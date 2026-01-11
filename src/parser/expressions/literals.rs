@@ -15,13 +15,44 @@ use super::calls::parse_method_chain;
 // ============================================================================
 
 /// Parse integer literal with UFC support
+/// Handles decimal, hex (0x), binary (0b), and octal (0o) formats
 pub fn parse_integer_literal(parser: &mut Parser, value_str: &str) -> Result<Expression> {
-    let value = value_str.parse::<i64>().map_err(|_| {
-        CompileError::SyntaxError(
-            format!("Invalid integer: {}", value_str),
-            Some(parser.current_span.clone()),
-        )
-    })?;
+    // Remove underscores used as digit separators
+    let clean_str: String = value_str.chars().filter(|&c| c != '_').collect();
+
+    let value = if clean_str.starts_with("0x") || clean_str.starts_with("0X") {
+        // Hexadecimal
+        i64::from_str_radix(&clean_str[2..], 16).map_err(|_| {
+            CompileError::SyntaxError(
+                format!("Invalid hexadecimal integer: {}", value_str),
+                Some(parser.current_span.clone()),
+            )
+        })?
+    } else if clean_str.starts_with("0b") || clean_str.starts_with("0B") {
+        // Binary
+        i64::from_str_radix(&clean_str[2..], 2).map_err(|_| {
+            CompileError::SyntaxError(
+                format!("Invalid binary integer: {}", value_str),
+                Some(parser.current_span.clone()),
+            )
+        })?
+    } else if clean_str.starts_with("0o") || clean_str.starts_with("0O") {
+        // Octal
+        i64::from_str_radix(&clean_str[2..], 8).map_err(|_| {
+            CompileError::SyntaxError(
+                format!("Invalid octal integer: {}", value_str),
+                Some(parser.current_span.clone()),
+            )
+        })?
+    } else {
+        // Decimal
+        clean_str.parse::<i64>().map_err(|_| {
+            CompileError::SyntaxError(
+                format!("Invalid integer: {}", value_str),
+                Some(parser.current_span.clone()),
+            )
+        })?
+    };
     parser.next_token();
 
     let expr = if value <= i32::MAX as i64 && value >= i32::MIN as i64 {

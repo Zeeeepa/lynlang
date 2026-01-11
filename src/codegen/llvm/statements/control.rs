@@ -7,82 +7,23 @@ pub fn compile_return<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
     expr: &crate::ast::Expression,
 ) -> Result<(), CompileError> {
-    let mut value = compiler.compile_expression(expr)?;
+    let value = compiler.compile_expression(expr)?;
 
     // Execute all deferred expressions before returning
     compiler.execute_deferred_expressions()?;
 
-    // Cast return value to match function return type
-    if let Some(func) = compiler.current_function {
+    // Cast return value to match function return type using shared helper
+    let final_value = if let Some(func) = compiler.current_function {
         if let Some(expected_ret_type) = func.get_type().get_return_type() {
-            let actual_type = value.get_type();
-
-            // If types don't match, cast the value
-            if actual_type != expected_ret_type {
-                if actual_type.is_int_type() && expected_ret_type.is_int_type() {
-                    let int_val = value.into_int_value();
-                    let expected_int_type = expected_ret_type.into_int_type();
-                    let actual_width = int_val.get_type().get_bit_width();
-                    let expected_width = expected_int_type.get_bit_width();
-
-                    if actual_width != expected_width {
-                        if actual_width < expected_width {
-                            // Sign extend
-                            value = compiler
-                                .builder
-                                .build_int_s_extend(int_val, expected_int_type, "ret_extend")?
-                                .into();
-                        } else {
-                            // Truncate
-                            value = compiler
-                                .builder
-                                .build_int_truncate(int_val, expected_int_type, "ret_trunc")?
-                                .into();
-                        }
-                    } else {
-                        value = int_val.into();
-                    }
-                } else if actual_type.is_float_type() && expected_ret_type.is_float_type() {
-                    let float_val = value.into_float_value();
-                    let expected_float_type = expected_ret_type.into_float_type();
-
-                    // Check if we need to cast by comparing types directly
-                    let actual_float_type = float_val.get_type();
-                    if actual_float_type != expected_float_type {
-                        let source_width = if actual_float_type == compiler.context.f32_type() {
-                            32
-                        } else {
-                            64
-                        };
-                        let target_width = if expected_float_type == compiler.context.f32_type() {
-                            32
-                        } else {
-                            64
-                        };
-
-                        if source_width < target_width {
-                            // Extend f32 to f64
-                            value = compiler
-                                .builder
-                                .build_float_ext(float_val, expected_float_type, "ret_extend")?
-                                .into();
-                        } else if source_width > target_width {
-                            // Truncate f64 to f32
-                            value = compiler
-                                .builder
-                                .build_float_trunc(float_val, expected_float_type, "ret_trunc")?
-                                .into();
-                        } else {
-                            value = float_val.into();
-                        }
-                    } else {
-                        value = float_val.into();
-                    }
-                }
-            }
+            compiler.cast_value_to_type(value, expected_ret_type)?
+        } else {
+            value
         }
-    }
-    compiler.builder.build_return(Some(&value))?;
+    } else {
+        value
+    };
+
+    compiler.builder.build_return(Some(&final_value))?;
     Ok(())
 }
 

@@ -16,4 +16,10 @@ impl<'a> Parser<'a> {
     pub fn parse_expression(&mut self) -> Result<Expression> {
         operators::parse_binary_expression(self, 0)
     }
+
+    /// Parse expression in pattern context - doesn't allow `|` as bitwise OR
+    /// since `|` is used as pattern alternative separator
+    pub fn parse_pattern_expression(&mut self) -> Result<Expression> {
+        operators::parse_pattern_expression(self)
+    }
 }

@@ -28,8 +28,36 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     Ok(alloca.as_basic_value_enum())
                 }
             }
+            // Handle &expr.method() - compile the method call and return its result
+            // This is commonly used with .ref() which returns a pointer
+            Expression::MethodCall { object, method, args } => {
+                // Compile the method call - for .ref() this returns a pointer
+                let result = self.compile_method_call(object, method, args)?;
+                // The result should already be a pointer value
+                Ok(result)
+            }
+            // Handle &member.access - get address of struct field
+            Expression::MemberAccess { object, member } => {
+                // First compile the member access to get the field pointer
+                // For now, just compile the expression and return it
+                let result = self.compile_expression(&Expression::MemberAccess {
+                    object: object.clone(),
+                    member: member.clone(),
+                })?;
+                Ok(result)
+            }
+            // Handle &expr.ref() - CreateReference returns a pointer to the value
+            // When we see &x.ref(), we want the address of x, which is what .ref() gives us
+            Expression::CreateReference(inner) => {
+                // .ref() on a value returns its address, so &x.ref() is just the address of x
+                self.compile_address_of(inner)
+            }
+            Expression::CreateMutableReference(inner) => {
+                // Same for .mut_ref()
+                self.compile_address_of(inner)
+            }
             _ => Err(CompileError::UnsupportedFeature(
-                "AddressOf only supported for identifiers".to_string(),
+                format!("AddressOf not supported for expression type: {:?}", expr),
                 self.get_current_span(),
             )),
         }

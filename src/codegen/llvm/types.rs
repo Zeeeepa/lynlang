@@ -305,24 +305,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     return Ok(Type::Struct(placeholder));
                 }
 
-                // Special handling for Array<T> type - dynamic array with pointer and length
-                if name == "Array" {
-                    // Array<T> is represented as a struct: { ptr, length, capacity }
-                    let array_struct_type = self.context.struct_type(
-                        &[
-                            self.context
-                                .ptr_type(inkwell::AddressSpace::default())
-                                .into(), // data pointer
-                            self.context.i64_type().into(), // length
-                            self.context.i64_type().into(), // capacity
-                        ],
-                        false,
-                    );
-                    return Ok(Type::Struct(array_struct_type));
-                }
-
-                // Special handling for Result<T,E> and Option<T> types
-                // These are always represented as { i64 discriminant, ptr payload }
+                // Well-known types: Option and Result use tagged union representation
                 if self.well_known.is_result(name) || self.well_known.is_option(name) {
                     let enum_struct_type = self.context.struct_type(
                         &[
@@ -336,46 +319,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     return Ok(Type::Struct(enum_struct_type));
                 }
 
-                // Special handling for HashMap<K,V> type
-                if name == "HashMap" {
-                    let hashmap_struct_type = self.context.struct_type(
-                        &[
-                            self.context
-                                .ptr_type(inkwell::AddressSpace::default())
-                                .into(), // buckets
-                            self.context.i64_type().into(), // size
-                            self.context.i64_type().into(), // capacity
-                        ],
-                        false,
-                    );
-                    return Ok(Type::Struct(hashmap_struct_type));
+                // Try to get struct definition from StdlibTypeRegistry
+                let registry = crate::stdlib_types::stdlib_types();
+                if let Some(struct_type) = registry.get_struct_type(name) {
+                    return self.to_llvm_type(&struct_type);
                 }
 
-                // Special handling for HashSet<T> type
-                if name == "HashSet" {
-                    let hashset_struct_type = self.context.struct_type(
-                        &[
-                            self.context
-                                .ptr_type(inkwell::AddressSpace::default())
-                                .into(), // buckets
-                            self.context.i64_type().into(), // size
-                            self.context.i64_type().into(), // capacity
-                        ],
-                        false,
-                    );
-                    return Ok(Type::Struct(hashset_struct_type));
-                }
-
-                // Special handling for String type (dynamic string from stdlib)
-                // String is defined in stdlib/string.zen - resolve it from there
-                if name == "String" && type_args.is_empty() {
-                    let string_type = crate::stdlib_types::stdlib_types().get_string_type();
-                    // Now convert the resolved struct type to LLVM
-                    return self.to_llvm_type(&string_type);
-                }
-
-                // Special handling for Option<T> and Result<T,E> types
-                // These are registered as enum types in the symbol table
+                // Check registered enum types in symbol table
                 if self.well_known.is_option(name) || self.well_known.is_result(name) {
                     // Look up the registered enum type
                     if let Some(symbols::Symbol::EnumType(enum_info)) = self.symbols.lookup(name) {
@@ -501,52 +451,21 @@ impl<'ctx> LLVMCompiler<'ctx> {
             let base_type = &type_str[..angle_pos];
             let type_params_str = &type_str[angle_pos + 1..type_str.len() - 1];
 
-            match base_type {
-                "DynVec" => {
-                    let element_types = self.parse_comma_separated_types(type_params_str);
-                    AstType::DynVec {
-                        element_types,
-                        allocator_type: None,
-                    }
-                }
-                "Vec" => {
-                    // Vec<T, N> where N is the size
-                    let parts = self.parse_comma_separated_types(type_params_str);
-                    if !parts.is_empty() {
-                        // For now, default size to 10 if not specified
-                        AstType::Vec {
-                            element_type: Box::new(parts[0].clone()),
-                            size: 10, // Default size
-                        }
-                    } else {
-                        AstType::Vec {
-                            element_type: Box::new(AstType::I32),
-                            size: 10,
-                        }
-                    }
-                }
-                base if self.well_known.is_option(base) || self.well_known.is_result(base) => {
-                    let type_args = self.parse_comma_separated_types(type_params_str);
-                    AstType::Generic {
-                        name: base.to_string(),
-                        type_args,
-                    }
-                }
-                "HashMap" | "HashSet" => {
-                    let type_args = self.parse_comma_separated_types(type_params_str);
-                    AstType::Generic {
-                        name: base_type.to_string(),
-                        type_args,
-                    }
-                }
-                _ => {
-                    // Unknown generic type
-                    let type_args = self.parse_comma_separated_types(type_params_str);
-                    AstType::Generic {
-                        name: base_type.to_string(),
-                        type_args,
-                    }
-                }
+            // Parse type arguments
+            let type_args = self.parse_comma_separated_types(type_params_str);
+
+            // Special case: DynVec uses a different AST representation
+            if base_type == "DynVec" {
+                return AstType::DynVec {
+                    element_types: type_args,
+                    allocator_type: None,
+                };
+            }
+
+            // All other generics use the standard Generic representation
+            AstType::Generic {
+                name: base_type.to_string(),
+                type_args,
             }
         } else {
             // Simple types

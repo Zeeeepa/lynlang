@@ -350,6 +350,9 @@ impl<'a> Lexer<'a> {
                 if self.current_char == Some('=') {
                     self.read_char();
                     Token::Operator("<=".to_string())
+                } else if self.current_char == Some('<') {
+                    self.read_char();
+                    Token::Operator("<<".to_string())
                 } else {
                     Token::Operator("<".to_string())
                 }
@@ -359,9 +362,16 @@ impl<'a> Lexer<'a> {
                 if self.current_char == Some('=') {
                     self.read_char();
                     Token::Operator(">=".to_string())
+                } else if self.current_char == Some('>') {
+                    self.read_char();
+                    Token::Operator(">>".to_string())
                 } else {
                     Token::Operator(">".to_string())
                 }
+            }
+            Some('^') => {
+                self.read_char();
+                Token::Operator("^".to_string())
             }
             Some('!') => {
                 self.read_char();
@@ -481,10 +491,56 @@ impl<'a> Lexer<'a> {
 
     fn read_number(&mut self) -> String {
         let start = self.position;
-        let mut has_dot = false;
 
+        // Check for hex (0x), binary (0b), or octal (0o) literals
+        if self.current_char == Some('0') {
+            if let Some(prefix) = self.peek_char() {
+                match prefix {
+                    'x' | 'X' => {
+                        self.read_char(); // consume '0'
+                        self.read_char(); // consume 'x'
+                        while let Some(c) = self.current_char {
+                            if c.is_ascii_hexdigit() || c == '_' {
+                                self.read_char();
+                            } else {
+                                break;
+                            }
+                        }
+                        return self.input[start..self.position].to_string();
+                    }
+                    'b' | 'B' => {
+                        self.read_char(); // consume '0'
+                        self.read_char(); // consume 'b'
+                        while let Some(c) = self.current_char {
+                            if c == '0' || c == '1' || c == '_' {
+                                self.read_char();
+                            } else {
+                                break;
+                            }
+                        }
+                        return self.input[start..self.position].to_string();
+                    }
+                    'o' | 'O' => {
+                        self.read_char(); // consume '0'
+                        self.read_char(); // consume 'o'
+                        while let Some(c) = self.current_char {
+                            if ('0'..='7').contains(&c) || c == '_' {
+                                self.read_char();
+                            } else {
+                                break;
+                            }
+                        }
+                        return self.input[start..self.position].to_string();
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // Decimal number (with optional decimal point for floats)
+        let mut has_dot = false;
         while let Some(c) = self.current_char {
-            if c.is_ascii_digit() {
+            if c.is_ascii_digit() || c == '_' {
                 self.read_char();
             } else if c == '.' && !has_dot {
                 // Only consume '.' if it's followed by a digit (for floats like 3.14)

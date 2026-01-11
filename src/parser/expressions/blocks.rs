@@ -5,6 +5,11 @@ use crate::lexer::Token;
 
 pub fn parse_block_expression(parser: &mut Parser) -> Result<Expression> {
     parser.next_token(); // consume '{'
+    continue_parsing_block(parser)
+}
+
+/// Continue parsing a block after '{' has already been consumed
+pub fn continue_parsing_block(parser: &mut Parser) -> Result<Expression> {
     let mut statements = vec![];
 
     while parser.current_token != Token::Symbol('}') && parser.current_token != Token::Eof {

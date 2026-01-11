@@ -527,28 +527,34 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                 }
                 // Check for return type: () ReturnType { ... }
                 else if matches!(&parser.current_token, Token::Identifier(_)) {
-                    // This could be a return type
-                    let return_type = parser.parse_type()?;
-                    if parser.current_token == Token::Symbol('{') {
-                        // It's a closure with return type: () ReturnType { ... }
-                        let body = super::blocks::parse_block_expression(parser)?;
-                        return Ok(Expression::Closure {
-                            params: vec![],
-                            return_type: Some(return_type),
-                            body: Box::new(body),
-                        });
-                    } else {
-                        return Err(CompileError::SyntaxError(
-                            "Expected '{' after closure return type".to_string(),
-                            Some(parser.current_span.clone()),
-                        ));
+                    // Check if this is a closure with return type or just the unit value
+                    // Save state in case we need to backtrack
+                    let saved_state = parser.lexer.save_state();
+                    let saved_current_token = parser.current_token.clone();
+                    let saved_peek_token = parser.peek_token.clone();
+                    let saved_span = parser.current_span.clone();
+
+                    // Try to parse as return type
+                    if let Ok(return_type) = parser.parse_type() {
+                        if parser.current_token == Token::Symbol('{') {
+                            // It's a closure with return type: () ReturnType { ... }
+                            let body = super::blocks::parse_block_expression(parser)?;
+                            return Ok(Expression::Closure {
+                                params: vec![],
+                                return_type: Some(return_type),
+                                body: Box::new(body),
+                            });
+                        }
                     }
+                    // Not a closure, restore and return unit value
+                    parser.lexer.restore_state(saved_state);
+                    parser.current_token = saved_current_token;
+                    parser.peek_token = saved_peek_token;
+                    parser.current_span = saved_span;
+                    return Ok(Expression::Unit);
                 } else {
-                    // Empty parens are not valid as an expression
-                    return Err(CompileError::SyntaxError(
-                            "Empty parentheses are not a valid expression. Did you mean to write a closure? Use '() { ... }' or '() => expr'".to_string(),
-                            Some(parser.current_span.clone()),
-                        ));
+                    // Empty parens () as the unit value
+                    return Ok(Expression::Unit);
                 }
             }
 
@@ -564,10 +570,12 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
             // If we see (identifier followed by an operator OR a '.', it's definitely an expression.
             // - Binary operator: (a + b)
             // - Member access: (foo.bar ...)
-            let is_definitely_expression = if let Token::Identifier(_) = &parser.current_token {
+            // - Type cast: (a as Type)
+            let is_definitely_expression = if let Token::Identifier(name) = &parser.current_token {
                 // Check what comes after the identifier using peek
-                // It's an expression if followed by a binary operator OR member access (.)
+                // It's an expression if followed by a binary operator, member access (.), or 'as' (type cast)
                 parser.peek_token == Token::Symbol('.')
+                    || matches!(&parser.peek_token, Token::Identifier(id) if id == "as")
                     || matches!(
                         &parser.peek_token,
                         Token::Operator(op) if matches!(op.as_str(),
@@ -575,8 +583,13 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                             "&&" | "||" | "&" | "|" | "^" | "<<" | ">>" | ".." | "..="
                         )
                     )
+                    // Also check for closing paren immediately - single identifier in parens is an expression
+                    || matches!(&parser.peek_token, Token::Symbol(')'))
+                    // And check if the name itself suggests it's a value (lowercase first char)
+                    || name.chars().next().map(|c| c.is_lowercase()).unwrap_or(false)
             } else {
-                false
+                // Non-identifier tokens like numbers, strings, etc. are definitely expressions
+                !matches!(&parser.current_token, Token::Symbol(')'))
             };
 
             // If it's definitely an expression, parse it as such

@@ -152,6 +152,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
             BinaryOperator::Modulo => self.compile_modulo(left_val, right_val),
             BinaryOperator::And => self.compile_and(left_val, right_val),
             BinaryOperator::Or => self.compile_or(left_val, right_val),
+            // Bitwise operators
+            BinaryOperator::BitwiseAnd => self.compile_bitwise_and(left_val, right_val),
+            BinaryOperator::BitwiseOr => self.compile_bitwise_or(left_val, right_val),
+            BinaryOperator::BitwiseXor => self.compile_bitwise_xor(left_val, right_val),
+            BinaryOperator::ShiftLeft => self.compile_shift_left(left_val, right_val),
+            BinaryOperator::ShiftRight => self.compile_shift_right(left_val, right_val),
         }
     }
 
@@ -429,6 +435,112 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         let (l, r) = self.normalize_int_widths_for_logical(left.into_int_value(), right.into_int_value())?;
         let result = self.builder.build_or(l, r, "ortmp")?;
+        Ok(result.into())
+    }
+
+    // Bitwise operations
+    fn compile_bitwise_and(
+        &mut self,
+        left: BasicValueEnum<'ctx>,
+        right: BasicValueEnum<'ctx>,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if !left.is_int_value() || !right.is_int_value() {
+            return Err(CompileError::TypeMismatch {
+                expected: "int".to_string(),
+                found: "non-integer types".to_string(),
+                span: self.current_span.clone(),
+            });
+        }
+
+        let (l, r) = self.normalize_int_widths(left.into_int_value(), right.into_int_value())?;
+        let result = self.builder.build_and(l, r, "bitand")?;
+        Ok(result.into())
+    }
+
+    fn compile_bitwise_or(
+        &mut self,
+        left: BasicValueEnum<'ctx>,
+        right: BasicValueEnum<'ctx>,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if !left.is_int_value() || !right.is_int_value() {
+            return Err(CompileError::TypeMismatch {
+                expected: "int".to_string(),
+                found: "non-integer types".to_string(),
+                span: self.current_span.clone(),
+            });
+        }
+
+        let (l, r) = self.normalize_int_widths(left.into_int_value(), right.into_int_value())?;
+        let result = self.builder.build_or(l, r, "bitor")?;
+        Ok(result.into())
+    }
+
+    fn compile_bitwise_xor(
+        &mut self,
+        left: BasicValueEnum<'ctx>,
+        right: BasicValueEnum<'ctx>,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if !left.is_int_value() || !right.is_int_value() {
+            return Err(CompileError::TypeMismatch {
+                expected: "int".to_string(),
+                found: "non-integer types".to_string(),
+                span: self.current_span.clone(),
+            });
+        }
+
+        let (l, r) = self.normalize_int_widths(left.into_int_value(), right.into_int_value())?;
+        let result = self.builder.build_xor(l, r, "bitxor")?;
+        Ok(result.into())
+    }
+
+    fn compile_shift_left(
+        &mut self,
+        left: BasicValueEnum<'ctx>,
+        right: BasicValueEnum<'ctx>,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if !left.is_int_value() || !right.is_int_value() {
+            return Err(CompileError::TypeMismatch {
+                expected: "int".to_string(),
+                found: "non-integer types".to_string(),
+                span: self.current_span.clone(),
+            });
+        }
+
+        let left_int = left.into_int_value();
+        let right_int = right.into_int_value();
+        // Shift amount should match the type being shifted
+        let shift_amt = if right_int.get_type() != left_int.get_type() {
+            self.builder.build_int_z_extend_or_bit_cast(right_int, left_int.get_type(), "shift_ext")?
+        } else {
+            right_int
+        };
+        let result = self.builder.build_left_shift(left_int, shift_amt, "shl")?;
+        Ok(result.into())
+    }
+
+    fn compile_shift_right(
+        &mut self,
+        left: BasicValueEnum<'ctx>,
+        right: BasicValueEnum<'ctx>,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if !left.is_int_value() || !right.is_int_value() {
+            return Err(CompileError::TypeMismatch {
+                expected: "int".to_string(),
+                found: "non-integer types".to_string(),
+                span: self.current_span.clone(),
+            });
+        }
+
+        let left_int = left.into_int_value();
+        let right_int = right.into_int_value();
+        // Shift amount should match the type being shifted
+        let shift_amt = if right_int.get_type() != left_int.get_type() {
+            self.builder.build_int_z_extend_or_bit_cast(right_int, left_int.get_type(), "shift_ext")?
+        } else {
+            right_int
+        };
+        // Use logical (unsigned) right shift
+        let result = self.builder.build_right_shift(left_int, shift_amt, false, "shr")?;
         Ok(result.into())
     }
 }
