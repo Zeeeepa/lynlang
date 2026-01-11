@@ -6,12 +6,12 @@
 { Result } = @std.core.result
 { Option } = @std.core.option
 { Allocator } = @std.memory.allocator
-{ Mutex } = @std.sync.mutex
-{ AtomicI32, AtomicI64 } = @std.sync.atomic
+{ Mutex } = @std.concurrency.sync.mutex
+{ AtomicI32, AtomicI64 } = @std.concurrency.primitives.atomic
 { HashMap } = @std.collections.hashmap
-{ Thread, ThreadHandle, thread_exit } = @std.sync.thread
-{ Actor, ActorRef, ACTOR_RUNNING, ACTOR_STOPPED } = @std.actor.actor
-{ Supervisor } = @std.actor.supervisor
+{ Thread, ThreadHandle, thread_exit } = @std.concurrency.sync.thread
+{ Actor, ActorRef, ACTOR_RUNNING, ACTOR_STOPPED } = @std.concurrency.actor.actor
+{ Supervisor } = @std.concurrency.actor.supervisor
 
 // ============================================================================
 // Actor System

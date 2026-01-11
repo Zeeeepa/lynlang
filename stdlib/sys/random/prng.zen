@@ -1,5 +1,6 @@
-// Zen Standard Library: Random
-// Random number generation
+// Zen Standard Library: PRNG (Pseudo-Random Number Generator)
+// Seeded random number generation using Linear Congruential Generator
+// For cryptographic/kernel randomness, use @std.sys.random.getrandom instead
 
 // Random number generator state
 Rng: {

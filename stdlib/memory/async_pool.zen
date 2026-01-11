@@ -16,7 +16,7 @@
 { Option } = @std.core.option
 { Allocator } = @std.memory.allocator
 { AsyncAllocator, ExecutionMode, CompletionFn } = @std.memory.async_allocator
-{ IoUring, CQE } = @std.io.uring
+{ IoUring, CQE } = @std.io.mux.uring
 { SYS_MMAP, SYS_MUNMAP } = @std.sys.syscall
 
 // ============================================================================

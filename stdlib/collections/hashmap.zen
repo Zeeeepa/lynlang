@@ -5,7 +5,7 @@
 { compiler } = @std
 { Ptr, Option } = @std.core
 { Allocator } = @std.memory.allocator
-{ Vec } = @std.vec
+{ Vec } = @std.collections.vec
 
 // Entry for a single key-value pair
 Entry<K, V>: {

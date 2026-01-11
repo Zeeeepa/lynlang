@@ -3,7 +3,7 @@
 // Counting semaphore for limiting concurrent access
 
 { compiler } = @std
-{ futex_wait, futex_wake_one, futex_wake } = @std.sync.futex
+{ futex_wait, futex_wake_one, futex_wake } = @std.concurrency.primitives.futex
 
 // ============================================================================
 // Semaphore - Counting semaphore

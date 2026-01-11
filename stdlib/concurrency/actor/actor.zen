@@ -14,8 +14,8 @@
 { Result } = @std.core.result
 { Option } = @std.core.option
 { Allocator } = @std.memory.allocator
-{ Channel, ChannelError } = @std.sync.channel
-{ AtomicI32, AtomicI64 } = @std.sync.atomic
+{ Channel, ChannelError } = @std.concurrency.sync.channel
+{ AtomicI32, AtomicI64 } = @std.concurrency.primitives.atomic
 
 // ============================================================================
 // Actor State

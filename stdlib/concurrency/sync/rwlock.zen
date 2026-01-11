@@ -3,7 +3,7 @@
 // Reader-writer lock: multiple readers OR one writer
 
 { compiler } = @std
-{ futex_wait, futex_wake_one, futex_wake_all } = @std.sync.futex
+{ futex_wait, futex_wake_one, futex_wake_all } = @std.concurrency.primitives.futex
 
 // ============================================================================
 // RWLock State Encoding

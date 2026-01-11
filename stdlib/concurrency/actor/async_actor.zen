@@ -14,9 +14,9 @@
 { Option } = @std.core.option
 { Allocator } = @std.memory.allocator
 { AsyncPool } = @std.memory.async_pool
-{ Scheduler, spawn, yield_now } = @std.async.scheduler
-{ Task, TaskState, get_current_task } = @std.async.task
-{ AtomicI32, AtomicI64 } = @std.sync.atomic
+{ Scheduler, spawn, yield_now } = @std.concurrency.async.scheduler
+{ Task, TaskState, get_current_task } = @std.concurrency.async.task
+{ AtomicI32, AtomicI64 } = @std.concurrency.primitives.atomic
 { Eventfd } = @std.io.eventfd
 { SYS_READ, SYS_WRITE, SYS_CLOSE } = @std.sys.syscall
 

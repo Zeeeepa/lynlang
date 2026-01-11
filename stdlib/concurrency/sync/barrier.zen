@@ -3,7 +3,7 @@
 // Thread synchronization barrier
 
 { compiler } = @std
-{ futex_wait, futex_wake_all } = @std.sync.futex
+{ futex_wait, futex_wake_all } = @std.concurrency.primitives.futex
 
 // ============================================================================
 // Barrier - Synchronization point for multiple threads

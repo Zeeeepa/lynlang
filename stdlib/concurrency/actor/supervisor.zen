@@ -5,8 +5,8 @@
 { compiler } = @std
 { Result } = @std.core.result
 { Allocator } = @std.memory.allocator
-{ AtomicI32 } = @std.sync.atomic
-{ ACTOR_RUNNING, ACTOR_STOPPED, ACTOR_FAILED } = @std.actor.actor
+{ AtomicI32 } = @std.concurrency.primitives.atomic
+{ ACTOR_RUNNING, ACTOR_STOPPED, ACTOR_FAILED } = @std.concurrency.actor.actor
 
 // ============================================================================
 // Restart Strategies

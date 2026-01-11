@@ -3,7 +3,7 @@
 // One-time initialization primitive
 
 { compiler } = @std
-{ futex_wait, futex_wake_all } = @std.sync.futex
+{ futex_wait, futex_wake_all } = @std.concurrency.primitives.futex
 
 // ============================================================================
 // Once States

@@ -3,8 +3,8 @@
 // Condition variable for thread synchronization
 
 { compiler } = @std
-{ Mutex } = @std.sync.mutex
-{ futex_wait, futex_wake_one, futex_wake_all } = @std.sync.futex
+{ Mutex } = @std.concurrency.sync.mutex
+{ futex_wait, futex_wake_one, futex_wake_all } = @std.concurrency.primitives.futex
 
 // ============================================================================
 // Syscall for timeout support

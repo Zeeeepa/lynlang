@@ -111,3 +111,19 @@ Ptr<T>.eq = (self: Ptr<T>, other: Ptr<T>) bool {
     addr2 = other.addr()
     return addr1 == addr2
 }
+
+// ============================================================================
+// RawPtr Helpers - Low-level pointer utilities
+// ============================================================================
+
+// Check if raw pointer is null
+is_null = (ptr: RawPtr<u8>) bool {
+    addr = compiler.ptr_to_int(ptr)
+    return addr == 0
+}
+
+// Check if raw pointer is valid (not null)
+is_valid = (ptr: RawPtr<u8>) bool {
+    addr = compiler.ptr_to_int(ptr)
+    return addr != 0
+}

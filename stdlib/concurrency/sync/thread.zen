@@ -5,7 +5,7 @@
 { compiler } = @std
 { Result } = @std.core.result
 { Allocator } = @std.memory.allocator
-{ futex_wait } = @std.sync.futex
+{ futex_wait } = @std.concurrency.primitives.futex
 { SYS_CLONE, SYS_EXIT, SYS_TGKILL, SYS_FUTEX, SYS_GETTID } = @std.sys.syscall
 
 // ============================================================================

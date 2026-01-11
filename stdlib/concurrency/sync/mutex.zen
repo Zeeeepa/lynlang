@@ -3,7 +3,7 @@
 // Fair mutex using futex for efficient blocking
 
 { compiler } = @std
-{ futex_wait, futex_wake_one } = @std.sync.futex
+{ futex_wait, futex_wake_one } = @std.concurrency.primitives.futex
 
 // ============================================================================
 // Mutex States

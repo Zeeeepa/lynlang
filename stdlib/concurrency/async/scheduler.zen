@@ -12,7 +12,7 @@
 { Option } = @std.core.option
 { Allocator } = @std.memory.allocator
 { AsyncPool } = @std.memory.async_pool
-{ Task, TaskState, TaskContext, context_switch, set_current_task, CURRENT_TASK } = @std.async.task
+{ Task, TaskState, TaskContext, context_switch, set_current_task, CURRENT_TASK } = @std.concurrency.async.task
 
 // ============================================================================
 // Constants

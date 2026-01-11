@@ -3,7 +3,7 @@
 // Wait for a collection of tasks to complete
 
 { compiler } = @std
-{ futex_wait, futex_wake_all } = @std.sync.futex
+{ futex_wait, futex_wake_all } = @std.concurrency.primitives.futex
 
 // ============================================================================
 // WaitGroup - Wait for multiple tasks to complete

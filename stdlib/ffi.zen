@@ -5,7 +5,7 @@
 // For Result types with string errors, use the higher-level wrappers in
 // your application code after loading.
 
-{ compiler } = @std
+{ compiler, ptr } = @std
 
 // =============================================================================
 // TYPES
@@ -19,22 +19,6 @@ CFuncPtr: {
 // C library handle (simple wrapper)
 CLibrary: {
     handle: RawPtr<u8>
-}
-
-// =============================================================================
-// HELPER FUNCTIONS
-// =============================================================================
-
-// Check if pointer is null (inline to avoid cross-module dependency)
-ptr_is_null = (ptr: RawPtr<u8>) bool {
-    addr = compiler.ptr_to_int(ptr)
-    return addr == 0
-}
-
-// Check if pointer is valid (not null)
-ptr_is_valid = (ptr: RawPtr<u8>) bool {
-    addr = compiler.ptr_to_int(ptr)
-    return addr != 0
 }
 
 // =============================================================================
@@ -84,12 +68,12 @@ get_symbol = (lib: CLibrary, symbol: String) RawPtr<u8> {
 
 // Check if library was loaded successfully
 is_loaded = (lib: CLibrary) bool {
-    return ptr_is_valid(lib.handle)
+    return ptr.is_valid(lib.handle)
 }
 
 // Check if function pointer is valid
 is_valid = (func: CFuncPtr) bool {
-    return ptr_is_valid(func.ptr)
+    return ptr.is_valid(func.ptr)
 }
 
 // Unload library

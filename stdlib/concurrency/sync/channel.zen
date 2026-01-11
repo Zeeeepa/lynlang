@@ -6,7 +6,7 @@
 { Result } = @std.core.result
 { Option } = @std.core.option
 { Allocator } = @std.memory.allocator
-{ futex_wait, futex_wake_one, futex_wake_all } = @std.sync.futex
+{ futex_wait, futex_wake_one, futex_wake_all } = @std.concurrency.primitives.futex
 
 // ============================================================================
 // Channel<T> - Bounded MPSC/MPMC message queue
