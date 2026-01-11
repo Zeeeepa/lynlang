@@ -552,6 +552,199 @@ impl<'a> Parser<'a> {
         })
     }
 
+    /// Parse a program with error recovery for LSP usage.
+    /// Instead of failing on the first error, tries to synchronize and continue.
+    /// Returns a partial AST with as many valid declarations as possible,
+    /// along with a list of errors encountered.
+    pub fn parse_program_with_recovery(&mut self) -> (Program, Vec<CompileError>) {
+        let mut declarations = vec![];
+        let mut errors = vec![];
+
+        while self.current_token != Token::Eof {
+            match self.try_parse_declaration() {
+                Ok(decls) => declarations.extend(decls),
+                Err(err) => {
+                    errors.push(err);
+                    // Synchronize: skip to next likely declaration start
+                    self.synchronize_to_declaration();
+                }
+            }
+        }
+
+        (
+            Program {
+                declarations,
+                statements: Vec::new(),
+            },
+            errors,
+        )
+    }
+
+    /// Try to parse a single top-level declaration.
+    /// Returns Ok(Vec<Declaration>) because some constructs (like destructuring imports) return multiple.
+    fn try_parse_declaration(&mut self) -> Result<Vec<Declaration>> {
+        // Check for @export { symbol1, symbol2, ... } or @export *
+        if self.current_token == Token::AtExport {
+            return Ok(vec![self.parse_export()?]);
+        }
+
+        // Check for destructuring import: { name, name } = @std
+        if self.current_token == Token::Symbol('{') {
+            return self.parse_destructuring_import_declaration();
+        }
+
+        // Parse identifier-based declarations
+        if let Token::Identifier(name) = &self.current_token {
+            // Check for reserved keywords from other languages
+            if let Some(err) = check_declaration_keyword_guard(&self.current_token, &self.current_span) {
+                return err.map(|_| vec![]);
+            }
+
+            // Handle special identifiers "type" and "comptime" first
+            if name == "type" {
+                return Ok(vec![Declaration::TypeAlias(self.parse_type_alias()?)]);
+            } else if name == "comptime" {
+                return Ok(vec![self.parse_comptime_block_declaration()?]);
+            } else if self.peek_token == Token::Operator(":=".to_string()) {
+                let var_name = name.clone();
+                let is_module_import = self.with_lookahead(|p| {
+                    p.next_token();
+                    p.next_token();
+                    p.is_module_import_after_colon_assign()
+                });
+
+                if is_module_import {
+                    self.next_token();
+                    self.next_token();
+                    return Ok(vec![self.parse_module_import_after_colon_assign(var_name)?]);
+                } else {
+                    return Ok(vec![self.parse_constant_from_statement()?]);
+                }
+            } else if self.peek_token == Token::Operator("::".to_string())
+                || self.peek_token == Token::Symbol(':')
+                || self.peek_token == Token::Operator("<".to_string())
+                || self.peek_token == Token::Symbol('.')
+            {
+                // This is likely a function, struct, enum, or impl block
+                // Use the existing parse_program logic by delegating to it
+                // We'll parse one declaration and return
+                return self.parse_single_declaration_internal();
+            }
+        }
+
+        // Skip unknown tokens
+        Err(CompileError::SyntaxError(
+            format!("Unexpected token at top level: {:?}", self.current_token),
+            Some(self.current_span.clone()),
+        ))
+    }
+
+    /// Parse a single declaration (internal helper for recovery parser)
+    fn parse_single_declaration_internal(&mut self) -> Result<Vec<Declaration>> {
+        // Try to determine declaration type
+        if let Token::Identifier(name) = &self.current_token {
+            let name = name.clone();
+
+            if self.peek_token == Token::Operator("::".to_string()) {
+                let is_function = self.with_lookahead(|p| {
+                    p.next_token();
+                    p.next_token();
+                    p.current_token == Token::Symbol('(')
+                });
+
+                if is_function {
+                    return Ok(vec![Declaration::Function(self.parse_function()?)]);
+                } else {
+                    let var_name = name;
+                    self.next_token();
+                    return Ok(vec![self.parse_top_level_mutable_var(var_name)?]);
+                }
+            }
+
+            if self.peek_token == Token::Symbol(':') || self.peek_token == Token::Operator("<".to_string()) {
+                // Determine if struct, enum, function, behavior, trait
+                // Try function first (most common)
+                let func_saved = self.save_state();
+                if let Ok(func) = self.parse_function() {
+                    return Ok(vec![Declaration::Function(func)]);
+                }
+
+                // Restore and try struct
+                self.restore_state(func_saved);
+                let struct_saved = self.save_state();
+                if let Ok(s) = self.parse_struct() {
+                    return Ok(vec![Declaration::Struct(s)]);
+                }
+
+                // Restore and try enum
+                self.restore_state(struct_saved);
+                if let Ok(e) = self.parse_enum() {
+                    return Ok(vec![Declaration::Enum(e)]);
+                }
+
+                return Err(self.syntax_error("Could not parse declaration"));
+            }
+
+            if self.peek_token == Token::Symbol('.') {
+                // Might be impl block or method
+                let impl_saved = self.save_state();
+                let type_name = self.parse_type_name_with_generics()?;
+                if self.try_consume_symbol('.') {
+                    if self.is_keyword("impl") {
+                        self.next_token();
+                        self.expect_operator("=")?;
+                        return Ok(vec![Declaration::ImplBlock(self.parse_impl_block(type_name)?)]);
+                    }
+                }
+                // Restore and try other patterns
+                self.restore_state(impl_saved);
+            }
+        }
+
+        Err(self.syntax_error("Could not determine declaration type"))
+    }
+
+    /// Synchronize parser state after an error.
+    /// Skips tokens until we find a likely declaration start.
+    fn synchronize_to_declaration(&mut self) {
+        loop {
+            if self.current_token == Token::Eof {
+                break;
+            }
+
+            // Check for @export
+            if self.current_token == Token::AtExport {
+                break;
+            }
+
+            // Check for destructuring import start
+            if self.current_token == Token::Symbol('{') {
+                break;
+            }
+
+            // Check for identifier-based declarations
+            if let Token::Identifier(name) = &self.current_token {
+                // Keywords that start declarations
+                if matches!(name.as_str(), "type" | "comptime" | "pub" | "extern") {
+                    break;
+                }
+
+                // Check peek_token without holding borrow
+                let should_break = match &self.peek_token {
+                    Token::Symbol(':') | Token::Symbol('.') => true,
+                    Token::Operator(op) => op == ":=" || op == "::" || op == "<",
+                    _ => false,
+                };
+
+                if should_break {
+                    break;
+                }
+            }
+
+            self.next_token();
+        }
+    }
+
     pub fn parse_statement(&mut self) -> Result<Statement> {
         match &self.current_token {
             // ================================================================

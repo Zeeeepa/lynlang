@@ -3,7 +3,7 @@
 
 use lsp_server::{Request, Response};
 use lsp_types::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 // Import from other LSP modules
 use super::document_store::DocumentStore;
@@ -289,8 +289,23 @@ pub fn handle_completion(
         }
     }
 
-    // Add stdlib symbols (functions and types from standard library)
+    // Add stdlib symbols with auto-import (functions and types from standard library)
+    let doc_content = store
+        .documents
+        .get(&params.text_document_position.text_document.uri)
+        .map(|d| d.content.as_str())
+        .unwrap_or("");
+
     for (name, symbol) in &store.stdlib_symbols {
+        // Try to get module path from definition URI for auto-import
+        if let Some(ref uri) = symbol.definition_uri {
+            if let Some(module_path) = get_module_path_from_uri(uri) {
+                completions.push(create_completion_with_import(name, symbol, &module_path, doc_content));
+                continue;
+            }
+        }
+
+        // Fallback without auto-import
         completions.push(CompletionItem {
             label: name.clone(),
             kind: Some(symbol_kind_to_completion_kind(symbol.kind)),
@@ -661,4 +676,132 @@ fn get_ufc_method_completions(receiver_type: &str, store: &DocumentStore) -> Vec
     }
 
     items
+}
+
+// ============================================================================
+// AUTO-IMPORT HELPERS
+// ============================================================================
+
+/// Extract the module path from a definition URI (e.g., @std.collections.vec)
+fn get_module_path_from_uri(uri: &Url) -> Option<String> {
+    let path = uri.path();
+
+    // Check if it's a stdlib file
+    if let Some(stdlib_pos) = path.find("/stdlib/") {
+        let relative = &path[stdlib_pos + 8..]; // Skip "/stdlib/"
+        let module_path = relative
+            .trim_end_matches(".zen")
+            .replace('/', ".");
+
+        // Handle module names that match directory (e.g., collections/vec.zen -> @std.collections.vec)
+        return Some(format!("@std.{}", module_path));
+    }
+
+    None
+}
+
+/// Get symbols that are already imported in the document
+fn get_imported_symbols(content: &str) -> HashSet<String> {
+    let mut imported = HashSet::new();
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        // Match: { symbol1, symbol2 } = @std.module
+        if trimmed.starts_with('{') && trimmed.contains("} =") {
+            if let Some(brace_end) = trimmed.find('}') {
+                let symbols_str = &trimmed[1..brace_end];
+                for symbol in symbols_str.split(',') {
+                    imported.insert(symbol.trim().to_string());
+                }
+            }
+        }
+    }
+
+    imported
+}
+
+/// Find the best position to insert an import statement
+fn find_import_insert_position(content: &str) -> Position {
+    let mut last_import_line = 0;
+    let mut found_import = false;
+
+    for (line_num, line) in content.lines().enumerate() {
+        let trimmed = line.trim();
+
+        // Skip comments at the top
+        if trimmed.starts_with("//") {
+            if !found_import {
+                last_import_line = line_num + 1;
+            }
+            continue;
+        }
+
+        // Track import lines
+        if trimmed.starts_with('{') && trimmed.contains("} =") && trimmed.contains('@') {
+            last_import_line = line_num + 1;
+            found_import = true;
+        } else if !trimmed.is_empty() && found_import {
+            // Non-empty, non-import line after imports - stop here
+            break;
+        } else if !trimmed.is_empty() && !found_import {
+            // Non-empty, non-import line before any imports - insert at top
+            break;
+        }
+    }
+
+    Position {
+        line: last_import_line as u32,
+        character: 0,
+    }
+}
+
+/// Create a TextEdit for inserting an import statement
+fn create_import_edit(symbol_name: &str, module_path: &str, content: &str) -> Option<TextEdit> {
+    // Check if already imported
+    let imported = get_imported_symbols(content);
+    if imported.contains(symbol_name) {
+        return None;
+    }
+
+    let insert_pos = find_import_insert_position(content);
+    let import_line = format!("{{ {} }} = {}\n", symbol_name, module_path);
+
+    Some(TextEdit {
+        range: Range {
+            start: insert_pos,
+            end: insert_pos,
+        },
+        new_text: import_line,
+    })
+}
+
+/// Create a completion item with auto-import
+fn create_completion_with_import(
+    name: &str,
+    symbol: &SymbolInfo,
+    module_path: &str,
+    content: &str,
+) -> CompletionItem {
+    let mut item = CompletionItem {
+        label: name.to_string(),
+        kind: Some(symbol_kind_to_completion_kind(symbol.kind)),
+        detail: symbol.detail.clone(),
+        documentation: Some(Documentation::String(format!(
+            "Auto-import from `{}`",
+            module_path
+        ))),
+        ..Default::default()
+    };
+
+    // Add the import as an additional text edit
+    if let Some(edit) = create_import_edit(name, module_path, content) {
+        item.additional_text_edits = Some(vec![edit]);
+        item.label_details = Some(CompletionItemLabelDetails {
+            detail: Some(format!(" ({})", module_path)),
+            description: None,
+        });
+    }
+
+    item
 }

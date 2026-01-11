@@ -2,6 +2,7 @@ use super::super::lexer::{Lexer, LexerState, Token};
 use crate::error::Span;
 
 /// Saved parser state for backtracking during look-ahead
+#[derive(Clone)]
 pub struct ParserState {
     pub lexer_state: LexerState,
     pub current_token: Token,

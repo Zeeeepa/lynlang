@@ -86,8 +86,9 @@ pub fn format_enum_variants(content: &str) -> String {
             let before_colon = trimmed[..colon_pos].trim();
             let after_colon = trimmed[colon_pos + 1..].trim();
 
-            // Skip if not a valid identifier or contains assignment/struct markers
-            if is_valid_identifier(before_colon)
+            // Skip if not a valid enum name or contains assignment/struct markers
+            // Use is_valid_enum_name to properly handle generic types like Option<T>
+            if is_valid_enum_name(before_colon)
                 && !trimmed.contains('=')
                 && !trimmed.contains('{')
                 && !after_colon.starts_with(':')
@@ -188,6 +189,33 @@ pub fn is_valid_identifier(s: &str) -> bool {
         return false;
     }
     chars.all(|c| c.is_alphanumeric() || c == '_')
+}
+
+/// Check if a string is a valid enum name (identifier optionally followed by generic params)
+/// Uses the Parser to properly parse `Name` or `Name<T>` or `Name<T, E>` patterns
+pub fn is_valid_enum_name(s: &str) -> bool {
+    use crate::parser::Parser;
+
+    if s.is_empty() {
+        return false;
+    }
+
+    // Quick check for unclosed generics
+    if s.contains('<') && !s.contains('>') {
+        return false;
+    }
+
+    let lexer = Lexer::new(s);
+    let mut parser = Parser::new(lexer);
+
+    // Use the parser's existing method to parse type name with generics
+    match parser.parse_type_name_with_generics() {
+        Ok(_) => {
+            // After parsing, we should be at EOF (consumed entire string)
+            parser.current_token == Token::Eof
+        }
+        Err(_) => false,
+    }
 }
 
 /// Check if a string looks like a valid enum variant
@@ -372,7 +400,7 @@ pub fn format_braces(content: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::formatting::{analyze_line_tokens, format_braces, is_pattern_arm_line};
+    use crate::formatting::{analyze_line_tokens, format_braces, format_enum_variants, is_pattern_arm_line, is_valid_enum_name};
 
     #[test]
     fn test_analyze_line_braces_in_string() {
@@ -478,5 +506,55 @@ return msg
         // Line 3: }
         assert!(lines[1].starts_with("    msg"), "line 1 should be indented msg");
         assert!(lines[2].starts_with("    return"), "line 2 should be indented return");
+    }
+
+    #[test]
+    fn test_is_valid_enum_name_simple() {
+        assert!(is_valid_enum_name("Option"));
+        assert!(is_valid_enum_name("Result"));
+        assert!(is_valid_enum_name("MyEnum"));
+        assert!(!is_valid_enum_name(""));
+        assert!(!is_valid_enum_name("123"));
+    }
+
+    #[test]
+    fn test_is_valid_enum_name_generic() {
+        assert!(is_valid_enum_name("Option<T>"));
+        assert!(is_valid_enum_name("Result<T, E>"));
+        assert!(is_valid_enum_name("Map<K, V>"));
+        assert!(!is_valid_enum_name("Option<"));  // unclosed
+        assert!(!is_valid_enum_name("Option<T> extra"));  // extra content
+    }
+
+    #[test]
+    fn test_format_enum_variants_generic() {
+        // Generic enum with variants not indented should be fixed
+        let input = "Option<T>:\nSome: T,\nNone";
+        let formatted = format_enum_variants(input);
+        let lines: Vec<&str> = formatted.lines().collect();
+        assert_eq!(lines[0], "Option<T>:");
+        assert_eq!(lines[1], "    Some: T,");
+        assert_eq!(lines[2], "    None");
+    }
+
+    #[test]
+    fn test_format_enum_variants_generic_result() {
+        let input = "Result<T, E>:\nOk: T,\nErr: E";
+        let formatted = format_enum_variants(input);
+        let lines: Vec<&str> = formatted.lines().collect();
+        assert_eq!(lines[0], "Result<T, E>:");
+        assert_eq!(lines[1], "    Ok: T,");
+        assert_eq!(lines[2], "    Err: E");
+    }
+
+    #[test]
+    fn test_format_enum_variants_simple() {
+        // Non-generic enum should still work
+        let input = "Status:\nActive,\nInactive";
+        let formatted = format_enum_variants(input);
+        let lines: Vec<&str> = formatted.lines().collect();
+        assert_eq!(lines[0], "Status:");
+        assert_eq!(lines[1], "    Active,");
+        assert_eq!(lines[2], "    Inactive");
     }
 }

@@ -448,6 +448,7 @@ impl DocumentStore {
         let lexer = Lexer::new(content);
         let mut parser = Parser::new(lexer);
 
+        // Try normal parsing first
         match parser.parse_program() {
             Ok(program) => Some(program.declarations),
             Err(e) => {
@@ -456,7 +457,27 @@ impl DocumentStore {
                 } else {
                     log::debug!("[LSP] Parse error: {:?}", e);
                 }
-                None
+
+                // Use error recovery to get partial AST
+                // Re-create parser since we consumed it
+                let lexer = Lexer::new(content);
+                let mut parser = Parser::new(lexer);
+                let (program, errors) = parser.parse_program_with_recovery();
+
+                if !errors.is_empty() {
+                    log::debug!("[LSP] Recovery parsing found {} errors", errors.len());
+                }
+
+                // Return partial AST if we got any declarations
+                if program.declarations.is_empty() {
+                    None
+                } else {
+                    log::debug!(
+                        "[LSP] Recovery parsing extracted {} declarations",
+                        program.declarations.len()
+                    );
+                    Some(program.declarations)
+                }
             }
         }
     }

@@ -76,9 +76,15 @@ Completion handler now:
 - Implemented in `semantic_completion.rs`
 - Substitutes T, E etc. with concrete types from receiver
 
-### 3.2 Import Auto-Insertion
-- **Status:** PENDING
-- Would add `additionalTextEdits` to completion items
+### 3.2 Import Auto-Insertion ✅
+- **Files:** `src/lsp/completion.rs`
+- **Status:** COMPLETE
+
+Stdlib completions now include auto-import:
+- Detects module path from symbol definition URI
+- Adds `additionalTextEdits` to insert import statement
+- Shows module path in completion label details
+- Skips import if symbol already imported
 
 ### 3.3 Parameter Hints Enhancement
 - **Status:** PENDING
@@ -88,12 +94,22 @@ Completion handler now:
 
 ## Phase 4: Resilience
 
-### 4.1 Error Recovery in Parser
-- **Status:** PENDING
-- Parser currently fails hard on syntax errors
-- Need partial AST support for completion in broken files
+### 4.1 Error Recovery in Parser ✅
+- **Files:** `src/parser/statements.rs`, `src/parser/core.rs`
+- **Status:** COMPLETE
 
-### 4.2 Debounced Analysis
+New `parse_program_with_recovery()` method:
+- Tries to parse each declaration independently
+- On error, synchronizes to next declaration boundary
+- Returns partial AST with all successfully parsed declarations
+- Collects all errors for diagnostics
+
+Used in `document_store.rs`:
+- First tries normal parsing
+- On failure, uses recovery parser to extract partial AST
+- Enables completions/hover even with syntax errors elsewhere in file
+
+### 4.2 Debounced Analysis ✅
 - **Status:** COMPLETE (existing)
 - Already implemented with 300ms debounce in `document_store.rs`
 
