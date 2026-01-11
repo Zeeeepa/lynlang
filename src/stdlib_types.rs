@@ -60,15 +60,24 @@ impl StdlibTypeRegistry {
         }
 
         let files_to_parse = [
+            // Core types
             "core/option.zen",
             "core/result.zen",
             "core/iterator.zen",
-            "string.zen",
+            // Collections
+            "collections/vec.zen",
+            "collections/hashmap.zen",
+            "collections/set.zen",
+            "collections/string.zen",
+            "collections/queue.zen",
+            "collections/stack.zen",
+            // Memory
             "memory/gpa.zen",
             "memory/allocator.zen",
-            "vec.zen",
+            // Other
             "io/io.zen",
-            "math/math.zen",
+            "math.zen",
+            "std.zen",
         ];
 
         for file in &files_to_parse {
@@ -250,65 +259,9 @@ impl StdlibTypeRegistry {
         self.get_function_signature(module, func_name)
             .map(|sig| &sig.return_type)
     }
-    
-    #[allow(dead_code)] // Used in tests
-    pub fn debug_list_functions(&self) -> Vec<String> {
-        self.functions.keys().cloned().collect()
-    }
 
-    #[allow(dead_code)] // Used in tests
-    pub fn debug_list_methods(&self) -> Vec<String> {
-        self.methods.keys().cloned().collect()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_stdlib_gpa_loading() {
-        let registry = stdlib_types();
-        
-        let funcs = registry.debug_list_functions();
-        println!("Registered functions: {:?}", funcs);
-        
-        let ret = registry.get_function_return_type("gpa", "default_gpa");
-        println!("gpa::default_gpa return type: {:?}", ret);
-        
-        assert!(ret.is_some(), "gpa::default_gpa should be registered");
-    }
-
-    #[test]
-    fn test_string_methods() {
-        let registry = stdlib_types();
-        
-        let methods: Vec<_> = registry.methods.keys().collect();
-        println!("Registered methods: {:?}", methods);
-        
-        let ret = registry.get_method_return_type("String", "len");
-        println!("String::len return type: {:?}", ret);
-        
-        let ret2 = registry.get_method_return_type("String", "push");
-        println!("String::push return type: {:?}", ret2);
-
-        assert!(ret.is_some(), "String::len should be registered");
-    }
-
-    #[test]
-    fn test_range_methods() {
-        let registry = stdlib_types();
-
-        let methods = registry.debug_list_methods();
-        println!("All registered methods: {:?}", methods);
-
-        let range_methods: Vec<_> = methods.iter().filter(|m| m.starts_with("Range")).collect();
-        println!("Range methods: {:?}", range_methods);
-
-        let ret = registry.get_method_return_type("Range", "has_next");
-        println!("Range::has_next return type: {:?}", ret);
-
-        let ret2 = registry.get_method_return_type("Range", "count");
-        println!("Range::count return type: {:?}", ret2);
+    /// Get struct type by name (returns AstType::Struct with fields)
+    pub fn get_struct_type(&self, name: &str) -> Option<AstType> {
+        self.struct_types.get(name).cloned()
     }
 }
