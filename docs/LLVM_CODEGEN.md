@@ -80,7 +80,6 @@ src/codegen/llvm/
 ├── stdlib_codegen/        # Compiler intrinsics
 │   ├── mod.rs             # Re-exports all intrinsics
 │   ├── compiler.rs        # Low-level intrinsics (827 LOC)
-│   ├── collections.rs     # HashMap, HashSet, DynVec (670 LOC)
 │   └── helpers.rs         # Utility functions
 │
 ├── binary_ops.rs          # Arithmetic, logical, comparison ops (434 LOC)
@@ -89,11 +88,10 @@ src/codegen/llvm/
 ├── literals.rs            # Literal value compilation (412 LOC)
 ├── pointers.rs            # Pointer operations (ref, deref, addr)
 ├── strings.rs             # String handling and interpolation
-├── structs.rs             # Struct type compilation (549 LOC)
-└── vec_support.rs         # Vector/array support (318 LOC)
+└── structs.rs             # Struct type compilation (549 LOC)
 ```
 
-**Total: ~12,647 lines of Rust code**
+**Total: ~11,776 lines of Rust code**
 
 ---
 
@@ -455,7 +453,7 @@ When implementing new features, verify:
 | Add new expression type | `expressions/mod.rs`, `expressions/inference.rs` |
 | Add new statement type | `statements/mod.rs`, appropriate submodule |
 | Add intrinsic function | `stdlib_codegen/compiler.rs`, `functions/calls.rs` |
-| Add collection method | `behaviors.rs`, `stdlib_codegen/collections.rs` |
+| Add collection method | `stdlib/*.zen` (collections in Zen stdlib) |
 | Modify type system | `types.rs`, `expressions/inference.rs` |
 | Add pattern matching | `expressions/patterns.rs` |
 | Add control flow | `statements/control.rs`, `control_flow.rs` |
@@ -503,5 +501,5 @@ None:      { discriminant: 1, payload: null }
 ---
 
 *Last updated: January 2026*
-*Lines of code: ~12,647*
-*Files: 35*
+*Lines of code: ~11,776*
+*Files: 33*

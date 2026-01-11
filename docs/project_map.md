@@ -29,9 +29,9 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │  ZEN STDLIB (stdlib/)                                           │
 │  All language features built on intrinsics                      │
-│  ┌──────┐ ┌─────────────┐ ┌──────┐ ┌─────┐ ┌───────┐          │
-│  │ core │ │ collections │ │ sync │ │ io  │ │ async │          │
-│  └──────┘ └─────────────┘ └──────┘ └─────┘ └───────┘          │
+│  ┌──────┐ ┌─────────────┐ ┌─────────────┐ ┌──────┐ ┌─────┐    │
+│  │ core │ │ collections │ │ concurrency │ │  io  │ │ sys │    │
+│  └──────┘ └─────────────┘ └─────────────┘ └──────┘ └─────┘    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -156,10 +156,15 @@ codegen/llvm/
 │   ├── control.rs       # Control expr codegen
 │   ├── inference.rs     # Expression type inference
 │   └── utils.rs         # Codegen utilities
-└── stdlib_codegen/
-    ├── mod.rs           # Stdlib special handling
-    ├── compiler.rs      # Compile-time evaluation
-    └── helpers.rs       # Helper codegen
+├── stdlib_codegen/
+│   ├── mod.rs           # Stdlib intrinsic dispatch
+│   ├── compiler.rs      # Compiler intrinsics (raw_allocate, sizeof, etc.)
+│   └── helpers.rs       # Helper codegen
+├── binary_ops.rs        # Binary operator codegen
+├── literals.rs          # Literal value codegen
+├── pointers.rs          # Pointer operations
+├── strings.rs           # String operations
+└── structs.rs           # Struct layout/access
 ```
 
 ### LSP (src/lsp/) — IDE Support
@@ -238,19 +243,34 @@ bin/
 
 > All features built using intrinsics. No FFI.
 
+### Top-Level Modules
+```
+stdlib/
+├── std.zen              # Entry point: re-exports common types
+├── build.zen            # Build system configuration
+├── compiler.zen         # Compiler intrinsics API
+├── ffi.zen              # Foreign function interface
+├── math.zen             # Math functions (sin, cos, sqrt, etc.)
+├── testing.zen          # Test framework (assert, expect, etc.)
+└── time.zen             # Time operations (Duration, Instant, sleep)
+```
+
 ### Core Types (stdlib/core/)
 ```
 core/
 ├── option.zen           # Option<T>: Some(T) | None
 ├── result.zen           # Result<T,E>: Ok(T) | Err(E)
 ├── ptr.zen              # Ptr<T>, MutPtr<T>, RawPtr<T>
-├── iterator.zen         # Iterator behavior
-└── propagate.zen        # ? operator support
+├── iterator.zen         # Range, Iterator behavior
+└── propagate.zen        # ? operator support (error propagation)
 ```
 
 ### Collections (stdlib/collections/)
 ```
 collections/
+├── string.zen           # String: dynamic UTF-8 buffer
+├── vec.zen              # Vec<T>: growable array
+├── char.zen             # Character utilities (is_digit, to_upper, etc.)
 ├── hashmap.zen          # HashMap<K,V>: open addressing, FNV-1a
 ├── linkedlist.zen       # LinkedList<T>: doubly-linked
 ├── stack.zen            # Stack<T>: LIFO, vec-backed
@@ -263,93 +283,88 @@ collections/
 memory/
 ├── allocator.zen        # Allocator behavior interface
 ├── gpa.zen              # GeneralPurposeAllocator
-├── async_allocator.zen  # AsyncAllocator behavior
+├── async_allocator.zen  # AsyncAllocator behavior (non-blocking I/O)
 ├── async_pool.zen       # io_uring-based async allocator
 └── mmap.zen             # Memory-mapped regions
 ```
 
-### Sync Primitives (stdlib/sync/)
+### Concurrency (stdlib/concurrency/) — ALL concurrency in one place
 ```
-sync/
-├── mutex.zen            # Mutex<T>: futex-based
-├── rwlock.zen           # RwLock<T>: reader-writer
-├── channel.zen          # Channel<T>: bounded MPMC
-├── atomic.zen           # Atomic<T>: atomic operations
-├── thread.zen           # Thread spawning
-├── futex.zen            # Futex primitives
-├── semaphore.zen        # Counting semaphore
-├── barrier.zen          # Thread barrier
-├── condvar.zen          # Condition variable
-├── waitgroup.zen        # WaitGroup for goroutine-style sync
-└── once.zen             # One-time initialization
-```
-
-### Async Runtime (stdlib/async/)
-```
-async/
-├── task.zen             # Task<T>: async task handle
-├── executor.zen         # Executor: task runner
-├── scheduler.zen        # Scheduler: work stealing
-└── pool.zen             # ThreadPool
-```
-
-### Actor System (stdlib/actor/)
-```
-actor/
-├── actor.zen            # Actor behavior
-├── supervisor.zen       # Supervision trees
-└── system.zen           # ActorSystem runtime
+concurrency/
+├── primitives/          # Low-level building blocks
+│   ├── atomic.zen       # Atomic operations (load, store, CAS)
+│   └── futex.zen        # Futex primitives (wait, wake)
+│
+├── sync/                # Thread-based synchronization
+│   ├── thread.zen       # Thread spawning and management
+│   ├── mutex.zen        # Mutex<T>: futex-based mutual exclusion
+│   ├── rwlock.zen       # RwLock<T>: reader-writer lock
+│   ├── condvar.zen      # Condition variable
+│   ├── semaphore.zen    # Counting semaphore
+│   ├── barrier.zen      # Thread barrier
+│   ├── channel.zen      # Channel<T>: bounded MPMC
+│   ├── waitgroup.zen    # WaitGroup for goroutine-style sync
+│   └── once.zen         # One-time initialization
+│
+├── async/               # Task-based async runtime
+│   ├── task.zen         # Task<T>: async task handle
+│   ├── executor.zen     # Executor: task runner strategies
+│   └── scheduler.zen    # Scheduler: work-stealing scheduler
+│
+└── actor/               # Actor model
+    ├── actor.zen        # Actor<M,B> + ActorRef
+    ├── async_actor.zen  # Scheduler-integrated AsyncActor
+    ├── supervisor.zen   # Supervision and restart strategies
+    └── system.zen       # ActorSystem container
 ```
 
-### I/O (stdlib/io/)
+### I/O (stdlib/io/) — Organized by concern
 ```
 io/
-├── io.zen               # I/O types and traits
-├── file.zen             # File: syscall-based operations
-├── socket.zen           # TcpListener, TcpStream, UdpSocket
-├── unix_socket.zen      # UnixListener, UnixStream, SocketPair
-├── pipe.zen             # Pipe: Unix pipes
-├── epoll.zen            # Epoll: event polling
-├── poll.zen             # Poll: portable polling
-├── uring.zen            # IoUring: io_uring interface
-├── eventfd.zen          # EventFd: event notification
-├── timerfd.zen          # TimerFd: timer events
-├── inotify.zen          # Inotify: file watching
+├── io.zen               # Basic I/O (print, println, read_line)
+├── eventfd.zen          # Event notification fd
+├── timerfd.zen          # Timer fd
+├── inotify.zen          # File watching
 ├── signal.zen           # Signal handling
-├── splice.zen           # Splice: zero-copy I/O
-└── process.zen          # Process spawning
+│
+├── files/               # File and filesystem operations
+│   ├── file.zen         # File: open, read, write, close, seek
+│   ├── fs.zen           # Filesystem: chmod, chown, access, truncate
+│   ├── dir.zen          # Directory: mkdir, rmdir, readdir
+│   ├── stat.zen         # File metadata: stat, fstat, lstat
+│   ├── link.zen         # Links: symlink, hardlink, readlink
+│   ├── copy.zen         # Zero-copy: sendfile, copy_file_range
+│   └── splice.zen       # Splice: zero-copy pipe I/O
+│
+├── net/                 # Networking
+│   ├── socket.zen       # TCP/UDP: TcpListener, TcpStream, UdpSocket
+│   ├── unix_socket.zen  # Unix domain: UnixListener, UnixStream
+│   └── pipe.zen         # Pipes: pipe, pipe2
+│
+└── mux/                 # I/O multiplexing
+    ├── epoll.zen        # epoll: scalable I/O event notification
+    ├── poll.zen         # poll: portable polling
+    └── uring.zen        # io_uring: async I/O interface
 ```
 
-### System (stdlib/sys/)
+### System (stdlib/sys/) — OS interface
 ```
 sys/
-├── syscall.zen          # Raw syscall wrappers
+├── syscall.zen          # Syscall number constants (x86-64)
 ├── env.zen              # Environment variables
-├── uname.zen            # System info
-├── random.zen           # System random
-├── resource.zen         # Resource limits
-├── sched.zen            # Scheduling
-├── prctl.zen            # Process control
-└── memfd.zen            # Memory file descriptors
-```
-
-### Top-Level
-```
-stdlib/
-├── std.zen              # Prelude: re-exports common types
-├── string.zen           # String: dynamic string
-├── vec.zen              # Vec<T>: dynamic array
-├── char.zen             # Character utilities
-├── error.zen            # Error types
-├── time.zen             # Time types
-├── random.zen           # Random number generation
-├── math/math.zen        # Math functions
-├── fs/fs.zen            # Filesystem operations
-├── ffi/ffi.zen          # FFI utilities
-├── build/build.zen      # Build system
-├── compiler/compiler.zen # Compiler API
-├── testing/runner.zen   # Test runner
-└── time/time.zen        # Extended time
+├── uname.zen            # System info (uname)
+├── resource.zen         # Resource limits (rlimit)
+├── seccomp.zen          # Seccomp sandboxing
+├── memfd.zen            # Memory file descriptors
+│
+├── process/             # Process management
+│   ├── process.zen      # fork, exec, wait, exit
+│   ├── prctl.zen        # Process control (prctl syscall)
+│   └── sched.zen        # CPU scheduling and affinity
+│
+└── random/              # Random number generation
+    ├── getrandom.zen    # Kernel randomness (getrandom syscall)
+    └── prng.zen         # PRNG: seeded pseudo-random (LCG)
 ```
 
 ---
@@ -404,5 +419,11 @@ tests/
 ---
 
 ## Last Updated
-- **Iteration**: 4
-- **Changes**: Added collection types to WellKnownTypes registry
+- **Date**: January 2026
+- **Changes**: Major stdlib reorganization
+  - Consolidated `sync/`, `actor/`, `async/` → `concurrency/`
+  - Moved `string.zen`, `vec.zen`, `char.zen` → `collections/`
+  - Reorganized `io/` into `files/`, `net/`, `mux/` subdirectories
+  - Consolidated `sys/process/` and `sys/random/`
+  - Flattened single-file directories (`math/math.zen` → `math.zen`, etc.)
+  - Removed dead code: `fs/fs.zen`, `error.zen`, `async/pool.zen` (duplicate)

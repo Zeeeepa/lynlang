@@ -1,368 +1,420 @@
-# Zen Compiler Architecture Audit
+# Zen Compiler Architecture
 
-**Date:** January 2026
-**Perspective:** Senior Rust/LLVM Compiler Engineer
-
----
-
-## Senior Systems Engineer Principles
-
-What a senior compiler engineer looks for in a codebase:
-
-### 1. Clear Compilation Pipeline
-```
-Source → Lex → Parse → Sema → Lower → Codegen → Link
-```
-Each phase has ONE job. Data flows forward. No phase reaches back.
-
-### 2. No Dead Code
-- Every module is imported somewhere
-- Every function is called
-- `#[allow(dead_code)]` is a bug report, not a solution
-- If it's not used, delete it. Git remembers.
-
-### 3. Single Source of Truth
-- One place defines types
-- One place declares modules
-- One config, not scattered constants
-- DRY applies to architecture, not just code
-
-### 4. Separation of Concerns
-- Parser: syntax only (no `if name == "Option"`)
-- Typechecker: semantic analysis (all type decisions here)
-- Codegen: IR generation (no type inference)
-- Each layer trusts the previous layer did its job
-
-### 5. Module Size Limits
-- **< 500 LOC**: Ideal
-- **500-1000 LOC**: Acceptable
-- **1000-2000 LOC**: Needs splitting
-- **> 2000 LOC**: Architectural smell
-- **> 10000 LOC**: Emergency refactor
-
-### 6. Error Handling
-- Errors bubble up, not panic
-- No `.unwrap()` in library code
-- Errors carry source locations
-- User sees helpful messages, not stack traces
-
-### 7. Testing Philosophy
-- Unit tests for pure functions
-- Integration tests for pipelines
-- No `#[allow(dead_code)]` to silence test warnings
-- If you can't test it, redesign it
+**Last Updated:** January 2026 (stdlib reorganized)
 
 ---
 
-## What We Want (Target Architecture)
+## Overview
 
-### Ideal Pipeline
-```
-┌─────────┐    ┌────────┐    ┌───────────┐    ┌──────────┐    ┌─────────┐
-│  Lexer  │───▶│ Parser │───▶│Typechecker│───▶│  Lower   │───▶│ Codegen │
-└─────────┘    └────────┘    └───────────┘    └──────────┘    └─────────┘
-     │              │              │                │               │
-   Tokens         AST        Typed AST +      Monomorphized      LLVM IR
-                            Diagnostics         AST
-```
+Zen is a systems programming language with a Rust compiler targeting LLVM. The compiler follows a traditional pipeline architecture with clear phase boundaries.
 
-### Target Module Structure
-```
-src/
-├── main.rs              CLI only, no mod declarations
-├── lib.rs               Single module registry
-│
-├── frontend/            < 3,000 LOC total
-│   ├── lexer.rs         Tokenization
-│   ├── parser/          Syntax → AST
-│   └── ast/             AST definitions
-│
-├── sema/                < 5,000 LOC total (semantic analysis)
-│   ├── typechecker/     Type inference & checking
-│   ├── resolver/        Name resolution
-│   └── lowering/        Generic → Concrete
-│
-├── codegen/             < 8,000 LOC total
-│   ├── llvm/            LLVM IR generation
-│   └── intrinsics/      Built-in operations
-│
-├── driver/              < 1,000 LOC
-│   ├── compiler.rs      Pipeline orchestration
-│   └── diagnostics.rs   Error formatting
-│
-└── tools/               Separate concerns
-    ├── lsp/             Language server
-    └── fmt/             Formatter
-```
-
-### Target Metrics
-| Metric | Current | Target |
-|--------|---------|--------|
-| Total LOC | 41,322 | < 35,000 |
-| Dead code | ~0 | 0 |
-| `#[allow(dead_code)]` | ~130 | < 20 |
-| Max module LOC | 1,023 | < 2,000 ✅ |
-| Typechecker integration | ✅ Integrated | Required |
-
-### Module Size Progress
-| Module | Before | After | Target |
-|--------|--------|-------|--------|
-| codegen/llvm/mod.rs | 992 | 702 | < 500 |
-| codegen/llvm/expressions/inference.rs | 1,023 | 1,023 | Remove (dedupe) |
-| typechecker/inference.rs | 1,008 | 1,008 | Keep (single source) |
+For language syntax and features, see the [README](../README.md) and [LANGUAGE_SPEC.zen](../LANGUAGE_SPEC.zen).
 
 ---
 
-## Executive Summary
+## Compilation Pipeline
 
-| Metric | Before | After Cleanup |
-|--------|--------|---------------|
-| Total Rust files | 146 | ~135 |
-| Total LOC | 43,795 | 41,292 |
-| Dead code modules | 2 | 0 ✅ |
-| codegen/ LOC | 12,752 | 11,691 ✅ |
-| `#[allow(dead_code)]` | 165 | 133 (32 false positives removed) |
-
-**Status:**
-- Deleted ~2,500 LOC of dead/duplicate code
-- Typechecker integrated into main pipeline ✅
-- Collections now use stdlib Zen (not hardcoded Rust) ✅
-- Still need to audit 151 `#[allow(dead_code)]` markers
+```
+Source (.zen)
+     │
+     ▼
+┌─────────┐
+│  Lexer  │  lexer.rs (686 LOC)
+└────┬────┘
+     │ Tokens
+     ▼
+┌─────────┐
+│ Parser  │  parser/ (3,578 LOC)
+└────┬────┘
+     │ AST
+     ▼
+═══════════════════════════════════
+     SEMANTIC ANALYSIS (sema)
+═══════════════════════════════════
+     │
+     ├─► process_imports()     Module resolution
+     │
+     ├─► execute_comptime()    Compile-time evaluation
+     │
+     ├─► resolve_self_types()  Self type resolution
+     │
+     ├─► typecheck()           Type checking & inference
+     │
+     └─► monomorphize()        Generic instantiation
+═══════════════════════════════════
+     │ Typed AST (no generics)
+     ▼
+┌──────────┐
+│ Codegen  │  codegen/ (11,776 LOC)
+└────┬─────┘
+     │ LLVM IR
+     ▼
+┌──────────┐
+│   LLVM   │  External (Inkwell bindings)
+└────┬─────┘
+     │
+     ▼
+  Machine Code
+```
 
 ---
 
-## Current Architecture
+## Module Structure
 
 ```
 src/
-├── main.rs              (369 LOC)  Entry point, REPL, CLI
-├── lib.rs               (16 LOC)   Module exports
-├── compiler.rs          (422 LOC)  Orchestrator
-├── lexer.rs             (686 LOC)  Tokenization
-├── error.rs             (616 LOC)  Error types
-├── well_known.rs        (345 LOC)  Built-in type registry
-├── stdlib_types.rs      (314 LOC)  Stdlib type parsing
-├── intrinsics.rs        (295 LOC)  Compiler intrinsics
-├── formatting.rs        (482 LOC)  Code formatter
+├── main.rs              (355 LOC)   CLI & REPL
+├── lib.rs               (16 LOC)    Module exports
+├── compiler.rs          (424 LOC)   Pipeline orchestration
+├── lexer.rs             (696 LOC)   Tokenization
+├── error.rs             (616 LOC)   Error types
+├── well_known.rs        (345 LOC)   Built-in type registry
+├── stdlib_types.rs      (314 LOC)   Stdlib type parsing
+├── intrinsics.rs        (295 LOC)   Compiler intrinsics
+├── formatting.rs        (482 LOC)   Code formatter
 │
-├── ast/                 (843 LOC)  Abstract Syntax Tree
-├── parser/              (5,949 LOC) Parser + expressions
-├── typechecker/         (4,226 LOC) Type checking
+├── ast/                 (849 LOC)   Abstract Syntax Tree
+│   ├── mod.rs                       Program, node definitions
+│   ├── expressions.rs               Expression enum
+│   ├── statements.rs                Statement enum
+│   ├── declarations.rs              Function/struct/enum decls
+│   ├── types.rs                     AstType enum
+│   └── patterns.rs                  Pattern matching AST
+│
+├── parser/              (5,845 LOC) Syntax analysis
+│   ├── mod.rs                       Parser struct, entry point
+│   ├── core.rs                      Token consumption
+│   ├── program.rs                   Top-level parsing
+│   ├── statements.rs                Statement parsing
+│   ├── patterns.rs                  Pattern matching
+│   ├── types.rs                     Type annotations
+│   ├── functions.rs                 Function declarations
+│   ├── structs.rs                   Struct definitions
+│   ├── enums.rs                     Enum definitions
+│   ├── behaviors.rs                 Behavior definitions
+│   └── expressions/                 Expression parsing
+│       ├── primary.rs               Identifiers, literals
+│       ├── operators.rs             Binary/unary ops
+│       ├── calls.rs                 Function/method calls
+│       ├── control_flow.rs          if/match/while exprs
+│       └── collections.rs           Array/map literals
+│
+├── typechecker/         (4,262 LOC) Type checking
+│   ├── mod.rs                       Main typechecker (~1000 LOC)
+│   ├── inference.rs                 Type inference (~1000 LOC)
+│   ├── behaviors.rs                 Behavior checking
+│   ├── declaration_checking.rs      Validate declarations
+│   ├── statement_checking.rs        Validate statements
+│   ├── self_resolution.rs           Self type resolution
+│   ├── type_resolution.rs           Resolve type names
+│   ├── validation.rs                Type compatibility
+│   └── scope.rs                     Scope management
+│
 ├── type_system/         (1,152 LOC) Monomorphization
-├── codegen/             (11,691 LOC) LLVM backend ✅ reduced from 12,752
+│   ├── mod.rs
+│   ├── monomorphization.rs          Generic instantiation
+│   ├── environment.rs               Type environment
+│   └── instantiation.rs             Type instantiation
+│
+├── codegen/             (11,776 LOC) LLVM backend
+│   └── llvm/
+│       ├── mod.rs                   LLVMCompiler (~700 LOC)
+│       ├── types.rs                 AstType → LLVM type
+│       ├── symbols.rs               Symbol table
+│       ├── behaviors.rs             Behavior dispatch
+│       ├── generics.rs              Generic tracking
+│       ├── binary_ops.rs            Arithmetic/logic ops
+│       ├── literals.rs              Literal codegen
+│       ├── patterns.rs              Pattern matching
+│       ├── structs.rs               Struct layout
+│       ├── pointers.rs              Pointer ops
+│       ├── functions/
+│       │   ├── decl.rs              Function declarations
+│       │   └── calls.rs             Call site codegen
+│       ├── expressions/
+│       │   ├── inference.rs         Type inference (~1000 LOC)
+│       │   ├── utils.rs             Utilities (~1000 LOC)
+│       │   ├── enums.rs             Enum variants
+│       │   ├── control.rs           If/match codegen
+│       │   └── patterns.rs          Pattern codegen
+│       ├── statements/
+│       │   ├── variables.rs         Variable decl/assign
+│       │   ├── control.rs           Return/loop/break
+│       │   └── deferred.rs          Defer execution
+│       └── stdlib_codegen/
+│           ├── compiler.rs          Intrinsic implementations
+│           └── helpers.rs           Codegen helpers
+│
 ├── lsp/                 (12,338 LOC) Language Server
-├── module_system/       (475 LOC)  Module resolution
-├── comptime/            (660 LOC)  Compile-time evaluation
-└── bin/                 (400 LOC)  Additional binaries
+│   ├── server.rs                    Main server loop
+│   ├── document_store.rs            Open documents
+│   ├── completion.rs                Code completion
+│   ├── inlay_hints.rs               Inline hints
+│   ├── semantic_tokens.rs           Syntax highlighting
+│   ├── signature_help.rs            Function signatures
+│   ├── rename.rs                    Symbol renaming
+│   ├── code_action.rs               Quick fixes
+│   ├── call_hierarchy.rs            Call tree
+│   ├── analyzer.rs                  Semantic analysis
+│   ├── type_inference.rs            LSP type inference
+│   ├── hover/                       Hover providers
+│   └── navigation/                  Go-to-definition, refs
+│
+├── module_system/       (475 LOC)   Module resolution
+│   ├── mod.rs
+│   └── resolver.rs                  Import resolution
+│
+├── comptime/            (660 LOC)   Compile-time evaluation
+│   └── mod.rs                       Comptime interpreter
+│
+└── bin/
+    └── zen-lsp.rs                   LSP server binary
 ```
 
 ---
 
-## Dead Code Modules (RESOLVED ✅)
+## Metrics
 
-### 1. `src/ffi/` - 1,455 LOC - **DELETED**
+| Metric | Value |
+|--------|-------|
+| Total Rust files | 138 |
+| Total LOC | ~41,300 |
+| `#[allow(dead_code)]` markers | 130 |
 
-Was a comprehensive FFI builder system that was never integrated:
-- Zero imports anywhere in codebase
-- Had tests but code was orphaned
+### Module Sizes
 
-### 2. `src/behaviors/` - ~400 LOC - **DELETED**
-
-Orphaned behavior system implementation, superseded by:
-- `typechecker/behaviors.rs`
-- `codegen/llvm/behaviors.rs`
-- `parser/behaviors.rs`
-
-**Total cleanup:** 1,855 LOC removed
-
----
-
-## HIGH: Excessive Dead Code Markers
-
-31 files contain `#[allow(dead_code)]` with 151 total instances.
-
-### Worst Offenders
-
-| File | Count | Notes |
-|------|-------|-------|
-| `ast/expressions.rs` | 20 | AST node variants |
-| `error.rs` | 19 | Error variants |
-| `typechecker/behaviors.rs` | 16 | Behavior system |
-| `module_system/resolver.rs` | 11 | Module resolver |
-| `type_system/environment.rs` | 9 | Type env |
-| `compiler.rs` | 8 | Compiler methods |
-| `typechecker/types.rs` | 8 | Type helpers |
-
-**Analysis:**
-- Some `#[allow(dead_code)]` is legitimate (AST variants, error types)
-- Many indicate abandoned/incomplete features
-- Some indicate public API not yet used internally
+| Module | LOC | Notes |
+|--------|-----|-------|
+| lsp/ | 12,338 | Full LSP implementation |
+| codegen/ | 11,749 | LLVM backend |
+| parser/ | 5,845 | Syntax analysis |
+| typechecker/ | 4,280 | Type checking & inference |
+| type_system/ | 1,111 | Monomorphization |
+| ast/ | 849 | AST definitions |
+| lexer.rs | 696 | Single-file tokenizer |
+| comptime/ | 660 | Compile-time evaluation |
 
 ---
 
-## MEDIUM: Architectural Issues
+## Intrinsics vs Stdlib
 
-### 1. Module Declaration Duplication
+The compiler provides minimal intrinsics. Everything else is in the Zen stdlib.
 
-`main.rs` declares modules locally AND imports from `zen::`:
+**Intrinsics** (in compiler, cannot be written in Zen):
+- Memory: `raw_allocate`, `raw_deallocate`, `memcpy`, `memset`
+- Pointers: `gep`, `gep_struct`, `ptr_to_int`, `int_to_ptr`
+- Types: `sizeof<T>`, `alignof<T>`
+- Atomics: `atomic_load`, `atomic_store`, `atomic_cas`, etc.
+- Syscalls: `syscall0` - `syscall6`
+- Enums: `discriminant`, `get_payload`, `set_payload`
 
+**Stdlib** (written in Zen using intrinsics):
+- All collections, memory allocators, sync primitives, I/O
+
+See `docs/INTRINSICS_REFERENCE.md` for full intrinsics documentation.
+
+---
+
+## Phase Responsibilities
+
+### Lexer (`lexer.rs`)
+- Converts source text to tokens
+- No semantic analysis
+- Reports lexical errors
+
+### Parser (`parser/`)
+- Builds AST from tokens
+- No type checking
+- Reports syntax errors
+
+### Typechecker (`typechecker/`)
+- Type inference and checking
+- Behavior implementation verification
+- Self type resolution
+- Reports type errors
+
+### Monomorphizer (`type_system/`)
+- Instantiates generic types with concrete types
+- Creates specialized versions of generic functions
+- No type inference (trusts typechecker)
+
+### Codegen (`codegen/`)
+- Generates LLVM IR from typed AST
+- No type decisions (trusts previous phases)
+- Implements intrinsics
+
+---
+
+## Standard Library Structure
+
+```
+stdlib/
+├── std.zen             Entry point, re-exports
+├── build.zen           Build system
+├── compiler.zen        Compiler intrinsics
+├── ffi.zen             Foreign function interface
+├── math.zen            Math functions
+├── testing.zen         Test framework
+├── time.zen            Time operations
+│
+├── core/               Core types
+│   ├── option.zen      Option<T>: Some, None
+│   ├── result.zen      Result<T,E>: Ok, Err
+│   ├── ptr.zen         Ptr<T>, MutPtr<T>, RawPtr<T>
+│   ├── iterator.zen    Range, Iterator behavior
+│   └── propagate.zen   Error propagation
+│
+├── collections/        All container types
+│   ├── string.zen      Dynamic UTF-8 string
+│   ├── vec.zen         Dynamic array Vec<T>
+│   ├── char.zen        Character utilities
+│   ├── hashmap.zen     HashMap<K,V>
+│   ├── set.zen         Set<T>
+│   ├── stack.zen       Stack<T>
+│   ├── queue.zen       Queue<T>
+│   └── linkedlist.zen  LinkedList<T>
+│
+├── memory/             Memory management
+│   ├── allocator.zen   Allocator behavior
+│   ├── gpa.zen         General purpose allocator
+│   ├── mmap.zen        Memory-mapped regions
+│   ├── async_allocator.zen  Async allocator behavior
+│   └── async_pool.zen  io_uring-based allocator
+│
+├── concurrency/        ALL concurrency in one place
+│   ├── primitives/     Low-level (atomic, futex)
+│   ├── sync/           Thread-based (mutex, channel, thread, etc.)
+│   ├── async/          Task-based (task, executor, scheduler)
+│   └── actor/          Actor model (actor, supervisor, system)
+│
+├── io/                 I/O operations
+│   ├── io.zen          Basic print/read
+│   ├── files/          File ops (file, fs, dir, stat, link, copy, splice)
+│   ├── net/            Networking (socket, unix_socket, pipe)
+│   └── mux/            I/O multiplexing (epoll, poll, uring)
+│
+└── sys/                System interface
+    ├── syscall.zen     Syscall numbers
+    ├── process/        Process management (process, prctl, sched)
+    ├── random/         Random (getrandom, prng)
+    └── ...             (env, uname, resource, seccomp, memfd)
+```
+
+---
+
+## LSP Features
+
+The language server (`src/lsp/`) implements full LSP support:
+
+- Hover with type info
+- Go-to-definition (including nested member access)
+- Find all references
+- Code completion (`.`, `:`, `@`, `?` triggers)
+- Signature help
+- Document/workspace symbols
+- Rename with prepare
+- Folding ranges
+- Inlay hints
+- Call hierarchy
+- Semantic tokens
+- Document formatting
+
+---
+
+## Build & Test
+
+```bash
+# Build
+cargo build --release
+
+# Run all tests
+cargo test
+
+# Run compiler
+./target/release/zen examples/hello.zen
+
+# Run LSP
+./target/release/zen-lsp
+```
+
+---
+
+## Compiler Internals
+
+### Well-Known Types
+
+The compiler has special knowledge of these types (`src/well_known.rs`):
+
+| Type | Special Handling |
+|------|------------------|
+| `Option<T>` | Pattern matching codegen, `?` operator |
+| `Result<T,E>` | Pattern matching codegen, `?` operator |
+| `Vec<T>` | Indexing, iteration |
+| `String` | String interpolation, literals |
+| `HashMap<K,V>` | Iteration |
+| `Range` | Loop codegen |
+
+### Key Data Structures
+
+**AST Types** (`src/ast/`):
 ```rust
-// main.rs
-mod ast;           // Local declaration
-mod codegen;
-// ...
-use zen::compiler::Compiler;  // Also imports from lib
-use zen::error::{CompileError, Result};
-```
+pub enum Expression {
+    Integer32(i32),
+    BinaryOp { left, op, right },
+    FunctionCall { name, args, generics },
+    StructLiteral { name, fields },
+    Match { value, arms },
+    // ... 50+ variants
+}
 
-This creates potential for divergence between binary and library.
-
-**Fix:** Remove local `mod` declarations from main.rs, use only `use zen::*`
-
-### 2. Compilation Pipeline Fragmentation
-
-Current flow:
-```
-Source → Lexer → Parser → [Typechecker?] → Monomorphizer → LLVM Codegen
-                              ↑
-                         (bypassed!)
-```
-
-The typechecker exists (4,226 LOC) but the main compilation path in `compiler.rs`
-doesn't invoke it! Type checking happens ad-hoc in codegen.
-
-**Evidence:**
-```rust
-// compiler.rs - NO typechecker call!
-pub fn compile_llvm(&self, program: &Program) -> Result<String> {
-    let processed_program = self.process_imports(program)?;
-    let processed_program = self.execute_comptime(processed_program)?;
-    let processed_program = self.resolve_self_types(processed_program)?;
-    let monomorphized_program = monomorphizer.monomorphize_program(&processed_program)?;
-    // WHERE IS TYPECHECKER?
-    let mut llvm_compiler = LLVMCompiler::new(self.context);
-    llvm_compiler.compile_program(&monomorphized_program)?;
+pub enum Statement {
+    Let { name, type_annotation, value },
+    Return(Option<Expression>),
+    If { condition, then_block, else_block },
+    While { condition, body },
+    // ...
 }
 ```
 
-### 3. Type System Module Isolation
+**Compiler State** (`src/codegen/llvm/mod.rs`):
+```rust
+pub struct LLVMCompiler<'ctx> {
+    context: &'ctx Context,
+    module: Module<'ctx>,
+    builder: Builder<'ctx>,
 
-`type_system/` (1,152 LOC) only exports `Monomorphizer`. The rest is:
-- `environment.rs` - 9 `#[allow(dead_code)]`
-- `instantiation.rs` - 7 `#[allow(dead_code)]`
+    variables: HashMap<String, VariableInfo>,
+    functions: HashMap<String, FunctionValue>,
+    struct_types: HashMap<String, StructTypeInfo>,
 
-These were designed but never fully integrated.
-
-### 4. Comptime Module (660 LOC)
-
-Lightly used (3 references). Contains substantial interpreter code that may be
-over-engineered for current usage.
-
----
-
-## Module Usage Analysis
-
-| Module | LOC | Used By | Status |
-|--------|-----|---------|--------|
-| `codegen/` | 12,752 | compiler, LSP | ✅ Active (but too big) |
-| `lsp/` | 12,338 | zen-lsp binary | ✅ Active (but too big) |
-| `parser/` | 5,949 | compiler, LSP | ✅ Active |
-| `typechecker/` | 4,226 | compiler, LSP | ✅ Now integrated! |
-| `type_system/` | 1,152 | compiler (partial) | ⚠️ Much dead code |
-| `ast/` | 843 | Everyone | ✅ Active |
-| `comptime/` | 660 | compiler | ⚠️ Light use |
-| `module_system/` | 475 | compiler, LSP | ✅ Active |
-
----
-
-## What Good Architecture Looks Like
-
-### Ideal Compiler Pipeline
-
-```
-┌─────────┐    ┌────────┐    ┌─────────────┐    ┌──────────────┐    ┌─────────┐
-│  Lexer  │───▶│ Parser │───▶│ TypeChecker │───▶│ Monomorphize │───▶│ Codegen │
-└─────────┘    └────────┘    └─────────────┘    └──────────────┘    └─────────┘
-     │              │               │                   │                │
-     ▼              ▼               ▼                   ▼                ▼
-  Tokens          AST         Typed AST          Concrete AST      LLVM IR
-                             + Errors            (no generics)
+    generic_tracker: GenericTypeTracker,
+    well_known: WellKnownTypes,
+}
 ```
 
-### Principles Violated
+### Extension Points
 
-1. **Single Responsibility**: Codegen does type inference
-2. **Dependency Inversion**: Hard-coded module references
-3. **Interface Segregation**: Giant modules (12K LOC codegen)
-4. **Dead Code Elimination**: 2,607 LOC of unused code
-5. **Pipeline Clarity**: Typechecker bypassed in main flow
+**Adding a new intrinsic:**
+1. Declare in `src/intrinsics.rs`
+2. Add codegen in `src/codegen/llvm/stdlib_codegen/compiler.rs`
+3. Document in `docs/INTRINSICS_REFERENCE.md`
 
----
+**Adding a new AST node:**
+1. Add variant to `src/ast/expressions.rs` or `src/ast/statements.rs`
+2. Add parsing in `src/parser/`
+3. Add type checking in `src/typechecker/`
+4. Add codegen in `src/codegen/llvm/expressions/` or `statements/`
 
-## Recommended Actions
-
-### Immediate (Do Now)
-
-1. **Delete `src/ffi/`** - 1,455 LOC of dead code
-2. **Audit `#[allow(dead_code)]`** - Remove truly dead code, justify rest
-3. **Fix main.rs module declarations** - Use library imports only
-
-### Short-Term (This Week)
-
-4. **Integrate typechecker into pipeline** - Call before monomorphization
-5. **Audit type_system module** - Either use or remove
-6. **Document why comptime is 660 LOC** - Justify or simplify
-
-### Medium-Term (This Month)
-
-7. **Split codegen/** - 12,752 LOC is too large
-8. **Split lsp/** - 12,338 LOC is too large
-9. **Create clear phase boundaries** - Parse → Check → Lower → Emit
+**Adding stdlib functionality:**
+1. Write in Zen using existing intrinsics (`stdlib/*.zen`)
+2. No compiler changes needed
 
 ---
 
-## Files Deleted (This Session)
+## Related Documentation
 
-```bash
-# ✅ DONE: Dead FFI module (1,455 LOC)
-rm -rf src/ffi/
-
-# ✅ DONE: Dead behaviors module (~400 LOC)
-rm -rf src/behaviors/
-
-# ✅ DONE: Removed from lib.rs
-```
-
-**Total removed:** ~1,855 LOC of dead code
-
-## Files to Audit
-
-Priority order for dead code audit:
-
-1. `src/typechecker/behaviors.rs` (16 dead_code)
-2. `src/module_system/resolver.rs` (11 dead_code)
-3. `src/type_system/environment.rs` (9 dead_code)
-4. `src/compiler.rs` (8 dead_code)
-5. `src/type_system/monomorphization.rs` (7 dead_code)
-6. `src/type_system/instantiation.rs` (7 dead_code)
-7. `src/module_system/mod.rs` (7 dead_code)
-8. `src/comptime/mod.rs` (6 dead_code)
-
----
-
-## Summary
-
-The codebase has accumulated technical debt in the form of:
-- Orphaned modules (ffi, old behaviors)
-- Bypassed systems (typechecker)
-- Excessive dead code markers
-- Module duplication patterns
-
-Immediate cleanup of dead code would reduce codebase by ~1,500 LOC (3.4%) with
-zero functionality loss.
-
-A proper architecture would have:
-- Clear pipeline: Lex → Parse → **Type** → Mono → Codegen
-- No orphaned modules
-- Minimal `#[allow(dead_code)]`
-- Single source of truth for module declarations
+- `docs/INTRINSICS_REFERENCE.md` - Compiler intrinsics reference
+- `docs/ROADMAP_2026-01.md` - Development roadmap
+- `docs/design/ARCHITECTURE.md` - Primitives vs features design
+- `docs/design/STDLIB_DESIGN.md` - Stdlib API design
+- `docs/QUICK_START.md` - Getting started guide
