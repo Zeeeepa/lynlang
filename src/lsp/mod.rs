@@ -42,7 +42,6 @@ pub mod symbols;
 pub mod type_inference;
 pub mod types;
 pub mod utils;
-pub mod workspace;
 
 pub use server::ZenLanguageServer;
 
