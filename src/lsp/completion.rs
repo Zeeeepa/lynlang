@@ -8,6 +8,7 @@ use std::collections::HashMap;
 // Import from other LSP modules
 use super::document_store::DocumentStore;
 use super::helpers::{char_pos_to_byte_pos, success_response, try_lock, try_parse_params};
+use super::semantic_completion::{get_semantic_dot_completions, resolve_receiver_type};
 use super::stdlib_resolver::StdlibResolver;
 use super::type_inference::infer_receiver_type_with_context;
 use super::types::{SymbolInfo, ZenCompletionContext};
@@ -44,6 +45,16 @@ pub fn handle_completion(
         if let Some(context) = get_completion_context(&doc.content, position, store) {
             match context {
                 ZenCompletionContext::UfcMethod { receiver_type } => {
+                    // Try semantic completion first (using TypeContext)
+                    if let Some(ast_type) = resolve_receiver_type(&receiver_type, doc, position) {
+                        if let Some(semantic_completions) = get_semantic_dot_completions(doc, &ast_type, store) {
+                            if !semantic_completions.is_empty() {
+                                return success_response(&req, CompletionResponse::Array(semantic_completions));
+                            }
+                        }
+                    }
+
+                    // Fallback to heuristics-based completion
                     // Provide struct field completions first (most relevant)
                     let mut completions = get_struct_field_completions(&receiver_type, store);
 

@@ -375,10 +375,18 @@ impl ZenLanguageServer {
                 .map(compile_error_to_diagnostic)
                 .collect();
 
+            // Run TypeChecker to get TypeContext for semantic features
+            let type_context = {
+                use crate::typechecker::TypeChecker;
+                let mut type_checker = TypeChecker::new();
+                type_checker.check_program(&job.program).ok().map(std::sync::Arc::new)
+            };
+
             let result = AnalysisResult {
                 uri: job.uri,
                 version: job.version,
                 diagnostics,
+                type_context,
             };
 
             // Send result back (ignore if receiver disconnected)
@@ -396,6 +404,14 @@ impl ZenLanguageServer {
             // Check for background analysis results (non-blocking)
             match result_rx.try_recv() {
                 Ok(result) => {
+                    // Store TypeContext in document for semantic features
+                    if let Some(type_ctx) = &result.type_context {
+                        if let Ok(mut store) = self.store.lock() {
+                            if let Some(doc) = store.documents.get_mut(&result.uri) {
+                                doc.type_context = Some(type_ctx.clone());
+                            }
+                        }
+                    }
                     // Publishing background diagnostics
                     self.publish_diagnostics(result.uri, result.diagnostics)?;
                 }

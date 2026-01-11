@@ -354,6 +354,7 @@ impl DocumentStore {
             diagnostics: Vec::new(),
             symbols,
             last_analysis: Some(Instant::now()),
+            type_context: None, // Populated during background analysis
         };
 
         self.documents.insert(uri.clone(), doc);

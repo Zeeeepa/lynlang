@@ -1,0 +1,307 @@
+//! Semantic completion using TypeContext
+//!
+//! This module provides intelligent completion by querying the TypeContext
+//! populated during document analysis. Falls back to text-based heuristics
+//! when TypeContext is unavailable.
+
+use crate::ast::AstType;
+use crate::type_context::TypeContext;
+use lsp_types::*;
+
+use super::document_store::DocumentStore;
+use super::types::Document;
+use super::utils::format_type;
+
+/// Get completions for a dot expression using semantic analysis.
+/// Returns None if TypeContext isn't available, allowing fallback to heuristics.
+pub fn get_semantic_dot_completions(
+    doc: &Document,
+    receiver_type: &AstType,
+    store: &DocumentStore,
+) -> Option<Vec<CompletionItem>> {
+    let type_ctx = doc.type_context.as_ref()?;
+
+    let mut completions = Vec::new();
+
+    // Get the base type name for lookups
+    let type_name = get_type_name(receiver_type);
+
+    // 1. Add struct fields if receiver is a struct
+    if let Some(fields) = type_ctx.get_struct_fields(&type_name) {
+        for (field_name, field_type) in fields {
+            completions.push(CompletionItem {
+                label: field_name.clone(),
+                kind: Some(CompletionItemKind::FIELD),
+                detail: Some(format!("{}: {}", field_name, format_type(field_type))),
+                documentation: Some(Documentation::String(format!(
+                    "Field of `{}`",
+                    type_name
+                ))),
+                sort_text: Some(format!("0{}", field_name)), // Fields first
+                ..Default::default()
+            });
+        }
+    }
+
+    // 2. Add methods from TypeContext
+    add_methods_from_context(&type_name, type_ctx, receiver_type, &mut completions);
+
+    // 3. Add methods from stdlib_types (for stdlib types like Vec, String)
+    add_methods_from_stdlib(&type_name, store, &mut completions);
+
+    // 4. Add UFC functions (free functions where first param matches receiver type)
+    add_ufc_methods(&type_name, type_ctx, &mut completions);
+
+    Some(completions)
+}
+
+/// Get the base type name from an AstType
+fn get_type_name(ty: &AstType) -> String {
+    match ty {
+        AstType::Struct { name, .. } => name.clone(),
+        AstType::Generic { name, .. } => name.clone(),
+        AstType::I8 => "i8".to_string(),
+        AstType::I16 => "i16".to_string(),
+        AstType::I32 => "i32".to_string(),
+        AstType::I64 => "i64".to_string(),
+        AstType::U8 => "u8".to_string(),
+        AstType::U16 => "u16".to_string(),
+        AstType::U32 => "u32".to_string(),
+        AstType::U64 => "u64".to_string(),
+        AstType::Usize => "usize".to_string(),
+        AstType::F32 => "f32".to_string(),
+        AstType::F64 => "f64".to_string(),
+        AstType::Bool => "bool".to_string(),
+        AstType::StaticString => "StaticString".to_string(),
+        AstType::Void => "void".to_string(),
+        _ => format!("{}", ty),
+    }
+}
+
+/// Add methods from TypeContext (registered during type checking)
+fn add_methods_from_context(
+    type_name: &str,
+    type_ctx: &TypeContext,
+    receiver_type: &AstType,
+    completions: &mut Vec<CompletionItem>,
+) {
+    // Look for methods registered as "TypeName.methodName"
+    let prefix = format!("{}.", type_name);
+
+    for (key, return_type) in &type_ctx.methods {
+        if key.starts_with(&prefix) {
+            let method_name = &key[prefix.len()..];
+
+            // Get parameters if available
+            let params_str = if let Some(params) = type_ctx.method_params.get(key) {
+                params.iter()
+                    .map(|(name, ty)| format!("{}: {}", name, format_type(ty)))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            } else {
+                "...".to_string()
+            };
+
+            // Specialize generic return types if possible
+            let specialized_return = specialize_generic_type(return_type, receiver_type);
+
+            completions.push(CompletionItem {
+                label: method_name.to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: Some(format!("({}) -> {}", params_str, format_type(&specialized_return))),
+                documentation: Some(Documentation::String(format!(
+                    "Method of `{}`",
+                    type_name
+                ))),
+                sort_text: Some(format!("1{}", method_name)), // Methods after fields
+                insert_text: Some(format!("{}($0)", method_name)),
+                insert_text_format: Some(InsertTextFormat::SNIPPET),
+                ..Default::default()
+            });
+        }
+    }
+}
+
+/// Add methods from stdlib_types registry
+fn add_methods_from_stdlib(
+    type_name: &str,
+    store: &DocumentStore,
+    completions: &mut Vec<CompletionItem>,
+) {
+    // Look for stdlib methods in the symbol table
+    let prefix = format!("{}.", type_name);
+
+    for (key, symbol) in &store.stdlib_symbols {
+        if key.starts_with(&prefix) {
+            let method_name = &key[prefix.len()..];
+
+            // Skip if already added
+            if completions.iter().any(|c| c.label == method_name) {
+                continue;
+            }
+
+            completions.push(CompletionItem {
+                label: method_name.to_string(),
+                kind: Some(CompletionItemKind::METHOD),
+                detail: symbol.detail.clone(),
+                documentation: symbol.documentation.clone().map(Documentation::String),
+                sort_text: Some(format!("2{}", method_name)), // Stdlib methods last
+                insert_text: Some(format!("{}($0)", method_name)),
+                insert_text_format: Some(InsertTextFormat::SNIPPET),
+                ..Default::default()
+            });
+        }
+    }
+}
+
+/// Add UFC (Uniform Function Call) methods - free functions whose first param matches the type
+fn add_ufc_methods(
+    type_name: &str,
+    type_ctx: &TypeContext,
+    completions: &mut Vec<CompletionItem>,
+) {
+    for (func_name, func_type) in &type_ctx.functions {
+        // Skip if no parameters
+        if func_type.params.is_empty() {
+            continue;
+        }
+
+        // Check if first parameter type matches the receiver
+        let (first_param_name, first_param_type) = &func_type.params[0];
+        let first_param_type_name = get_type_name(first_param_type);
+
+        if first_param_type_name == type_name || is_self_param(first_param_name) {
+            // Skip if already added as a method
+            if completions.iter().any(|c| c.label == *func_name) {
+                continue;
+            }
+
+            // Format remaining parameters (skip self)
+            let other_params: Vec<String> = func_type.params.iter()
+                .skip(1)
+                .map(|(name, ty)| format!("{}: {}", name, format_type(ty)))
+                .collect();
+
+            completions.push(CompletionItem {
+                label: func_name.clone(),
+                kind: Some(CompletionItemKind::FUNCTION),
+                detail: Some(format!(
+                    "({}) -> {}  [UFC]",
+                    other_params.join(", "),
+                    format_type(&func_type.return_type)
+                )),
+                documentation: Some(Documentation::String(
+                    "Uniform Function Call - free function callable as method".to_string()
+                )),
+                sort_text: Some(format!("3{}", func_name)), // UFC methods lowest priority
+                insert_text: Some(format!("{}($0)", func_name)),
+                insert_text_format: Some(InsertTextFormat::SNIPPET),
+                ..Default::default()
+            });
+        }
+    }
+}
+
+/// Check if a parameter name indicates self (e.g., "self", "this", "s")
+fn is_self_param(name: &str) -> bool {
+    matches!(name, "self" | "this" | "s")
+}
+
+/// Specialize generic type parameters based on concrete receiver type.
+/// E.g., if receiver is Vec<User> and return type is Option<T>, return Option<User>
+fn specialize_generic_type(return_type: &AstType, receiver_type: &AstType) -> AstType {
+    // Extract type args from receiver
+    let type_args = match receiver_type {
+        AstType::Generic { type_args, .. } => type_args,
+        _ => return return_type.clone(),
+    };
+
+    if type_args.is_empty() {
+        return return_type.clone();
+    }
+
+    // Simple substitution: replace T with first type arg, E with second, etc.
+    substitute_type_params(return_type, type_args)
+}
+
+/// Substitute type parameters in a type
+fn substitute_type_params(ty: &AstType, substitutions: &[AstType]) -> AstType {
+    match ty {
+        AstType::Generic { name, type_args } => {
+            // If it's a single-letter generic like "T", substitute
+            if name.len() == 1 && name.chars().next().unwrap().is_uppercase() {
+                let index = (name.chars().next().unwrap() as usize) - ('T' as usize);
+                if index < substitutions.len() {
+                    return substitutions[index].clone();
+                }
+            }
+
+            // Recursively substitute in type args
+            let new_args: Vec<AstType> = type_args.iter()
+                .map(|arg| substitute_type_params(arg, substitutions))
+                .collect();
+
+            AstType::Generic {
+                name: name.clone(),
+                type_args: new_args,
+            }
+        }
+        _ => ty.clone(),
+    }
+}
+
+/// Resolve receiver expression to AstType using TypeContext.
+/// This is the semantic alternative to text-based type inference.
+pub fn resolve_receiver_type(
+    receiver_expr: &str,
+    doc: &Document,
+    _position: Position,
+) -> Option<AstType> {
+    let type_ctx = doc.type_context.as_ref()?;
+
+    // Simple case: receiver is just an identifier
+    let receiver = receiver_expr.trim();
+
+    // Check if it's a known variable in any scope
+    // TypeContext stores variables as "scope::varname"
+    for (key, var_type) in &type_ctx.variables {
+        if key.ends_with(&format!("::{}", receiver)) {
+            return Some(var_type.clone());
+        }
+    }
+
+    // Check if receiver is a function call like "get_user()"
+    if receiver.ends_with(')') {
+        if let Some(paren_pos) = receiver.find('(') {
+            let func_name = &receiver[..paren_pos];
+            if let Some(return_type) = type_ctx.get_function_return_type(func_name) {
+                return Some(return_type);
+            }
+        }
+    }
+
+    // Check if receiver is a constructor like "User.new()"
+    if receiver.contains('.') {
+        let parts: Vec<&str> = receiver.split('.').collect();
+        if parts.len() >= 2 {
+            let type_name = parts[0];
+            let method = parts[1].trim_end_matches("()").trim_end_matches('(');
+
+            if let Some(return_type) = type_ctx.get_constructor_type(type_name, method) {
+                return Some(return_type);
+            }
+            if let Some(return_type) = type_ctx.get_method_return_type(type_name, method) {
+                return Some(return_type);
+            }
+        }
+    }
+
+    // Check local symbols for type info
+    if let Some(symbol) = doc.symbols.get(receiver) {
+        if let Some(type_info) = &symbol.type_info {
+            return Some(type_info.clone());
+        }
+    }
+
+    None
+}

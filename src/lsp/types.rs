@@ -3,8 +3,10 @@
 use crate::ast::Program;
 use crate::ast::{AstType, Declaration};
 use crate::lexer::Token;
+use crate::type_context::TypeContext;
 use lsp_types::*;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Instant;
 
 #[derive(Debug, Clone)]
@@ -17,6 +19,9 @@ pub struct Document {
     pub diagnostics: Vec<Diagnostic>,
     pub symbols: HashMap<String, SymbolInfo>,
     pub last_analysis: Option<Instant>,
+    /// Type context from TypeChecker - the source of truth for semantic analysis.
+    /// Populated during full document analysis for intelligent completions.
+    pub type_context: Option<Arc<TypeContext>>,
 }
 
 impl Document {
@@ -80,4 +85,6 @@ pub struct AnalysisResult {
     pub uri: Url,
     pub version: i32,
     pub diagnostics: Vec<Diagnostic>,
+    /// TypeContext extracted during analysis - enables semantic completions
+    pub type_context: Option<Arc<TypeContext>>,
 }

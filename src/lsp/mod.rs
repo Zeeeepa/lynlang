@@ -33,6 +33,7 @@ pub mod inlay_hints;
 pub mod navigation;
 pub mod pattern_checking;
 pub mod rename;
+pub mod semantic_completion;
 pub mod semantic_tokens;
 pub mod server;
 pub mod signature_help;

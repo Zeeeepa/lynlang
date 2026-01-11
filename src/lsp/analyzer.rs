@@ -11,9 +11,11 @@ use crate::ast::{Declaration, Expression, Program, Statement};
 use crate::lexer::Lexer;
 use crate::module_system::ModuleSystem;
 use crate::parser::Parser;
+use crate::type_context::TypeContext;
 use crate::typechecker::TypeChecker;
 use lsp_types::*;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Analyze document content and return diagnostics
 pub fn analyze_document(
@@ -58,6 +60,13 @@ pub fn analyze_document(
 
 /// Run type checker analysis on parsed program
 fn run_compiler_analysis(program: &Program, content: &str) -> Vec<Diagnostic> {
+    let (diagnostics, _) = run_compiler_analysis_with_context(program, content);
+    diagnostics
+}
+
+/// Run type checker analysis and return both diagnostics and TypeContext.
+/// This is the semantic analysis entry point for intelligent LSP features.
+pub fn run_compiler_analysis_with_context(program: &Program, content: &str) -> (Vec<Diagnostic>, Option<Arc<TypeContext>>) {
     let mut diagnostics = Vec::new();
 
     // Load imported modules using the module system
@@ -65,11 +74,59 @@ fn run_compiler_analysis(program: &Program, content: &str) -> Vec<Diagnostic> {
 
     let mut type_checker = TypeChecker::new();
 
-    if let Err(err) = type_checker.check_program(&merged_program) {
-        diagnostics.push(compile_error_to_diagnostic_with_content(err, Some(content)));
+    match type_checker.check_program(&merged_program) {
+        Ok(type_context) => {
+            // Success - return the TypeContext for semantic LSP features
+            (diagnostics, Some(Arc::new(type_context)))
+        }
+        Err(err) => {
+            diagnostics.push(compile_error_to_diagnostic_with_content(err, Some(content)));
+            // Even on error, try to extract partial type context if available
+            // For now return None, but we could implement partial extraction
+            (diagnostics, None)
+        }
     }
+}
 
-    diagnostics
+/// Analyze document with full semantic analysis, returning TypeContext.
+/// Used for background analysis to populate Document.type_context.
+pub fn analyze_document_with_context(
+    content: &str,
+    documents: &HashMap<Url, super::types::Document>,
+    workspace_symbols: &HashMap<String, SymbolInfo>,
+    stdlib_symbols: &HashMap<String, SymbolInfo>,
+) -> (Vec<Diagnostic>, Option<Arc<TypeContext>>) {
+    let mut diagnostics = Vec::new();
+
+    let lexer = Lexer::new(content);
+    let mut parser = Parser::new(lexer);
+
+    match parser.parse_program() {
+        Ok(program) => {
+            let (type_diags, type_context) = run_compiler_analysis_with_context(&program, content);
+            diagnostics.extend(type_diags);
+
+            for decl in &program.declarations {
+                if let Declaration::Function(func) = decl {
+                    check_allocator_usage(&func.body, &mut diagnostics, content);
+                    check_pattern_exhaustiveness_wrapper(
+                        &func.body,
+                        &mut diagnostics,
+                        content,
+                        documents,
+                        workspace_symbols,
+                        stdlib_symbols,
+                    );
+                }
+            }
+
+            (diagnostics, type_context)
+        }
+        Err(err) => {
+            diagnostics.push(compile_error_to_diagnostic(err));
+            (diagnostics, None)
+        }
+    }
 }
 
 /// Load imported modules and merge them with the main program
