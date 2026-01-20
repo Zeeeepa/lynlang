@@ -2,7 +2,7 @@
 
 use crate::lsp::document_store::DocumentStore;
 use crate::lsp::helpers::{null_response, try_parse_params};
-use super::imports::find_import_info;
+use super::imports::{find_import_info, find_import_info_from_ast};
 use super::ufc::{find_ufc_method_at_position, resolve_ufc_method};
 use super::utils::{find_symbol_at_position, find_symbol_definition_in_content};
 use lsp_server::{Request, Response};
@@ -130,7 +130,11 @@ pub fn handle_definition(
                     );
 
                     // Look for import of module_alias (e.g., "{ build } = @std")
-                    if let Some(import_info) = find_import_info(&doc.content, module_alias, position)
+                    // Prefer AST-based lookup, fall back to string parsing
+                    let import_info = doc.ast.as_ref()
+                        .and_then(|ast| find_import_info_from_ast(ast, module_alias))
+                        .or_else(|| find_import_info(&doc.content, module_alias, position));
+                    if let Some(import_info) = import_info
                     {
                         log::debug!(
                             "[LSP] Found import for {}: source={}",
@@ -402,7 +406,11 @@ pub fn handle_definition(
             }
 
             // Check if this is an imported symbol (e.g., { io } = @std)
-            if let Some(import_info) = find_import_info(&doc.content, &symbol_name, position) {
+            // Prefer AST-based lookup, fall back to string parsing
+            let import_info = doc.ast.as_ref()
+                .and_then(|ast| find_import_info_from_ast(ast, &symbol_name))
+                .or_else(|| find_import_info(&doc.content, &symbol_name, position));
+            if let Some(import_info) = import_info {
                 log::debug!(
                     "[LSP] Found import: {} from {}",
                     symbol_name, import_info.source

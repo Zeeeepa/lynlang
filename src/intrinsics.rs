@@ -216,10 +216,11 @@ fn build_intrinsics() -> HashMap<String, Intrinsic> {
     intrinsic!(m, "sitofp_i64_f64" => ("value", AstType::I64) -> AstType::F64);
     intrinsic!(m, "uitofp_u64_f64" => ("value", AstType::U64) -> AstType::F64);
 
-    // Debug/trap
+    // Debug/trap/panic
     intrinsic!(m, "unreachable" => () -> AstType::Void);
     intrinsic!(m, "trap" => () -> AstType::Void);
     intrinsic!(m, "debugtrap" => () -> AstType::Void);
+    intrinsic!(m, "panic" => ("message", AstType::StaticString) -> AstType::Void);
 
     // Syscalls (Linux x86-64)
     intrinsic!(m, "syscall0" => ("number", AstType::I64) -> AstType::I64);

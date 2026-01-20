@@ -166,6 +166,16 @@ ctpop = (value: u64) u64 {
 }
 
 // =============================================================================
+// PANIC / ABORT
+// =============================================================================
+
+// Panic with message - prints to stderr and aborts
+// This is a compiler intrinsic that never returns
+panic = (message: StringLiteral) void {
+    @builtin.panic(message)
+}
+
+// =============================================================================
 // HELPER FUNCTIONS (built on top of intrinsics)
 // =============================================================================
 

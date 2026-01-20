@@ -352,14 +352,61 @@ impl<'ctx> LLVMCompiler<'ctx> {
             };
 
             let payload_ast_type = self.get_payload_ast_type();
-            let payload_llvm_type = payload_ast_type
-                .as_ref()
-                .and_then(|t| self.to_llvm_type(t).ok())
-                .and_then(|t| self.expect_basic_type(t).ok());
 
-            if let Some(payload_val) = self.load_with_type_or_i64(payload_ptr, payload_llvm_type) {
+            // ================================================================
+            // DIRECT VALUE EXTRACTION (no pointer dereference)
+            // The payload field contains the value directly (stored via inttoptr)
+            // Convert back using ptrtoint for integer types
+            // ================================================================
+            let payload_val: Option<BasicValueEnum<'ctx>> = match &payload_ast_type {
+                Some(ast_type) if ast_type.is_ptr_type() => {
+                    // Pointer types: the payload IS the pointer, use directly
+                    Some(payload_ptr.into())
+                }
+                Some(AstType::I8 | AstType::U8) => {
+                    // Convert ptr to i64, then truncate to i8
+                    if let Ok(i64_val) = self.builder.build_ptr_to_int(payload_ptr, self.context.i64_type(), "ptr_to_i64") {
+                        self.builder.build_int_truncate(i64_val, self.context.i8_type(), "trunc_i8").ok().map(|v| v.into())
+                    } else { None }
+                }
+                Some(AstType::I16 | AstType::U16) => {
+                    if let Ok(i64_val) = self.builder.build_ptr_to_int(payload_ptr, self.context.i64_type(), "ptr_to_i64") {
+                        self.builder.build_int_truncate(i64_val, self.context.i16_type(), "trunc_i16").ok().map(|v| v.into())
+                    } else { None }
+                }
+                Some(AstType::I32 | AstType::U32) => {
+                    if let Ok(i64_val) = self.builder.build_ptr_to_int(payload_ptr, self.context.i64_type(), "ptr_to_i64") {
+                        self.builder.build_int_truncate(i64_val, self.context.i32_type(), "trunc_i32").ok().map(|v| v.into())
+                    } else { None }
+                }
+                Some(AstType::Bool) => {
+                    if let Ok(i64_val) = self.builder.build_ptr_to_int(payload_ptr, self.context.i64_type(), "ptr_to_i64") {
+                        self.builder.build_int_truncate(i64_val, self.context.bool_type(), "trunc_bool").ok().map(|v| v.into())
+                    } else { None }
+                }
+                Some(AstType::F32) => {
+                    // Convert ptr to i64, truncate to i32, then bitcast to f32
+                    if let Ok(i64_val) = self.builder.build_ptr_to_int(payload_ptr, self.context.i64_type(), "ptr_to_i64") {
+                        if let Ok(i32_val) = self.builder.build_int_truncate(i64_val, self.context.i32_type(), "trunc_i32") {
+                            self.builder.build_bit_cast(i32_val, self.context.f32_type(), "i32_to_f32").ok()
+                        } else { None }
+                    } else { None }
+                }
+                Some(AstType::F64) => {
+                    // Convert ptr to i64, then bitcast to f64
+                    if let Ok(i64_val) = self.builder.build_ptr_to_int(payload_ptr, self.context.i64_type(), "ptr_to_i64") {
+                        self.builder.build_bit_cast(i64_val, self.context.f64_type(), "i64_to_f64").ok()
+                    } else { None }
+                }
+                _ => {
+                    // Default: convert to i64 (covers I64, U64, Usize, and unknown types)
+                    self.builder.build_ptr_to_int(payload_ptr, self.context.i64_type(), "ptr_to_i64").ok().map(|v| v.into())
+                }
+            };
+
+            if let Some(val) = payload_val {
                 let ast_type = payload_ast_type.unwrap_or(AstType::I64);
-                self.store_binding(var_name, payload_val, ast_type);
+                self.store_binding(var_name, val, ast_type);
             }
         }
     }

@@ -1,5 +1,6 @@
 //! Pattern exhaustiveness checking - extracted from document_store.rs
 
+use super::type_inference::get_base_type_name;
 use super::types::{Document, SymbolInfo};
 use crate::ast::{Expression, Pattern as AstPattern, PatternArm};
 use crate::well_known::well_known;
@@ -218,21 +219,18 @@ pub fn find_missing_variants(
     let wk = well_known();
     
     // First check if it's a built-in enum type
-    let base_type = scrutinee_type.split('<').next().unwrap_or(scrutinee_type);
-    let known_enum_variants: Vec<String> = if wk.is_option(base_type) {
+    let base_type = get_base_type_name(scrutinee_type);
+    let known_enum_variants: Vec<String> = if wk.is_option(&base_type) {
         vec![wk.some_name().to_string(), wk.none_name().to_string()]
-    } else if wk.is_result(base_type) {
+    } else if wk.is_result(&base_type) {
         vec![wk.ok_name().to_string(), wk.err_name().to_string()]
     } else {
         // Try to look up custom enum from symbol tables
-        // Extract just the enum name (before any :: or generic params)
-        let enum_name = scrutinee_type
+        // Extract just the enum name (before any :: - get_base_type_name already removes generics)
+        let enum_name = base_type
             .split("::")
             .next()
-            .unwrap_or(scrutinee_type)
-            .split('<')
-            .next()
-            .unwrap_or(scrutinee_type)
+            .unwrap_or(&base_type)
             .trim();
 
         // Search in all available symbol sources

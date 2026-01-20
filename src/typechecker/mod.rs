@@ -71,60 +71,14 @@ impl TypeChecker {
     }
 
     /// Parse type arguments from a generic type string like "HashMap<i32, i32>"
-    fn parse_generic_type_string(type_str: &str) -> (String, Vec<AstType>) {
-        if let Some(angle_pos) = type_str.find('<') {
-            let base_type = type_str[..angle_pos].to_string();
-            let args_str = &type_str[angle_pos + 1..type_str.len() - 1]; // Remove < and >
-
-            // Simple parsing - split by comma and trim
-            let type_args: Vec<AstType> = args_str
-                .split(',')
-                .map(|s| {
-                    let trimmed = s.trim();
-                    match trimmed {
-                        "i32" => AstType::I32,
-                        "i64" => AstType::I64,
-                        "f32" => AstType::F32,
-                        "f64" => AstType::F64,
-                        "bool" => AstType::Bool,
-                        "string" => AstType::StaticString, // lowercase string maps to StaticString
-                        "StaticString" => AstType::StaticString, // explicit static string type
-                        "String" => crate::ast::resolve_string_struct_type(), // String is a struct from stdlib/string.zen
-                        _ => {
-                            // Check if it's another generic type
-                            if trimmed.contains('<') {
-                                let (inner_base, inner_args) =
-                                    Self::parse_generic_type_string(trimmed);
-                                AstType::Generic {
-                                    name: inner_base,
-                                    type_args: inner_args,
-                                }
-                            } else {
-                                // Unknown type, treat as identifier
-                                AstType::Generic {
-                                    name: trimmed.to_string(),
-                                    type_args: vec![],
-                                }
-                            }
-                        }
-                    }
-                })
-                .collect();
-
-            (base_type, type_args)
-        } else {
-            (type_str.to_string(), vec![])
-        }
+    /// Delegates to the unified parser implementation.
+    pub fn parse_generic_type_string(type_str: &str) -> (String, Vec<AstType>) {
+        crate::parser::parse_generic_type_string(type_str)
     }
 
     pub fn new() -> Self {
         let enums = HashMap::new();
-
-        // Register Option<T> and Result<T, E> as fallback until stdlib preloading is implemented
-        // TODO: These should be loaded from stdlib/core/option.zen and stdlib/core/result.zen
-        // For now, keep as fallback to ensure Option/Result work even without explicit imports
-        // Option and Result are now defined in stdlib/core/option.zen and stdlib/core/result.zen
-        // They will be loaded when the stdlib is imported - no hardcoding needed
+        // Option and Result are loaded from stdlib/core/ when imported
 
         let mut functions = HashMap::new();
 
@@ -330,24 +284,6 @@ impl TypeChecker {
     }
 
     pub fn infer_expression_type(&mut self, expr: &Expression) -> Result<AstType> {
-        // eprintln!("DEBUG TypeChecker: infer_expression_type called for expr type: {}",
-        //     match expr {
-        //         Expression::Integer8(_) => "Integer8",
-        //         Expression::Integer16(_) => "Integer16",
-        //         Expression::Integer32(_) => "Integer32",
-        //         Expression::Integer64(_) => "Integer64",
-        //         Expression::Identifier(_) => "Identifier",
-        //         Expression::Conditional { .. } => "Conditional",
-        //         Expression::PatternMatch { .. } => "PatternMatch",
-        //         Expression::QuestionMatch { .. } => "QuestionMatch",
-        //         Expression::Some(_) => "Some",
-        //         Expression::None => "None",
-        //         Expression::String(_) => "String",
-        //         Expression::Boolean(_) => "Boolean",
-        //         Expression::Unit => "Unit",
-        //         _ => "Other"
-        //     }
-        // );
         match expr {
             Expression::Integer32(_) => Ok(AstType::I32),
             Expression::Integer64(_) => Ok(AstType::I64),
@@ -666,10 +602,6 @@ impl TypeChecker {
                 inference::infer_enum_literal_type(self, variant, payload)
             }
             Expression::Conditional { scrutinee, arms } => {
-                // eprintln!("DEBUG TypeChecker: Processing conditional with {} arms", arms.len());
-                // Conditional expression type is determined by the first arm
-                // All arms should have the same type (checked during type checking)
-
                 // Infer the type of the scrutinee to properly type pattern bindings
                 let scrutinee_type = self.infer_expression_type(scrutinee)?;
 
@@ -680,32 +612,22 @@ impl TypeChecker {
 
                     // Process each arm with its own pattern bindings
                     for (i, arm) in arms.iter().enumerate() {
-                        // eprintln!("DEBUG TypeChecker: Processing arm {} pattern: {:?}", i, arm.pattern);
-
-                        // Enter a new scope for the pattern bindings
                         self.enter_scope();
-                        // eprintln!("DEBUG TypeChecker: Entered scope for arm {}", i);
 
                         // Extract pattern bindings and add them to the scope
                         self.add_pattern_bindings_to_scope_with_type(
                             &arm.pattern,
                             &scrutinee_type,
                         )?;
-                        // eprintln!("DEBUG TypeChecker: Added pattern bindings for arm {}", i);
 
-                        // Infer the type with bindings in scope
-                        // eprintln!("DEBUG TypeChecker: Inferring type for arm {} body", i);
                         let arm_type = self.infer_expression_type(&arm.body)?;
-                        // eprintln!("DEBUG TypeChecker: Arm {} type: {:?}", i, arm_type);
 
                         // The first arm determines the type
                         if i == 0 {
                             result_type = arm_type;
                         }
 
-                        // Exit the scope to remove the bindings
                         self.exit_scope();
-                        // eprintln!("DEBUG TypeChecker: Exited scope for arm {}", i);
                     }
 
                     Ok(result_type)

@@ -10,13 +10,6 @@ use std::collections::HashMap;
 
 impl<'ctx> LLVMCompiler<'ctx> {
     pub fn to_llvm_type(&mut self, type_: &AstType) -> Result<Type<'ctx>, CompileError> {
-        // Debug empty Generic types
-        if let AstType::Generic { name, .. } = type_ {
-            if name.is_empty() {
-                // eprintln!("DEBUG: Empty generic type encountered: {:?}", type_);
-            }
-        }
-
         let result = match type_ {
             AstType::I8 => Ok(Type::Basic(self.context.i8_type().into())),
             AstType::I16 => Ok(Type::Basic(self.context.i16_type().into())),
@@ -409,85 +402,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
     /// Parse comma-separated types from a string, handling nested generics
     pub fn parse_comma_separated_types(&self, type_str: &str) -> Vec<AstType> {
-        let mut result = Vec::new();
-        let mut current = String::new();
-        let mut depth = 0;
-
-        for ch in type_str.chars() {
-            match ch {
-                '<' => {
-                    depth += 1;
-                    current.push(ch);
-                }
-                '>' => {
-                    depth -= 1;
-                    current.push(ch);
-                }
-                ',' if depth == 0 => {
-                    // End of current type
-                    let parsed = self.parse_type_string(current.trim());
-                    result.push(parsed);
-                    current.clear();
-                }
-                _ => {
-                    current.push(ch);
-                }
-            }
-        }
-
-        // Don't forget the last type
-        if !current.is_empty() {
-            let parsed = self.parse_type_string(current.trim());
-            result.push(parsed);
-        }
-
-        result
+        crate::parser::parse_type_args_from_string(type_str).unwrap_or_default()
     }
 
     /// Parse a single type string into an AstType
     pub fn parse_type_string(&self, type_str: &str) -> AstType {
-        // Check for generic types
-        if let Some(angle_pos) = type_str.find('<') {
-            let base_type = &type_str[..angle_pos];
-            let type_params_str = &type_str[angle_pos + 1..type_str.len() - 1];
-
-            // Parse type arguments
-            let type_args = self.parse_comma_separated_types(type_params_str);
-
-            // Special case: DynVec uses a different AST representation
-            if base_type == "DynVec" {
-                return AstType::DynVec {
-                    element_types: type_args,
-                    allocator_type: None,
-                };
-            }
-
-            // All other generics use the standard Generic representation
-            AstType::Generic {
-                name: base_type.to_string(),
-                type_args,
-            }
-        } else {
-            // Simple types
-            match type_str {
-                "i8" => AstType::I8,
-                "i16" => AstType::I16,
-                "i32" => AstType::I32,
-                "i64" => AstType::I64,
-                "u8" => AstType::U8,
-                "u16" => AstType::U16,
-                "u32" => AstType::U32,
-                "u64" => AstType::U64,
-                "f32" => AstType::F32,
-                "f64" => AstType::F64,
-                "bool" => AstType::Bool,
-                "string" => AstType::StaticLiteral,
-                "StaticString" => AstType::StaticString,
-                "String" => crate::ast::resolve_string_struct_type(),
-                "void" => AstType::Void,
-                _ => AstType::I32, // Default fallback
-            }
-        }
+        crate::parser::parse_type_from_string(type_str).unwrap_or(AstType::I32)
     }
 
     pub fn register_struct_type(

@@ -16,39 +16,85 @@ pub use core::Parser;
 
 use crate::ast::AstType;
 use crate::error::CompileError;
+use crate::lexer::Lexer;
 
-/// Parse a type from a string (used for parsing type arguments like sizeof<i32>)
+/// Parse a type from a string using the actual parser.
+/// This is the canonical way to convert type strings to AstType.
 pub fn parse_type_from_string(s: &str) -> Result<AstType, CompileError> {
-    match s.trim() {
-        "i8" => Ok(AstType::I8),
-        "i16" => Ok(AstType::I16),
-        "i32" => Ok(AstType::I32),
-        "i64" => Ok(AstType::I64),
-        "u8" => Ok(AstType::U8),
-        "u16" => Ok(AstType::U16),
-        "u32" => Ok(AstType::U32),
-        "u64" => Ok(AstType::U64),
-        "usize" => Ok(AstType::Usize),
-        "f32" => Ok(AstType::F32),
-        "f64" => Ok(AstType::F64),
-        "bool" => Ok(AstType::Bool),
-        "void" => Ok(AstType::Void),
-        s if s.starts_with("RawPtr<") && s.ends_with(">") => {
-            let inner = &s[7..s.len() - 1];
-            let inner_type = parse_type_from_string(inner)?;
-            Ok(AstType::raw_ptr(inner_type))
+    let trimmed = s.trim();
+    if trimmed.is_empty() {
+        return Ok(AstType::Void);
+    }
+
+    let lexer = Lexer::new(trimmed);
+    let mut parser = Parser::new(lexer);
+    parser.parse_type()
+}
+
+/// Extract base type name and type arguments from a generic type string.
+/// Returns (base_name, type_args) - e.g. "Vec<i32>" -> ("Vec", [I32])
+pub fn parse_generic_type_string(s: &str) -> (String, Vec<AstType>) {
+    let trimmed = s.trim();
+    if trimmed.is_empty() {
+        return (String::new(), vec![]);
+    }
+
+    match parse_type_from_string(trimmed) {
+        Ok(AstType::Generic { name, type_args }) => (name, type_args),
+        Ok(other) => {
+            // For non-generic types, return the type name with empty args
+            let name = match &other {
+                AstType::I8 => "i8",
+                AstType::I16 => "i16",
+                AstType::I32 => "i32",
+                AstType::I64 => "i64",
+                AstType::U8 => "u8",
+                AstType::U16 => "u16",
+                AstType::U32 => "u32",
+                AstType::U64 => "u64",
+                AstType::Usize => "usize",
+                AstType::F32 => "f32",
+                AstType::F64 => "f64",
+                AstType::Bool => "bool",
+                AstType::Void => "void",
+                AstType::StaticString => "StaticString",
+                _ => trimmed,
+            };
+            (name.to_string(), vec![])
         }
-        s if s.starts_with("Ptr<") && s.ends_with(">") => {
-            let inner = &s[4..s.len() - 1];
-            let inner_type = parse_type_from_string(inner)?;
-            Ok(AstType::ptr(inner_type))
-        }
-        _ => {
-            // For unknown types, return as a generic type name
-            Ok(AstType::Generic {
-                name: s.to_string(),
-                type_args: vec![],
-            })
+        Err(_) => (trimmed.to_string(), vec![]),
+    }
+}
+
+/// Parse comma-separated type arguments from a string like "i32, String, Vec<u8>"
+pub fn parse_type_args_from_string(s: &str) -> Result<Vec<AstType>, CompileError> {
+    let trimmed = s.trim();
+    if trimmed.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let mut types = Vec::new();
+    let mut depth = 0;
+    let mut current_start = 0;
+
+    for (i, c) in trimmed.char_indices() {
+        match c {
+            '<' => depth += 1,
+            '>' => depth -= 1,
+            ',' if depth == 0 => {
+                let type_str = &trimmed[current_start..i];
+                types.push(parse_type_from_string(type_str)?);
+                current_start = i + 1;
+            }
+            _ => {}
         }
     }
+
+    // Parse the last type
+    let remaining = &trimmed[current_start..];
+    if !remaining.trim().is_empty() {
+        types.push(parse_type_from_string(remaining)?);
+    }
+
+    Ok(types)
 }

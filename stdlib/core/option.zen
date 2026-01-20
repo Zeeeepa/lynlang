@@ -48,5 +48,5 @@ unwrap_or<T> = (opt: Option<T>, default: T) T {
 unwrap<T> = (opt: Option<T>) T {
     opt ?
         | Some(val) { val }
-        | None { @std.core.panic("unwrap called on None") }
+        | None { @builtin.panic("unwrap called on None") }
 }

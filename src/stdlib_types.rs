@@ -37,6 +37,7 @@ pub struct FunctionSignature {
 pub struct StdlibTypeRegistry {
     structs: HashMap<String, StructDefinition>,
     struct_types: HashMap<String, AstType>,
+    struct_sources: HashMap<String, String>, // Type name -> stdlib relative path
     methods: HashMap<String, MethodSignature>,
     functions: HashMap<String, FunctionSignature>,
 }
@@ -46,6 +47,7 @@ impl StdlibTypeRegistry {
         Self {
             structs: HashMap::new(),
             struct_types: HashMap::new(),
+            struct_sources: HashMap::new(),
             methods: HashMap::new(),
             functions: HashMap::new(),
         }
@@ -83,7 +85,7 @@ impl StdlibTypeRegistry {
         for file in &files_to_parse {
             let path = stdlib_root.join(file);
             if path.exists() {
-                let _ = registry.parse_file(&path);
+                let _ = registry.parse_file(&path, file);
             }
         }
 
@@ -115,7 +117,7 @@ impl StdlibTypeRegistry {
         PathBuf::from("./stdlib")
     }
 
-    fn parse_file(&mut self, path: &Path) -> Result<()> {
+    fn parse_file(&mut self, path: &Path, relative_path: &str) -> Result<()> {
         let source = std::fs::read_to_string(path).map_err(|e| {
             CompileError::InternalError(format!("Failed to read {}: {}", path.display(), e), None)
         })?;
@@ -127,7 +129,7 @@ impl StdlibTypeRegistry {
 
         let lexer = Lexer::new(&source);
         let mut parser = Parser::new(lexer);
-        
+
         let program = match parser.parse_program() {
             Ok(p) => p,
             Err(_) => return Ok(()),
@@ -139,6 +141,7 @@ impl StdlibTypeRegistry {
                     let name = struct_def.name.clone();
                     let ast_type = self.struct_def_to_ast_type(&struct_def);
                     self.struct_types.insert(name.clone(), ast_type);
+                    self.struct_sources.insert(name.clone(), relative_path.to_string());
                     self.structs.insert(name, struct_def);
                 }
                 Declaration::Function(func) => {
@@ -240,6 +243,11 @@ impl StdlibTypeRegistry {
         self.structs.get(name)
     }
 
+    /// Get the stdlib relative path for a type (e.g., "core/result.zen" for Result)
+    pub fn get_type_source_path(&self, type_name: &str) -> Option<&str> {
+        self.struct_sources.get(type_name).map(|s| s.as_str())
+    }
+
     pub fn get_method_signature(&self, receiver: &str, method: &str) -> Option<&MethodSignature> {
         let key = format!("{}::{}", receiver, method);
         self.methods.get(&key)
@@ -263,5 +271,16 @@ impl StdlibTypeRegistry {
     /// Get struct type by name (returns AstType::Struct with fields)
     pub fn get_struct_type(&self, name: &str) -> Option<AstType> {
         self.struct_types.get(name).cloned()
+    }
+
+    /// Check if a type requires an allocator (has an 'allocator' field in its struct definition)
+    pub fn requires_allocator(&self, type_name: &str) -> bool {
+        if let Some(struct_def) = self.structs.get(type_name) {
+            struct_def.fields.iter().any(|f| {
+                f.name == "allocator" || matches!(&f.type_, AstType::Generic { name, .. } if name == "Allocator")
+            })
+        } else {
+            false
+        }
     }
 }

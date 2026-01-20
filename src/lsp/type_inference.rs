@@ -4,6 +4,7 @@
 use super::document_store::DocumentStore;
 use super::types::Document;
 use super::utils::format_type;
+use crate::stdlib_types::stdlib_types;
 use crate::well_known::well_known;
 use lsp_types::*;
 use std::collections::HashMap;
@@ -11,6 +12,13 @@ use std::collections::HashMap;
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+/// Extract the base type name without generic parameters
+/// Uses the parser for accurate extraction
+pub fn get_base_type_name(type_str: &str) -> String {
+    let (base, _) = parse_generic_type(type_str);
+    base
+}
 
 /// Split generic arguments by comma, respecting nested <> brackets
 fn split_generic_args(args: &str) -> Vec<String> {
@@ -37,31 +45,22 @@ fn split_generic_args(args: &str) -> Vec<String> {
     result
 }
 
-/// Infer type from common constructor/literal prefixes
+/// Infer type from expression string
+/// First tries to parse as an AST expression, then falls back to heuristics
 fn infer_type_from_prefix(expr: &str) -> Option<String> {
-    let wk = well_known();
     let trimmed = expr.trim();
+
+    // Try parsing the expression using the real parser
+    if let Some(type_name) = try_infer_from_parsed_expr(trimmed) {
+        return Some(type_name);
+    }
+
+    // Fallback: simple literal detection for cases parser might not handle
+    let wk = well_known();
 
     // String literals
     if trimmed.starts_with('"') || trimmed.starts_with('\'') {
         return Some("String".to_string());
-    }
-
-    // Constructor patterns (Type(...) or Type<...>)
-    let type_patterns = [
-        ("HashMap(", "HashMap"), ("HashMap<", "HashMap"),
-        ("DynVec(", "DynVec"), ("DynVec<", "DynVec"),
-        ("Vec(", "Vec"), ("Vec<", "Vec"),
-        ("Array(", "Array"), ("Array<", "Array"),
-        ("Some(", wk.option_name()), ("Ok(", wk.result_name()), ("Err(", wk.result_name()),
-        ("Result.", wk.result_name()), ("Option.", wk.option_name()),
-        ("get_default_allocator()", "Allocator"),
-    ];
-
-    for (prefix, type_name) in type_patterns {
-        if trimmed.starts_with(prefix) {
-            return Some(type_name.to_string());
-        }
     }
 
     // None variant
@@ -77,35 +76,122 @@ fn infer_type_from_prefix(expr: &str) -> Option<String> {
     None
 }
 
+/// Try to parse an expression and infer its type from the AST
+fn try_infer_from_parsed_expr(expr: &str) -> Option<String> {
+    use crate::lexer::Lexer;
+    use crate::parser::Parser;
+
+    let lexer = Lexer::new(expr);
+    let mut parser = Parser::new(lexer);
+    let parsed = parser.parse_expression().ok()?;
+
+    infer_type_from_ast_expr(&parsed)
+}
+
+/// Infer type from a parsed AST Expression
+fn infer_type_from_ast_expr(expr: &crate::ast::Expression) -> Option<String> {
+    use crate::ast::Expression;
+
+    let wk = well_known();
+
+    match expr {
+        // Integer literals
+        Expression::Integer8(_) | Expression::Integer16(_) |
+        Expression::Integer32(_) | Expression::Integer64(_) => Some("i32".to_string()),
+
+        // Unsigned integer literals
+        Expression::Unsigned8(_) | Expression::Unsigned16(_) |
+        Expression::Unsigned32(_) | Expression::Unsigned64(_) => Some("u64".to_string()),
+
+        // Float literals
+        Expression::Float32(_) | Expression::Float64(_) => Some("f64".to_string()),
+
+        // Boolean
+        Expression::Boolean(_) => Some("bool".to_string()),
+
+        // String literal
+        Expression::String(_) => Some("String".to_string()),
+
+        // Constructor calls - the function name IS the type
+        Expression::FunctionCall { name, .. } => {
+            // Check if this is a known type constructor
+            let base_name = get_base_type_name(name);
+            if is_type_constructor(&base_name) {
+                Some(base_name)
+            } else {
+                None
+            }
+        }
+
+        // Struct literal - the name IS the type
+        Expression::StructLiteral { name, .. } => {
+            Some(name.clone())
+        }
+
+        // Enum variant construction
+        Expression::EnumVariant { enum_name, variant, .. } => {
+            // Some(...) -> Option, Ok(...)/Err(...) -> Result
+            if wk.is_option(enum_name) || variant == "Some" || variant == "None" {
+                Some(wk.option_name().to_string())
+            } else if wk.is_result(enum_name) || variant == "Ok" || variant == "Err" {
+                Some(wk.result_name().to_string())
+            } else {
+                Some(enum_name.clone())
+            }
+        }
+
+        // Enum literal (shorthand like .Some(x))
+        Expression::EnumLiteral { variant, .. } => {
+            if variant == "Some" || variant == "None" {
+                Some(wk.option_name().to_string())
+            } else if variant == "Ok" || variant == "Err" {
+                Some(wk.result_name().to_string())
+            } else {
+                None // Can't determine enum type from shorthand alone
+            }
+        }
+
+        // Array literal
+        Expression::ArrayLiteral(_) => Some("Array".to_string()),
+
+        _ => None,
+    }
+}
+
+/// Check if a name is a known type constructor
+/// Uses stdlib_types and well_known instead of hardcoded list
+fn is_type_constructor(name: &str) -> bool {
+    use crate::stdlib_types::stdlib_types;
+
+    let wk = well_known();
+
+    // Check well-known types (Option, Result, Ptr variants)
+    if wk.is_option(name) || wk.is_result(name) ||
+       wk.is_ptr(name) || wk.is_mutable_ptr(name) || wk.is_raw_ptr(name) {
+        return true;
+    }
+
+    // Check enum variant names
+    if name == "Some" || name == "None" || name == "Ok" || name == "Err" {
+        return true;
+    }
+
+    // Check stdlib types (Vec, HashMap, String, etc.)
+    if stdlib_types().get_struct_definition(name).is_some() {
+        return true;
+    }
+
+    false
+}
+
 // ============================================================================
 // MAIN FUNCTIONS
 // ============================================================================
 
 pub fn parse_generic_type(type_str: &str) -> (String, Vec<String>) {
-    // First, try parsing using the real Parser
-    if let Ok(ast) = (|| {
-        let lexer = crate::lexer::Lexer::new(type_str);
-        let mut parser = crate::parser::Parser::new(lexer);
-        parser.parse_type()
-    })() {
-        match ast {
-            crate::ast::AstType::Generic { name, type_args } => {
-                let args = type_args.iter().map(super::utils::format_type).collect();
-                return (name, args);
-            }
-            other => return (super::utils::format_type(&other), Vec::new()),
-        }
-    }
-
-    // Fallback: manual parsing using helper
-    if let Some(angle_pos) = type_str.find('<') {
-        let base = type_str[..angle_pos].to_string();
-        let params_end = type_str.rfind('>').unwrap_or(type_str.len());
-        let params = split_generic_args(&type_str[angle_pos + 1..params_end]);
-        (base, params)
-    } else {
-        (type_str.to_string(), Vec::new())
-    }
+    let (name, type_args) = crate::parser::parse_generic_type_string(type_str);
+    let args = type_args.iter().map(super::utils::format_type).collect();
+    (name, args)
 }
 
 pub fn infer_receiver_type(receiver: &str, documents: &HashMap<Url, Document>) -> Option<String> {
@@ -199,7 +285,9 @@ pub fn infer_chained_method_type(
         } else if let Some(ref curr_type) = current_type {
             // Subsequent parts are method calls on the current type
             if let Some(method_name) = part.split('(').next() {
-                current_type = legacy_get_method_return_type(curr_type, method_name);
+                current_type = stdlib_types()
+                    .get_method_return_type(curr_type, method_name)
+                    .map(format_type);
             }
         }
     }
@@ -241,68 +329,6 @@ pub fn infer_base_expression_type(
     None
 }
 
-fn legacy_get_method_return_type(receiver_type: &str, method_name: &str) -> Option<String> {
-    let wk = well_known();
-    let option_type = wk.option_name().to_string();
-    let result_type = wk.result_name().to_string();
-    
-    // Comprehensive method return type mapping
-    match receiver_type {
-        "String" | "StaticString" | "str" => match method_name {
-            "to_string" | "to_upper" | "to_lower" | "trim" | "concat" | "replace" | "substr"
-            | "reverse" | "repeat" => Some("String".to_string()),
-            "to_i32" | "to_i64" | "to_f64" => Some(option_type.clone()),
-            "split" => Some("Array".to_string()),
-            "len" | "index_of" => Some("i32".to_string()),
-            "char_at" => Some(option_type.clone()),
-            "contains" | "starts_with" | "ends_with" | "is_empty" => Some("bool".to_string()),
-            "to_bytes" => Some("Array".to_string()),
-            _ => None,
-        },
-        "HashMap" => match method_name {
-            "get" | "remove" => Some(option_type.clone()),
-            "keys" | "values" => Some("Array".to_string()),
-            "len" | "capacity" => Some("i32".to_string()),
-            "contains_key" | "is_empty" => Some("bool".to_string()),
-            "insert" => Some(option_type.clone()), // Returns old value if any
-            _ => None,
-        },
-        "DynVec" | "Vec" => match method_name {
-            "get" | "pop" | "first" | "last" => Some(option_type.clone()),
-            "len" | "capacity" => Some("i32".to_string()),
-            "is_empty" | "is_full" | "contains" => Some("bool".to_string()),
-            _ => None,
-        },
-        "Array" => match method_name {
-            "get" | "pop" | "first" | "last" => Some(option_type.clone()),
-            "len" => Some("i32".to_string()),
-            "is_empty" | "contains" => Some("bool".to_string()),
-            "slice" => Some("Array".to_string()),
-            _ => None,
-        },
-        rt if wk.is_option(rt) => match method_name {
-            "is_some" | "is_none" => Some("bool".to_string()),
-            "unwrap" | "unwrap_or" | "expect" => Some("T".to_string()), // Would need generics tracking
-            "map" => Some(option_type.clone()),
-            "and" | "or" => Some(option_type.clone()),
-            _ => None,
-        },
-        rt if wk.is_result(rt) => match method_name {
-            "is_ok" | "is_err" => Some("bool".to_string()),
-            "unwrap" | "raise" | "expect" | "unwrap_or" => Some("T".to_string()),
-            "map" => Some(result_type.clone()),
-            "map_err" => Some(result_type.clone()),
-            _ => None,
-        },
-        "Allocator" => match method_name {
-            "alloc" => Some("*mut u8".to_string()),
-            "clone" => Some("Allocator".to_string()),
-            _ => None,
-        },
-        _ => None,
-    }
-}
-
 pub fn get_method_return_type(
     receiver_type: &str,
     method_name: &str,
@@ -333,8 +359,12 @@ pub fn get_method_return_type(
         }
     }
 
-    // Final fallback: legacy hardcoded mappings
-    legacy_get_method_return_type(receiver_type, method_name)
+    // Final fallback: check stdlib_types registry
+    if let Some(ret) = stdlib_types().get_method_return_type(receiver_type, method_name) {
+        return Some(format_type(ret));
+    }
+
+    None
 }
 
 fn extract_return_type_from_detail(detail: &str) -> Option<String> {

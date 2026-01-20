@@ -28,15 +28,13 @@ eprintln = (message: String) void {
     // Built-in implemented in Rust codegen
 }
 
-// Read line from stdin
+// Read line from stdin (not yet implemented)
 read_line = () Result<String, String> {
-    // Built-in implemented in Rust codegen
     return Result.Err("Not implemented")
 }
 
-// Read with prompt
+// Read with prompt (not yet implemented)
 read_input = (prompt: String) Result<String, String> {
-    // Built-in implemented in Rust codegen
     return Result.Err("Not implemented")
 }
 

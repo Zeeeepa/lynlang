@@ -493,30 +493,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.builder.build_store(current_ptr, new_current)?;
 
                 // Create Option.Some(current) - enum struct: { discriminant: i64, payload_ptr: ptr }
+                // Use direct storage: store the value itself in the payload field via inttoptr
                 let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let option_struct_type = self.context.struct_type(
                     &[i64_type.into(), ptr_type.into()],
                     false,
                 );
 
-                // Heap allocate the payload (i64)
-                let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
-                    let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
-                    self.module.add_function("malloc", malloc_type, None)
-                });
-                let payload_size = i64_type.const_int(8, false); // 8 bytes for i64
-                let malloc_call = self.builder.build_call(malloc_fn, &[payload_size.into()], "payload_heap")?;
-                let payload_heap_ptr = malloc_call
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| {
-                        CompileError::InternalError(
-                            "malloc must return a value".to_string(),
-                            self.get_current_span(),
-                        )
-                    })?
-                    .into_pointer_value();
-                self.builder.build_store(payload_heap_ptr, current)?;
+                // Convert the i64 value to a pointer (stores value directly, no heap allocation)
+                let value_as_ptr = self.builder.build_int_to_ptr(current, ptr_type, "val_as_ptr")?;
 
                 let some_alloca = self.builder.build_alloca(option_struct_type, "option_some")?;
                 let some_disc_ptr = self.builder.build_struct_gep(
@@ -524,7 +509,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let some_payload_ptr = self.builder.build_struct_gep(
                     option_struct_type, some_alloca, 1, "some_payload_ptr")?;
                 self.builder.build_store(some_disc_ptr, i64_type.const_int(0, false))?; // Some = 0 (first variant)
-                self.builder.build_store(some_payload_ptr, payload_heap_ptr)?;
+                self.builder.build_store(some_payload_ptr, value_as_ptr)?;
                 let some_value = self.builder.build_load(option_struct_type, some_alloca, "some_val")?;
                 self.builder.build_unconditional_branch(merge_block)?;
 

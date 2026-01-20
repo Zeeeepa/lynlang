@@ -1,390 +1,256 @@
 # Zen Language - Quick Start Guide
 
-**Status**: Active Development
-
----
-
-## What You Need to Know Right Now
-
-### Zen has type-safe pointers with no null crashes
-
-```zen
-// ✅ Safe: Type system prevents crashes
-ptr: Ptr<i32> = ptr.ptr_none()
-ptr ?
-| Some(addr) { value = *addr }
-| None { io.println("No value") }
-
-// ❌ Unsafe (not allowed): Direct null dereference impossible
-value = *ptr  // Compiler won't allow - pattern match first!
-```
-
-### Strings auto-grow with type safety
-
-```zen
-{ string } = @std
-{ gpa } = @std.memory
-
-allocator = gpa.default_gpa()
-s = string.string_new(allocator)
-
-string.string_push(&s, 72)  // 'H'
-string.string_push(&s, 105) // 'i'
-
-string.string_free(&s)
-```
-
-### Vectors work with any type
-
-```zen
-{ vec } = @std
-{ gpa } = @std.memory
-
-allocator = gpa.default_gpa()
-numbers = vec.vec_new(allocator)
-
-vec.vec_push(&numbers, 42)
-vec.vec_push(&numbers, 99)
-
-vec.vec_get(numbers, 0) ?
-| Some(n) { io.println("${n}") }
-| None { io.println("Empty") }
-
-vec.vec_free(&numbers)
-```
-
----
-
-## Files You Should Read (In Order)
-
-1. **design/NEXT_STEPS.md** - What's done, what's pending
-2. **README.md** - Navigation hub
-3. **design/SAFE_POINTERS_DESIGN.md** - Why Ptr<T> is better than raw pointers
-4. **INTRINSICS_REFERENCE.md** - Compiler primitives you can use
-
----
-
-## Build & Test
+## Building
 
 ```bash
-# Build project
-cargo build
+# Build the compiler
+cargo build --release
 
-# Run all tests
-cargo test --all
-
-# Run tests to verify
+# Verify it works
+./target/release/zen --help
 ```
 
----
+## Running Your First Program
 
-## Key Types
-
-### Ptr<T> - Owned pointer (must free)
-```zen
-p = ptr.ptr_allocate(allocator, 10)
-ptr.ptr_value(p) ?                     // Safe deref
-| Some(val) { io.println("${val}") }
-| None { io.println("Null") }
-ptr.ptr_free(&p, allocator, 10)        // Cleanup
-```
-
-### Ref<T> - Borrowed reference (stack lifetime)
-```zen
-r = ref.ref_from(some_address)
-ref.ref_value(r) ?                     // Safe read
-| Some(val) { io.println("${val}") }
-| None { io.println("Invalid") }
-// No cleanup needed - stack allocated
-```
-
-### String - Dynamic text
-```zen
-s = string.string_new(allocator)
-string.string_push(&s, byte)
-string.string_len(s) // Current length
-string.string_free(&s)
-```
-
-### Vec<T> - Generic array
-```zen
-v = vec.vec_new(allocator)
-vec.vec_push(&v, element)
-vec.vec_get(v, 0) ?                    // Safe index
-| Some(elem) { /* use */ }
-| None { /* empty */ }
-vec.vec_free(&v)
-```
-
----
-
-## Design Philosophy
-
-### ✅ What Zen does right
-- **Type-safe pointers** - Compiler prevents null crashes
-- **No garbage collector** - Manual memory with allocators
-- **Explicit allocations** - Know where memory comes from
-- **Pattern matching** - Force null handling
-- **Generic types** - Compile-time specialization
-
-### ⚠️ What you must do
-- **Free memory** - Explicit deallocation required
-- **Pattern match** - Handle Some/None cases
-- **Validate pointers** - Check ref.is_valid before use
-- **Use allocators** - All allocations go through them
-
----
-
-## Common Patterns
-
-### Safe allocation & deallocation
-```zen
-allocator = gpa.default_gpa()
-ptr = ptr.ptr_allocate(allocator, 100)
-ptr ?
-| Some(addr) {
-    // Use the pointer
-    ptr.ptr_free(&ptr, allocator, 100)
-}
-| None {
-    io.println("Allocation failed")
-}
-```
-
-### Building a collection
-```zen
-v = vec.vec_new(allocator)
-vec.vec_reserve(&v, 100)  // Pre-allocate
-
-i = 0
-loop(() {
-    if i >= 10 { break }
-    vec.vec_push(&v, i)
-    i = i + 1
-})
-
-io.println("Length: ${vec.vec_len(v)}")
-vec.vec_free(&v)
-```
-
-### Safe iteration (current limitation)
-```zen
-// Loop through vec manually (no iterator yet)
-v = vec.vec_with_capacity(allocator, 3)
-vec.vec_push(&v, 10)
-vec.vec_push(&v, 20)
-vec.vec_push(&v, 30)
-
-i = 0
-loop(() {
-    if i >= vec.vec_len(v) { break }
-    
-    vec.vec_get(v, i) ?
-    | Some(val) { io.println("${val}") }
-    | None {}
-    
-    i = i + 1
-})
-
-vec.vec_free(&v)
-```
-
----
-
-## Intrinsics You Can Use
+Create `hello.zen`:
 
 ```zen
-{ compiler } = @std
-
-// Memory
-addr = compiler.raw_allocate(1024)
-compiler.raw_deallocate(addr, 1024)
-new_addr = compiler.raw_reallocate(addr, 1024, 2048)
-
-// Pointers
-ptr = compiler.gep(base, 8)              // +8 bytes
-field = compiler.gep_struct(ptr, 2)      // field 2
-casted = compiler.raw_ptr_cast(ptr)      // reinterpret
-
-// Types
-size = compiler.sizeof(i32)              // 4 bytes
-
-// Enums
-tag = compiler.discriminant(&my_enum)
-compiler.set_discriminant(&my_enum, 1)
-payload = compiler.get_payload(&my_enum)
-compiler.set_payload(&my_enum, data)
-```
-
----
-
-## What Works
-
-- ✅ **Core types** - Option<T>, Result<T,E> with pattern matching
-- ✅ **Vec<T>** - Growable vector with push/pop/get
-- ✅ **String** - Dynamic string with push/len/at
-- ✅ **GPA allocator** - Memory allocation via malloc/free
-- ✅ **Core intrinsics** - raw_allocate, raw_deallocate, gep, load, store, discriminant
-
-## What's Partially Working
-
-- ⚠️ **Ptr<T>/MutPtr<T>/RawPtr<T>** - Defined in stdlib, intrinsics work, needs more testing
-- ⚠️ **comptime blocks** - Parsed and executed, but don't generate code
-
-## What's NOT Implemented (Stubs Only)
-
-- ❌ **HashMap, Set, Queue, Stack** - Defined but are stubs with TODO placeholders
-- ❌ **inline_c()** - Returns void, does nothing (needs Clang integration)
-- ❌ **Dynamic FFI** - load_library/get_symbol return errors
-- ❌ **Atomic operations** - Defined but no LLVM codegen
-- ❌ **sizeof<T>()** - Hardcoded to return 8 bytes
-- ❌ **Iterators** - Manual index loops required
-- ❌ **Module exports** - module.exports/import syntax
-- ❌ **Actor/Channel** - Design only
-
----
-
-## Troubleshooting
-
-### "Error: cannot dereference null pointer"
-**Solution**: Pattern match first to verify it's Some
-```zen
-ptr ?
-| Some(addr) { value = *addr }  // Now it's safe
-| None { /* handle error */ }
-```
-
-### "Allocation failed"
-**Solution**: Check the Option result
-```zen
-ptr.ptr_allocate(alloc, size) ?
-| Some(addr) { /* use pointer */ }
-| None { io.println("OOM") }
-```
-
-### "Expected pattern match but got..."
-**Solution**: Ptr/Option require pattern matching, no escape
-```zen
-// ✅ Correct
-option ?
-| Some(x) { io.println(x) }
-| None {}
-
-// ❌ Wrong
-if option == Some(x) { }  // Won't compile
-```
-
----
-
-## Next Reading
-
-After this, read these in order:
-1. `design/SAFE_POINTERS_DESIGN.md` - Deep dive on Ptr vs Ref
-2. `INTRINSICS_REFERENCE.md` - All compiler primitives
-3. `design/STDLIB_DESIGN.md` - Stdlib architecture
-4. Look at `../stdlib/` folder for actual code
-
----
-
-## Real Example: Count Characters
-
-```zen
-{ string } = @std
-{ gpa } = @std.memory
+{ io } = @std
 
 main = () i32 {
-    allocator = gpa.default_gpa()
-    text = string.string_new(allocator)
-    
-    // Add text
-    string.string_push(&text, 72)  // H
-    string.string_push(&text, 105) // i
-    string.string_push(&text, 33)  // !
-    
-    // Count
-    len = string.string_len(text)
-    io.println("Characters: ${len}")  // 3
-    
-    // Cleanup
-    string.string_free(&text)
+    io.println("Hello, Zen!")
     return 0
 }
 ```
 
+Run it:
+
+```bash
+./target/release/zen hello.zen
+```
+
+Or compile to executable:
+
+```bash
+./target/release/zen hello.zen -o hello
+./hello
+```
+
 ---
 
-## Real Example: Sum a Vector
+## Core Concepts
+
+### 1. Variables - No `let`, No `const`
 
 ```zen
-{ vec } = @std
-{ gpa } = @std.memory
+x = 10              // Immutable (cannot change)
+y ::= 20            // Mutable (can change)
 
-sum_vector = (v: vec.Vec<i32>) i32 {
-    result = 0
-    i = 0
-    
+y = y + 1           // OK: y is mutable
+// x = x + 1        // ERROR: x is immutable
+```
+
+With explicit types:
+
+```zen
+x: i32 = 10         // Immutable with type
+y:: i32 = 20        // Mutable with type
+```
+
+### 2. Pattern Matching - No `if/else`
+
+Zen uses `?` for all conditionals:
+
+```zen
+// Single condition
+is_ready ? { start() }
+
+// Multiple branches
+status ?
+    | .Active { process() }
+    | .Inactive { wait() }
+    | .Error { handle_error() }
+
+// With Option
+maybe_value ?
+    | Some(v) { io.println("Got: ${v}") }
+    | None { io.println("Nothing") }
+```
+
+### 3. Functions
+
+```zen
+// Function definition
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+// Call traditionally
+result = add(5, 3)
+
+// Or use UFC (Uniform Function Call)
+result = 5.add(3)
+```
+
+### 4. Structs and Enums
+
+```zen
+// Struct
+Point: {
+    x: f64,
+    y: f64
+}
+
+// Create instance
+p = Point { x: 1.0, y: 2.0 }
+
+// Enum
+Color: Red, Green, Blue
+
+// Generic enum
+Option<T>: Some: T, None
+```
+
+### 5. Loops
+
+```zen
+// Range loop
+(0..10).loop((i) {
+    io.println("${i}")
+})
+
+// Collection loop
+items.loop((item) {
+    process(item)
+})
+
+// Infinite loop with break
+loop(() {
+    done ? { break }
+})
+```
+
+### 6. Error Handling
+
+```zen
+// Functions return Result<T, Error>
+load_file = (path: string) Result<string, Error> {
+    file = File.open(path).raise()  // .raise() returns early on Err
+    return Ok(file.read_all())
+}
+
+// Handle results with pattern matching
+load_file("data.txt") ?
+    | Ok(content) { process(content) }
+    | Err(e) { io.println("Error: ${e}") }
+```
+
+### 7. Memory Management
+
+Zen uses explicit allocators (like Zig):
+
+```zen
+{ GPA } = @std.memory.gpa
+{ Vec } = @std.collections.vec
+
+// Create allocator
+allocator = GPA.new()
+
+// Use it for collections
+numbers = Vec<i32>.new(allocator)
+numbers.mut_ref().push(1)
+numbers.mut_ref().push(2)
+numbers.mut_ref().push(3)
+
+// Clean up
+numbers.mut_ref().free()
+```
+
+---
+
+## Example: Complete Program
+
+```zen
+{ io } = @std
+{ GPA } = @std.memory.gpa
+{ Vec } = @std.collections.vec
+
+sum_vec = (v: Vec<i32>) i32 {
+    total ::= 0
+    i ::= 0
+
     loop(() {
-        if i >= vec.vec_len(v) { break }
-        
-        vec.vec_get(v, i) ?
-        | Some(n) {
-            result = result + n
-        }
-        | None {}
-        
+        i >= v.len() ? { break }
+
+        v.get(i) ?
+            | Some(n) { total = total + n }
+            | None {}
+
         i = i + 1
     })
-    
-    return result
+
+    return total
 }
 
 main = () i32 {
-    allocator = gpa.default_gpa()
-    numbers = vec.vec_new(allocator)
-    
-    vec.vec_push(&numbers, 10)
-    vec.vec_push(&numbers, 20)
-    vec.vec_push(&numbers, 30)
-    
-    total = sum_vector(numbers)
-    io.println("Sum: ${total}")  // 60
-    
-    vec.vec_free(&numbers)
+    allocator = GPA.new()
+
+    numbers = Vec<i32>.new(allocator)
+    numbers.mut_ref().push(10)
+    numbers.mut_ref().push(20)
+    numbers.mut_ref().push(30)
+
+    total = sum_vec(numbers)
+    io.println("Sum: ${total}")
+
+    numbers.mut_ref().free()
     return 0
 }
 ```
 
 ---
 
-## Commands You'll Use
+## Types Reference
+
+| Category | Types |
+|----------|-------|
+| Integers | `i8`, `i16`, `i32`, `i64` |
+| Unsigned | `u8`, `u16`, `u32`, `u64`, `usize` |
+| Floats | `f32`, `f64` |
+| Other | `bool`, `void`, `string` |
+
+Core generics:
+- `Option<T>` - Some(T) or None
+- `Result<T, E>` - Ok(T) or Err(E)
+- `Vec<T>` - Growable array
+- `Ptr<T>` - Immutable pointer
+- `MutPtr<T>` - Mutable pointer
+
+---
+
+## Common Commands
 
 ```bash
-# Development
-cargo build              # Compile
-cargo test --all         # Run tests
-cargo test pattern       # Run specific tests
-cargo run                # Run compiled binary
+# Build
+cargo build --release
 
-# Debugging
-cargo build --verbose    # See compilation details
-cargo test -- --nocapture --test-threads=1  # See output
+# Run tests
+cargo test --all
 
-# Release
-cargo build --release    # Optimized build
+# Run a .zen file
+./target/release/zen file.zen
+
+# Compile to executable
+./target/release/zen file.zen -o output
+
+# Start REPL
+./target/release/zen
 ```
 
 ---
 
-## Key Reminder
+## Next Steps
 
-**Zen eliminates null pointer crashes by design.**
-
-Every pointer is either:
-- `Ptr.Some(addr)` - Valid, safe to use
-- `Ptr.None` - Null, must be handled explicitly
-
-You can't accidentally crash on null. The compiler won't allow it.
-
----
-
-**Next**: Read design/NEXT_STEPS.md for current development focus
+- [OVERVIEW.md](OVERVIEW.md) - Complete language documentation
+- [INTRINSICS_REFERENCE.md](INTRINSICS_REFERENCE.md) - Low-level primitives
+- [examples/](../examples/) - More example programs

@@ -4,10 +4,10 @@ use serde_json::Value;
 use std::sync::{Arc, Mutex};
 
 use crate::ast::{AstType, Declaration, Expression, Statement};
-use crate::intrinsics::get_intrinsic_return_type;
 use crate::stdlib_types::stdlib_types;
 
 use super::document_store::DocumentStore;
+use super::type_inference::get_base_type_name;
 use super::types::Document;
 use super::utils::format_type;
 
@@ -267,72 +267,125 @@ fn parse_var_decl(line: &str) -> Option<(String, u32, bool, bool, bool, String)>
 }
 
 fn infer_type(rhs: &str) -> Option<String> {
+    use crate::lexer::Lexer;
+    use crate::parser::Parser;
+    use crate::well_known::well_known;
+
     let rhs = rhs.trim();
-    
+
+    // Try parsing the expression using the real parser
+    let lexer = Lexer::new(rhs);
+    let mut parser = Parser::new(lexer);
+    if let Ok(expr) = parser.parse_expression() {
+        if let Some(type_name) = infer_type_from_expr(&expr) {
+            return Some(type_name);
+        }
+    }
+
+    // Fallback for simple literals that might not parse in isolation
     if rhs.starts_with('"') || rhs.starts_with('\'') {
         return Some("StaticString".to_string());
     }
-    
+
     if rhs == "true" || rhs == "false" {
         return Some("bool".to_string());
     }
-    
-    if let Ok(v) = rhs.parse::<i64>() {
-        return Some(if v >= i32::MIN as i64 && v <= i32::MAX as i64 { "i32" } else { "i64" }.to_string());
+
+    // Check for None variant
+    let wk = well_known();
+    if rhs == wk.none_name() {
+        return Some(wk.option_name().to_string());
     }
-    
-    if !rhs.contains('(') && rhs.parse::<f64>().is_ok() && rhs.contains('.') {
-        return Some("f64".to_string());
-    }
-    
-    if let Some(paren_pos) = rhs.find('(') {
-        let call = rhs[..paren_pos].trim();
-        return infer_from_call(call);
-    }
-    
-    if let Some(brace_pos) = rhs.find('{') {
-        let type_name = rhs[..brace_pos].trim();
-        if type_name.chars().next()?.is_uppercase() {
-            return Some(type_name.to_string());
-        }
-    }
-    
+
     None
 }
 
-fn infer_from_call(call: &str) -> Option<String> {
-    if let Some(dot_pos) = call.rfind('.') {
-        let receiver = call[..dot_pos].trim();
-        let method = call[dot_pos + 1..].trim();
+/// Infer type from a parsed AST Expression
+fn infer_type_from_expr(expr: &Expression) -> Option<String> {
+    use crate::well_known::well_known;
 
-        // Check for compiler intrinsics (compiler.load_library, etc.)
-        if receiver == "compiler" || receiver == "builtin" {
-            if let Some(ret_type) = get_intrinsic_return_type(method) {
-                return Some(format_type(&ret_type));
+    let wk = well_known();
+
+    match expr {
+        // Integer literals
+        Expression::Integer8(_) | Expression::Integer16(_) |
+        Expression::Integer32(_) | Expression::Integer64(_) => Some("i32".to_string()),
+
+        // Unsigned integer literals
+        Expression::Unsigned8(_) | Expression::Unsigned16(_) |
+        Expression::Unsigned32(_) | Expression::Unsigned64(_) => Some("u64".to_string()),
+
+        // Float literals
+        Expression::Float32(_) | Expression::Float64(_) => Some("f64".to_string()),
+
+        // Boolean
+        Expression::Boolean(_) => Some("bool".to_string()),
+
+        // String literal
+        Expression::String(_) => Some("StaticString".to_string()),
+
+        // Function call - check if it's a type constructor
+        Expression::FunctionCall { name, .. } => {
+            let base_name = get_base_type_name(name);
+            // Check if stdlib has this as a struct (Vec, HashMap, etc.)
+            if stdlib_types().get_struct_definition(&base_name).is_some() {
+                return Some(base_name);
+            }
+            // Check for constructor methods
+            if let Some(dot_pos) = name.rfind('.') {
+                let receiver = &name[..dot_pos];
+                let method = &name[dot_pos + 1..];
+                if matches!(method, "new" | "init" | "create" | "default" | "from") {
+                    return Some(receiver.to_string());
+                }
+                // Check stdlib for method return type
+                if let Some(ret) = stdlib_types().get_method_return_type(receiver, method) {
+                    return Some(format_type(ret));
+                }
+            }
+            None
+        }
+
+        // Struct literal - the name IS the type
+        Expression::StructLiteral { name, .. } => Some(name.clone()),
+
+        // Enum variant construction
+        Expression::EnumVariant { enum_name, variant, .. } => {
+            if wk.is_option(enum_name) || variant == "Some" || variant == "None" {
+                Some(wk.option_name().to_string())
+            } else if wk.is_result(enum_name) || variant == "Ok" || variant == "Err" {
+                Some(wk.result_name().to_string())
+            } else {
+                Some(enum_name.clone())
             }
         }
 
-        if receiver.chars().next()?.is_uppercase() {
-            if matches!(method, "new" | "init" | "create" | "default" | "from") {
-                return Some(receiver.to_string());
-            }
-            if let Some(ret) = stdlib_types().get_method_return_type(receiver, method) {
-                return Some(format_type(ret));
+        // Enum literal (shorthand like .Some(x))
+        Expression::EnumLiteral { variant, .. } => {
+            if variant == "Some" || variant == "None" {
+                Some(wk.option_name().to_string())
+            } else if variant == "Ok" || variant == "Err" {
+                Some(wk.result_name().to_string())
+            } else {
+                None
             }
         }
 
-        if let Some(ret) = stdlib_types().get_function_return_type(receiver, method) {
-            return Some(format_type(ret));
+        // Array literal
+        Expression::ArrayLiteral(_) => Some("Array".to_string()),
+
+        // Method call - try to get return type from stdlib
+        Expression::MethodCall { object, method, .. } => {
+            if let Some(recv_type) = infer_type_from_expr(object) {
+                if let Some(ret) = stdlib_types().get_method_return_type(&recv_type, method) {
+                    return Some(format_type(ret));
+                }
+            }
+            None
         }
 
-        if let Some(ret) = stdlib_types().get_method_return_type(receiver, method) {
-            return Some(format_type(ret));
-        }
-    } else if call.chars().next()?.is_uppercase() {
-        return Some(call.to_string());
+        _ => None,
     }
-
-    None
 }
 
 fn collect_hints_from_statements(
@@ -392,7 +445,7 @@ fn find_var_pos(content: &str, var_name: &str) -> Option<Position> {
                 let after = trimmed[colon_pos + 1..].trim();
 
                 // Check for PascalCase type definition (might have generics like Name<T>)
-                let base_name = before.split('<').next().unwrap_or(before);
+                let base_name = get_base_type_name(before);
                 if !base_name.is_empty()
                     && base_name.chars().next().unwrap().is_uppercase()
                     && !before.contains('=')

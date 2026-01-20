@@ -3,11 +3,13 @@
 
 use super::compiler_integration::CompilerIntegration;
 use super::pattern_checking::{check_pattern_exhaustiveness, find_missing_variants};
+use super::type_inference::get_base_type_name;
 use super::types::SymbolInfo;
 use super::utils::{
     compile_error_to_diagnostic, compile_error_to_diagnostic_with_content, format_type,
 };
 use crate::ast::{Declaration, Expression, Program, Statement};
+use crate::stdlib_types::stdlib_types;
 use crate::lexer::Lexer;
 use crate::module_system::ModuleSystem;
 use crate::parser::Parser;
@@ -176,19 +178,13 @@ fn check_allocator_in_expression(
 ) {
     match expr {
         Expression::FunctionCall { name, args, .. } => {
-            // Enhanced collection constructors checking with generic support
-            let base_name = if name.contains('<') {
-                name.split('<').next().unwrap_or(name)
-            } else {
-                name.as_str()
-            };
+            // Check if this type requires an allocator based on its struct definition
+            let base_name = get_base_type_name(name);
 
-            let requires_allocator = matches!(
-                base_name,
-                "HashMap" | "DynVec" | "Array" | "HashSet" | "BTreeMap" | "LinkedList"
-            );
+            // Use stdlib registry to check if the type has an allocator field
+            let requires_alloc = stdlib_types().requires_allocator(&base_name);
 
-            if requires_allocator && (args.is_empty() || !has_allocator_arg(args)) {
+            if requires_alloc && (args.is_empty() || !has_allocator_arg(args)) {
                 if let Some(position) = find_text_position(name, content) {
                     diagnostics.push(Diagnostic {
                         range: Range {
@@ -333,13 +329,23 @@ pub fn infer_expression_type_string(
             None
         }
         Expression::FunctionCall { name, .. } => {
-            if name.contains("Result") || name.ends_with("_result") {
-                Some("Result<T, E>".to_string())
-            } else if name.contains("Option") || name.ends_with("_option") {
-                Some("Option<T>".to_string())
-            } else {
-                None
+            // Look up function return type from AST or stdlib
+            for doc in documents.values().take(crate::lsp::search_limits::QUICK_TYPE_SEARCH) {
+                if let Some(ast) = &doc.ast {
+                    for decl in ast {
+                        if let Declaration::Function(func) = decl {
+                            if &func.name == name {
+                                return Some(format_type(&func.return_type));
+                            }
+                        }
+                    }
+                }
             }
+            // Check stdlib
+            if let Some(ret) = stdlib_types().get_function_return_type("", name) {
+                return Some(format_type(ret));
+            }
+            None
         }
         _ => None,
     }

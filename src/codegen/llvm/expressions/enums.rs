@@ -1,35 +1,35 @@
-//! Enum variant compilation with heap allocation for nested generics
+//! Enum variant compilation with type thinning for pointer types
 //!
 //! This module handles compilation of enum variants (e.g., `Result.Ok(value)`, `Option.Some(x)`).
 //!
-//! ## Heap Allocation Strategy for Nested Enums
+//! ## Type Thinning for Pointer Types
 //!
-//! **Why heap allocation?** Nested enum types like `Result<Option<i32>, E>` or `Result<Result<T, E1>, E2>`
-//! require careful memory management to avoid stack overflow and preserve nested payloads correctly.
+//! Pointer wrapper types (Ptr<T>, MutPtr<T>, RawPtr<T>) use null-pointer optimization:
+//! - `Ptr.Some(addr)` compiles to just `addr` (8 bytes)
+//! - `Ptr.None` compiles to null (0)
+//! - No struct wrapper, no heap allocation
 //!
-//! **The Problem:**
-//! - Stack-allocated nested enum structs can cause stack overflow with deep nesting
-//! - Nested payloads need to persist beyond the current stack frame
-//! - Pattern matching on nested enums requires stable memory addresses
+//! ## Direct Storage for Small Payloads
 //!
-//! **The Solution:**
-//! - Detect nested enum variants (enum containing another enum as payload)
-//! - Use `malloc()` to heap-allocate nested enum structs
-//! - Store pointers to heap memory in the outer enum's payload field
-//! - This ensures nested payloads are preserved and accessible during pattern matching
+//! For regular enums (Option, Result, etc.), payloads ≤ 8 bytes are stored directly
+//! in the payload field using inttoptr conversion. No heap allocation needed.
 //!
-//! **Example:** `Result.Ok(Option.Some(42))` creates:
-//!   1. Heap-allocate `Option.Some(42)` struct → returns pointer
-//!   2. Heap-allocate `Result.Ok(pointer)` struct → stores pointer to Option struct
-//!   3. Both structs persist on the heap, enabling recursive pattern matching
+//! - `Option.Some(42)` → `{ tag: 0, payload: 42-as-ptr }`
+//! - `Result.Ok(true)` → `{ tag: 0, payload: 1-as-ptr }`
 //!
-//! This complexity is necessary to support Zen's generic type system with nested enums.
+//! ## Explicit Allocation for Large Payloads
+//!
+//! Payloads > 8 bytes (like nested enums) require explicit heap allocation by the user:
+//! - Use `Ptr<T>` to wrap large values
+//! - Allocator-aware: user controls memory management
+//! - No hidden malloc in compiler
 
 use super::super::symbols;
 use super::super::LLVMCompiler;
 use crate::ast::{AstType, Expression};
 use crate::error::CompileError;
 use inkwell::values::BasicValueEnum;
+use inkwell::AddressSpace;
 
 pub fn compile_enum_variant<'ctx>(
     compiler: &mut LLVMCompiler<'ctx>,
@@ -37,7 +37,14 @@ pub fn compile_enum_variant<'ctx>(
     variant: &str,
     payload: &Option<Box<Expression>>,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    // eprintln!("[DEBUG] compile_enum_variant: {}.{}, has_payload: {}", enum_name, variant, payload.is_some());
+    // ========================================================================
+    // THIN POINTER TYPES: Ptr<T>, MutPtr<T>, RawPtr<T>
+    // These compile to just 8 bytes (the address), with null = None variant
+    // ========================================================================
+    if compiler.well_known.is_ptr(enum_name) {
+        return compile_thin_pointer_variant(compiler, enum_name, variant, payload);
+    }
+
     // Save the current generic context before potentially overwriting it with nested compilation
     let _saved_ok_type = compiler.generic_type_context.get("Result_Ok_Type").cloned();
     let _saved_err_type = compiler
@@ -56,7 +63,6 @@ pub fn compile_enum_variant<'ctx>(
                 } else {
                     "Result_Err_Type".to_string()
                 };
-                // eprintln!("[DEBUG TRACK] Setting {} = {:?}", key, t);
                 compiler.track_generic_type(key.clone(), t.clone());
                 // Also track nested generics recursively
                 if matches!(t, AstType::Generic { .. }) {
@@ -189,21 +195,6 @@ pub fn compile_enum_variant<'ctx>(
 
     // Handle payload if present
     if let Some(expr) = payload {
-        // eprintln!("[DEBUG] Compiling payload expression for {}.{}", enum_name, variant);
-
-        // Check if the payload is itself an enum variant (nested case)
-        let is_nested_enum = match expr.as_ref() {
-            Expression::EnumVariant { .. } => true,
-            Expression::MemberAccess { member, .. } => {
-                compiler.well_known.is_ok(member) || compiler.well_known.is_err(member) || compiler.well_known.is_some(member) || compiler.well_known.is_none(member)
-            }
-            _ => false,
-        };
-
-        if is_nested_enum {
-            // eprintln!("[DEBUG] *** NESTED ENUM DETECTED *** Payload is a nested enum variant!");
-        }
-
         let compiled = compiler.compile_expression(expr)?;
 
         // Check if enum struct has payload field (some enums might not have payloads)
@@ -213,137 +204,80 @@ pub fn compile_enum_variant<'ctx>(
                     .builder
                     .build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
 
-            // Store payload as pointer
-            // Check if the payload is an enum struct itself (for nested generics)
-            let payload_value = if compiled.is_struct_value() {
-                // For enum structs (like nested Result/Option), we need special handling
+            // ================================================================
+            // DIRECT PAYLOAD STORAGE (no malloc)
+            // Store values directly in the payload field using inttoptr
+            // ================================================================
+            let ptr_type = compiler.context.ptr_type(AddressSpace::default());
+
+            let payload_value = if compiled.is_pointer_value() {
+                // Pointer values: store directly (already the right type)
+                compiled
+            } else if compiled.is_int_value() {
+                // Integer values: convert to pointer using inttoptr
+                // This stores the value directly in the 8-byte payload field
+                let int_val = compiled.into_int_value();
+                let int_type = int_val.get_type();
+
+                // Extend smaller integers to i64 first
+                let i64_val = if int_type.get_bit_width() < 64 {
+                    compiler.builder.build_int_z_extend(int_val, compiler.context.i64_type(), "extend_payload")?
+                } else if int_type.get_bit_width() > 64 {
+                    // Truncate if somehow larger (shouldn't happen for standard types)
+                    compiler.builder.build_int_truncate(int_val, compiler.context.i64_type(), "trunc_payload")?
+                } else {
+                    int_val
+                };
+
+                // Convert i64 to pointer - this stores the VALUE in the pointer field
+                compiler.builder.build_int_to_ptr(i64_val, ptr_type, "val_as_ptr")?.into()
+            } else if compiled.is_float_value() {
+                // Float values: bitcast to i64, then inttoptr
+                let float_val = compiled.into_float_value();
+                let float_type = float_val.get_type();
+
+                let i64_val = if float_type == compiler.context.f32_type() {
+                    // f32 -> i32 -> i64
+                    let i32_val = compiler.builder.build_bit_cast(float_val, compiler.context.i32_type(), "f32_as_i32")?;
+                    compiler.builder.build_int_z_extend(i32_val.into_int_value(), compiler.context.i64_type(), "extend_f32")?
+                } else {
+                    // f64 -> i64
+                    compiler.builder.build_bit_cast(float_val, compiler.context.i64_type(), "f64_as_i64")?.into_int_value()
+                };
+
+                compiler.builder.build_int_to_ptr(i64_val, ptr_type, "float_as_ptr")?.into()
+            } else if compiled.is_struct_value() {
+                // Struct values: check size
                 let struct_val = compiled.into_struct_value();
                 let struct_type = struct_val.get_type();
+                let field_count = struct_type.count_fields();
 
-                // Check if this is a Result/Option enum struct (has 2 fields: discriminant + payload ptr)
-                // These need heap allocation to preserve nested payloads
-                //
-                // KNOWN LIMITATION: This heuristic checks for 2 fields, which could false-positive
-                // on user-defined structs with exactly 2 fields where one is i64 and one is pointer.
-                // A more robust solution would use the WellKnownTypes registry or track AST type
-                // information alongside LLVM values. See review note about this fragility.
-                if struct_type.count_fields() == 2 {
-                    // eprintln!("[DEBUG] Heap allocating nested enum struct as payload for {}.{}", enum_name, variant);
-                    // This looks like an enum struct - heap allocate it
-                    let malloc_fn = compiler.module.get_function("malloc").unwrap_or_else(|| {
-                        let i64_type = compiler.context.i64_type();
-                        let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-                        let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
-                        compiler.module.add_function("malloc", malloc_type, None)
-                    });
-
-                    // Allocate 16 bytes for the enum struct (8 for discriminant + 8 for pointer)
-                    let struct_size = compiler.context.i64_type().const_int(16, false);
-                    let malloc_call = compiler.builder.build_call(
-                        malloc_fn,
-                        &[struct_size.into()],
-                        "heap_enum",
-                    )?;
-                    let heap_ptr = malloc_call
-                        .try_as_basic_value()
-                        .left()
-                        .ok_or_else(|| {
-                            CompileError::InternalError(
-                                "malloc must return a value".to_string(),
-                                compiler.get_current_span(),
-                            )
-                        })?
-                        .into_pointer_value();
-
-                    // Store the entire struct - this preserves the discriminant and payload pointer
-                    compiler.builder.build_store(heap_ptr, struct_val)?;
-
-                    // CRITICAL FIX: We need to ensure the nested payload's payload is also heap-allocated!
-                    // Extract the discriminant and payload pointer from the struct
-                    let discriminant =
-                        compiler
-                            .builder
-                            .build_extract_value(struct_val, 0, "nested_disc")?;
-                    let payload_ptr = compiler.builder.build_extract_value(
-                        struct_val,
-                        1,
-                        "nested_payload_ptr",
-                    )?;
-
-                    // CRITICAL: For nested enums, we need to ensure the inner payload is persistent
-                    // The inner Result.Ok(42) has its payload (42) on the heap, but we need to verify
-                    if payload_ptr.is_pointer_value() && discriminant.is_int_value() {
-                        let disc_val = discriminant.into_int_value();
-                        // Check if this is an Ok/Some variant (discriminant == 0)
-                        let is_ok_or_some =
-                            disc_val.is_const() && disc_val.get_zero_extended_constant() == Some(0);
-
-                        if is_ok_or_some {
-                            // The payload pointer should point to heap memory
-                            // No additional work needed - the nested compile_enum_variant
-                            // should have already heap-allocated the inner payload
-                        }
-                    }
-
-                    heap_ptr.into()
-                } else {
-                    // Not an enum struct, just heap-allocate and copy
-                    let malloc_fn = compiler.module.get_function("malloc").unwrap_or_else(|| {
-                        let i64_type = compiler.context.i64_type();
-                        let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-                        let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
-                        compiler.module.add_function("malloc", malloc_type, None)
-                    });
-
-                    let size = compiler.context.i64_type().const_int(16, false);
-                    let malloc_call =
-                        compiler
-                            .builder
-                            .build_call(malloc_fn, &[size.into()], "heap_struct")?;
-                    let heap_ptr = malloc_call
-                        .try_as_basic_value()
-                        .left()
-                        .ok_or_else(|| {
-                            CompileError::InternalError(
-                                "malloc must return a value".to_string(),
-                                compiler.get_current_span(),
-                            )
-                        })?
-                        .into_pointer_value();
-                    compiler.builder.build_store(heap_ptr, struct_val)?;
-                    heap_ptr.into()
+                // Nested enums (2 fields = tag + payload) are 16 bytes - too large!
+                if field_count == 2 {
+                    return Err(CompileError::TypeError(
+                        format!(
+                            "Enum payload is too large (nested enum detected). \
+                            Use Ptr<T> to wrap the inner value. Example: {}.{}(Ptr.from(inner_value))",
+                            enum_name, variant
+                        ),
+                        compiler.get_current_span(),
+                    ));
                 }
-            } else if compiled.is_pointer_value() {
-                compiled
+
+                // Small structs (≤ 8 bytes) could potentially be packed, but for now error
+                return Err(CompileError::TypeError(
+                    format!(
+                        "Struct payloads in enums must use Ptr<T>. \
+                        Allocate with: ptr = Ptr.allocate(sizeof<YourStruct>()); then use {}.{}(ptr)",
+                        enum_name, variant
+                    ),
+                    compiler.get_current_span(),
+                ));
             } else {
-                // For simple values (i32, i64, etc), heap-allocate to ensure they persist
-                let malloc_fn = compiler.module.get_function("malloc").unwrap_or_else(|| {
-                    let i64_type = compiler.context.i64_type();
-                    let ptr_type = compiler.context.ptr_type(inkwell::AddressSpace::default());
-                    let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
-                    compiler.module.add_function("malloc", malloc_type, None)
-                });
-
-                // Allocate enough space for the value (8 bytes should cover most primitives)
-                let size = compiler.context.i64_type().const_int(8, false);
-                let malloc_call =
-                    compiler
-                        .builder
-                        .build_call(malloc_fn, &[size.into()], "heap_payload")?;
-                let heap_ptr = malloc_call
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| {
-                        CompileError::InternalError(
-                            "malloc must return a value".to_string(),
-                            compiler.get_current_span(),
-                        )
-                    })?
-                    .into_pointer_value();
-
-                compiler.builder.build_store(heap_ptr, compiled)?;
-                heap_ptr.into()
+                // Unknown value type - try to store as-is (may fail at LLVM level)
+                compiled
             };
+
             compiler.builder.build_store(payload_ptr, payload_value)?;
         }
     } else {
@@ -396,4 +330,61 @@ pub fn compile_none<'ctx>(
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     // None is Option::None
     compile_enum_variant(compiler, compiler.well_known.option_name(), compiler.well_known.none_name(), &None)
+}
+
+/// Compile thin pointer types (Ptr<T>, MutPtr<T>, RawPtr<T>)
+/// These use null-pointer optimization: just 8 bytes, null = None
+fn compile_thin_pointer_variant<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    enum_name: &str,
+    variant: &str,
+    payload: &Option<Box<Expression>>,
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    let ptr_type = compiler.context.ptr_type(AddressSpace::default());
+
+    // Check which variant we're compiling
+    let is_some_variant = compiler.well_known.is_some(variant);
+    let is_none_variant = compiler.well_known.is_none(variant);
+
+    if is_none_variant || (!is_some_variant && payload.is_none()) {
+        // None variant: return null pointer
+        Ok(ptr_type.const_null().into())
+    } else if let Some(expr) = payload {
+        // Some variant: compile the payload and return it directly
+        let compiled = compiler.compile_expression(expr)?;
+
+        if compiled.is_pointer_value() {
+            // Already a pointer - use directly
+            Ok(compiled)
+        } else if compiled.is_int_value() {
+            // Integer (address) - convert to pointer
+            let int_val = compiled.into_int_value();
+            let int_type = int_val.get_type();
+
+            // Extend to i64 if needed
+            let i64_val = if int_type.get_bit_width() < 64 {
+                compiler.builder.build_int_z_extend(int_val, compiler.context.i64_type(), "extend_addr")?
+            } else if int_type.get_bit_width() > 64 {
+                compiler.builder.build_int_truncate(int_val, compiler.context.i64_type(), "trunc_addr")?
+            } else {
+                int_val
+            };
+
+            Ok(compiler.builder.build_int_to_ptr(i64_val, ptr_type, "addr_as_ptr")?.into())
+        } else {
+            Err(CompileError::TypeError(
+                format!(
+                    "{}.Some expects an address (i64 or pointer), got {:?}",
+                    enum_name, compiled.get_type()
+                ),
+                compiler.get_current_span(),
+            ))
+        }
+    } else {
+        // Some variant without payload - error
+        Err(CompileError::TypeError(
+            format!("{}.Some requires an address payload", enum_name),
+            compiler.get_current_span(),
+        ))
+    }
 }

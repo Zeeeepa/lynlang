@@ -4,7 +4,9 @@
 //! populated during document analysis. Falls back to text-based heuristics
 //! when TypeContext is unavailable.
 
-use crate::ast::AstType;
+use crate::ast::{AstType, Expression};
+use crate::lexer::Lexer;
+use crate::parser::Parser;
 use crate::type_context::TypeContext;
 use lsp_types::*;
 
@@ -258,41 +260,22 @@ pub fn resolve_receiver_type(
     _position: Position,
 ) -> Option<AstType> {
     let type_ctx = doc.type_context.as_ref()?;
-
-    // Simple case: receiver is just an identifier
     let receiver = receiver_expr.trim();
 
-    // Check if it's a known variable in any scope
+    // Try to parse the receiver expression using the parser
+    let lexer = Lexer::new(receiver);
+    let mut parser = Parser::new(lexer);
+    if let Ok(expr) = parser.parse_expression() {
+        if let Some(resolved) = resolve_type_from_parsed_expr(&expr, type_ctx, doc) {
+            return Some(resolved);
+        }
+    }
+
+    // Fallback: check if it's a known variable in any scope
     // TypeContext stores variables as "scope::varname"
     for (key, var_type) in &type_ctx.variables {
         if key.ends_with(&format!("::{}", receiver)) {
             return Some(var_type.clone());
-        }
-    }
-
-    // Check if receiver is a function call like "get_user()"
-    if receiver.ends_with(')') {
-        if let Some(paren_pos) = receiver.find('(') {
-            let func_name = &receiver[..paren_pos];
-            if let Some(return_type) = type_ctx.get_function_return_type(func_name) {
-                return Some(return_type);
-            }
-        }
-    }
-
-    // Check if receiver is a constructor like "User.new()"
-    if receiver.contains('.') {
-        let parts: Vec<&str> = receiver.split('.').collect();
-        if parts.len() >= 2 {
-            let type_name = parts[0];
-            let method = parts[1].trim_end_matches("()").trim_end_matches('(');
-
-            if let Some(return_type) = type_ctx.get_constructor_type(type_name, method) {
-                return Some(return_type);
-            }
-            if let Some(return_type) = type_ctx.get_method_return_type(type_name, method) {
-                return Some(return_type);
-            }
         }
     }
 
@@ -304,4 +287,80 @@ pub fn resolve_receiver_type(
     }
 
     None
+}
+
+/// Resolve type from a parsed AST expression using TypeContext
+fn resolve_type_from_parsed_expr(
+    expr: &Expression,
+    type_ctx: &TypeContext,
+    doc: &Document,
+) -> Option<AstType> {
+    match expr {
+        // Simple identifier - look up in variables
+        Expression::Identifier(name) => {
+            // Check TypeContext variables (stored as "scope::varname")
+            for (key, var_type) in &type_ctx.variables {
+                if key.ends_with(&format!("::{}", name)) || key == name {
+                    return Some(var_type.clone());
+                }
+            }
+            // Check document symbols
+            if let Some(symbol) = doc.symbols.get(name) {
+                return symbol.type_info.clone();
+            }
+            None
+        }
+
+        // Function call - get return type
+        Expression::FunctionCall { name, .. } => {
+            type_ctx.get_function_return_type(name)
+        }
+
+        // Method call - resolve receiver type, then get method return type
+        Expression::MethodCall { object, method, .. } => {
+            if let Some(receiver_type) = resolve_type_from_parsed_expr(object, type_ctx, doc) {
+                let type_name = get_type_name(&receiver_type);
+                // Check for constructor methods first
+                if let Some(ret) = type_ctx.get_constructor_type(&type_name, method) {
+                    return Some(ret);
+                }
+                // Check regular methods
+                if let Some(ret) = type_ctx.get_method_return_type(&type_name, method) {
+                    return Some(ret);
+                }
+            }
+            None
+        }
+
+        // Struct literal - the type is the struct name
+        Expression::StructLiteral { name, .. } => {
+            Some(AstType::Generic {
+                name: name.clone(),
+                type_args: vec![],
+            })
+        }
+
+        // Field access - resolve base type, then look up field type
+        Expression::StructField { struct_, field } => {
+            if let Some(receiver_type) = resolve_type_from_parsed_expr(struct_, type_ctx, doc) {
+                let type_name = get_type_name(&receiver_type);
+                if let Some(fields) = type_ctx.get_struct_fields(&type_name) {
+                    for (fname, ftype) in fields {
+                        if *fname == *field {
+                            return Some(ftype.clone());
+                        }
+                    }
+                }
+            }
+            None
+        }
+
+        // Literals
+        Expression::Integer32(_) | Expression::Integer64(_) => Some(AstType::I32),
+        Expression::Float32(_) | Expression::Float64(_) => Some(AstType::F64),
+        Expression::String(_) => Some(AstType::StaticString),
+        Expression::Boolean(_) => Some(AstType::Bool),
+
+        _ => None,
+    }
 }

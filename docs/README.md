@@ -1,62 +1,55 @@
-# Zen Language Documentation Index
+# Zen Language Documentation
 
-## Quick Navigation
+## Start Here
 
-### Getting Started
-- **[../README.md](../README.md)** - Project overview and goals
-- **[QUICK_START.md](QUICK_START.md)** - Getting started guide
-
-### Reference Documentation
-- **[INTRINSICS_REFERENCE.md](INTRINSICS_REFERENCE.md)** - Compiler primitives documentation
-
-### Architecture & Design
-For contributors, read these in order:
-1. **[design/ARCHITECTURE.md](design/ARCHITECTURE.md)** - LLVM primitives vs Zen features, decision trees, examples
-2. **[design/SEPARATION_OF_CONCERNS.md](design/SEPARATION_OF_CONCERNS.md)** - Compiler primitives vs Zen-defined types
-
-Additional design docs:
-- **[ROADMAP_2026-01.md](ROADMAP_2026-01.md)** - Current development roadmap and status
-- **[design/STDLIB_DESIGN.md](design/STDLIB_DESIGN.md)** - Standard library architecture & API
-- **[design/SAFE_POINTERS_DESIGN.md](design/SAFE_POINTERS_DESIGN.md)** - Ptr<T> vs Ref<T> rationale
-- **[design/SAFE_TYPE_SYSTEM_DESIGN.md](design/SAFE_TYPE_SYSTEM_DESIGN.md)** - Type system architecture
-
-### VS Code Extension
-- **[../vscode-extension/README.md](../vscode-extension/README.md)** - Extension setup and usage
+| Document | Description |
+|----------|-------------|
+| [OVERVIEW.md](OVERVIEW.md) | Complete language overview, syntax, and features |
+| [QUICK_START.md](QUICK_START.md) | Getting started guide with examples |
+| [../README.md](../README.md) | Project overview and build instructions |
 
 ---
 
-## Code Organization
+## Reference
 
-```
-src/
-├── ast/                # AST definitions
-├── lexer.rs            # Tokenization
-├── parser/             # Syntax analysis
-├── codegen/            # Code generation
-│   └── llvm/           # LLVM backend
-│       ├── functions/  # Function codegen
-│       └── stdlib_codegen/  # Stdlib codegen helpers
-├── stdlib_metadata/    # Intrinsic definitions (Rust)
-├── lsp/                # Language server implementation
-└── ...
+| Document | Description |
+|----------|-------------|
+| [INTRINSICS_REFERENCE.md](INTRINSICS_REFERENCE.md) | Compiler intrinsics documentation |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Compiler pipeline and module structure |
+| [LSP_STATUS.md](LSP_STATUS.md) | Language server features and architecture |
 
-stdlib/                 # Standard library (Zen code)
-├── core/               # Core types (Ptr, Option, etc.)
-├── memory/             # Memory management (Allocator, GPA)
-├── collections/        # Collections (HashMap, Set, etc.)
-├── io/                 # I/O operations
-├── string.zen          # String type
-├── vec.zen             # Vector type
-└── ...
+---
 
-tests/                  # Integration tests
-├── *.rs                # Rust test files
-└── lsp/                # LSP feature tests
+## Design Documents
 
-docs/                   # All documentation
-├── design/             # Architecture and design docs
-└── ...
-```
+For contributors understanding the architecture:
+
+| Document | Description |
+|----------|-------------|
+| [design/STDLIB_DESIGN.md](design/STDLIB_DESIGN.md) | Standard library architecture and API |
+| [design/SAFE_POINTERS_DESIGN.md](design/SAFE_POINTERS_DESIGN.md) | Ptr<T> vs raw pointer rationale |
+| [design/SEPARATION_OF_CONCERNS.md](design/SEPARATION_OF_CONCERNS.md) | Compiler layer responsibilities |
+| [design/PRIMITIVES_VS_FEATURES.md](design/PRIMITIVES_VS_FEATURES.md) | What belongs in compiler vs stdlib |
+
+---
+
+## Development Status
+
+| Document | Description |
+|----------|-------------|
+| [ROADMAP_2026-01.md](ROADMAP_2026-01.md) | Current development priorities |
+| [PHASE_PLAN.md](PHASE_PLAN.md) | Phase plan from Alpha to Beta |
+
+---
+
+## Internal/Working Documents
+
+These track ongoing refactoring work:
+
+| Document | Description |
+|----------|-------------|
+| [REFACTOR_SEMA.md](REFACTOR_SEMA.md) | Typechecker integration status |
+| [REFACTOR_RESOLVED_TYPES.md](REFACTOR_RESOLVED_TYPES.md) | AST type annotation refactor |
 
 ---
 
@@ -64,36 +57,14 @@ docs/                   # All documentation
 
 ```bash
 # Build
-cargo build
+cargo build --release
 
 # Test
 cargo test --all
-cargo test pattern    # specific tests
 
 # Run example
-cargo run --bin zen examples/hello_world.zen
+./target/release/zen examples/showcase.zen
+
+# Run LSP
+./target/release/zen-lsp
 ```
-
----
-
-## Key Files
-
-| File | Purpose |
-|------|---------|
-| `docs/ROADMAP_2026-01.md` | Development roadmap and status |
-| `docs/design/STDLIB_DESIGN.md` | Stdlib architecture |
-| `docs/QUICK_START.md` | Getting started |
-| `stdlib/string.zen` | String implementation |
-| `stdlib/vec.zen` | Vector implementation |
-| `stdlib/sync/` | Thread synchronization (mutex, semaphore, channel) |
-| `stdlib/io/` | I/O (file, socket, pipe, epoll) |
-
----
-
-## Getting Help
-
-1. Check **ROADMAP_2026-01.md** for current priorities
-2. Read **design/STDLIB_DESIGN.md** for stdlib details
-3. Look at **INTRINSICS_REFERENCE.md** for primitive docs
-4. Review **../tests/** for usage examples
-5. Check **../examples/** for working code samples

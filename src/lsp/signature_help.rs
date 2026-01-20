@@ -5,6 +5,8 @@ use lsp_server::{Request, Response};
 use lsp_types::*;
 use std::sync::{Arc, Mutex};
 
+use crate::ast::Declaration;
+use crate::lsp::utils::format_type;
 use super::document_store::DocumentStore;
 use super::helpers::{char_pos_to_byte_pos, null_response, success_response, try_lock, try_parse_params};
 use super::types::SymbolInfo;
@@ -55,13 +57,23 @@ pub fn handle_signature_help(req: Request, store: &Arc<Mutex<DocumentStore>>) ->
                 doc.symbols.len()
             );
 
-            // Look up function in symbols (document, stdlib, workspace)
+            // Try AST-based lookup first (highest fidelity)
             let mut signature_info = None;
 
-            // Check document symbols first (highest priority)
-            if let Some(symbol) = doc.symbols.get(&function_name) {
-                log::debug!("[LSP] Found '{}' in document symbols", function_name);
-                signature_info = Some(create_signature_info(symbol));
+            // Check document AST first for accurate parameter information
+            if let Some(ast) = &doc.ast {
+                if let Some(sig) = find_function_in_ast(ast, &function_name) {
+                    signature_info = Some(sig);
+                }
+            }
+
+            // Check stdlib symbols if not found in AST
+            if signature_info.is_none() {
+                // Try document symbols (may have detail string)
+                if let Some(symbol) = doc.symbols.get(&function_name) {
+                    log::debug!("[LSP] Found '{}' in document symbols", function_name);
+                    signature_info = Some(create_signature_info(symbol));
+                }
             }
 
             // Check stdlib symbols if not found
@@ -191,6 +203,77 @@ fn find_function_call_at_position(content: &str, position: Position) -> Option<(
     }
 
     Some((function_name, active_param))
+}
+
+/// Find function in AST and create SignatureInformation directly from AST nodes
+fn find_function_in_ast(ast: &[Declaration], function_name: &str) -> Option<SignatureInformation> {
+    for decl in ast {
+        match decl {
+            Declaration::Function(func) if func.name == function_name => {
+                // Build label from AST
+                let args_str: String = func.args
+                    .iter()
+                    .map(|(name, ty)| format!("{}: {}", name, format_type(ty)))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let label = format!("{} = ({}) {}", func.name, args_str, format_type(&func.return_type));
+
+                // Build parameters directly from AST
+                let parameters: Vec<ParameterInformation> = func.args
+                    .iter()
+                    .map(|(name, ty)| ParameterInformation {
+                        label: lsp_types::ParameterLabel::Simple(format!("{}: {}", name, format_type(ty))),
+                        documentation: None,
+                    })
+                    .collect();
+
+                return Some(SignatureInformation {
+                    label,
+                    documentation: None,
+                    parameters: if parameters.is_empty() {
+                        None
+                    } else {
+                        Some(parameters)
+                    },
+                    active_parameter: None,
+                });
+            }
+            Declaration::Struct(struct_def) => {
+                // Check methods in struct
+                for method in &struct_def.methods {
+                    if method.name == function_name || method.name == format!("{}.{}", struct_def.name, function_name) {
+                        let args_str: String = method.args
+                            .iter()
+                            .map(|(name, ty)| format!("{}: {}", name, format_type(ty)))
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        let label = format!("{}.{} = ({}) {}", struct_def.name, method.name, args_str, format_type(&method.return_type));
+
+                        let parameters: Vec<ParameterInformation> = method.args
+                            .iter()
+                            .map(|(name, ty)| ParameterInformation {
+                                label: lsp_types::ParameterLabel::Simple(format!("{}: {}", name, format_type(ty))),
+                                documentation: None,
+                            })
+                            .collect();
+
+                        return Some(SignatureInformation {
+                            label,
+                            documentation: None,
+                            parameters: if parameters.is_empty() {
+                                None
+                            } else {
+                                Some(parameters)
+                            },
+                            active_parameter: None,
+                        });
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 fn create_signature_info(symbol: &SymbolInfo) -> SignatureInformation {

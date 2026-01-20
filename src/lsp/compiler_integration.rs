@@ -7,6 +7,7 @@
 use crate::ast::{AstType, Declaration, Program};
 use crate::error::Result;
 use crate::lexer::Lexer;
+use crate::lsp::type_inference::get_base_type_name;
 use crate::lsp::utils::format_type;
 use crate::parser::Parser;
 use crate::typechecker::TypeChecker;
@@ -78,13 +79,12 @@ impl CompilerIntegration {
                         .push(method_key.clone());
 
                     // Also index by base receiver type (before generics), e.g., "Vec<T>" -> "Vec"
-                    if let Some(base) = recv.split('<').next() {
-                        if base != recv {
-                            self.method_index
-                                .entry(base.to_string())
-                                .or_default()
-                                .push(method_key);
-                        }
+                    let base = get_base_type_name(recv);
+                    if base != *recv {
+                        self.method_index
+                            .entry(base)
+                            .or_default()
+                            .push(method_key);
                     }
                 }
             }
@@ -109,12 +109,11 @@ impl CompilerIntegration {
 
         // Fallback: base type of generics (e.g., "Vec<T>" -> "Vec")
         if out.is_empty() {
-            if let Some(base) = receiver_type.split('<').next() {
-                if let Some(keys) = self.method_index.get(base) {
-                    for k in keys {
-                        if let Some(sig) = self.stdlib_functions.get(k) {
-                            out.push(sig);
-                        }
+            let base = get_base_type_name(receiver_type);
+            if let Some(keys) = self.method_index.get(&base) {
+                for k in keys {
+                    if let Some(sig) = self.stdlib_functions.get(k) {
+                        out.push(sig);
                     }
                 }
             }
@@ -166,10 +165,7 @@ impl CompilerIntegration {
 
     /// Parse a type string using the parser
     pub fn parse_type_string(&self, type_str: &str) -> Result<AstType> {
-        // Create a minimal parser context for parsing just the type
-        let lexer = Lexer::new(type_str);
-        let mut parser = Parser::new(lexer);
-        parser.parse_type()
+        crate::parser::parse_type_from_string(type_str)
     }
 
     /// Infer the type of an expression using TypeChecker with full program context

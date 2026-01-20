@@ -134,6 +134,7 @@ mod handler {
                 if let Some(response) = handle_import_hover(
                     &symbol_name,
                     &doc.content,
+                    doc.ast.as_deref(),
                     position,
                     &store,
                     request_id.clone(),
@@ -373,11 +374,16 @@ mod handler {
     fn handle_import_hover(
         symbol_name: &str,
         content: &str,
+        ast: Option<&[crate::ast::Declaration]>,
         position: Position,
         store: &DocumentStore,
         request_id: lsp_server::RequestId,
     ) -> Option<Response> {
-        if let Some(import_info) = imports::find_import_info(content, symbol_name, position) {
+        // Prefer AST-based lookup, fall back to string parsing
+        let import_info = ast
+            .and_then(|ast| imports::find_import_info_from_ast(ast, symbol_name))
+            .or_else(|| imports::find_import_info(content, symbol_name, position));
+        if let Some(import_info) = import_info {
             let mut hover_content = Vec::with_capacity(4);
             hover_content.push(format!("```zen\n{}\n```", import_info.import_line));
             hover_content.push(format!("**Imported from:** `{}`", import_info.source));

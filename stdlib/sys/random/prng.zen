@@ -62,18 +62,23 @@ rng_next_bounded = (rng: MutPtr<Rng>, max: i64) i64 {
     return val % max
 }
 
-// Global default RNG
+// Create a default-seeded RNG
+// NOTE: For repeated random values, create ONE Rng and reuse it.
+// Calling random() repeatedly returns the SAME value since it
+// creates a new RNG with the same seed each time.
 default_rng = () Rng {
     return rng_new(12345)
 }
 
-// Global random (convenience)
+// Get a single random value (creates new RNG each call - same seed!)
+// WARNING: Returns same value every call. Use rng_new() + rng_next() for sequences.
 random = () i64 {
     rng ::= default_rng()
     return rng_next(rng.mut_ref())
 }
 
-// Global random in range
+// Get a single random value in range (creates new RNG each call - same seed!)
+// WARNING: Returns same value every call. Use rng_new() + rng_next_bounded() for sequences.
 random_bounded = (max: i64) i64 {
     rng ::= default_rng()
     return rng_next_bounded(rng.mut_ref(), max)

@@ -484,6 +484,7 @@ fn dispatch_compiler_function<'ctx>(
         "syscall4" => stdlib_codegen::compile_syscall4(compiler, args),
         "syscall5" => stdlib_codegen::compile_syscall5(compiler, args),
         "syscall6" => stdlib_codegen::compile_syscall6(compiler, args),
+        "panic" => stdlib_codegen::compile_panic(compiler, args),
         _ => return None,
     })
 }

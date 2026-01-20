@@ -3,6 +3,7 @@
 use crate::lsp::document_store::DocumentStore;
 use crate::lsp::type_inference::{infer_receiver_type_from_store, parse_generic_type};
 use crate::lsp::types::UfcMethodInfo;
+use crate::stdlib_types::stdlib_types;
 use crate::well_known::well_known;
 use lsp_types::*;
 
@@ -139,37 +140,29 @@ pub fn resolve_ufc_method(method_info: &UfcMethodInfo, store: &DocumentStore) ->
 
     let wk = well_known();
 
-    let stdlib_location = match base_type.as_str() {
-        t if wk.is_result(t) => {
-            find_stdlib_location("core/result.zen", &method_info.method_name, Some(wk.result_name()), store)
-        }
-        t if wk.is_option(t) => {
-            find_stdlib_location("core/option.zen", &method_info.method_name, Some(wk.option_name()), store)
-        }
-        "String" | "StaticString" | "str" => {
-            find_stdlib_location("string.zen", &method_info.method_name, Some("String"), store)
-        }
-        "HashMap" => {
-            find_stdlib_location("collections/hashmap.zen", &method_info.method_name, Some("HashMap"), store)
-        }
-        "DynVec" => {
-            find_stdlib_location("vec.zen", &method_info.method_name, Some("DynVec"), store)
-        }
-        "Vec" => {
-            find_stdlib_location("vec.zen", &method_info.method_name, Some("Vec"), store)
-        }
-        "Array" => {
-            find_stdlib_location("collections/array.zen", &method_info.method_name, Some("Array"), store)
-        }
-        "Allocator" | "GPA" => {
-            find_stdlib_location("memory/allocator.zen", &method_info.method_name, Some("Allocator"), store)
-                .or_else(|| find_stdlib_location("memory/gpa.zen", &method_info.method_name, Some("GPA"), store))
-        }
-        _ => None,
+    // Use well_known for Option/Result (they have canonical names)
+    let normalized_type = if wk.is_result(&base_type) {
+        wk.result_name().to_string()
+    } else if wk.is_option(&base_type) {
+        wk.option_name().to_string()
+    } else if base_type == "StaticString" || base_type == "str" {
+        "String".to_string()
+    } else {
+        base_type.clone()
     };
 
-    if stdlib_location.is_some() {
-        return stdlib_location;
+    // Look up stdlib path dynamically from the registry
+    if let Some(stdlib_path) = stdlib_types().get_type_source_path(&normalized_type) {
+        if let Some(location) = find_stdlib_location(stdlib_path, &method_info.method_name, Some(&normalized_type), store) {
+            return Some(location);
+        }
+    }
+
+    // Special case: GPA is an alias for Allocator
+    if normalized_type == "GPA" {
+        if let Some(location) = find_stdlib_location("memory/allocator.zen", &method_info.method_name, Some("Allocator"), store) {
+            return Some(location);
+        }
     }
 
     if method_info.method_name == "loop" || method_info.method_name == "iter" {

@@ -570,6 +570,65 @@ pub fn compile_ctpop<'ctx>(compiler: &mut LLVMCompiler<'ctx>, args: &[ast::Expre
 }
 
 // =============================================================================
+// Panic Intrinsic
+// =============================================================================
+
+pub fn compile_panic<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    // panic(message: StringLiteral) -> !
+    // Writes message to stderr then calls abort()
+    require_args(args, 1, "panic", compiler.get_current_span())?;
+
+    // Get the message string
+    let msg_val = compiler.compile_expression(&args[0])?;
+    let msg_ptr = extract_string_ptr(compiler, msg_val)?;
+
+    // Get string length - we need to walk until null terminator or use a reasonable max
+    // For simplicity, use fputs which handles null-terminated strings
+
+    // Get stderr file handle (on Unix, stderr is fd 2)
+    // We'll use the C library's stderr via fputs for portability
+
+    // Declare fputs: int fputs(const char *s, FILE *stream)
+    let fputs = get_or_declare_fn(
+        compiler,
+        "fputs",
+        Some(compiler.context.i32_type().into()),
+        &[ptr_type(compiler).into(), ptr_type(compiler).into()],
+    );
+
+    // Declare stderr (extern FILE *stderr)
+    let stderr_global = compiler.module.get_global("stderr").unwrap_or_else(|| {
+        compiler.module.add_global(ptr_type(compiler), None, "stderr")
+    });
+    let stderr_ptr = compiler.builder.build_load(ptr_type(compiler), stderr_global.as_pointer_value(), "stderr")?;
+
+    // Print "panic: " prefix
+    let prefix = compiler.builder.build_global_string_ptr("panic: ", "panic_prefix")?;
+    compiler.builder.build_call(fputs, &[prefix.as_pointer_value().into(), stderr_ptr.into()], "")?;
+
+    // Print the message
+    compiler.builder.build_call(fputs, &[msg_ptr.into(), stderr_ptr.into()], "")?;
+
+    // Print newline
+    let newline = compiler.builder.build_global_string_ptr("\n", "newline")?;
+    compiler.builder.build_call(fputs, &[newline.as_pointer_value().into(), stderr_ptr.into()], "")?;
+
+    // Call abort() to terminate
+    let abort = get_or_declare_fn(compiler, "abort", None, &[]);
+    compiler.builder.build_call(abort, &[], "")?;
+
+    // This is unreachable, but we need to return something
+    // Mark as unreachable for LLVM optimization
+    compiler.builder.build_unreachable()?;
+
+    // Return a dummy value (will never be reached)
+    Ok(compiler.context.i32_type().const_zero().into())
+}
+
+// =============================================================================
 // Inline C Compilation
 // =============================================================================
 

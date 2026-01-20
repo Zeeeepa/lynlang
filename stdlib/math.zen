@@ -1,160 +1,10 @@
 // Zen Standard Library: Math Module
-// Mathematical functions from libm
 
-// Pi constant
+// Constants
 PI = 3.14159265358979323846
-
-// e constant (Euler's number)
 E = 2.71828182845904523536
 
-// Trigonometric functions
-sin = (x: f64) f64 {
-    // Built-in - calls libm sin
-    return x
-}
-
-cos = (x: f64) f64 {
-    // Built-in - calls libm cos
-    return x
-}
-
-tan = (x: f64) f64 {
-    // Built-in - calls libm tan
-    return x
-}
-
-asin = (x: f64) f64 {
-    // Built-in - calls libm asin
-    return x
-}
-
-acos = (x: f64) f64 {
-    // Built-in - calls libm acos
-    return x
-}
-
-atan = (x: f64) f64 {
-    // Built-in - calls libm atan
-    return x
-}
-
-atan2 = (y: f64, x: f64) f64 {
-    // Built-in - calls libm atan2
-    return x
-}
-
-// Hyperbolic functions
-sinh = (x: f64) f64 {
-    // Built-in - calls libm sinh
-    return x
-}
-
-cosh = (x: f64) f64 {
-    // Built-in - calls libm cosh
-    return x
-}
-
-tanh = (x: f64) f64 {
-    // Built-in - calls libm tanh
-    return x
-}
-
-// Exponential and logarithmic functions
-exp = (x: f64) f64 {
-    // Built-in - calls libm exp
-    return x
-}
-
-log = (x: f64) f64 {
-    // Built-in - calls libm log (natural log)
-    return x
-}
-
-log10 = (x: f64) f64 {
-    // Built-in - calls libm log10
-    return x
-}
-
-log2 = (x: f64) f64 {
-    // Built-in - calls libm log2
-    return x
-}
-
-// Power functions
-pow = (x: f64, y: f64) f64 {
-    // Built-in - calls libm pow
-    return x
-}
-
-sqrt = (x: f64) f64 {
-    // Built-in - calls libm sqrt
-    return x
-}
-
-cbrt = (x: f64) f64 {
-    // Built-in - calls libm cbrt
-    return x
-}
-
-// Rounding and absolute value
-floor = (x: f64) f64 {
-    // Built-in - calls libm floor
-    return x
-}
-
-ceil = (x: f64) f64 {
-    // Built-in - calls libm ceil
-    return x
-}
-
-round = (x: f64) f64 {
-    // Built-in - calls libm round
-    return x
-}
-
-trunc = (x: f64) f64 {
-    // Built-in - calls libm trunc
-    return x
-}
-
-fabs = (x: f64) f64 {
-    // Built-in - calls libm fabs
-    return x
-}
-
-// Modulo
-fmod = (x: f64, y: f64) f64 {
-    // Built-in - calls libm fmod
-    return x
-}
-
-remainder = (x: f64, y: f64) f64 {
-    // Built-in - calls libm remainder
-    return x
-}
-
-// Min/Max
-fmin = (x: f64, y: f64) f64 {
-    x < y ?
-        | true { x }
-        | false { y }
-}
-
-fmax = (x: f64, y: f64) f64 {
-    x > y ?
-        | true { x }
-        | false { y }
-}
-
-// Copy sign
-copysign = (x: f64, y: f64) f64 {
-    // Built-in - calls libm copysign
-    return x
-}
-
-// ============================================================================
 // Integer Math Functions
-// ============================================================================
 
 // Absolute value for i32
 abs = (n: i32) i32 {
@@ -212,20 +62,26 @@ clamp = (n: i32, low: i32, high: i32) i32 {
         }
 }
 
-// ============================================================================
-// Integer bounds constants
-// Useful for safe conversions and overflow checking
-// ============================================================================
+// Min/Max for f64
+fmin = (x: f64, y: f64) f64 {
+    x < y ?
+        | true { x }
+        | false { y }
+}
 
-// Signed integer bounds
+fmax = (x: f64, y: f64) f64 {
+    x > y ?
+        | true { x }
+        | false { y }
+}
+
+// Integer bounds constants
 I8_MIN = 0 - 128
 I8_MAX = 127
 I16_MIN = 0 - 32768
 I16_MAX = 32767
 I32_MIN = 0 - 2147483648
 I32_MAX = 2147483647
-
-// Unsigned integer bounds (as i64 for comparison)
 U8_MAX = 255
 U16_MAX = 65535
 U32_MAX = 4294967295

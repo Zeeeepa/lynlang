@@ -58,7 +58,10 @@ pub fn handle_code_lens(req: Request, store: &Arc<Mutex<DocumentStore>>) -> Resp
                 }
                 processed_functions.insert(func_name.clone());
 
-                let line_num = find_function_line(&doc.content, func_name);
+                // Get line from symbol info if available, otherwise fall back to content search
+                let line_num = doc.symbols.get(func_name)
+                    .map(|s| s.range.start.line as usize)
+                    .or_else(|| find_function_line(&doc.content, func_name));
 
                 if let Some(line) = line_num {
                     let range = Range {

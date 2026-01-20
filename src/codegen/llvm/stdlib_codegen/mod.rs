@@ -7,6 +7,8 @@ pub mod helpers;
 
 // Re-export compiler intrinsics
 pub use compiler::{
+    // Panic
+    compile_panic,
     // Inline C
     compile_inline_c,
     // Memory allocation

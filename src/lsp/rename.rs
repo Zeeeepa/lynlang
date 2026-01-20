@@ -12,6 +12,7 @@ use crate::ast::{Declaration, Statement};
 use super::document_store::DocumentStore;
 use super::helpers::{null_response, success_response, try_lock, try_parse_params};
 use super::navigation::find_symbol_at_position;
+use super::navigation::utils::{find_function_range, find_function_range_from_doc};
 use super::types::{Document, SymbolScope};
 
 // ============================================================================
@@ -136,7 +137,7 @@ pub(crate) fn determine_symbol_scope(
     if let Some(ast) = &doc.ast {
         for decl in ast {
             if let Declaration::Function(func) = decl {
-                if let Some(func_range) = find_function_range(&doc.content, &func.name) {
+                if let Some(func_range) = find_function_range_from_doc(doc, &func.name) {
                     if position.line >= func_range.start.line
                         && position.line <= func_range.end.line
                         && is_local_symbol_in_function(func, symbol_name)
@@ -184,47 +185,7 @@ fn is_symbol_in_statements(statements: &[Statement], symbol_name: &str) -> bool 
     false
 }
 
-pub(crate) fn find_function_range(content: &str, func_name: &str) -> Option<Range> {
-    let lines: Vec<&str> = content.lines().collect();
-    let mut start_line = None;
-
-    for (line_num, line) in lines.iter().enumerate() {
-        if line.contains(&format!("{} =", func_name)) {
-            start_line = Some(line_num);
-            break;
-        }
-    }
-
-    if let Some(start) = start_line {
-        let mut brace_depth = 0;
-        let mut found_opening = false;
-
-        for (line_num, line) in lines.iter().enumerate().skip(start) {
-            for ch in line.chars() {
-                if ch == '{' {
-                    brace_depth += 1;
-                    found_opening = true;
-                } else if ch == '}' {
-                    brace_depth -= 1;
-                    if found_opening && brace_depth == 0 {
-                        return Some(Range {
-                            start: Position {
-                                line: start as u32,
-                                character: 0,
-                            },
-                            end: Position {
-                                line: line_num as u32,
-                                character: line.len() as u32,
-                            },
-                        });
-                    }
-                }
-            }
-        }
-    }
-
-    None
-}
+// Use find_function_range from navigation::utils
 
 fn rename_local_symbol(
     content: &str,

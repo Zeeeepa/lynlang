@@ -53,86 +53,22 @@ pub fn generic_enum_struct_type<'ctx>(compiler: &LLVMCompiler<'ctx>) -> inkwell:
     )
 }
 
+/// Parse comma-separated type arguments from a string.
+/// The compiler parameter is kept for API compatibility but not used.
 pub fn parse_type_args_string(
-    compiler: &LLVMCompiler,
+    _compiler: &LLVMCompiler,
     type_params_str: &str,
 ) -> Result<Vec<AstType>, CompileError> {
-    let mut type_args = Vec::new();
-    let mut current = String::new();
-    let mut angle_depth = 0;
-
-    for ch in type_params_str.chars() {
-        if ch == '<' {
-            angle_depth += 1;
-            current.push(ch);
-        } else if ch == '>' {
-            angle_depth -= 1;
-            current.push(ch);
-        } else if ch == ',' && angle_depth == 0 {
-            // This comma separates type arguments
-            if !current.is_empty() {
-                type_args.push(parse_single_type_string(compiler, current.trim())?);
-                current.clear();
-            }
-        } else {
-            current.push(ch);
-        }
-    }
-
-    // Don't forget the last type argument
-    if !current.is_empty() {
-        type_args.push(parse_single_type_string(compiler, current.trim())?);
-    }
-
-    Ok(type_args)
+    crate::parser::parse_type_args_from_string(type_params_str)
 }
 
-/// Parse a single type string like "i32" or "Option<i32>" into AstType
+/// Parse a single type string like "i32" or "Option<i32>" into AstType.
+/// The compiler parameter is kept for API compatibility but not used.
 pub fn parse_single_type_string(
-    compiler: &LLVMCompiler,
+    _compiler: &LLVMCompiler,
     type_str: &str,
 ) -> Result<AstType, CompileError> {
-    let trimmed = type_str.trim();
-
-    // Check for basic types first
-    match trimmed {
-        "i8" => Ok(AstType::I8),
-        "i16" => Ok(AstType::I16),
-        "i32" => Ok(AstType::I32),
-        "i64" => Ok(AstType::I64),
-        "u8" => Ok(AstType::U8),
-        "u16" => Ok(AstType::U16),
-        "u32" => Ok(AstType::U32),
-        "u64" => Ok(AstType::U64),
-        "f32" => Ok(AstType::F32),
-        "f64" => Ok(AstType::F64),
-        "bool" => Ok(AstType::Bool),
-        "string" => Ok(AstType::StaticLiteral),
-        "StaticString" => Ok(AstType::StaticString),
-        "String" => Ok(crate::ast::resolve_string_struct_type()), // Dynamic string type
-        "void" => Ok(AstType::Void),
-        _ => {
-            // Check if it's a generic type like "Option<i32>"
-            if let Some(angle_pos) = trimmed.find('<') {
-                if trimmed.ends_with('>') {
-                    let base_type = &trimmed[..angle_pos];
-                    let inner_types_str = &trimmed[angle_pos + 1..trimmed.len() - 1];
-                    let inner_types = parse_type_args_string(compiler, inner_types_str)?;
-
-                    Ok(AstType::Generic {
-                        name: base_type.to_string(),
-                        type_args: inner_types,
-                    })
-                } else {
-                    // Invalid generic type syntax
-                    Ok(AstType::I32) // Default fallback
-                }
-            } else {
-                // Unknown type, default to I32
-                Ok(AstType::I32)
-            }
-        }
-    }
+    crate::parser::parse_type_from_string(type_str)
 }
 
 /// Infer the return type of a closure from its body
@@ -464,7 +400,6 @@ pub fn compile_raise_expression<'ctx>(
 
             // Store the extracted type for variable type inference
             if let Some(extracted) = extracted_type.clone() {
-                // eprintln!("[DEBUG RAISE] Storing Last_Raise_Extracted_Type = {:?}", extracted);
                 compiler
                     .track_generic_type("Last_Raise_Extracted_Type".to_string(), extracted.clone());
 
@@ -836,11 +771,6 @@ pub fn compile_raise_expression<'ctx>(
                         compiler
                             .builder
                             .build_load(load_type, ptr_val, "ok_value_deref")?;
-
-                    // eprintln!("[DEBUG] Loaded value type: {:?}", loaded_value.get_type());
-                    if let Some(_ast_type) = compiler.generic_type_context.get("Result_Ok_Type") {
-                        // eprintln!("[DEBUG] Result_Ok_Type: {:?}", ast_type);
-                    }
 
                     // The loaded value should be the correct type
                     // For nested Result/Option types, this will be a struct value that can be raised again

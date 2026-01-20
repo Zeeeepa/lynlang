@@ -1,5 +1,6 @@
 // Import-related helper functions
 
+use crate::ast::Declaration;
 use lsp_types::Position;
 
 pub struct ImportInfo {
@@ -7,6 +8,25 @@ pub struct ImportInfo {
     pub source: String,
 }
 
+/// Find import information for a symbol using AST (preferred method)
+pub fn find_import_info_from_ast(
+    ast: &[Declaration],
+    symbol_name: &str,
+) -> Option<ImportInfo> {
+    for decl in ast {
+        if let Declaration::ModuleImport { alias, module_path, .. } = decl {
+            if alias == symbol_name {
+                return Some(ImportInfo {
+                    import_line: format!("{{ {} }} = {}", alias, module_path),
+                    source: module_path.clone(),
+                });
+            }
+        }
+    }
+    None
+}
+
+/// Find import information for a symbol (fallback to string parsing when AST unavailable)
 pub fn find_import_info(
     content: &str,
     symbol_name: &str,

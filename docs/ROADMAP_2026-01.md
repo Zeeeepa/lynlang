@@ -237,6 +237,13 @@ This blocks runtime testing of collections from .zen files.
 21. **AsyncPool** - io_uring-based async allocator with completion callbacks
 22. **Task System** - Stackful coroutines for async task management
 23. **Scheduler** - Task scheduler with runnable/suspended queues
+24. **Panic Intrinsic** - `@builtin.panic(message)` for unrecoverable errors with stderr output + abort
+25. **Trap/Unreachable Intrinsics** - `@builtin.trap()`, `@builtin.unreachable()`, `@builtin.debugtrap()`
+26. **Option/Result unwrap** - Fixed `unwrap()` to use panic intrinsic instead of undefined `@std.core.panic`
+27. **Module Import AST** - Added `imported_symbol` field to support extracting specific symbols from modules
+28. **Destructuring Import Fix** - Parser no longer creates invalid paths like `@std.memory.gpa.gpa_new`
+29. **OVERVIEW.md** - Comprehensive project documentation created
+30. **LSP Hardcoding Cleanup** - Replaced string parsing with parser/compiler APIs across LSP modules
 
 ---
 
