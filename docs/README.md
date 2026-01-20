@@ -16,6 +16,7 @@
 |----------|-------------|
 | [INTRINSICS_REFERENCE.md](INTRINSICS_REFERENCE.md) | Compiler intrinsics documentation |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Compiler pipeline and module structure |
+| [LLVM_CODEGEN.md](LLVM_CODEGEN.md) | LLVM code generation details |
 | [LSP_STATUS.md](LSP_STATUS.md) | Language server features and architecture |
 
 ---
@@ -38,18 +39,6 @@ For contributors understanding the architecture:
 | Document | Description |
 |----------|-------------|
 | [ROADMAP_2026-01.md](ROADMAP_2026-01.md) | Current development priorities |
-| [PHASE_PLAN.md](PHASE_PLAN.md) | Phase plan from Alpha to Beta |
-
----
-
-## Internal/Working Documents
-
-These track ongoing refactoring work:
-
-| Document | Description |
-|----------|-------------|
-| [REFACTOR_SEMA.md](REFACTOR_SEMA.md) | Typechecker integration status |
-| [REFACTOR_RESOLVED_TYPES.md](REFACTOR_RESOLVED_TYPES.md) | AST type annotation refactor |
 
 ---
 
