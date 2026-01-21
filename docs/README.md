@@ -1,59 +1,25 @@
 # Zen Language Documentation
 
-## Start Here
+## For Users
 
 | Document | Description |
 |----------|-------------|
-| [OVERVIEW.md](OVERVIEW.md) | Complete language overview, syntax, and features |
-| [QUICK_START.md](QUICK_START.md) | Getting started guide with examples |
-| [../README.md](../README.md) | Project overview and build instructions |
+| [OVERVIEW.md](OVERVIEW.md) | Language syntax and features |
+| [QUICK_START.md](QUICK_START.md) | Getting started guide |
+| [INTRINSICS_REFERENCE.md](INTRINSICS_REFERENCE.md) | Compiler intrinsics |
 
----
-
-## Reference
+## For Contributors
 
 | Document | Description |
 |----------|-------------|
-| [INTRINSICS_REFERENCE.md](INTRINSICS_REFERENCE.md) | Compiler intrinsics documentation |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Compiler pipeline and module structure |
-| [LLVM_CODEGEN.md](LLVM_CODEGEN.md) | LLVM code generation details |
-| [LSP_STATUS.md](LSP_STATUS.md) | Language server features and architecture |
-
----
-
-## Design Documents
-
-For contributors understanding the architecture:
-
-| Document | Description |
-|----------|-------------|
-| [design/STDLIB_DESIGN.md](design/STDLIB_DESIGN.md) | Standard library architecture and API |
-| [design/SAFE_POINTERS_DESIGN.md](design/SAFE_POINTERS_DESIGN.md) | Ptr<T> vs raw pointer rationale |
-| [design/SEPARATION_OF_CONCERNS.md](design/SEPARATION_OF_CONCERNS.md) | Compiler layer responsibilities |
-| [design/PRIMITIVES_VS_FEATURES.md](design/PRIMITIVES_VS_FEATURES.md) | What belongs in compiler vs stdlib |
-
----
-
-## Development Status
-
-| Document | Description |
-|----------|-------------|
-| [ROADMAP_2026-01.md](ROADMAP_2026-01.md) | Current development priorities |
-
----
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Compiler pipeline and modules |
+| [LSP_STATUS.md](LSP_STATUS.md) | Language server features |
+| [design/](design/) | Design documents |
 
 ## Quick Commands
 
 ```bash
-# Build
-cargo build --release
-
-# Test
-cargo test --all
-
-# Run example
-./target/release/zen examples/showcase.zen
-
-# Run LSP
-./target/release/zen-lsp
+cargo build --release      # Build compiler
+cargo test --all           # Run tests
+./target/release/zen FILE  # Run a .zen file
 ```
