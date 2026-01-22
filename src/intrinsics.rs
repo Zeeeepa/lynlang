@@ -281,6 +281,10 @@ fn build_intrinsics() -> HashMap<String, Intrinsic> {
     intrinsic!(m, "unload_library" => ("lib_handle", ptr.clone()) -> AstType::Void);
     intrinsic!(m, "dlerror" => () -> ptr.clone());
 
+    // IO operations (libc wrappers)
+    intrinsic!(m, "libc_write" => ("fd", AstType::I32, "buf", ptr.clone(), "len", AstType::Usize) -> AstType::I64);
+    intrinsic!(m, "libc_read" => ("fd", AstType::I32, "buf", ptr.clone(), "len", AstType::Usize) -> AstType::I64);
+
     // Generic load/store (type determined by context)
     let generic_t = AstType::Generic { name: "T".to_string(), type_args: vec![] };
     intrinsic!(m, "load" => ("ptr", ptr.clone()) -> generic_t.clone());

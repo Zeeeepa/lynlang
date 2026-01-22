@@ -15,6 +15,10 @@ pub mod search_limits {
     pub const ENUM_SEARCH: usize = 30;
     /// Maximum documents for quick type lookups (low - fast path)
     pub const QUICK_TYPE_SEARCH: usize = 10;
+    /// Maximum recursion depth for directory traversal (prevents stack overflow)
+    pub const MAX_DIRECTORY_DEPTH: usize = 20;
+    /// Maximum files to parse during workspace symbol search
+    pub const MAX_FILES_TO_PARSE: usize = 100;
 }
 
 // Submodules

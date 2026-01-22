@@ -906,3 +906,117 @@ pub fn compile_syscall6<'ctx>(
     let a5 = to_i64(compiler, a5_val, true)?;
     build_syscall(compiler, num, &[a0, a1, a2, a3, a4, a5])
 }
+
+// =============================================================================
+// IO Operations (libc wrappers)
+// =============================================================================
+
+/// libc write(fd, buf, count) -> ssize_t
+pub fn compile_libc_write<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 3, "libc_write", compiler.get_current_span())?;
+
+    let fd_val = compiler.compile_expression(&args[0])?;
+    let buf_val = compiler.compile_expression(&args[1])?;
+    let len_val = compiler.compile_expression(&args[2])?;
+
+    let i32_type = compiler.context.i32_type();
+    let i64_type = compiler.context.i64_type();
+    let ptr_type = compiler.context.ptr_type(AddressSpace::default());
+
+    // Get or declare libc write function
+    let write_fn = get_or_declare_fn(
+        compiler,
+        "write",
+        Some(i64_type.into()),
+        &[i32_type.into(), ptr_type.into(), i64_type.into()],
+    );
+
+    // Convert fd to i32
+    let fd = if fd_val.is_int_value() {
+        to_int_width(compiler, fd_val.into_int_value(), i32_type, true)?
+    } else {
+        return Err(CompileError::TypeError(
+            "libc_write: fd must be an integer".to_string(),
+            compiler.get_current_span(),
+        ));
+    };
+
+    // Get buffer pointer
+    let buf = if buf_val.is_pointer_value() {
+        buf_val.into_pointer_value()
+    } else {
+        return Err(CompileError::TypeError(
+            "libc_write: buf must be a pointer".to_string(),
+            compiler.get_current_span(),
+        ));
+    };
+
+    // Convert len to i64 (size_t)
+    let len = to_i64(compiler, len_val, false)?;
+
+    let result = compiler.builder.build_call(
+        write_fn,
+        &[fd.into(), buf.into(), len.into()],
+        "write_result",
+    )?;
+
+    extract_call_result(result, "write", compiler)
+}
+
+/// libc read(fd, buf, count) -> ssize_t
+pub fn compile_libc_read<'ctx>(
+    compiler: &mut LLVMCompiler<'ctx>,
+    args: &[ast::Expression],
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    require_args(args, 3, "libc_read", compiler.get_current_span())?;
+
+    let fd_val = compiler.compile_expression(&args[0])?;
+    let buf_val = compiler.compile_expression(&args[1])?;
+    let len_val = compiler.compile_expression(&args[2])?;
+
+    let i32_type = compiler.context.i32_type();
+    let i64_type = compiler.context.i64_type();
+    let ptr_type = compiler.context.ptr_type(AddressSpace::default());
+
+    // Get or declare libc read function
+    let read_fn = get_or_declare_fn(
+        compiler,
+        "read",
+        Some(i64_type.into()),
+        &[i32_type.into(), ptr_type.into(), i64_type.into()],
+    );
+
+    // Convert fd to i32
+    let fd = if fd_val.is_int_value() {
+        to_int_width(compiler, fd_val.into_int_value(), i32_type, true)?
+    } else {
+        return Err(CompileError::TypeError(
+            "libc_read: fd must be an integer".to_string(),
+            compiler.get_current_span(),
+        ));
+    };
+
+    // Get buffer pointer
+    let buf = if buf_val.is_pointer_value() {
+        buf_val.into_pointer_value()
+    } else {
+        return Err(CompileError::TypeError(
+            "libc_read: buf must be a pointer".to_string(),
+            compiler.get_current_span(),
+        ));
+    };
+
+    // Convert len to i64 (size_t)
+    let len = to_i64(compiler, len_val, false)?;
+
+    let result = compiler.builder.build_call(
+        read_fn,
+        &[fd.into(), buf.into(), len.into()],
+        "read_result",
+    )?;
+
+    extract_call_result(result, "read", compiler)
+}

@@ -130,7 +130,8 @@ impl<'a> Parser<'a> {
             }
 
             // Create imports from the specified module
-            // Map common stdlib symbols to their actual module paths
+            // For destructuring imports like { Range } = @std.core.iterator,
+            // we load the entire module, not module.name
             let mut declarations = vec![];
             for name in imported_names {
                 let actual_module_path = if module_path == "@std" {
@@ -146,7 +147,9 @@ impl<'a> Parser<'a> {
                         format!("{}.{}", module_path, name)
                     }
                 } else {
-                    format!("{}.{}", module_path, name)
+                    // Import from specific module like @std.core.iterator
+                    // Load the whole module, not module.name
+                    module_path.clone()
                 };
                 declarations.push(Declaration::ModuleImport {
                     alias: name.clone(),
@@ -176,11 +179,14 @@ impl<'a> Parser<'a> {
                 }
 
                 // Create imports from the specified module
+                // For destructuring imports like { Range } = @std.core.iterator,
+                // we need to load the entire module (not @std.core.iterator.Range)
+                // but alias the import as the imported name.
                 let mut declarations = vec![];
                 for name in imported_names {
                     declarations.push(Declaration::ModuleImport {
                         alias: name.clone(),
-                        module_path: format!("{}.{}", module_path, name),
+                        module_path: module_path.clone(), // Load the whole module, not module.name
                         span: Some(self.current_span.clone()),
                     });
                 }

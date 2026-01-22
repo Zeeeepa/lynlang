@@ -148,81 +148,8 @@ fn track_generic_return_type(compiler: &mut LLVMCompiler, return_type: &AstType)
     }
 }
 
-// --- Collection Constructors ---
-
-fn try_compile_collection_constructor<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    name: &str,
-    args: &[ast::Expression],
-) -> Option<Result<BasicValueEnum<'ctx>, CompileError>> {
-    // Handle Range constructors only
-    // HashMap/HashSet/DynVec should use stdlib Zen implementations
-    if name == "Range.new" || name == "Range.with_step" {
-        return Some(compile_range_constructor(compiler, name, args));
-    }
-
-    None
-}
-
-fn compile_range_constructor<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    name: &str,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    let i64_type = compiler.context.i64_type();
-    let range_struct_type = compiler.context.struct_type(
-        &[i64_type.into(), i64_type.into(), i64_type.into()],
-        false,
-    );
-
-    if name == "Range.new" {
-        // Range.new(start, end) -> Range { current: start, end: end, step: 1 }
-        if args.len() != 2 {
-            return Err(CompileError::TypeError(
-                format!("Range.new expects 2 arguments (start, end), got {}", args.len()),
-                compiler.get_current_span(),
-            ));
-        }
-        let start = compiler.compile_expression(&args[0])?;
-        let end = compiler.compile_expression(&args[1])?;
-        let step = i64_type.const_int(1, false);
-
-        let range_alloca = compiler.builder.build_alloca(range_struct_type, "range")?;
-        let current_ptr = compiler.builder.build_struct_gep(range_struct_type, range_alloca, 0, "current_ptr")?;
-        let end_ptr = compiler.builder.build_struct_gep(range_struct_type, range_alloca, 1, "end_ptr")?;
-        let step_ptr = compiler.builder.build_struct_gep(range_struct_type, range_alloca, 2, "step_ptr")?;
-
-        compiler.builder.build_store(current_ptr, start)?;
-        compiler.builder.build_store(end_ptr, end)?;
-        compiler.builder.build_store(step_ptr, step)?;
-
-        let range_val = compiler.builder.build_load(range_struct_type, range_alloca, "range_val")?;
-        Ok(range_val)
-    } else {
-        // Range.with_step(start, end, step) -> Range { current: start, end: end, step: step }
-        if args.len() != 3 {
-            return Err(CompileError::TypeError(
-                format!("Range.with_step expects 3 arguments (start, end, step), got {}", args.len()),
-                compiler.get_current_span(),
-            ));
-        }
-        let start = compiler.compile_expression(&args[0])?;
-        let end = compiler.compile_expression(&args[1])?;
-        let step = compiler.compile_expression(&args[2])?;
-
-        let range_alloca = compiler.builder.build_alloca(range_struct_type, "range")?;
-        let current_ptr = compiler.builder.build_struct_gep(range_struct_type, range_alloca, 0, "current_ptr")?;
-        let end_ptr = compiler.builder.build_struct_gep(range_struct_type, range_alloca, 1, "end_ptr")?;
-        let step_ptr = compiler.builder.build_struct_gep(range_struct_type, range_alloca, 2, "step_ptr")?;
-
-        compiler.builder.build_store(current_ptr, start)?;
-        compiler.builder.build_store(end_ptr, end)?;
-        compiler.builder.build_store(step_ptr, step)?;
-
-        let range_val = compiler.builder.build_load(range_struct_type, range_alloca, "range_val")?;
-        Ok(range_val)
-    }
-}
+// NOTE: Range constructors (Range.new, Range.with_step) are now in stdlib
+// See stdlib/core/iterator.zen - no magic codegen needed
 
 // --- Compiler Intrinsics Dispatcher ---
 
@@ -234,191 +161,10 @@ fn try_dispatch_compiler_intrinsic<'ctx>(
 ) -> Option<Result<BasicValueEnum<'ctx>, CompileError>> {
     match module {
         "compiler" | "builtin" | "@builtin" => dispatch_compiler_function(compiler, func, args),
-        "io" => dispatch_io_function(compiler, func, args),
+        // NOTE: "io" module is now implemented in stdlib/io/io.zen using intrinsics
+        // The magic dispatch has been removed - io.* functions are now real Zen functions
         _ => None,
     }
-}
-
-fn dispatch_io_function<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    func: &str,
-    args: &[ast::Expression],
-) -> Option<Result<BasicValueEnum<'ctx>, CompileError>> {
-    Some(match func {
-        "print" => compile_io_print(compiler, args, 1, false),
-        "println" => compile_io_print(compiler, args, 1, true),
-        "eprint" => compile_io_print(compiler, args, 2, false),
-        "eprintln" => compile_io_print(compiler, args, 2, true),
-        "sys_write" => compile_io_syscall_write(compiler, args, 1),
-        "sys_ewrite" => compile_io_syscall_write(compiler, args, 2),
-        "sys_write_raw" => compile_io_syscall_write_raw(compiler, args),
-        _ => return None,
-    })
-}
-
-fn compile_io_print<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-    fd: u64,
-    newline: bool,
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.is_empty() {
-        return Err(CompileError::TypeError("print expects 1 argument".to_string(), compiler.get_current_span()));
-    }
-    let val = compiler.compile_expression(&args[0])?;
-    let (data_ptr, len) = extract_string_data(compiler, val)?;
-
-    // Get or declare write function
-    let write_fn = compiler.module.get_function("write").unwrap_or_else(|| {
-        let fn_type = compiler.context.i64_type().fn_type(
-            &[
-                compiler.context.i32_type().into(),
-                compiler.context.ptr_type(AddressSpace::default()).into(),
-                compiler.context.i64_type().into(),
-            ],
-            false,
-        );
-        compiler.module.add_function("write", fn_type, None)
-    });
-
-    let fd_val = compiler.context.i32_type().const_int(fd, false);
-    compiler.builder.build_call(write_fn, &[fd_val.into(), data_ptr.into(), len.into()], "")?;
-
-    if newline {
-        // Write newline character
-        let newline_str = compiler.builder.build_global_string_ptr("\n", "newline")?;
-        let one = compiler.context.i64_type().const_int(1, false);
-        compiler.builder.build_call(write_fn, &[fd_val.into(), newline_str.as_pointer_value().into(), one.into()], "")?;
-    }
-
-    Ok(compiler.context.i32_type().const_zero().into())
-}
-
-fn extract_string_data<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    val: BasicValueEnum<'ctx>,
-) -> Result<(inkwell::values::PointerValue<'ctx>, inkwell::values::IntValue<'ctx>), CompileError> {
-    // If it's a struct (String type), extract data pointer and length
-    if val.is_struct_value() {
-        let struct_val = val.into_struct_value();
-        let data_ptr = compiler.builder.build_extract_value(struct_val, 0, "str_data")?
-            .into_pointer_value();
-        let len = compiler.builder.build_extract_value(struct_val, 1, "str_len")?
-            .into_int_value();
-        return Ok((data_ptr, len));
-    }
-
-    // If it's a pointer (C string), use strlen
-    if val.is_pointer_value() {
-        let ptr = val.into_pointer_value();
-        let strlen_fn = compiler.module.get_function("strlen").unwrap_or_else(|| {
-            let fn_type = compiler.context.i64_type().fn_type(
-                &[compiler.context.ptr_type(AddressSpace::default()).into()],
-                false,
-            );
-            compiler.module.add_function("strlen", fn_type, None)
-        });
-        let call = compiler.builder.build_call(strlen_fn, &[ptr.into()], "len")?;
-        let len = call.try_as_basic_value().left().ok_or_else(|| {
-            CompileError::InternalError("strlen must return a value".to_string(), compiler.get_current_span())
-        })?.into_int_value();
-        return Ok((ptr, len));
-    }
-
-    Err(CompileError::TypeError("Expected string value for print".to_string(), compiler.get_current_span()))
-}
-
-/// Syscall-based write using inline assembly (no libc)
-fn compile_io_syscall_write<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-    fd: i64,
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 2 {
-        return Err(CompileError::TypeError("sys_write expects 2 arguments (msg, len)".to_string(), compiler.get_current_span()));
-    }
-    let msg = compiler.compile_expression(&args[0])?;
-    let len_val = compiler.compile_expression(&args[1])?;
-
-    let i64_type = compiler.context.i64_type();
-
-    // Get pointer to string data
-    let msg_ptr = if msg.is_pointer_value() {
-        msg.into_pointer_value()
-    } else if msg.is_struct_value() {
-        compiler.builder.build_extract_value(msg.into_struct_value(), 0, "str_data")?
-            .into_pointer_value()
-    } else {
-        return Err(CompileError::TypeError("Expected string for sys_write".to_string(), compiler.get_current_span()));
-    };
-
-    // Convert pointer to i64 for syscall
-    let msg_int = compiler.builder.build_ptr_to_int(msg_ptr, i64_type, "msg_addr")?;
-    let len = len_val.into_int_value();
-    let fd_val = i64_type.const_int(fd as u64, false);
-    let syscall_num = i64_type.const_int(1, false); // SYS_write = 1
-
-    // Build inline assembly: syscall(1, fd, buf, count)
-    let fn_type = i64_type.fn_type(&[i64_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
-    let asm_fn = compiler.context.create_inline_asm(
-        fn_type,
-        "syscall".to_string(),
-        "={rax},{rax},{rdi},{rsi},{rdx},~{rcx},~{r11},~{memory}".to_string(),
-        true,
-        false,
-        None,
-        false,
-    );
-
-    let result = compiler.builder.build_indirect_call(
-        fn_type,
-        asm_fn,
-        &[syscall_num.into(), fd_val.into(), msg_int.into(), len.into()],
-        "syscall_result"
-    )?;
-
-    Ok(result.try_as_basic_value().left().unwrap_or_else(|| i64_type.const_zero().into()))
-}
-
-/// Syscall-based write to any fd using inline assembly (no libc)
-fn compile_io_syscall_write_raw<'ctx>(
-    compiler: &mut LLVMCompiler<'ctx>,
-    args: &[ast::Expression],
-) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if args.len() != 3 {
-        return Err(CompileError::TypeError("sys_write_raw expects 3 arguments (fd, buf, count)".to_string(), compiler.get_current_span()));
-    }
-    let fd_val = compiler.compile_expression(&args[0])?.into_int_value();
-    let buf = compiler.compile_expression(&args[1])?;
-    let count_val = compiler.compile_expression(&args[2])?.into_int_value();
-
-    let i64_type = compiler.context.i64_type();
-
-    // Get pointer and convert to i64
-    let buf_ptr = buf.into_pointer_value();
-    let buf_int = compiler.builder.build_ptr_to_int(buf_ptr, i64_type, "buf_addr")?;
-    let syscall_num = i64_type.const_int(1, false); // SYS_write = 1
-
-    // Build inline assembly: syscall(1, fd, buf, count)
-    let fn_type = i64_type.fn_type(&[i64_type.into(), i64_type.into(), i64_type.into(), i64_type.into()], false);
-    let asm_fn = compiler.context.create_inline_asm(
-        fn_type,
-        "syscall".to_string(),
-        "={rax},{rax},{rdi},{rsi},{rdx},~{rcx},~{r11},~{memory}".to_string(),
-        true,
-        false,
-        None,
-        false,
-    );
-
-    let result = compiler.builder.build_indirect_call(
-        fn_type,
-        asm_fn,
-        &[syscall_num.into(), fd_val.into(), buf_int.into(), count_val.into()],
-        "syscall_result"
-    )?;
-
-    Ok(result.try_as_basic_value().left().unwrap_or_else(|| i64_type.const_zero().into()))
 }
 
 fn dispatch_compiler_function<'ctx>(
@@ -485,6 +231,9 @@ fn dispatch_compiler_function<'ctx>(
         "syscall5" => stdlib_codegen::compile_syscall5(compiler, args),
         "syscall6" => stdlib_codegen::compile_syscall6(compiler, args),
         "panic" => stdlib_codegen::compile_panic(compiler, args),
+        // IO intrinsics (libc wrappers)
+        "libc_write" => stdlib_codegen::compile_libc_write(compiler, args),
+        "libc_read" => stdlib_codegen::compile_libc_read(compiler, args),
         _ => return None,
     })
 }
@@ -553,9 +302,8 @@ pub fn compile_function_call<'ctx>(
     name: &str,
     args: &[ast::Expression],
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-    if let Some(result) = try_compile_collection_constructor(compiler, name, args) {
-        return result;
-    }
+    // NOTE: Collection constructors (Range.new, HashMap.new, etc.) are now in stdlib
+    // They use the normal function resolution path below
     if let Some((module, func)) = name.split_once('.') {
         // Only dispatch compiler intrinsics - stdlib (io/fs/core/math) is in Zen
         if let Some(result) = try_dispatch_compiler_intrinsic(compiler, module, func, args) {
@@ -564,6 +312,11 @@ pub fn compile_function_call<'ctx>(
         if compiler.well_known.is_result(module) || compiler.well_known.is_option(module) {
             let payload = args.first().map(|a| Box::new(a.clone()));
             return compiler.compile_enum_variant(module, func, &payload);
+        }
+        // Try stdlib module function: io.println -> println
+        // Stdlib functions are compiled with their simple name, not qualified
+        if let Some(result) = try_compile_direct_call(compiler, func, args)? {
+            return Ok(result);
         }
     }
     if name == "cast" {

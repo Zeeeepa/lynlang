@@ -132,6 +132,10 @@ fn generate_semantic_tokens(content: &str) -> Vec<SemanticToken> {
                 after_dot = true;
                 (TYPE_OPERATOR, 0)
             }
+            // Skip single < and > - let TextMate grammar handle the distinction
+            // between generic type brackets (MutPtr<T>) and comparison operators (a < b).
+            // Multi-char operators like <=, >=, <<, >> are always comparison/bitwise ops.
+            Token::Operator(op) if op == "<" || op == ">" => continue,
             Token::Operator(_) => (TYPE_OPERATOR, 0),
 
             Token::Symbol('.') => {

@@ -3,8 +3,8 @@
 
 // Option type - represents a value that may or may not exist
 Option<T>:
-Some: T,
-None
+    Some: T,
+    None
 
 // Create Some variant
 some<T> = (value: T) Option<T> {
@@ -33,7 +33,7 @@ is_none<T> = (opt: Option<T>) bool {
 // Map: transform the value inside
 map<T, U> = (opt: Option<T>, f: (T) U) Option<U> {
     opt ?
-        | Some(val) { Option.Some(f(val)) }
+        | Some(val) {Option.Some(f(val))}
         | None { Option.None }
 }
 

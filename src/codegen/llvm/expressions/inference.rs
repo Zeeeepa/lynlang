@@ -501,51 +501,62 @@ pub fn infer_closure_return_type(
             Ok(AstType::Void)
         }
         Expression::FunctionCall { name, args } => {
-            // Check if this is Result.Ok or Result.Err
-            if name == "Result.Ok" {
-                // Infer the T type from the payload
-                let t_type = if !args.is_empty() {
-                    infer_expression_type(compiler, &args[0])?
-                } else {
-                    AstType::Void
-                };
-                let result_name = compiler.well_known.get_variant_parent_name(compiler.well_known.ok_name()).unwrap_or(compiler.well_known.result_name());
-                Ok(AstType::Generic {
-                    name: result_name.to_string(),
-                    type_args: vec![t_type, AstType::StaticString],
-                })
-            } else if name == "Result.Err" {
-                let e_type = if !args.is_empty() {
-                    infer_expression_type(compiler, &args[0])?
-                } else {
-                    crate::ast::resolve_string_struct_type()
-                };
-                let result_name = compiler.well_known.get_variant_parent_name(compiler.well_known.err_name()).unwrap_or(compiler.well_known.result_name());
-                Ok(AstType::Generic {
-                    name: result_name.to_string(),
-                    type_args: vec![AstType::I32, e_type],
-                })
-            } else if name == "Option.Some" {
-                let t_type = if !args.is_empty() {
-                    infer_expression_type(compiler, &args[0])?
-                } else {
-                    AstType::Void
-                };
-                let option_name = compiler.well_known.get_variant_parent_name(compiler.well_known.some_name()).unwrap_or(compiler.well_known.option_name());
-                Ok(AstType::Generic {
-                    name: option_name.to_string(),
-                    type_args: vec![t_type],
-                })
-            } else if name == "Option.None" {
-                let option_name = compiler.well_known.get_variant_parent_name(compiler.well_known.none_name()).unwrap_or(compiler.well_known.option_name());
-                Ok(AstType::Generic {
-                    name: option_name.to_string(),
-                    type_args: vec![AstType::Generic {
-                        name: "T".to_string(),
-                        type_args: vec![],
-                    }],
-                })
-            } else {
+            // Check if this is a Result or Option variant constructor using well_known
+            // Parse "Type.Variant" pattern
+            if let Some((type_name, variant_name)) = name.split_once('.') {
+                let wk = &compiler.well_known;
+
+                // Check for Result.Ok or Result.Err
+                if wk.is_result(type_name) {
+                    if variant_name == wk.ok_name() {
+                        let t_type = if !args.is_empty() {
+                            infer_expression_type(compiler, &args[0])?
+                        } else {
+                            AstType::Void
+                        };
+                        return Ok(AstType::Generic {
+                            name: wk.result_name().to_string(),
+                            type_args: vec![t_type, AstType::StaticString],
+                        });
+                    } else if variant_name == wk.err_name() {
+                        let e_type = if !args.is_empty() {
+                            infer_expression_type(compiler, &args[0])?
+                        } else {
+                            crate::ast::resolve_string_struct_type()
+                        };
+                        return Ok(AstType::Generic {
+                            name: wk.result_name().to_string(),
+                            type_args: vec![AstType::I32, e_type],
+                        });
+                    }
+                }
+
+                // Check for Option.Some or Option.None
+                if wk.is_option(type_name) {
+                    if variant_name == wk.some_name() {
+                        let t_type = if !args.is_empty() {
+                            infer_expression_type(compiler, &args[0])?
+                        } else {
+                            AstType::Void
+                        };
+                        return Ok(AstType::Generic {
+                            name: wk.option_name().to_string(),
+                            type_args: vec![t_type],
+                        });
+                    } else if variant_name == wk.none_name() {
+                        return Ok(AstType::Generic {
+                            name: wk.option_name().to_string(),
+                            type_args: vec![AstType::Generic {
+                                name: "T".to_string(),
+                                type_args: vec![],
+                            }],
+                        });
+                    }
+                }
+            }
+
+            // Not a Result/Option variant - check TypeContext and local cache
+            {
                 // Check TypeContext first, then local cache
                 if let Some(return_type) = compiler.type_ctx.get_function_return_type(name) {
                     Ok(return_type)

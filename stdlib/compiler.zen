@@ -227,3 +227,25 @@ unload_library = (lib_handle: RawPtr<u8>) void {
 dlerror = () RawPtr<u8> {
     return @builtin.dlerror()
 }
+
+// =============================================================================
+// IO OPERATIONS (libc wrappers)
+// =============================================================================
+
+// Write to a file descriptor using libc write()
+// fd: file descriptor (0=stdin, 1=stdout, 2=stderr)
+// buf: pointer to data buffer
+// len: number of bytes to write
+// Returns: number of bytes written, or negative on error
+libc_write = (fd: i32, buf: RawPtr<u8>, len: usize) i64 {
+    return @builtin.libc_write(fd, buf, len)
+}
+
+// Read from a file descriptor using libc read()
+// fd: file descriptor (0=stdin, 1=stdout, 2=stderr)
+// buf: pointer to buffer to store data
+// len: maximum number of bytes to read
+// Returns: number of bytes read, or negative on error
+libc_read = (fd: i32, buf: RawPtr<u8>, len: usize) i64 {
+    return @builtin.libc_read(fd, buf, len)
+}

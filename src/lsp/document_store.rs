@@ -754,15 +754,31 @@ impl DocumentStore {
         let workspace_root = self.workspace_root.as_ref()?;
         let root_path = Path::new(workspace_root.path());
 
-        self.search_directory_for_symbol(root_path, symbol_name)
+        let mut files_parsed = 0;
+        self.search_directory_for_symbol_bounded(root_path, symbol_name, 0, &mut files_parsed)
     }
 
-    fn search_directory_for_symbol(
+    fn search_directory_for_symbol_bounded(
         &self,
         dir: &std::path::Path,
         symbol_name: &str,
+        depth: usize,
+        files_parsed: &mut usize,
     ) -> Option<(Url, SymbolInfo)> {
+        use crate::lsp::search_limits::{MAX_DIRECTORY_DEPTH, MAX_FILES_TO_PARSE};
         use std::fs;
+
+        // Prevent stack overflow from deep recursion
+        if depth >= MAX_DIRECTORY_DEPTH {
+            log::debug!("[LSP] search_directory_for_symbol: max depth {} reached", depth);
+            return None;
+        }
+
+        // Prevent OOM from parsing too many files
+        if *files_parsed >= MAX_FILES_TO_PARSE {
+            log::debug!("[LSP] search_directory_for_symbol: max files {} reached", *files_parsed);
+            return None;
+        }
 
         if !dir.is_dir() {
             return None;
@@ -771,9 +787,15 @@ impl DocumentStore {
         let entries = fs::read_dir(dir).ok()?;
 
         for entry in entries.flatten() {
+            // Check file limit on each iteration
+            if *files_parsed >= MAX_FILES_TO_PARSE {
+                return None;
+            }
+
             let path = entry.path();
 
             if path.is_file() && path.extension().map_or(false, |e| e == "zen") {
+                *files_parsed += 1;
                 if let Ok(content) = fs::read_to_string(&path) {
                     let symbols = self.extract_symbols(&content);
 
@@ -795,7 +817,7 @@ impl DocumentStore {
                     continue;
                 }
 
-                if let Some(result) = self.search_directory_for_symbol(&path, symbol_name) {
+                if let Some(result) = self.search_directory_for_symbol_bounded(&path, symbol_name, depth + 1, files_parsed) {
                     return Some(result);
                 }
             }

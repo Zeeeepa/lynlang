@@ -64,4 +64,7 @@ pub use compiler::{
     compile_syscall4,
     compile_syscall5,
     compile_syscall6,
+    // IO intrinsics (libc wrappers)
+    compile_libc_write,
+    compile_libc_read,
 };
