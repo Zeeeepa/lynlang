@@ -1053,10 +1053,27 @@ impl TypeChecker {
 
 #[cfg(test)]
 mod tests {
+    use crate::ast::AstType;
     use crate::error::CompileError;
     use crate::lexer::Lexer;
     use crate::parser::Parser;
     use crate::typechecker::TypeChecker;
+
+    /// Helper to create a TypeChecker and parse + check a program
+    fn check_program(input: &str) -> Result<TypeChecker, CompileError> {
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program().map_err(|e| {
+            CompileError::SyntaxError(format!("Parse error: {:?}", e), None)
+        })?;
+        let mut type_checker = TypeChecker::new();
+        type_checker.check_program(&program)?;
+        Ok(type_checker)
+    }
+
+    // ========================================================================
+    // Basic Type Checking Tests
+    // ========================================================================
 
     #[test]
     fn test_basic_type_checking() {
@@ -1065,13 +1082,7 @@ mod tests {
             y : i32 = 100
             z = x + y
         }";
-
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program().unwrap();
-
-        let mut type_checker = TypeChecker::new();
-        assert!(type_checker.check_program(&program).is_ok());
+        assert!(check_program(input).is_ok());
     }
 
     #[test]
@@ -1079,16 +1090,306 @@ mod tests {
         let input = "main: () void = {
             x : i32 = \"hello\"
         }";
-
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program().unwrap();
-
-        let mut type_checker = TypeChecker::new();
-        let result = type_checker.check_program(&program);
+        let result = check_program(input);
         assert!(result.is_err());
         if let Err(CompileError::TypeError(msg, _)) = result {
             assert!(msg.contains("Type mismatch"));
         }
+    }
+
+    // ========================================================================
+    // Binary Operations Type Inference Tests
+    // ========================================================================
+
+    #[test]
+    fn test_integer_arithmetic() {
+        let input = "main: () void = {
+            a: i32 = 10
+            b: i32 = 20
+            c = a + b
+            d = a - b
+            e = a * b
+            f = a / b
+        }";
+        assert!(check_program(input).is_ok());
+    }
+
+    #[test]
+    fn test_integer_promotion() {
+        // i32 + i64 should work (promote to i64)
+        let input = "main: () void = {
+            a: i32 = 10
+            b: i64 = 20
+            c = a + b
+        }";
+        assert!(check_program(input).is_ok());
+    }
+
+    #[test]
+    fn test_float_arithmetic() {
+        let input = "main: () void = {
+            a: f64 = 1.5
+            b: f64 = 2.5
+            c = a + b
+            d = a * b
+        }";
+        assert!(check_program(input).is_ok());
+    }
+
+    #[test]
+    fn test_comparison_operators() {
+        let input = "main: () void = {
+            a: i32 = 10
+            b: i32 = 20
+            c = a < b
+            d = a > b
+            e = a == b
+            f = a != b
+            g = a <= b
+            h = a >= b
+        }";
+        assert!(check_program(input).is_ok());
+    }
+
+    #[test]
+    fn test_boolean_operators() {
+        let input = "main: () void = {
+            a: bool = true
+            b: bool = false
+            c = a && b
+            d = a || b
+        }";
+        assert!(check_program(input).is_ok());
+    }
+
+    // ========================================================================
+    // Function Call Type Inference Tests
+    // ========================================================================
+
+    #[test]
+    fn test_function_return_type() {
+        let input = "
+            add = (a: i32, b: i32) i32 { return a + b }
+            main: () void = {
+                result: i32 = add(1, 2)
+            }
+        ";
+        assert!(check_program(input).is_ok());
+    }
+
+    #[test]
+    fn test_function_wrong_return_type() {
+        let input = "
+            add = (a: i32, b: i32) i32 { return a + b }
+            main: () void = {
+                result: string = add(1, 2)
+            }
+        ";
+        let result = check_program(input);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_void_function() {
+        let input = "
+            do_nothing = () void { }
+            main: () void = {
+                do_nothing()
+            }
+        ";
+        assert!(check_program(input).is_ok());
+    }
+
+    // ========================================================================
+    // Struct Type Inference Tests
+    // ========================================================================
+
+    #[test]
+    fn test_struct_literal() {
+        let input = "
+            Point: { x: i32, y: i32 }
+            main: () void = {
+                p = Point { x: 10, y: 20 }
+            }
+        ";
+        assert!(check_program(input).is_ok());
+    }
+
+    #[test]
+    fn test_struct_field_access() {
+        let input = "
+            Point: { x: i32, y: i32 }
+            main: () void = {
+                p = Point { x: 10, y: 20 }
+                a: i32 = p.x
+                b: i32 = p.y
+            }
+        ";
+        assert!(check_program(input).is_ok());
+    }
+
+    #[test]
+    fn test_struct_field_wrong_type() {
+        let input = "
+            Point: { x: i32, y: i32 }
+            main: () void = {
+                p = Point { x: 10, y: 20 }
+                a: string = p.x
+            }
+        ";
+        let result = check_program(input);
+        assert!(result.is_err());
+    }
+
+    // ========================================================================
+    // Enum Type Inference Tests
+    // ========================================================================
+
+    #[test]
+    fn test_enum_variant_literal() {
+        // Zen enum syntax: Name: Variant1, Variant2, ...
+        // Use qualified syntax Status.Active for non-generic enums
+        let input = "
+            Status:
+                Active,
+                Inactive,
+                Pending
+
+            main = () void {
+                s: Status = Status.Active
+            }
+        ";
+        let result = check_program(input);
+        if let Err(ref e) = result {
+            eprintln!("Error: {:?}", e);
+        }
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_enum_with_payload() {
+        // Zen generic enum syntax
+        let input = "
+            MyOption<T>:
+                Some: T,
+                None
+
+            main = () void {
+                x: MyOption<i32> = .Some(42)
+            }
+        ";
+        let result = check_program(input);
+        if let Err(ref e) = result {
+            eprintln!("Error: {:?}", e);
+        }
+        assert!(result.is_ok());
+    }
+
+    // ========================================================================
+    // Control Flow Type Inference Tests
+    // ========================================================================
+
+    #[test]
+    fn test_conditional_same_types() {
+        let input = "
+            main: () void = {
+                x = true
+                y = x ?
+                    | true { 1 }
+                    | false { 2 }
+            }
+        ";
+        assert!(check_program(input).is_ok());
+    }
+
+    #[test]
+    fn test_loop_type() {
+        // Zen uses '::=' for mutable bindings
+        let input = "
+            main = () void {
+                i ::= 0
+                loop i < 10 {
+                    i = i + 1
+                }
+            }
+        ";
+        let result = check_program(input);
+        if let Err(ref e) = result {
+            eprintln!("Error: {:?}", e);
+        }
+        assert!(result.is_ok());
+    }
+
+    // ========================================================================
+    // Type Inference Helper Tests
+    // ========================================================================
+
+    #[test]
+    fn test_binary_op_type_promotion() {
+        use crate::typechecker::inference::promote_numeric_types;
+
+        // Same types - no promotion
+        let result = promote_numeric_types(&AstType::I32, &AstType::I32, None);
+        assert_eq!(result.unwrap(), AstType::I32);
+
+        // i32 + i64 -> i64
+        let result = promote_numeric_types(&AstType::I32, &AstType::I64, None);
+        assert_eq!(result.unwrap(), AstType::I64);
+
+        // f32 + f64 -> f64
+        let result = promote_numeric_types(&AstType::F32, &AstType::F64, None);
+        assert_eq!(result.unwrap(), AstType::F64);
+
+        // int + float -> float
+        let result = promote_numeric_types(&AstType::I32, &AstType::F64, None);
+        assert_eq!(result.unwrap(), AstType::F64);
+    }
+
+    #[test]
+    fn test_types_comparable() {
+        use crate::typechecker::inference::types_comparable;
+
+        // Same types are comparable
+        assert!(types_comparable(&AstType::I32, &AstType::I32));
+        assert!(types_comparable(&AstType::Bool, &AstType::Bool));
+
+        // Numeric types are comparable
+        assert!(types_comparable(&AstType::I32, &AstType::I64));
+        assert!(types_comparable(&AstType::F32, &AstType::F64));
+
+        // Different categories are not comparable
+        assert!(!types_comparable(&AstType::I32, &AstType::Bool));
+        assert!(!types_comparable(&AstType::I32, &AstType::StaticString));
+    }
+
+    // ========================================================================
+    // Generic Type Inference Tests
+    // ========================================================================
+
+    #[test]
+    fn test_generic_struct() {
+        // Generic struct with inferred type
+        let input = "
+            Container<T>: { value: T }
+            main = () void {
+                c = Container<i32> { value: 42 }
+            }
+        ";
+        let result = check_program(input);
+        if let Err(ref e) = result {
+            eprintln!("Error: {:?}", e);
+        }
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_generic_function() {
+        let input = "
+            identity<T> = (x: T) T { return x }
+            main: () void = {
+                a = identity<i32>(42)
+            }
+        ";
+        assert!(check_program(input).is_ok());
     }
 }
