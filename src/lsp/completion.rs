@@ -598,7 +598,7 @@ fn get_module_path_completions(base: &str, store: &DocumentStore) -> Vec<Complet
             if dir_path.is_dir() {
                 // Scan directory for available modules/files
                 let mut submodules = Vec::new();
-                StdlibResolver::scan_directory(&dir_path, &mut submodules, submodule);
+                StdlibResolver::scan_directory(dir_path, &mut submodules, submodule);
 
                 for submod in submodules {
                     completions.push(CompletionItem {
@@ -660,19 +660,20 @@ fn get_ufc_method_completions(receiver_type: &str, store: &DocumentStore) -> Vec
 
     // Query compiler integration for actual methods
     for sig in store.compiler.get_methods_for_type(receiver_type) {
-        let mut item = CompletionItem::default();
-        item.label = sig.name.clone();
-        item.kind = Some(CompletionItemKind::METHOD);
-        item.detail = Some(format!(
-            "({}) -> {}",
-            sig.params
-                .iter()
-                .map(|(n, t)| format!("{}: {}", n, super::utils::format_type(t)))
-                .collect::<Vec<_>>()
-                .join(", "),
-            super::utils::format_type(&sig.return_type)
-        ));
-        items.push(item);
+        items.push(CompletionItem {
+            label: sig.name.clone(),
+            kind: Some(CompletionItemKind::METHOD),
+            detail: Some(format!(
+                "({}) -> {}",
+                sig.params
+                    .iter()
+                    .map(|(n, t)| format!("{}: {}", n, super::utils::format_type(t)))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                super::utils::format_type(&sig.return_type)
+            )),
+            ..Default::default()
+        });
     }
 
     items

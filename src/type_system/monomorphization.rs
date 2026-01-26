@@ -1,631 +1,371 @@
-use super::{TypeEnvironment, TypeInstantiator, generate_instantiated_name};
-use crate::ast::{AstType, Declaration, Expression, Function, Program};
-use crate::error::CompileError;
-use crate::typechecker::TypeChecker;
-use std::collections::{HashMap, HashSet};
+//! Monomorphization - Instantiate generic types with concrete type arguments
+//!
+//! This module transforms a program with generic types into a program where
+//! all generics have been replaced with concrete instantiations.
+//!
+//! Pipeline: Parser → TypeChecker → TypeContext → Monomorphizer → Codegen
+//!
+//! The Monomorphizer:
+//! - Uses TypeContext for type lookups (from typechecker)
+//! - Uses TypeEnvironment to find generic definitions in the Program
+//! - Uses TypeInstantiator to create concrete instantiations
+//! - Collects all required instantiations by walking the AST
+//! - Adds instantiated functions/structs/enums to the program
 
+use super::{TypeEnvironment, TypeInstantiator, generate_instantiated_name};
+use crate::ast::{AstType, Declaration, Expression, Program, Statement};
+use crate::error::CompileError;
+use crate::type_context::TypeContext;
+use std::collections::HashSet;
+
+/// Monomorphizer transforms generic code into concrete instantiations
 pub struct Monomorphizer {
-    env: TypeEnvironment,
-    instantiated_functions: HashMap<String, Function>,
-    pending_instantiations: Vec<(String, Vec<AstType>)>,
-    processed_instantiations: HashSet<(String, Vec<AstType>)>,
-    type_checker: TypeChecker,
+    /// Type information from the typechecker
+    type_ctx: TypeContext,
+    /// Pending instantiations to process: (base_name, type_args)
+    pending: Vec<(String, Vec<AstType>)>,
+    /// Already processed instantiations to avoid duplicates
+    processed: HashSet<String>,
 }
 
 impl Monomorphizer {
-    pub fn new() -> Self {
+    /// Create a new Monomorphizer with type information from the typechecker
+    pub fn new(type_ctx: TypeContext) -> Self {
         Self {
-            env: TypeEnvironment::new(),
-            instantiated_functions: HashMap::new(),
-            pending_instantiations: Vec::new(),
-            processed_instantiations: HashSet::new(),
-            type_checker: TypeChecker::new(),
+            type_ctx,
+            pending: Vec::new(),
+            processed: HashSet::new(),
         }
     }
 
+    /// Monomorphize a program - instantiate all generic types with concrete arguments
     pub fn monomorphize_program(&mut self, program: &Program) -> Result<Program, CompileError> {
-        let mut declarations = Vec::new();
+        // Create TypeEnvironment to query generic definitions from the Program
+        let type_env = TypeEnvironment::new(program);
 
-        self.type_checker.check_program(program)?;
+        // Phase 1: Collect all generic instantiations needed
+        self.collect_instantiations(program);
 
-        // After type checking, update functions with inferred return types
-        let mut updated_functions = std::collections::HashMap::new();
-        for (func_name, sig) in self.type_checker.get_function_signatures() {
-            updated_functions.insert(func_name.clone(), sig.return_type.clone());
-        }
+        // Phase 2: Process pending instantiations
+        let mut new_declarations = Vec::new();
 
-        for decl in &program.declarations {
-            match decl {
-                Declaration::Function(func) => {
-                    let mut updated_func = func.clone();
-                    // If the function has Void return type and the type checker inferred a different type, update it
-                    if func.return_type == AstType::Void {
-                        if let Some(inferred_type) = updated_functions.get(&func.name) {
-                            if *inferred_type != AstType::Void {
-                                updated_func.return_type = inferred_type.clone();
-                            }
-                        }
-                    }
+        while let Some((base_name, type_args)) = self.pending.pop() {
+            let instantiated_name = generate_instantiated_name(&base_name, &type_args);
 
-                    if !func.type_params.is_empty() {
-                        self.env.register_generic_function(updated_func.clone());
-                        declarations.push(Declaration::Function(updated_func));
-                    } else {
-                        declarations.push(Declaration::Function(updated_func));
-                    }
-                }
-                Declaration::Struct(struct_def) if !struct_def.type_params.is_empty() => {
-                    self.env.register_generic_struct(struct_def.clone());
-                    declarations.push(decl.clone());
-                }
-                Declaration::Enum(enum_def) if !enum_def.type_params.is_empty() => {
-                    self.env.register_generic_enum(enum_def.clone());
-                    // For now, also keep generic enums in declarations to ensure they're available
-                    // This is a temporary fix - proper solution would be to infer instantiation from usage
-                    declarations.push(decl.clone());
-                }
-                _ => declarations.push(decl.clone()),
+            // Skip if already processed
+            if self.processed.contains(&instantiated_name) {
+                continue;
             }
-        }
+            self.processed.insert(instantiated_name.clone());
 
-        for decl in &program.declarations {
-            self.collect_instantiations_from_declaration(decl)?;
-        }
+            // Try to instantiate as function, struct, or enum
+            if let Some(generic_func) = type_env.get_generic_function(&base_name) {
+                // Need mutable borrow for TypeInstantiator
+                let mut type_env_mut = TypeEnvironment::new(program);
+                let mut instantiator = TypeInstantiator::new(&mut type_env_mut);
 
-        while !self.pending_instantiations.is_empty() {
-            let instantiations = std::mem::take(&mut self.pending_instantiations);
-
-            for (name, type_args) in instantiations {
-                if self
-                    .processed_instantiations
-                    .contains(&(name.clone(), type_args.clone()))
-                {
-                    continue;
+                match instantiator.instantiate_function(generic_func, type_args.clone()) {
+                    Ok(instantiated_func) => {
+                        // Collect any nested instantiations from the instantiated function
+                        self.collect_from_function(&instantiated_func);
+                        new_declarations.push(Declaration::Function(instantiated_func));
+                    }
+                    Err(e) => {
+                        // Log but don't fail - some instantiations may not be valid
+                        eprintln!("Warning: Failed to instantiate {}<...>: {}", base_name, e);
+                    }
                 }
+            } else if let Some(generic_struct) = type_env.get_generic_struct(&base_name) {
+                let mut type_env_mut = TypeEnvironment::new(program);
+                let mut instantiator = TypeInstantiator::new(&mut type_env_mut);
 
-                self.processed_instantiations
-                    .insert((name.clone(), type_args.clone()));
+                match instantiator.instantiate_struct(generic_struct, type_args.clone()) {
+                    Ok(instantiated_struct) => {
+                        new_declarations.push(Declaration::Struct(instantiated_struct));
+                    }
+                    Err(e) => {
+                        eprintln!("Warning: Failed to instantiate struct {}<...>: {}", base_name, e);
+                    }
+                }
+            } else if let Some(generic_enum) = type_env.get_generic_enum(&base_name) {
+                let mut type_env_mut = TypeEnvironment::new(program);
+                let mut instantiator = TypeInstantiator::new(&mut type_env_mut);
 
-                if let Some(func) = self.env.get_generic_function(&name).cloned() {
-                    let mut instantiator = TypeInstantiator::new(&mut self.env);
-                    let instantiated = instantiator.instantiate_function(&func, type_args)?;
-
-                    self.collect_instantiations_from_function(&instantiated)?;
-
-                    declarations.push(Declaration::Function(instantiated.clone()));
-                    self.instantiated_functions
-                        .insert(instantiated.name.clone(), instantiated);
-                } else if let Some(struct_def) = self.env.get_generic_struct(&name).cloned() {
-                    let mut instantiator = TypeInstantiator::new(&mut self.env);
-                    let instantiated = instantiator.instantiate_struct(&struct_def, type_args)?;
-                    declarations.push(Declaration::Struct(instantiated));
-                } else if let Some(enum_def) = self.env.get_generic_enum(&name).cloned() {
-                    let mut instantiator = TypeInstantiator::new(&mut self.env);
-                    let instantiated = instantiator.instantiate_enum(&enum_def, type_args)?;
-                    declarations.push(Declaration::Enum(instantiated));
+                match instantiator.instantiate_enum(generic_enum, type_args.clone()) {
+                    Ok(instantiated_enum) => {
+                        new_declarations.push(Declaration::Enum(instantiated_enum));
+                    }
+                    Err(e) => {
+                        eprintln!("Warning: Failed to instantiate enum {}<...>: {}", base_name, e);
+                    }
                 }
             }
         }
 
-        // Transform all function calls to use monomorphized names
-        let transformed_declarations = self.transform_declarations(declarations)?;
+        // Phase 3: Build the output program with original + instantiated declarations
+        let mut result_declarations = program.declarations.clone();
+        result_declarations.extend(new_declarations);
 
         Ok(Program {
-            declarations: transformed_declarations,
-            statements: Vec::new(),
+            declarations: result_declarations,
+            statements: program.statements.clone(),
         })
     }
 
-    fn collect_instantiations_from_declaration(
-        &mut self,
-        decl: &Declaration,
-    ) -> Result<(), CompileError> {
+    /// Collect all generic instantiations needed from the program
+    fn collect_instantiations(&mut self, program: &Program) {
+        for decl in &program.declarations {
+            self.collect_from_declaration(decl);
+        }
+        for stmt in &program.statements {
+            self.collect_from_statement(stmt);
+        }
+    }
+
+    /// Collect instantiations from a declaration
+    fn collect_from_declaration(&mut self, decl: &Declaration) {
         match decl {
-            Declaration::Function(func) => self.collect_instantiations_from_function(func),
+            Declaration::Function(func) => self.collect_from_function(func),
             Declaration::Struct(struct_def) => {
                 for method in &struct_def.methods {
-                    self.collect_instantiations_from_function(method)?;
+                    self.collect_from_function(method);
                 }
-                Ok(())
             }
             Declaration::Enum(enum_def) => {
                 for method in &enum_def.methods {
-                    self.collect_instantiations_from_function(method)?;
+                    self.collect_from_function(method);
                 }
-                Ok(())
             }
-            _ => Ok(()),
+            Declaration::ImplBlock(impl_block) => {
+                for method in &impl_block.methods {
+                    self.collect_from_function(method);
+                }
+            }
+            _ => {}
         }
     }
 
-    fn collect_instantiations_from_function(
-        &mut self,
-        func: &Function,
-    ) -> Result<(), CompileError> {
+    /// Collect instantiations from a function
+    fn collect_from_function(&mut self, func: &crate::ast::Function) {
         for stmt in &func.body {
-            self.collect_instantiations_from_statement(stmt)?;
+            self.collect_from_statement(stmt);
         }
-        Ok(())
     }
 
-    fn collect_instantiations_from_statement(
-        &mut self,
-        stmt: &crate::ast::Statement,
-    ) -> Result<(), CompileError> {
+    /// Collect instantiations from a statement
+    fn collect_from_statement(&mut self, stmt: &Statement) {
         match stmt {
-            crate::ast::Statement::Expression { expr, .. } => {
-                self.collect_instantiations_from_expression(expr)
-            }
-            crate::ast::Statement::Return { expr, .. } => {
-                self.collect_instantiations_from_expression(expr)
-            }
-            crate::ast::Statement::VariableDeclaration {
-                initializer, type_, ..
-            } => {
+            Statement::Expression { expr, .. } => self.collect_from_expression(expr),
+            Statement::Return { expr, .. } => self.collect_from_expression(expr),
+            Statement::VariableDeclaration { initializer, type_, .. } => {
                 if let Some(init) = initializer {
-                    self.collect_instantiations_from_expression(init)?;
+                    self.collect_from_expression(init);
                 }
                 if let Some(ty) = type_ {
-                    self.collect_instantiations_from_type(ty)?;
+                    self.collect_from_type(ty);
                 }
-                Ok(())
             }
-            crate::ast::Statement::Loop { kind, body, .. } => {
-                use crate::ast::LoopKind;
-                match kind {
-                    LoopKind::Condition(expr) => {
-                        self.collect_instantiations_from_expression(expr)?;
-                    }
-                    LoopKind::Infinite => {}
+            Statement::VariableAssignment { value, .. } => {
+                self.collect_from_expression(value);
+            }
+            Statement::Loop { kind, body, .. } => {
+                if let crate::ast::LoopKind::Condition(expr) = kind {
+                    self.collect_from_expression(expr);
                 }
                 for stmt in body {
-                    self.collect_instantiations_from_statement(stmt)?;
+                    self.collect_from_statement(stmt);
                 }
-                Ok(())
             }
-            _ => Ok(()),
+            Statement::Break { .. } | Statement::Continue { .. } => {}
+            _ => {}
         }
     }
 
-    fn collect_instantiations_from_expression(
-        &mut self,
-        expr: &Expression,
-    ) -> Result<(), CompileError> {
+    /// Collect instantiations from an expression
+    fn collect_from_expression(&mut self, expr: &Expression) {
         match expr {
-            Expression::FunctionCall { name, args } => {
-                // Check if this is a generic function
-                let base_name = extract_base_name(name);
-                if let Some(generic_func) = self.env.get_generic_function(&base_name) {
-                    // Infer type arguments from the call arguments
-                    let type_args = self.infer_type_arguments(&generic_func, args)?;
-                    if !type_args.is_empty() {
-                        self.pending_instantiations.push((base_name, type_args));
+            Expression::FunctionCall { name, type_args, args, .. } => {
+                // If explicit type args provided, queue for instantiation
+                if !type_args.is_empty() {
+                    let base_name = extract_base_name(name);
+                    self.queue_instantiation(base_name, type_args.clone());
+                }
+                // Also check if name contains embedded type args like "Vec<i32>"
+                else if name.contains('<') {
+                    if let Some((base, args)) = parse_embedded_type_args(name) {
+                        self.queue_instantiation(base, args);
                     }
                 }
-
+                // Recurse into arguments
                 for arg in args {
-                    self.collect_instantiations_from_expression(arg)?;
+                    self.collect_from_expression(arg);
                 }
-                Ok(())
+            }
+            Expression::MethodCall { object, type_args, args, .. } => {
+                self.collect_from_expression(object);
+                if !type_args.is_empty() {
+                    // Method-level type args - would need to track method name too
+                    for ty in type_args {
+                        self.collect_from_type(ty);
+                    }
+                }
+                for arg in args {
+                    self.collect_from_expression(arg);
+                }
             }
             Expression::StructLiteral { name, fields } => {
-                // Check if this is a generic struct by checking if it exists in the environment
-                let base_name = extract_base_name(name);
-                if self.env.get_generic_struct(&base_name).is_some() {
-                    // Infer type arguments from field values
-                    let mut type_args = Vec::new();
-
-                    for (_, field_expr) in fields {
-                        // First collect instantiations from the field expression
-                        self.collect_instantiations_from_expression(field_expr)?;
-
-                        // Then try to infer its type for struct instantiation
-                        if let Ok(field_type) = self.infer_expression_type(field_expr) {
-                            // If this field's type helps determine a type parameter, add it
-                            if !type_args.contains(&field_type)
-                                && matches!(
-                                    field_type,
-                                    AstType::I32 | AstType::I64 | AstType::F32 | AstType::F64
-                                )
-                            {
-                                type_args.push(field_type);
-                                break; // For now, just take the first concrete type we find
-                            }
-                        }
-                    }
-
-                    if !type_args.is_empty() {
-                        self.pending_instantiations.push((base_name, type_args));
-                    }
-                } else {
-                    // Not a generic struct, just process field expressions
-                    for (_, expr) in fields {
-                        self.collect_instantiations_from_expression(expr)?;
+                // Check for generic struct instantiation
+                if name.contains('<') {
+                    if let Some((base, args)) = parse_embedded_type_args(name) {
+                        self.queue_instantiation(base, args);
                     }
                 }
-                Ok(())
+                for (_, field_expr) in fields {
+                    self.collect_from_expression(field_expr);
+                }
             }
             Expression::BinaryOp { left, right, .. } => {
-                self.collect_instantiations_from_expression(left)?;
-                self.collect_instantiations_from_expression(right)
+                self.collect_from_expression(left);
+                self.collect_from_expression(right);
             }
             Expression::QuestionMatch { scrutinee, arms } => {
-                self.collect_instantiations_from_expression(scrutinee)?;
+                self.collect_from_expression(scrutinee);
                 for arm in arms {
                     if let Some(guard) = &arm.guard {
-                        self.collect_instantiations_from_expression(guard)?;
+                        self.collect_from_expression(guard);
                     }
-                    self.collect_instantiations_from_expression(&arm.body)?;
+                    self.collect_from_expression(&arm.body);
                 }
-                Ok(())
             }
-            Expression::Dereference(expr) | Expression::AddressOf(expr) => {
-                self.collect_instantiations_from_expression(expr)
+            Expression::Conditional { scrutinee, arms } => {
+                self.collect_from_expression(scrutinee);
+                for arm in arms {
+                    self.collect_from_expression(&arm.body);
+                }
+            }
+            Expression::MemberAccess { object, .. } | Expression::StructField { struct_: object, .. } => {
+                self.collect_from_expression(object);
             }
             Expression::ArrayLiteral(items) => {
                 for item in items {
-                    self.collect_instantiations_from_expression(item)?;
+                    self.collect_from_expression(item);
                 }
-                Ok(())
             }
-            Expression::DynVecConstructor {
-                element_types,
-                allocator,
-                initial_capacity,
-            } => {
-                // Process element types
-                for element_type in element_types {
-                    self.collect_instantiations_from_type(element_type)?;
-                }
-                // Process allocator expression
-                self.collect_instantiations_from_expression(allocator)?;
-                // Process initial capacity if provided
-                if let Some(capacity) = initial_capacity {
-                    self.collect_instantiations_from_expression(capacity)?;
-                }
-                Ok(())
+            Expression::ArrayIndex { array, index } => {
+                self.collect_from_expression(array);
+                self.collect_from_expression(index);
             }
-            Expression::VecConstructor {
-                element_type,
-                initial_values,
-                ..
-            } => {
-                self.collect_instantiations_from_type(element_type)?;
+            Expression::Dereference(inner) | Expression::AddressOf(inner) => {
+                self.collect_from_expression(inner);
+            }
+            Expression::VecConstructor { element_type, initial_values, .. } => {
+                self.collect_from_type(element_type);
                 if let Some(values) = initial_values {
-                    for value in values {
-                        self.collect_instantiations_from_expression(value)?;
+                    for val in values {
+                        self.collect_from_expression(val);
                     }
                 }
-                Ok(())
             }
-            _ => Ok(()),
+            Expression::DynVecConstructor { element_types, allocator, initial_capacity } => {
+                for ty in element_types {
+                    self.collect_from_type(ty);
+                }
+                self.collect_from_expression(allocator);
+                if let Some(cap) = initial_capacity {
+                    self.collect_from_expression(cap);
+                }
+            }
+            Expression::Closure { body, .. } => {
+                self.collect_from_expression(body);
+            }
+            Expression::Block(statements) => {
+                for stmt in statements {
+                    self.collect_from_statement(stmt);
+                }
+            }
+            // Literals and identifiers don't contain generic instantiations
+            _ => {}
         }
     }
 
-    fn collect_instantiations_from_type(&mut self, ast_type: &AstType) -> Result<(), CompileError> {
+    /// Collect instantiations from a type annotation
+    fn collect_from_type(&mut self, ast_type: &AstType) {
         match ast_type {
-            AstType::Generic { name, type_args } => {
-                if !type_args.is_empty()
-                    && (self.env.get_generic_struct(name).is_some()
-                        || self.env.get_generic_enum(name).is_some())
-                {
-                    self.pending_instantiations
-                        .push((name.clone(), type_args.clone()));
-                }
-
+            AstType::Generic { name, type_args } if !type_args.is_empty() => {
+                // This is a concrete instantiation like Vec<i32>
+                self.queue_instantiation(name.clone(), type_args.clone());
+                // Recurse into nested type args
                 for arg in type_args {
-                    self.collect_instantiations_from_type(arg)?;
-                }
-                Ok(())
-            }
-            t if t.is_ptr_type() => {
-                if let Some(inner) = t.ptr_inner() {
-                    self.collect_instantiations_from_type(inner)
-                } else {
-                    Ok(())
+                    self.collect_from_type(arg);
                 }
             }
-            AstType::Array(inner) | AstType::Ref(inner) => {
-                self.collect_instantiations_from_type(inner)
+            AstType::Slice(inner) | AstType::Ref(inner) => {
+                self.collect_from_type(inner);
             }
-            // Option and Result are now Generic types - handled in Generic match above
-            AstType::Function { args, return_type } => {
+            AstType::Function { args, return_type } | AstType::FunctionPointer { param_types: args, return_type } => {
                 for arg in args {
-                    self.collect_instantiations_from_type(arg)?;
+                    self.collect_from_type(arg);
                 }
-                self.collect_instantiations_from_type(return_type)
+                self.collect_from_type(return_type);
             }
-            AstType::Vec { element_type, .. } => {
-                self.collect_instantiations_from_type(element_type)
-            }
-            AstType::DynVec { element_types, .. } => {
-                for elem_type in element_types {
-                    self.collect_instantiations_from_type(elem_type)?;
-                }
-                Ok(())
-            }
-            _ => Ok(()),
-        }
-    }
-
-    fn infer_type_arguments(
-        &self,
-        generic_func: &Function,
-        args: &[Expression],
-    ) -> Result<Vec<AstType>, CompileError> {
-        let mut type_args = Vec::new();
-
-        // For each type parameter in the generic function, try to infer it from the arguments
-        for type_param in &generic_func.type_params {
-            // Find the first parameter that uses this type parameter
-            let mut inferred_type = None;
-
-            for (i, (_param_name, param_type)) in generic_func.args.iter().enumerate() {
-                if let Some(arg_expr) = args.get(i) {
-                    // Check if this parameter uses the current type parameter
-                    if self.type_uses_parameter(param_type, &type_param.name) {
-                        // Infer the type from the argument expression
-                        inferred_type = Some(self.infer_expression_type(arg_expr)?);
-                        break;
-                    }
-                }
-            }
-
-            if let Some(ty) = inferred_type {
-                type_args.push(ty);
-            } else {
-                // Couldn't infer this type parameter, default to i32 for now
-                // In a real implementation, this would be an error
-                type_args.push(AstType::I32);
-            }
-        }
-
-        Ok(type_args)
-    }
-
-    fn type_uses_parameter(&self, ast_type: &AstType, param_name: &str) -> bool {
-        match ast_type {
-            AstType::Generic { name, .. } if name == param_name => true,
             t if t.is_ptr_type() => {
                 if let Some(inner) = t.ptr_inner() {
-                    self.type_uses_parameter(inner, param_name)
-                } else {
-                    false
+                    self.collect_from_type(inner);
                 }
             }
-            AstType::Array(inner) | AstType::Ref(inner) => {
-                self.type_uses_parameter(inner, param_name)
-            }
-            // Option and Result are now Generic types - handled in Generic match above
-            AstType::Vec { element_type, .. } => self.type_uses_parameter(element_type, param_name),
-            AstType::DynVec { element_types, .. } => element_types
-                .iter()
-                .any(|t| self.type_uses_parameter(t, param_name)),
-            _ => false,
+            _ => {}
         }
     }
 
-    fn infer_expression_type(&self, expr: &Expression) -> Result<AstType, CompileError> {
-        match expr {
-            Expression::Integer32(_) => Ok(AstType::I32),
-            Expression::Integer64(_) => Ok(AstType::I64),
-            Expression::Float32(_) => Ok(AstType::F32),
-            Expression::Float64(_) => Ok(AstType::F64),
-            Expression::Boolean(_) => Ok(AstType::Bool),
-            Expression::String(_) => Ok(crate::ast::resolve_string_struct_type()),
-            Expression::Identifier(_name) => {
-                // Would need access to variable types here
-                // For now, return a placeholder
-                Ok(AstType::I32)
-            }
-            _ => Ok(AstType::Void),
+    /// Queue a generic instantiation for processing
+    fn queue_instantiation(&mut self, base_name: String, type_args: Vec<AstType>) {
+        if type_args.is_empty() {
+            return;
+        }
+
+        let instantiated_name = generate_instantiated_name(&base_name, &type_args);
+
+        // Skip if already processed or queued
+        if self.processed.contains(&instantiated_name) {
+            return;
+        }
+
+        // Check if already in pending queue
+        let already_queued = self.pending.iter().any(|(name, args)| {
+            *name == base_name && *args == type_args
+        });
+
+        if !already_queued {
+            self.pending.push((base_name, type_args));
         }
     }
 
-    fn transform_declarations(
-        &mut self,
-        declarations: Vec<Declaration>,
-    ) -> Result<Vec<Declaration>, CompileError> {
-        let mut result = Vec::new();
-
-        for decl in declarations {
-            match decl {
-                Declaration::Function(func) => {
-                    let transformed_func = self.transform_function(func)?;
-                    result.push(Declaration::Function(transformed_func));
-                }
-                other => result.push(other),
-            }
-        }
-
-        Ok(result)
-    }
-
-    fn transform_function(&mut self, mut func: Function) -> Result<Function, CompileError> {
-        func.body = self.transform_statements(func.body)?;
-        Ok(func)
-    }
-
-    fn transform_statements(
-        &mut self,
-        statements: Vec<crate::ast::Statement>,
-    ) -> Result<Vec<crate::ast::Statement>, CompileError> {
-        let mut result = Vec::new();
-
-        for stmt in statements {
-            result.push(self.transform_statement(stmt)?);
-        }
-
-        Ok(result)
-    }
-
-    fn transform_statement(
-        &mut self,
-        stmt: crate::ast::Statement,
-    ) -> Result<crate::ast::Statement, CompileError> {
-        match stmt {
-            crate::ast::Statement::Expression { expr, span } => {
-                Ok(crate::ast::Statement::Expression {
-                    expr: self.transform_expression(expr)?,
-                    span,
-                })
-            }
-            crate::ast::Statement::Return { expr, span } => Ok(crate::ast::Statement::Return {
-                expr: self.transform_expression(expr)?,
-                span,
-            }),
-            crate::ast::Statement::VariableDeclaration {
-                name,
-                type_,
-                initializer,
-                is_mutable,
-                declaration_type,
-                span,
-            } => {
-                let transformed_init = if let Some(init) = initializer {
-                    Some(self.transform_expression(init)?)
-                } else {
-                    None
-                };
-                Ok(crate::ast::Statement::VariableDeclaration {
-                    name,
-                    type_,
-                    initializer: transformed_init,
-                    is_mutable,
-                    declaration_type,
-                    span,
-                })
-            }
-            crate::ast::Statement::VariableAssignment { name, value, span } => {
-                Ok(crate::ast::Statement::VariableAssignment {
-                    name,
-                    value: self.transform_expression(value)?,
-                    span,
-                })
-            }
-            other => Ok(other),
-        }
-    }
-
-    fn transform_expression(&mut self, expr: Expression) -> Result<Expression, CompileError> {
-        match expr {
-            Expression::FunctionCall { name, args } => {
-                // Check if this is a call to a generic function that has been monomorphized
-                let base_name = extract_base_name(&name);
-
-                // Transform the arguments first
-                let transformed_args: Vec<Expression> = args
-                    .into_iter()
-                    .map(|arg| self.transform_expression(arg))
-                    .collect::<Result<Vec<_>, _>>()?;
-
-                // If this is a generic function, we need to determine which instantiation to use
-                if self.env.get_generic_function(&base_name).is_some() {
-                    // Infer the types of the arguments to determine the instantiation
-                    let arg_types: Vec<AstType> = transformed_args
-                        .iter()
-                        .map(|arg| self.infer_expression_type(arg))
-                        .collect::<Result<Vec<_>, _>>()?;
-
-                    // Generate the monomorphized name
-                    let instantiated_name = generate_instantiated_name(&base_name, &arg_types);
-
-                    Ok(Expression::FunctionCall {
-                        name: instantiated_name,
-                        args: transformed_args,
-                    })
-                } else {
-                    Ok(Expression::FunctionCall {
-                        name,
-                        args: transformed_args,
-                    })
-                }
-            }
-            Expression::BinaryOp { left, op, right } => Ok(Expression::BinaryOp {
-                left: Box::new(self.transform_expression(*left)?),
-                op,
-                right: Box::new(self.transform_expression(*right)?),
-            }),
-            Expression::StructLiteral { name, fields } => {
-                // Transform field expressions
-                let transformed_fields: Vec<(String, Expression)> = fields
-                    .into_iter()
-                    .map(|(field_name, field_expr)| {
-                        self.transform_expression(field_expr)
-                            .map(|expr| (field_name, expr))
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-
-                // Check if this is a generic struct that needs monomorphization
-                let base_name = extract_base_name(&name);
-                if self.env.get_generic_struct(&base_name).is_some() {
-                    // Infer types from field values to determine the instantiation
-                    // For now, we'll use a simplified approach that looks for specific patterns
-                    // This should be enhanced with proper type inference
-
-                    // Try to infer the type from the fields
-                    if let Some(_struct_def) = self.env.get_generic_struct(&base_name).cloned() {
-                        // Collect type arguments based on field types
-                        let mut type_args = Vec::new();
-
-                        // Simple heuristic: infer from field expressions
-                        for (_field_name, field_expr) in &transformed_fields {
-                            if let Ok(field_type) = self.infer_expression_type(field_expr) {
-                                // If this field's type helps determine a type parameter, add it
-                                if !type_args.contains(&field_type)
-                                    && matches!(
-                                        field_type,
-                                        AstType::I32 | AstType::I64 | AstType::F32 | AstType::F64
-                                    )
-                                {
-                                    type_args.push(field_type);
-                                    break; // For now, just take the first concrete type we find
-                                }
-                            }
-                        }
-
-                        if !type_args.is_empty() {
-                            let instantiated_name =
-                                generate_instantiated_name(&base_name, &type_args);
-                            return Ok(Expression::StructLiteral {
-                                name: instantiated_name,
-                                fields: transformed_fields,
-                            });
-                        }
-                    }
-                }
-
-                Ok(Expression::StructLiteral {
-                    name,
-                    fields: transformed_fields,
-                })
-            }
-            Expression::MemberAccess { object, member } => Ok(Expression::MemberAccess {
-                object: Box::new(self.transform_expression(*object)?),
-                member,
-            }),
-            other => Ok(other),
-        }
+    /// Get the TypeContext (for passing to codegen after monomorphization)
+    pub fn into_type_context(self) -> TypeContext {
+        self.type_ctx
     }
 }
 
-// generate_instantiated_name and type_to_string moved to mod.rs
-
-#[allow(dead_code)]
-fn extract_generic_struct_types(name: &str) -> Option<Vec<AstType>> {
-    if name.contains('<') && name.contains('>') {
-        // TODO: Parse type arguments from struct construction syntax
-        None
-    } else {
-        None
-    }
-}
-
-#[allow(dead_code)]
+/// Extract base name from a potentially generic name like "Vec<i32>" -> "Vec"
 fn extract_base_name(name: &str) -> String {
-    if let Some(idx) = name.find('<') {
-        name[..idx].to_string()
+    if let Some(pos) = name.find('<') {
+        name[..pos].to_string()
     } else {
         name.to_string()
+    }
+}
+
+/// Parse embedded type arguments from a string like "Vec<i32>" -> Some(("Vec", [I32]))
+fn parse_embedded_type_args(name: &str) -> Option<(String, Vec<AstType>)> {
+    let pos = name.find('<')?;
+    let base_name = name[..pos].to_string();
+    let type_args_str = &name[pos + 1..name.len() - 1]; // Remove < and >
+
+    let type_args = crate::parser::parse_type_args_from_string(type_args_str).ok()?;
+
+    if type_args.is_empty() {
+        None
+    } else {
+        Some((base_name, type_args))
     }
 }

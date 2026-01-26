@@ -36,6 +36,12 @@ pub struct TypeChecker {
     current_impl_type: Option<String>,
     current_span: Option<Span>,
     pub well_known: WellKnownTypes,
+    // Cache of loaded stdlib modules for type lookup
+    stdlib_modules: HashMap<String, Program>,
+    // Extracted stdlib method signatures: "Type::method" -> signature
+    stdlib_methods: HashMap<String, MethodSignature>,
+    // Extracted stdlib function signatures: "module::function" -> signature
+    stdlib_functions: HashMap<String, FunctionSignature>,
 }
 
 #[derive(Clone, Debug)]
@@ -44,6 +50,15 @@ pub struct FunctionSignature {
     pub params: Vec<(String, AstType)>,
     pub return_type: AstType,
     pub is_external: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct MethodSignature {
+    pub receiver_type: String,
+    pub method_name: String,
+    pub params: Vec<(String, AstType)>,
+    pub return_type: AstType,
+    pub is_static: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -124,6 +139,9 @@ impl TypeChecker {
             current_impl_type: None,
             current_span: None,
             well_known: WellKnownTypes::new(),
+            stdlib_modules: HashMap::new(),
+            stdlib_methods: HashMap::new(),
+            stdlib_functions: HashMap::new(),
         }
     }
 
@@ -168,13 +186,10 @@ impl TypeChecker {
         for declaration in &program.declarations {
             if let Declaration::Function(func) = declaration {
                 if func.return_type == AstType::Void && !func.body.is_empty() {
-                    match self.infer_function_return_type(func) {
-                        Ok(inferred_type) => {
-                            if let Some(sig) = self.functions.get_mut(&func.name) {
-                                sig.return_type = inferred_type;
-                            }
+                    if let Ok(inferred_type) = self.infer_function_return_type(func) {
+                        if let Some(sig) = self.functions.get_mut(&func.name) {
+                            sig.return_type = inferred_type;
                         }
-                        Err(_) => {}
                     }
                 }
             }
@@ -256,7 +271,7 @@ impl TypeChecker {
         }
 
         // Register behavior implementations
-        for ((type_name, behavior_name), _impl_info) in self.behavior_resolver.implementations() {
+        for (type_name, behavior_name) in self.behavior_resolver.implementations().keys() {
             ctx.register_behavior_impl(type_name, behavior_name);
         }
 
@@ -296,8 +311,8 @@ impl TypeChecker {
             Expression::BinaryOp { left, op, right } => {
                 inference::infer_binary_op_type(self, left, op, right)
             }
-            Expression::FunctionCall { name, args } => {
-                inference::infer_function_call_type(self, name, args)
+            Expression::FunctionCall { name, type_args, args } => {
+                inference::infer_function_call_type(self, name, type_args, args)
             }
             Expression::MemberAccess { object, member } => {
                 // Check if accessing @std namespace
@@ -335,15 +350,10 @@ impl TypeChecker {
                     })
                 } else {
                     // Check if it's a stdlib struct
-                    let registry = crate::stdlib_types::stdlib_types();
-                    if let Some(struct_def) = registry.get_struct_definition(name) {
-                        let fields: Vec<(String, AstType)> = struct_def.fields
-                            .iter()
-                            .map(|f| (f.name.clone(), f.type_.clone()))
-                            .collect();
+                    if let Some(struct_info) = self.get_stdlib_struct(name) {
                         Ok(AstType::Struct {
                             name: name.clone(),
-                            fields,
+                            fields: struct_info.fields.clone(),
                         })
                     } else {
                         // It might be a generic struct that will be monomorphized
@@ -392,7 +402,8 @@ impl TypeChecker {
                     return Ok(elem_type.clone());
                 }
                 match array_type {
-                    AstType::Array(elem_type) => Ok(*elem_type),
+                    AstType::Slice(elem_type) => Ok(*elem_type),
+                    AstType::FixedArray { element_type, .. } => Ok(*element_type),
                     _ => Err(CompileError::TypeError(
                         format!("Cannot index type {:?}", array_type),
                         None,
@@ -434,12 +445,12 @@ impl TypeChecker {
             Expression::Unsigned32(_) => Ok(AstType::U32),
             Expression::Unsigned64(_) => Ok(AstType::U64),
             Expression::ArrayLiteral(elements) => {
-                // Infer type from first element
+                // Infer type from first element - array literals produce slices
                 if elements.is_empty() {
-                    Ok(AstType::Array(Box::new(AstType::Void)))
+                    Ok(AstType::Slice(Box::new(AstType::Void)))
                 } else {
                     let elem_type = self.infer_expression_type(&elements[0])?;
-                    Ok(AstType::Array(Box::new(elem_type)))
+                    Ok(AstType::Slice(Box::new(elem_type)))
                 }
             }
             Expression::TypeCast { target_type, .. } => Ok(target_type.clone()),
@@ -586,8 +597,9 @@ impl TypeChecker {
             Expression::MethodCall {
                 object,
                 method,
+                type_args,
                 args: _,
-            } => inference::infer_method_call_type(self, object, method),
+            } => inference::infer_method_call_type(self, object, method, type_args),
             Expression::Loop { body: _ } => {
                 // Loop expressions return void for now
                 Ok(AstType::Void)
@@ -663,13 +675,13 @@ impl TypeChecker {
             }
             Expression::VecConstructor {
                 element_type,
-                size,
+                size: _,
                 initial_values: _,
             } => {
-                // Vec<T, size>() -> Vec<T, size>
-                Ok(AstType::Vec {
-                    element_type: Box::new(element_type.clone()),
-                    size: *size,
+                // Vec<T>() -> Generic { name: "Vec", type_args: [T] }
+                Ok(AstType::Generic {
+                    name: "Vec".to_string(),
+                    type_args: vec![element_type.clone()],
                 })
             }
             Expression::DynVecConstructor {
@@ -677,10 +689,10 @@ impl TypeChecker {
                 allocator: _,
                 initial_capacity: _,
             } => {
-                // DynVec<T>() or DynVec<T1, T2, ...>() -> DynVec<T, ...>
-                Ok(AstType::DynVec {
-                    element_types: element_types.clone(),
-                    allocator_type: None, // Allocator type inferred from constructor arg
+                // DynVec<T>() -> Generic { name: "DynVec", type_args: [T, ...] }
+                Ok(AstType::Generic {
+                    name: "DynVec".to_string(),
+                    type_args: element_types.clone(),
                 })
             }
             Expression::ArrayConstructor { element_type } => {
@@ -730,9 +742,100 @@ impl TypeChecker {
     }
 
     fn register_stdlib_module(&mut self, _alias: &str, _module_path: &str) -> Result<()> {
-        // Stdlib function signatures are looked up dynamically via stdlib_types.rs
-        // which parses the actual .zen files. No need for hardcoded registration.
+        // Stdlib modules are now loaded via with_stdlib_modules() from ModuleSystem
+        // Types are extracted automatically when modules are loaded
         Ok(())
+    }
+
+    /// Initialize TypeChecker with already-loaded stdlib modules from ModuleSystem
+    /// Extracts type information from the loaded modules
+    pub fn with_stdlib_modules(&mut self, modules: &HashMap<String, Program>) {
+        for (path, program) in modules {
+            if path.starts_with("@std") || path.starts_with("std.") {
+                self.extract_types_from_program(program, path);
+                self.stdlib_modules.insert(path.clone(), program.clone());
+            }
+        }
+    }
+
+    /// Extract type information from a stdlib program
+    fn extract_types_from_program(&mut self, program: &Program, module_path: &str) {
+        for decl in &program.declarations {
+            match decl {
+                Declaration::Struct(def) => {
+                    let fields: Vec<(String, AstType)> = def.fields
+                        .iter()
+                        .map(|f| (f.name.clone(), f.type_.clone()))
+                        .collect();
+                    self.structs.insert(def.name.clone(), StructInfo { fields });
+                }
+                Declaration::Function(func) => {
+                    if let Some((receiver, method)) = func.name.split_once('.') {
+                        // Method: Type.method
+                        let key = format!("{}::{}", receiver, method);
+                        let sig = MethodSignature {
+                            receiver_type: receiver.to_string(),
+                            method_name: method.to_string(),
+                            params: func.args.clone(),
+                            return_type: func.return_type.clone(),
+                            is_static: func.args.first()
+                                .map(|(name, _)| name != "self")
+                                .unwrap_or(true),
+                        };
+                        self.stdlib_methods.insert(key, sig);
+                    } else {
+                        // Standalone function
+                        let key = format!("{}::{}", module_path, func.name);
+                        let sig = FunctionSignature {
+                            params: func.args.clone(),
+                            return_type: func.return_type.clone(),
+                            is_external: false,
+                        };
+                        self.stdlib_functions.insert(key, sig);
+                    }
+                }
+                Declaration::Enum(def) => {
+                    let variants: Vec<(String, Option<AstType>)> = def.variants
+                        .iter()
+                        .map(|v| (v.name.clone(), v.payload.clone()))
+                        .collect();
+                    self.enums.insert(def.name.clone(), EnumInfo { variants });
+                }
+                Declaration::TraitImplementation(trait_impl) => {
+                    for method in &trait_impl.methods {
+                        let key = format!("{}::{}", trait_impl.type_name, method.name);
+                        let sig = MethodSignature {
+                            receiver_type: trait_impl.type_name.clone(),
+                            method_name: method.name.clone(),
+                            params: method.args.clone(),
+                            return_type: method.return_type.clone(),
+                            is_static: method.args.first()
+                                .map(|(n, _)| n != "self")
+                                .unwrap_or(true),
+                        };
+                        self.stdlib_methods.insert(key, sig);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    /// Look up stdlib method return type (replaces stdlib_types().get_method_return_type)
+    pub fn get_stdlib_method_type(&self, receiver: &str, method: &str) -> Option<&AstType> {
+        let key = format!("{}::{}", receiver, method);
+        self.stdlib_methods.get(&key).map(|sig| &sig.return_type)
+    }
+
+    /// Look up stdlib function return type (replaces stdlib_types().get_function_return_type)
+    pub fn get_stdlib_function_type(&self, module: &str, func_name: &str) -> Option<&AstType> {
+        let key = format!("{}::{}", module, func_name);
+        self.stdlib_functions.get(&key).map(|sig| &sig.return_type)
+    }
+
+    /// Get stdlib struct definition (replaces stdlib_types().get_struct_definition)
+    pub fn get_stdlib_struct(&self, name: &str) -> Option<&StructInfo> {
+        self.structs.get(name)
     }
 
     fn enter_scope(&mut self) {
@@ -844,7 +947,7 @@ impl TypeChecker {
             }
             AstType::Enum { name: enum_name, variants } => {
                 if self.well_known.is_option(enum_name) || self.well_known.is_result(enum_name) {
-                    if let Some(enum_variant) = variants.iter().find(|v| &v.name == variant) {
+                    if let Some(enum_variant) = variants.iter().find(|v| v.name == variant) {
                         if let Some(payload_ty) = &enum_variant.payload {
                             return payload_ty.clone();
                         }

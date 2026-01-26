@@ -1,0 +1,180 @@
+//! Member access and struct field inference
+
+use crate::ast::AstType;
+use crate::error::{CompileError, Result};
+use crate::typechecker::{EnumInfo, StructInfo};
+use std::collections::HashMap;
+
+/// Infer the type of a member access expression
+pub fn infer_member_type(
+    object_type: &AstType,
+    member: &str,
+    structs: &HashMap<String, StructInfo>,
+    enums: &HashMap<String, EnumInfo>,
+    span: Option<crate::error::Span>,
+) -> Result<AstType> {
+    match object_type {
+        AstType::Struct { name, .. } => {
+            if let Some(struct_info) = structs.get(name) {
+                for (field_name, field_type) in &struct_info.fields {
+                    if field_name == member {
+                        return Ok(field_type.clone());
+                    }
+                }
+                Err(CompileError::TypeError(
+                    format!("Struct '{}' has no field '{}'", name, member),
+                    span,
+                ))
+            } else {
+                Err(CompileError::TypeError(
+                    format!("Unknown struct type: {}", name),
+                    span,
+                ))
+            }
+        }
+        // Handle pointer to struct types
+        t if t.is_ptr_type() => {
+            // Dereference the pointer and check the inner type
+            if let Some(inner) = t.ptr_inner() {
+                infer_member_type(inner, member, structs, enums, span)
+            } else {
+                Err(CompileError::TypeError(
+                    format!("Type '{}' is not a struct", t),
+                    span,
+                ))
+            }
+        }
+        // Handle Generic types that represent structs
+        AstType::Generic { name, .. } => {
+            // Try to look up the struct info by name
+            if let Some(struct_info) = structs.get(name) {
+                for (field_name, field_type) in &struct_info.fields {
+                    if field_name == member {
+                        return Ok(field_type.clone());
+                    }
+                }
+                Err(CompileError::TypeError(
+                    format!("Struct '{}' has no field '{}'", name, member),
+                    span,
+                ))
+            } else {
+                Err(CompileError::TypeError(
+                    format!("Type '{}' is not a struct or is not defined", name),
+                    span,
+                ))
+            }
+        }
+        // Handle enum type constructors
+        AstType::EnumType { name } => {
+            // Check if the member is a valid variant of this enum
+            if let Some(enum_info) = enums.get(name) {
+                for (variant_name, _variant_type) in &enum_info.variants {
+                    if variant_name == member {
+                        // Return the enum type itself - the variant constructor creates an instance of the enum
+                        let enum_variants = enum_info
+                            .variants
+                            .iter()
+                            .map(|(name, payload)| crate::ast::EnumVariant {
+                                name: name.clone(),
+                                payload: payload.clone(),
+                            })
+                            .collect();
+                        return Ok(AstType::Enum {
+                            name: name.clone(),
+                            variants: enum_variants,
+                        });
+                    }
+                }
+                Err(CompileError::TypeError(
+                    format!("Enum '{}' has no variant '{}'", name, member),
+                    span,
+                ))
+            } else {
+                Err(CompileError::TypeError(
+                    format!("Unknown enum type: {}", name),
+                    span,
+                ))
+            }
+        }
+        AstType::StdModule => {
+            // Handle stdlib module member access (e.g., math.pi, GPA.init)
+            // TODO: Implement a proper registry of stdlib module members
+            match member {
+                "pi" => Ok(AstType::F64),
+                "init" => {
+                    // For allocator modules, init() returns an allocator type
+                    // We'll use a generic type for now
+                    Ok(AstType::Generic {
+                        name: "Allocator".to_string(),
+                        type_args: vec![],
+                    })
+                }
+                _ => Err(CompileError::TypeError(
+                    format!("Unknown stdlib module member: {}", member),
+                    span,
+                )),
+            }
+        }
+        _ => Err(CompileError::TypeError(
+            format!(
+                "Cannot access member '{}' on type {:?}",
+                member, object_type
+            ),
+            span,
+        )),
+    }
+}
+
+/// Infer the type of a struct field access
+pub fn infer_struct_field_type(
+    struct_type: &AstType,
+    field: &str,
+    structs: &HashMap<String, StructInfo>,
+    enums: &HashMap<String, EnumInfo>,
+    span: Option<crate::error::Span>,
+) -> Result<AstType> {
+    match struct_type {
+        t if t.is_ptr_type() => {
+            if let Some(inner) = t.ptr_inner() {
+                match inner {
+                    AstType::Struct { name, .. } => infer_member_type(
+                        &AstType::Struct {
+                            name: name.clone(),
+                            fields: vec![],
+                        },
+                        field,
+                        structs,
+                        enums,
+                        span,
+                    ),
+                    AstType::Generic { name, .. } => infer_member_type(
+                        &AstType::Generic {
+                            name: name.clone(),
+                            type_args: vec![],
+                        },
+                        field,
+                        structs,
+                        enums,
+                        span,
+                    ),
+                    _ => Err(CompileError::TypeError(
+                        format!("Cannot access field '{}' on non-struct pointer type", field),
+                        span,
+                    )),
+                }
+            } else {
+                Err(CompileError::TypeError(
+                    format!("Cannot access field '{}' on type {:?}", field, struct_type),
+                    span,
+                ))
+            }
+        }
+        AstType::Struct { .. } | AstType::Generic { .. } => {
+            infer_member_type(struct_type, field, structs, enums, span)
+        }
+        _ => Err(CompileError::TypeError(
+            format!("Cannot access field '{}' on type {:?}", field, struct_type),
+            span,
+        )),
+    }
+}

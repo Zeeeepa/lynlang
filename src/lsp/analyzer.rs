@@ -216,6 +216,7 @@ fn check_allocator_in_expression(
             object,
             method: _,
             args,
+            ..
         } => {
             check_allocator_in_expression(object, diagnostics, content);
             for arg in args {

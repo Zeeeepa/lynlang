@@ -50,10 +50,10 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
             return types_compatible(expected_inner, actual_inner);
         }
     }
-    // Allow array to decay to pointer
+    // Allow slice/array to decay to pointer
     if expected.is_ptr_type() {
         if let Some(expected_inner) = expected.ptr_inner() {
-            if let AstType::Array(actual_inner) = actual {
+            if let AstType::Slice(actual_inner) = actual {
                 return types_compatible(expected_inner, actual_inner);
             }
             if let AstType::FixedArray { element_type, .. } = actual {
@@ -233,17 +233,17 @@ pub fn validate_import_not_in_comptime(stmt: &crate::ast::Statement) -> Result<(
 
     // Also check for variable declarations that look like imports
     if let Statement::VariableDeclaration {
-        name, initializer, ..
+        name,
+        initializer: Some(expr),
+        ..
     } = stmt
     {
-        if let Some(expr) = initializer {
-            if contains_import_expression(expr) {
-                return Err(format!(
-                    "Import-like statement '{}' cannot be inside a comptime block. \
-                    Imports must be at module level.",
-                    name
-                ));
-            }
+        if contains_import_expression(expr) {
+            return Err(format!(
+                "Import-like statement '{}' cannot be inside a comptime block. \
+                Imports must be at module level.",
+                name
+            ));
         }
     }
 

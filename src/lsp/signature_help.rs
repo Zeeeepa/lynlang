@@ -132,11 +132,7 @@ fn find_function_call_at_position(content: &str, position: Position) -> Option<(
     let mut line_offset = 0;
 
     // Look back up to 5 lines for multi-line function calls
-    let start_line = if position.line >= 5 {
-        position.line - 5
-    } else {
-        0
-    };
+    let start_line = position.line.saturating_sub(5);
     for i in start_line..=position.line {
         if i as usize >= lines.len() {
             break;
@@ -182,10 +178,10 @@ fn find_function_call_at_position(content: &str, position: Position) -> Option<(
         .split(|c: char| {
             c.is_whitespace() || c == '=' || c == ',' || c == ';' || c == '{' || c == '('
         })
-        .last()?
+        .next_back()?
         .trim()
         .split('.')
-        .last()?
+        .next_back()?
         .to_string();
 
     // Count parameters by counting commas at paren_depth = 0

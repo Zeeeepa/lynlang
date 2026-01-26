@@ -7,31 +7,29 @@
 // Ptr<T> - Owned Pointer (Heap Allocation, Must Be Freed)
 // ============================================================================
 
-Ptr<T>: 
+Ptr<T>:
     Some: i64,
     None
 
 // Allocate memory and wrap in Ptr<T>
 Ptr<T>.allocate = (size: usize) Ptr<T> {
     addr = compiler.raw_allocate(size)
-    null_ptr = compiler.int_to_ptr(0)
-    addr == null_ptr ?
-        | true { return Ptr.None }
-        | false { 
-            addr_int = compiler.ptr_to_int(addr)
-            return Ptr.Some(addr_int)
-        }
-}
-
-// Create a Ptr from an address (caller must ensure validity)
-Ptr<T>.from_addr = (addr: RawPtr<u8>) Ptr<T> {
-    null_ptr = compiler.int_to_ptr(0)
-    addr == null_ptr ?
+    compiler.is_null(addr) ?
         | true { return Ptr.None }
         | false {
             addr_int = compiler.ptr_to_int(addr)
             return Ptr.Some(addr_int)
-        }
+    }
+}
+
+// Create a Ptr from an address (caller must ensure validity)
+Ptr<T>.from_addr = (addr: RawPtr<u8>) Ptr<T> {
+    compiler.is_null(addr) ?
+        | true { return Ptr.None }
+        | false {
+            addr_int = compiler.ptr_to_int(addr)
+            return Ptr.Some(addr_int)
+    }
 }
 
 // Create a None pointer
@@ -72,7 +70,7 @@ Ptr<T>.offset = (self: Ptr<T>, count: i64) Ptr<T> {
     self ?
         | Some(addr_i64) {
             addr = compiler.int_to_ptr(addr_i64)
-            item_size = compiler.sizeof<T>()
+            item_size = compiler.sizeof<T>() as i64
             byte_offset = count * item_size
             new_addr = compiler.gep(addr, byte_offset)
             new_addr_int = compiler.ptr_to_int(new_addr)

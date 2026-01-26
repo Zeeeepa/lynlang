@@ -61,10 +61,24 @@ impl<'a> Parser<'a> {
     }
 
     /// Expect current token to be a specific operator, return error if not
+    /// Special handling for `>` when current token is `>>` or `>>=` (needed for nested generics)
     pub fn expect_operator(&mut self, expected: &str) -> crate::error::Result<()> {
         if self.current_token == Token::Operator(expected.to_string()) {
             self.next_token();
             Ok(())
+        } else if expected == ">" {
+            // Handle nested generics: when expecting `>`, split `>>` into two `>` tokens
+            if self.current_token == Token::Operator(">>".to_string()) {
+                // Replace `>>` with single `>` (the remaining part after consuming one `>`)
+                self.current_token = Token::Operator(">".to_string());
+                Ok(())
+            } else if self.current_token == Token::Operator(">>=".to_string()) {
+                // Replace `>>=` with `>=` (the remaining part after consuming one `>`)
+                self.current_token = Token::Operator(">=".to_string());
+                Ok(())
+            } else {
+                Err(self.syntax_error(format!("Expected '{}', got {:?}", expected, self.current_token)))
+            }
         } else {
             Err(self.syntax_error(format!("Expected '{}', got {:?}", expected, self.current_token)))
         }
@@ -81,10 +95,24 @@ impl<'a> Parser<'a> {
     }
 
     /// Try to consume an operator if present, return true if consumed
+    /// Special handling for `>` when current token is `>>` or `>>=` (needed for nested generics like `Vec<Vec<T>>`)
     pub fn try_consume_operator(&mut self, op: &str) -> bool {
         if self.current_token == Token::Operator(op.to_string()) {
             self.next_token();
             true
+        } else if op == ">" {
+            // Handle nested generics: when looking for `>`, split `>>` into two `>` tokens
+            if self.current_token == Token::Operator(">>".to_string()) {
+                // Replace `>>` with single `>` (the remaining part after consuming one `>`)
+                self.current_token = Token::Operator(">".to_string());
+                true
+            } else if self.current_token == Token::Operator(">>=".to_string()) {
+                // Replace `>>=` with `>=` (the remaining part after consuming one `>`)
+                self.current_token = Token::Operator(">=".to_string());
+                true
+            } else {
+                false
+            }
         } else {
             false
         }
@@ -134,13 +162,9 @@ impl<'a> Parser<'a> {
         let mut result = String::from("<");
         self.next_token(); // consume '<'
 
-        loop {
-            if let Token::Identifier(param) = &self.current_token {
-                result.push_str(param);
-                self.next_token();
-            } else {
-                break;
-            }
+        while let Token::Identifier(param) = &self.current_token {
+            result.push_str(param);
+            self.next_token();
 
             if self.current_token == Token::Symbol(',') {
                 result.push(',');
@@ -148,6 +172,11 @@ impl<'a> Parser<'a> {
             } else if self.current_token == Token::Operator(">".to_string()) {
                 result.push('>');
                 self.next_token();
+                break;
+            } else if self.current_token == Token::Operator(">>".to_string()) {
+                // Handle nested generics: split `>>` into `>` + `>`
+                result.push('>');
+                self.current_token = Token::Operator(">".to_string());
                 break;
             } else {
                 break;
@@ -224,6 +253,18 @@ impl<'a> Parser<'a> {
                 depth += 1;
             } else if self.current_token == Token::Operator(">".to_string()) {
                 depth -= 1;
+            } else if self.current_token == Token::Operator(">>".to_string()) {
+                // Handle nested generics: `>>` counts as two `>` tokens
+                depth -= 2;
+                if depth == 0 {
+                    // Consumed both `>` tokens, advance past `>>`
+                    self.next_token();
+                    return 1;
+                } else if depth == -1 {
+                    // One `>` was extra, leave it as current token
+                    self.current_token = Token::Operator(">".to_string());
+                    return 1;
+                }
             }
             if depth > 0 {
                 self.next_token();

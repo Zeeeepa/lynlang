@@ -58,6 +58,7 @@ pub enum Expression {
     },
     FunctionCall {
         name: String,
+        type_args: Vec<AstType>,
         args: Vec<Expression>,
     },
     // Pattern matching with ? operator (no match keyword!)
@@ -151,6 +152,7 @@ pub enum Expression {
     MethodCall {
         object: Box<Expression>,
         method: String,
+        type_args: Vec<AstType>,
         args: Vec<Expression>,
     },
     // Loop expression (returns value)

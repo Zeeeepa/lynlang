@@ -72,6 +72,9 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                         depth += 1;
                     } else if parser.current_token == Token::Operator(">".to_string()) {
                         depth -= 1;
+                    } else if parser.current_token == Token::Operator(">>".to_string()) {
+                        // Handle >> as two > tokens for nested generics
+                        depth -= 2;
                     }
                     parser.next_token();
                 }
@@ -344,12 +347,13 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                             expr = Expression::MethodCall {
                                 object: Box::new(expr),
                                 method: "step".to_string(),
+                                type_args: vec![],
                                 args: vec![step_value],
                             };
                         } else {
                             // Check if this could be an enum variant constructor (EnumName.Variant)
                             // First letter capitalized usually indicates a type/variant name
-                            if member.chars().next().map_or(false, |c| c.is_uppercase()) {
+                            if member.chars().next().is_some_and(|c| c.is_uppercase()) {
                                 // Check if the base is an identifier (potential enum name)
                                 if let Expression::Identifier(enum_name) = &expr {
                                     // This looks like an enum variant constructor
@@ -685,18 +689,18 @@ pub fn parse_primary_expression(parser: &mut Parser) -> Result<Expression> {
                 if is_closure {
                     // Parse the closure body
                     let body = super::blocks::parse_block_expression(parser)?;
-                    return Ok(Expression::Closure {
+                    Ok(Expression::Closure {
                         params,
                         return_type: closure_return_type,
                         body: Box::new(body),
-                    });
+                    })
                 } else {
                     // Not a closure, we have an issue with parsing
                     // Since we consumed tokens trying to parse as closure, we can't backtrack
-                    return Err(CompileError::SyntaxError(
-                            "Ambiguous syntax: Use explicit type annotations for closure parameters or parenthesize complex expressions".to_string(),
-                            Some(parser.current_span.clone()),
-                        ));
+                    Err(CompileError::SyntaxError(
+                        "Ambiguous syntax: Use explicit type annotations for closure parameters or parenthesize complex expressions".to_string(),
+                        Some(parser.current_span.clone()),
+                    ))
                 }
             } else {
                 // Not starting with an identifier, so it's definitely not a closure

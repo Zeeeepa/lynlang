@@ -94,15 +94,9 @@ pub fn compile_enum_variant<'ctx>(
             let payload_type = super::inference::infer_expression_type(compiler, payload_expr);
             if let Ok(t) = payload_type {
                 compiler.track_generic_type("Option_Some_Type".to_string(), t.clone());
-                // Also track nested generics recursively
+                // Track nested generics recursively (Vec, DynVec, HashMap, etc. are now Generic)
                 if matches!(t, AstType::Generic { .. }) {
                     compiler.track_complex_generic(&t, "Option_Some");
-                }
-                // Track DynVec types
-                if matches!(t, AstType::DynVec { .. }) {
-                    compiler
-                        .generic_tracker
-                        .track_generic_type(&t, "Option_Some");
                 }
                 // Track custom enum types too
                 if matches!(t, AstType::EnumType { .. }) {

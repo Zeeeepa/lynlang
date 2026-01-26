@@ -98,7 +98,7 @@ pub fn infer_expression_type(
             variant,
             payload,
         } => infer_enum_variant_type(compiler, enum_name, variant, payload),
-        Expression::FunctionCall { name, .. } => {
+        Expression::FunctionCall { name, type_args, .. } => {
             // Check TypeContext for function return type (includes Type.method style)
             if let Some(return_type) = compiler.type_ctx.get_function_return_type(name) {
                 return Ok(return_type);
@@ -121,30 +121,19 @@ pub fn infer_expression_type(
             if name.starts_with("compiler.") || name.starts_with("builtin.") {
                 let prefix_len = if name.starts_with("compiler.") { 9 } else { 8 };
                 let method = &name[prefix_len..];
-                let base_method = if let Some(angle_pos) = method.find('<') {
-                    &method[..angle_pos]
-                } else {
-                    method
-                };
                 if let Some(return_type) =
-                    compiler_intrinsics::get_intrinsic_return_type(base_method)
+                    compiler_intrinsics::get_intrinsic_return_type(method)
                 {
                     return Ok(return_type);
                 }
             }
 
-            if name.contains('<') && name.contains('>') && !name.starts_with("compiler.") && !name.starts_with("builtin.") {
-                if let Some(angle_pos) = name.find('<') {
-                    let base_type = &name[..angle_pos];
-                    let type_params_str = &name[angle_pos + 1..name.len() - 1];
-                    let type_args =
-                        super::utils::parse_type_args_string(compiler, type_params_str)?;
-
-                    return Ok(AstType::Generic {
-                        name: base_type.to_string(),
-                        type_args,
-                    });
-                }
+            // Use type_args from AST if available
+            if !type_args.is_empty() {
+                return Ok(AstType::Generic {
+                    name: name.to_string(),
+                    type_args: type_args.clone(),
+                });
             }
 
             // Check TypeContext first (from typechecker), then fall back to local cache
@@ -328,19 +317,20 @@ pub fn infer_expression_type(
             }
         }
         Expression::VecConstructor {
-            element_type, size, ..
+            element_type, ..
         } => {
-            // Vec<T, N> constructor returns Vec type
-            Ok(AstType::Vec {
-                element_type: Box::new(element_type.clone()),
-                size: *size,
+            // Vec<T> constructor returns Vec generic type (stdlib struct)
+            Ok(AstType::Generic {
+                name: "Vec".to_string(),
+                type_args: vec![element_type.clone()],
             })
         }
         Expression::DynVecConstructor { element_types, .. } => {
-            // DynVec<T> constructor returns DynVec type
-            Ok(AstType::DynVec {
-                element_types: element_types.clone(),
-                allocator_type: None,
+            // DynVec<T> constructor returns DynVec generic type (stdlib struct)
+            let type_arg = element_types.first().cloned().unwrap_or(AstType::Void);
+            Ok(AstType::Generic {
+                name: "DynVec".to_string(),
+                type_args: vec![type_arg],
             })
         }
         Expression::ArrayConstructor { element_type } => {
@@ -500,7 +490,7 @@ pub fn infer_closure_return_type(
             }
             Ok(AstType::Void)
         }
-        Expression::FunctionCall { name, args } => {
+        Expression::FunctionCall { name, args, .. } => {
             // Check if this is a Result or Option variant constructor using well_known
             // Parse "Type.Variant" pattern
             if let Some((type_name, variant_name)) = name.split_once('.') {
@@ -968,12 +958,12 @@ fn infer_collection_access_type(
         }
     }
 
-    // DynVec special case (has element_types field)
-    if let AstType::DynVec { element_types, .. } = &object_type {
-        if !element_types.is_empty() && matches!(method, "get" | "pop") {
+    // DynVec special case - now a Generic type from stdlib
+    if let AstType::Generic { name, type_args } = &object_type {
+        if name == "DynVec" && !type_args.is_empty() && matches!(method, "get" | "pop") {
             return Ok(AstType::Generic {
                 name: option_name.to_string(),
-                type_args: vec![element_types[0].clone()],
+                type_args: vec![type_args[0].clone()],
             });
         }
     }

@@ -124,7 +124,7 @@ pub fn handle_references(
             log::debug!("[LSP] Find references for symbol: '{}'", symbol_name);
 
             // Determine the scope of the symbol
-            let symbol_scope = determine_symbol_scope(&doc, &symbol_name, position);
+            let symbol_scope = determine_symbol_scope(doc, &symbol_name, position);
             log::debug!("[LSP] Symbol scope: {:?}", symbol_scope);
 
             match symbol_scope {

@@ -105,10 +105,10 @@ impl<'a> Parser<'a> {
                 };
 
                 // Use EnumLiteral for shorthand syntax (no enum name)
-                return Ok(Pattern::EnumLiteral {
+                Ok(Pattern::EnumLiteral {
                     variant: variant_name,
                     payload,
-                });
+                })
             }
             Token::Identifier(name) => {
                 let name = name.clone();
@@ -220,7 +220,7 @@ impl<'a> Parser<'a> {
                     wk.is_option_variant(&name) || wk.is_result_variant(&name);
 
                 // Also check if the identifier starts with a capital letter (enum convention)
-                let is_capitalized = name.chars().next().map_or(false, |c| c.is_uppercase());
+                let is_capitalized = name.chars().next().is_some_and(|c| c.is_uppercase());
 
                 // If it's a known enum variant or capitalized, treat as enum pattern
                 // BUT ONLY if not followed by '.' (which would make it a qualified pattern)

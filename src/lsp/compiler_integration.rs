@@ -31,6 +31,12 @@ pub struct FunctionSignature {
     pub receiver_type: Option<String>, // For UFC methods: the receiver type
 }
 
+impl Default for CompilerIntegration {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CompilerIntegration {
     pub fn new() -> Self {
         Self {

@@ -197,11 +197,10 @@ pub fn parse_pattern_match(parser: &mut Parser, scrutinee: Expression) -> Result
             if let Token::Identifier(id) = &parser.current_token {
                 if id == "return" {
                     parser.next_token(); // consume 'return'
-                    let return_expr = parser.parse_expression()?;
                     // Wrap return in a special expression type or handle it differently
                     // For now, we'll just use the return expression directly
                     // In a full implementation, we'd need a Block expression type with statements
-                    return_expr
+                    parser.parse_expression()?
                 } else {
                     parser.parse_expression()?
                 }

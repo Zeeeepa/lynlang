@@ -121,11 +121,15 @@ pub fn infer_vec_method_type(method: &str, element_type: &AstType) -> Option<Ast
     }
 }
 
-/// Infer return type for pointer methods
+/// Infer return type for pointer methods (Ptr<T>, MutPtr<T>, RawPtr<T>)
 pub fn infer_pointer_method_type(method: &str, inner_type: &AstType) -> Option<AstType> {
     match method {
         "val" => Some(inner_type.clone()), // Dereference pointer
-        "addr" => Some(AstType::Usize),    // Get address as usize
+        "addr" => Some(AstType::raw_ptr(AstType::U8)), // Get address as RawPtr<u8>
+        "is_some" | "is_none" => Some(AstType::Bool), // Check if pointer is valid/null
+        "at" => Some(AstType::ptr(inner_type.clone())), // Get pointer at index offset
+        "eq" => Some(AstType::Bool), // Compare pointer addresses
+        "unwrap" => Some(AstType::raw_ptr(AstType::U8)), // Unsafe unwrap to RawPtr<u8>
         _ => None,
     }
 }
@@ -135,7 +139,7 @@ pub fn infer_result_method_type(method: &str, type_args: &[AstType]) -> Option<A
     match method {
         "raise" => {
             // The raise() method returns the Ok type (T) from Result<T,E>
-            if type_args.len() >= 1 {
+            if !type_args.is_empty() {
                 Some(type_args[0].clone())
             } else {
                 Some(AstType::Void)

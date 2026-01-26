@@ -6,6 +6,7 @@
 mod declarations;
 mod expressions;
 mod patterns;
+pub mod primitives;
 mod statements;
 mod types;
 
@@ -13,6 +14,11 @@ mod types;
 pub use declarations::*;
 pub use expressions::*;
 pub use patterns::*;
+pub use primitives::{
+    primitive_from_str, primitive_to_str, is_primitive_name, bit_size, promote_numeric,
+    PRIMITIVE_TYPE_MAP, ALL_PRIMITIVES, NUMERIC_TYPES, INTEGER_TYPES, FLOAT_TYPES,
+    SIGNED_INT_TYPES, UNSIGNED_INT_TYPES,
+};
 pub use statements::*;
 pub use types::*;
 

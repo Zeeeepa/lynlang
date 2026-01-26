@@ -34,21 +34,15 @@ pub enum AstType {
     // String is defined in stdlib/string.zen as a struct, not a compiler primitive
     // Use resolve_string_struct_type() helper to get the struct type
     Void,
-    Array(Box<AstType>),
-    // Vec<T, size> - Fixed-size vector with compile-time size
-    Vec {
-        element_type: Box<AstType>,
-        size: usize, // Always has compile-time size
-    },
-    // DynVec<T> or DynVec<T1, T2, ...> - Dynamic vector with allocator
-    DynVec {
-        element_types: Vec<AstType>, // Multiple types for mixed variant vectors
-        allocator_type: Option<Box<AstType>>, // Optional allocator type
-    },
+    // [T] - Slice type (pointer + length, no ownership)
+    Slice(Box<AstType>),
+    // [T; N] - Fixed-size array (inline, stack-allocated)
     FixedArray {
         element_type: Box<AstType>,
         size: usize,
     },
+    // Note: Vec<T>, DynVec<T>, HashMap<K,V> etc. are stdlib generic types,
+    // represented as AstType::Generic { name: "Vec", type_args: [T] }
     Function {
         args: Vec<AstType>,
         return_type: Box<AstType>,
@@ -193,18 +187,7 @@ impl fmt::Display for AstType {
             AstType::StaticString => write!(f, "StringLiteral"),
             // String is now a struct type from stdlib, resolved via Struct variant
             AstType::Void => write!(f, "void"),
-            AstType::Array(inner) => write!(f, "Array<{}>", inner),
-            AstType::Vec { element_type, size } => write!(f, "Vec<{}, {}>", element_type, size),
-            AstType::DynVec { element_types, .. } => {
-                write!(f, "DynVec<")?;
-                for (i, t) in element_types.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", t)?;
-                }
-                write!(f, ">")
-            }
+            AstType::Slice(inner) => write!(f, "[{}]", inner),
             AstType::FixedArray { element_type, size } => {
                 write!(f, "[{}; {}]", element_type, size)
             }

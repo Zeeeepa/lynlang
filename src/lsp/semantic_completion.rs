@@ -62,21 +62,8 @@ fn get_type_name(ty: &AstType) -> String {
     match ty {
         AstType::Struct { name, .. } => name.clone(),
         AstType::Generic { name, .. } => name.clone(),
-        AstType::I8 => "i8".to_string(),
-        AstType::I16 => "i16".to_string(),
-        AstType::I32 => "i32".to_string(),
-        AstType::I64 => "i64".to_string(),
-        AstType::U8 => "u8".to_string(),
-        AstType::U16 => "u16".to_string(),
-        AstType::U32 => "u32".to_string(),
-        AstType::U64 => "u64".to_string(),
-        AstType::Usize => "usize".to_string(),
-        AstType::F32 => "f32".to_string(),
-        AstType::F64 => "f64".to_string(),
-        AstType::Bool => "bool".to_string(),
-        AstType::StaticString => "StaticString".to_string(),
-        AstType::Void => "void".to_string(),
-        _ => format!("{}", ty),
+        // Use centralized primitive name lookup
+        _ => ty.primitive_name().map(|s| s.to_string()).unwrap_or_else(|| format!("{}", ty)),
     }
 }
 

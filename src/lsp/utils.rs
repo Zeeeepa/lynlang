@@ -294,9 +294,9 @@ fn extract_search_terms(error: &CompileError) -> Vec<String> {
                 }
             }
             // "'foo' is not a function" -> search for "foo("
-            if msg.starts_with('\'') {
-                if let Some(end_quote) = msg[1..].find('\'') {
-                    let name = &msg[1..end_quote + 1];
+            if let Some(after_quote) = msg.strip_prefix('\'') {
+                if let Some(end_quote) = after_quote.find('\'') {
+                    let name = &after_quote[..end_quote];
                     if !name.is_empty() {
                         terms.push(format!("{}(", name)); // Function call
                         terms.push(name.to_string());
@@ -395,23 +395,22 @@ pub fn symbol_kind_to_completion_kind(kind: SymbolKind) -> CompletionItemKind {
 }
 
 pub fn format_type(ast_type: &AstType) -> String {
+    // Handle special cases first
+    if let AstType::StaticLiteral = ast_type {
+        return "str".to_string(); // Internal string literal type
+    }
+    if let AstType::Struct { name, .. } = ast_type {
+        if StdlibTypeRegistry::is_string_type(name) {
+            return "String".to_string();
+        }
+    }
+
+    // Use centralized primitive type lookup
+    if let Some(name) = ast_type.primitive_name() {
+        return name.to_string();
+    }
+
     match ast_type {
-        AstType::I8 => "i8".to_string(),
-        AstType::I16 => "i16".to_string(),
-        AstType::I32 => "i32".to_string(),
-        AstType::I64 => "i64".to_string(),
-        AstType::U8 => "u8".to_string(),
-        AstType::U16 => "u16".to_string(),
-        AstType::U32 => "u32".to_string(),
-        AstType::U64 => "u64".to_string(),
-        AstType::Usize => "usize".to_string(),
-        AstType::F32 => "f32".to_string(),
-        AstType::F64 => "f64".to_string(),
-        AstType::Bool => "bool".to_string(),
-        AstType::StaticLiteral => "str".to_string(), // Internal string literal type
-        AstType::StaticString => "StaticString".to_string(),
-        AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => "String".to_string(),
-        AstType::Void => "void".to_string(),
         t if t.is_immutable_ptr() => {
             if let Some(inner) = t.ptr_inner() {
                 format!("Ptr<{}>", format_type(inner))
@@ -461,20 +460,11 @@ pub fn format_type(ast_type: &AstType) -> String {
         }
         AstType::EnumType { name } => name.clone(),
         AstType::StdModule => "module".to_string(),
-        AstType::Array(elem) => format!("Array<{}>", format_type(elem)),
-        AstType::Vec { element_type, size } => {
-            format!("Vec<{}, {}>", format_type(element_type), size)
-        }
-        AstType::DynVec { element_types, .. } => {
-            if element_types.len() == 1 {
-                format!("DynVec<{}>", format_type(&element_types[0]))
-            } else {
-                "DynVec<...>".to_string()
-            }
-        }
+        AstType::Slice(elem) => format!("[{}]", format_type(elem)),
         AstType::FixedArray { element_type, size } => {
             format!("[{}; {}]", format_type(element_type), size)
         }
+        // Vec<T>, DynVec<T>, HashMap<K,V> are now Generic types from stdlib
         // Option and Result are now Generic types - handled in Generic match below
         AstType::Struct { name, .. } => name.clone(),
         AstType::Enum { name, .. } => name.clone(),
@@ -503,6 +493,8 @@ pub fn format_type(ast_type: &AstType) -> String {
                 format_type(return_type)
             )
         }
+        // Catch-all for any remaining types (primitives handled above by primitive_name())
+        _ => format!("{:?}", ast_type),
     }
 }
 

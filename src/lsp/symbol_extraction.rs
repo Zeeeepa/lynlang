@@ -214,7 +214,7 @@ pub fn extract_symbols_with_path(
     if let Some(ast) = parse_with_path(content, file_path) {
         // First pass: Extract symbol definitions
         for (decl_index, decl) in ast.iter().enumerate() {
-            let (line, char_pos) = find_declaration_position(content, &decl, decl_index);
+            let (line, char_pos) = find_declaration_position(content, decl, decl_index);
             let symbol_name = match decl {
                 Declaration::Function(f) => &f.name,
                 Declaration::Struct(s) => &s.name,

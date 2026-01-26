@@ -66,6 +66,8 @@ impl StdlibTypeRegistry {
             "core/option.zen",
             "core/result.zen",
             "core/iterator.zen",
+            // Compiler intrinsics wrappers (user-facing `compiler.*`)
+            "compiler.zen",
             // Collections
             "collections/vec.zen",
             "collections/hashmap.zen",
@@ -282,5 +284,18 @@ impl StdlibTypeRegistry {
         } else {
             false
         }
+    }
+
+    /// Check if a type has a constructor that returns an instance of itself (e.g., HashMap.new())
+    /// Returns the return type of the constructor if found
+    pub fn get_constructor_return_type(&self, type_name: &str) -> Option<&AstType> {
+        // Check for Type.new method
+        self.get_method_return_type(type_name, "new")
+    }
+
+    /// Check if a type is known to be a generic collection type
+    /// This is determined by whether the type has a .new() method in stdlib
+    pub fn is_known_type(&self, type_name: &str) -> bool {
+        self.structs.contains_key(type_name) || self.methods.keys().any(|k| k.starts_with(&format!("{}::", type_name)))
     }
 }

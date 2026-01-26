@@ -69,28 +69,13 @@ pub fn replace_self_in_ast_type(ast_type: &AstType, concrete_type: &str) -> AstT
             }
         }
         // Option and Result are now Generic types - handled in Generic match above
-        AstType::Array(element) => {
-            AstType::Array(Box::new(replace_self_in_ast_type(element, concrete_type)))
+        // Vec<T> and DynVec<T> are also Generic types now
+        AstType::Slice(element) => {
+            AstType::Slice(Box::new(replace_self_in_ast_type(element, concrete_type)))
         }
         AstType::FixedArray { element_type, size } => AstType::FixedArray {
             element_type: Box::new(replace_self_in_ast_type(element_type, concrete_type)),
             size: *size,
-        },
-        AstType::Vec { element_type, size } => AstType::Vec {
-            element_type: Box::new(replace_self_in_ast_type(element_type, concrete_type)),
-            size: *size,
-        },
-        AstType::DynVec {
-            element_types,
-            allocator_type,
-        } => AstType::DynVec {
-            element_types: element_types
-                .iter()
-                .map(|t| replace_self_in_ast_type(t, concrete_type))
-                .collect(),
-            allocator_type: allocator_type
-                .as_ref()
-                .map(|t| Box::new(replace_self_in_ast_type(t, concrete_type))),
         },
         AstType::Function { args, return_type } => AstType::Function {
             args: args

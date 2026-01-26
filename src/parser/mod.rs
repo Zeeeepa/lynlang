@@ -43,23 +43,8 @@ pub fn parse_generic_type_string(s: &str) -> (String, Vec<AstType>) {
         Ok(AstType::Generic { name, type_args }) => (name, type_args),
         Ok(other) => {
             // For non-generic types, return the type name with empty args
-            let name = match &other {
-                AstType::I8 => "i8",
-                AstType::I16 => "i16",
-                AstType::I32 => "i32",
-                AstType::I64 => "i64",
-                AstType::U8 => "u8",
-                AstType::U16 => "u16",
-                AstType::U32 => "u32",
-                AstType::U64 => "u64",
-                AstType::Usize => "usize",
-                AstType::F32 => "f32",
-                AstType::F64 => "f64",
-                AstType::Bool => "bool",
-                AstType::Void => "void",
-                AstType::StaticString => "StaticString",
-                _ => trimmed,
-            };
+            // Use centralized primitive name lookup
+            let name = other.primitive_name().unwrap_or(trimmed);
             (name.to_string(), vec![])
         }
         Err(_) => (trimmed.to_string(), vec![]),

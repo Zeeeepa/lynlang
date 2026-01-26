@@ -338,28 +338,27 @@ fn create_extract_variable_action(range: &Range, uri: &Url, content: &str) -> Op
     // 2. Replace selected expression with variable name
     let declaration = format!("{}{} = {};\n", indent, var_name, selected_text.trim());
 
-    let mut changes = Vec::new();
-
-    // Insert variable declaration
-    changes.push(TextEdit {
-        range: Range {
-            start: Position {
-                line: insert_line,
-                character: 0,
+    let changes = vec![
+        // Insert variable declaration
+        TextEdit {
+            range: Range {
+                start: Position {
+                    line: insert_line,
+                    character: 0,
+                },
+                end: Position {
+                    line: insert_line,
+                    character: 0,
+                },
             },
-            end: Position {
-                line: insert_line,
-                character: 0,
-            },
+            new_text: declaration,
         },
-        new_text: declaration,
-    });
-
-    // Replace selected expression with variable name
-    changes.push(TextEdit {
-        range: *range,
-        new_text: var_name.clone(),
-    });
+        // Replace selected expression with variable name
+        TextEdit {
+            range: *range,
+            new_text: var_name.clone(),
+        },
+    ];
 
     let workspace_edit = WorkspaceEdit {
         changes: Some({
@@ -453,12 +452,8 @@ fn create_extract_function_action(range: &Range, uri: &Url, content: &str) -> Op
         })
         .collect();
 
-    // Detect if code has a return statement to infer return type
-    let return_type = if selected_text.contains("return ") {
-        "void" // Placeholder - could be smarter with AST analysis
-    } else {
-        "void"
-    };
+    // Return type detection placeholder - could be smarter with AST analysis
+    let return_type = "void";
 
     let new_function = format!(
         "{}{} = () {} {{\n{}\n{}}}\n\n",

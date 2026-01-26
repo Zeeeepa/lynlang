@@ -450,7 +450,7 @@ pub fn handle_definition(
                             }
                         }
 
-                        for (uri, _stdlib_doc) in &store.documents {
+                        for uri in store.documents.keys() {
                             let uri_path = uri.path();
                             if uri_path.contains("stdlib")
                                 && (uri_path
@@ -485,7 +485,7 @@ pub fn handle_definition(
                         }
 
                         if let Some(workspace_root) = &store.workspace_root {
-                            if let Some(workspace_path) = workspace_root.to_file_path().ok() {
+                            if let Ok(workspace_path) = workspace_root.to_file_path() {
                                 let module_file = workspace_path
                                     .join("stdlib")
                                     .join(&module_name)

@@ -2,12 +2,12 @@ use super::{TypeEnvironment, TypeSubstitution, generate_instantiated_name};
 use crate::ast::{AstType, EnumDefinition, Expression, Function, Statement, StructDefinition};
 use crate::error::CompileError;
 
-pub struct TypeInstantiator<'a> {
-    env: &'a mut TypeEnvironment,
+pub struct TypeInstantiator<'a, 'prog> {
+    env: &'a mut TypeEnvironment<'prog>,
 }
 
-impl<'a> TypeInstantiator<'a> {
-    pub fn new(env: &'a mut TypeEnvironment) -> Self {
+impl<'a, 'prog> TypeInstantiator<'a, 'prog> {
+    pub fn new(env: &'a mut TypeEnvironment<'prog>) -> Self {
         Self { env }
     }
 
@@ -213,14 +213,17 @@ impl<'a> TypeInstantiator<'a> {
         }
     }
 
+    // Note: substitution is passed through for future use in type variable replacement
+    #[allow(clippy::only_used_in_recursion)]
     fn instantiate_expression(
         &mut self,
         expr: &Expression,
         substitution: &TypeSubstitution,
     ) -> Expression {
         match expr {
-            Expression::FunctionCall { name, args } => Expression::FunctionCall {
+            Expression::FunctionCall { name, type_args, args } => Expression::FunctionCall {
                 name: name.clone(),
+                type_args: type_args.clone(),
                 args: args
                     .iter()
                     .map(|a| self.instantiate_expression(a, substitution))

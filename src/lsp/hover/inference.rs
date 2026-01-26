@@ -145,8 +145,7 @@ fn infer_type_from_ast_expr(expr: &Expression) -> Option<String> {
 
         Expression::FunctionCall { name, .. } => {
             // Look up function return type from stdlib
-            stdlib_types().get_function_return_type("", name)
-                .map(|t| format_type(t))
+            stdlib_types().get_function_return_type("", name).map(format_type)
         }
 
         Expression::MethodCall { object, method, .. } => {

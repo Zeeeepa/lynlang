@@ -181,13 +181,10 @@ pub fn collect_declaration_types(
                 .insert(alias.clone(), module_path.clone());
             // Register stdlib functions if this is a known stdlib module
             // Handle "@std.math", "std.math", and "math" formats
-            let module_name = if module_path.starts_with("@std.") {
-                &module_path[5..] // Remove "@std." prefix
-            } else if module_path.starts_with("std.") {
-                &module_path[4..] // Remove "std." prefix
-            } else {
-                module_path.as_str()
-            };
+            let module_name = module_path
+                .strip_prefix("@std.")
+                .or_else(|| module_path.strip_prefix("std."))
+                .unwrap_or(module_path.as_str());
             checker.register_stdlib_module(alias, module_name)?;
         }
         Declaration::TypeAlias(type_alias) => {

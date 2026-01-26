@@ -117,10 +117,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
     /// Extract type name from AstType
     fn type_name_from_ast(ast_type: &AstType) -> Option<String> {
         match ast_type {
+            // Vec, DynVec, HashMap etc. are now Generic types from stdlib
             AstType::Struct { name, .. } | AstType::Generic { name, .. }
             | AstType::Enum { name, .. } | AstType::EnumType { name } => Some(name.clone()),
-            AstType::DynVec { .. } => Some("DynVec".to_string()),
-            AstType::Vec { .. } => Some("Vec".to_string()),
             _ => None,
         }
     }
@@ -293,6 +292,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
 // ============================================================================
 
 impl<'ctx> LLVMCompiler<'ctx> {
+    /// Compile method call with explicit type arguments from AST
+    pub fn compile_method_call_with_type_args(
+        &mut self,
+        object: &Expression,
+        method_name: &str,
+        _type_args: &[AstType],  // TODO: Use type_args for generic method instantiation
+        args: &[Expression],
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // For now, delegate to the existing method
+        // Type args are available but not yet used - they will be needed for
+        // proper generic instantiation
+        self.compile_method_call(object, method_name, args)
+    }
+
     pub fn compile_method_call(
         &mut self,
         object: &Expression,
@@ -456,14 +469,31 @@ impl<'ctx> LLVMCompiler<'ctx> {
         match expr {
             Expression::Identifier(name) => {
                 if let Some(var_info) = self.variables.get(name) {
-                    let effective = var_info.ast_type.ptr_inner().unwrap_or(&var_info.ast_type);
-                    if let Some(n) = Self::type_name_from_ast(effective) {
+                    // First try the actual type (important for Ptr<T>, MutPtr<T> methods)
+                    if let Some(n) = Self::type_name_from_ast(&var_info.ast_type) {
                         return Ok(n);
                     }
+                    // Fall back to inner type for pointer field access
+                    if let Some(inner) = var_info.ast_type.ptr_inner() {
+                        if let Some(n) = Self::type_name_from_ast(inner) {
+                            return Ok(n);
+                        }
+                    }
                 }
-                // Check for type expression like "Ptr<i32>"
-                if let Some(pos) = name.find('<') {
-                    return Ok(name[..pos].to_string());
+                // If identifier looks like a type expression (e.g., \"Ptr<i32>\"), parse it once
+                if name.contains('<') {
+                    if let Ok(parsed_type) = crate::parser::parse_type_from_string(name) {
+                        // First try the actual type
+                        if let Some(n) = Self::type_name_from_ast(&parsed_type) {
+                            return Ok(n);
+                        }
+                        // Fall back to inner type
+                        if let Some(inner) = parsed_type.ptr_inner() {
+                            if let Some(n) = Self::type_name_from_ast(inner) {
+                                return Ok(n);
+                            }
+                        }
+                    }
                 }
                 if crate::well_known::well_known().get_type(name).is_some() {
                     return Ok(name.clone());
@@ -477,9 +507,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     return Ok(name.clone());
                 }
                 if let Ok(ast_type) = self.infer_expression_type(expr) {
-                    let effective = ast_type.ptr_inner().unwrap_or(&ast_type);
-                    if let Some(n) = Self::type_name_from_ast(effective) {
+                    // First try the actual type
+                    if let Some(n) = Self::type_name_from_ast(&ast_type) {
                         return Ok(n);
+                    }
+                    // Fall back to inner type
+                    if let Some(inner) = ast_type.ptr_inner() {
+                        if let Some(n) = Self::type_name_from_ast(inner) {
+                            return Ok(n);
+                        }
                     }
                 }
                 Ok("UnknownType".to_string())
@@ -487,9 +523,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Expression::StructLiteral { name, .. } => Ok(name.clone()),
             _ => {
                 if let Ok(ast_type) = self.infer_expression_type(expr) {
-                    let effective = ast_type.ptr_inner().unwrap_or(&ast_type);
-                    if let Some(n) = Self::type_name_from_ast(effective) {
+                    // First try the actual type
+                    if let Some(n) = Self::type_name_from_ast(&ast_type) {
                         return Ok(n);
+                    }
+                    // Fall back to inner type
+                    if let Some(inner) = ast_type.ptr_inner() {
+                        if let Some(n) = Self::type_name_from_ast(inner) {
+                            return Ok(n);
+                        }
                     }
                 }
                 Ok("UnknownType".to_string())

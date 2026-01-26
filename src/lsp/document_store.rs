@@ -87,6 +87,12 @@ pub struct DocumentStore {
     pub stdlib_resolver: StdlibResolver,
 }
 
+impl Default for DocumentStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DocumentStore {
     pub fn new() -> Self {
         let workspace_root_path = None::<&std::path::Path>;
@@ -115,15 +121,8 @@ impl DocumentStore {
     fn register_builtin_types(&mut self) {
         let range = dummy_range();
 
-        // Register all primitive types
-        let builtin_types = vec![
-            ("i8", AstType::I8), ("i16", AstType::I16), ("i32", AstType::I32), ("i64", AstType::I64),
-            ("u8", AstType::U8), ("u16", AstType::U16), ("u32", AstType::U32), ("u64", AstType::U64),
-            ("usize", AstType::Usize), ("f32", AstType::F32), ("f64", AstType::F64),
-            ("bool", AstType::Bool), ("StaticString", AstType::StaticString), ("void", AstType::Void),
-        ];
-
-        for (name, type_) in builtin_types {
+        // Register all primitive types using centralized definitions
+        for (name, type_) in PRIMITIVE_TYPE_MAP {
             self.stdlib_symbols.insert(
                 name.to_string(),
                 make_symbol(
@@ -132,7 +131,7 @@ impl DocumentStore {
                     range,
                     Some(format!("{} - Built-in primitive type", name)),
                     Some(format!("Built-in primitive type `{}`. Always available, no import needed.", name)),
-                    Some(type_),
+                    Some(type_.clone()),
                 ),
             );
         }
@@ -294,7 +293,7 @@ impl DocumentStore {
             for entry in entries.flatten() {
                 let entry_path = entry.path();
 
-                if entry_path.is_file() && entry_path.extension().map_or(false, |e| e == "zen") {
+                if entry_path.is_file() && entry_path.extension().is_some_and(|e| e == "zen") {
                     // Skip test files
                     if let Some(file_name) = entry_path.file_name().and_then(|n| n.to_str()) {
                         if file_name.starts_with("test_") || file_name.contains("_test.zen") {
@@ -721,29 +720,25 @@ impl DocumentStore {
 
     fn find_word_in_line_for_symbol(&self, line: &str, symbol: &str) -> Option<usize> {
         let mut search_pos = 0;
-        loop {
-            if let Some(pos) = line[search_pos..].find(symbol) {
-                let actual_pos = search_pos + pos;
+        while let Some(pos) = line[search_pos..].find(symbol) {
+            let actual_pos = search_pos + pos;
 
-                // Check word boundaries
-                let before_ok = actual_pos == 0 || {
-                    let before = line.chars().nth(actual_pos - 1).unwrap_or(' ');
-                    !before.is_alphanumeric() && before != '_'
-                };
-                let after_pos = actual_pos + symbol.len();
-                let after_ok = after_pos >= line.len() || {
-                    let after = line.chars().nth(after_pos).unwrap_or(' ');
-                    !after.is_alphanumeric() && after != '_'
-                };
+            // Check word boundaries
+            let before_ok = actual_pos == 0 || {
+                let before = line.chars().nth(actual_pos - 1).unwrap_or(' ');
+                !before.is_alphanumeric() && before != '_'
+            };
+            let after_pos = actual_pos + symbol.len();
+            let after_ok = after_pos >= line.len() || {
+                let after = line.chars().nth(after_pos).unwrap_or(' ');
+                !after.is_alphanumeric() && after != '_'
+            };
 
-                if before_ok && after_ok {
-                    return Some(actual_pos);
-                }
-
-                search_pos = actual_pos + 1;
-            } else {
-                break;
+            if before_ok && after_ok {
+                return Some(actual_pos);
             }
+
+            search_pos = actual_pos + 1;
         }
         None
     }
@@ -794,7 +789,7 @@ impl DocumentStore {
 
             let path = entry.path();
 
-            if path.is_file() && path.extension().map_or(false, |e| e == "zen") {
+            if path.is_file() && path.extension().is_some_and(|e| e == "zen") {
                 *files_parsed += 1;
                 if let Ok(content) = fs::read_to_string(&path) {
                     let symbols = self.extract_symbols(&content);
@@ -881,6 +876,7 @@ impl DocumentStore {
                 object,
                 method: _,
                 args,
+                ..
             } => {
                 // Track UFC method call - recurse into object and args
                 self.find_references_in_expression(object, symbols);

@@ -113,7 +113,7 @@ mod handler {
 
                 // Check for symbol info in current document
                 if let Some(response) =
-                    handle_symbol_hover(&symbol_name, &doc, &store, position, request_id.clone())
+                    handle_symbol_hover(&symbol_name, doc, &store, position, request_id.clone())
                 {
                     return response;
                 }
@@ -149,7 +149,7 @@ mod handler {
 
                 // Try to infer type from variable assignment in the current file
                 if let Some(response) =
-                    handle_inferred_type_hover(&symbol_name, &doc, &store, request_id.clone())
+                    handle_inferred_type_hover(&symbol_name, doc, &store, request_id.clone())
                 {
                     return response;
                 }
@@ -393,7 +393,7 @@ mod handler {
                     hover_content.insert(0, format!("```zen\n{}\n```", detail));
                 }
                 if let Some(def_uri) = &symbol_info.definition_uri {
-                    if let Some(path) = def_uri.to_file_path().ok() {
+                    if let Ok(path) = def_uri.to_file_path() {
                         hover_content.push(format!("**Definition:** `{}`", path.display()));
                     }
                 }

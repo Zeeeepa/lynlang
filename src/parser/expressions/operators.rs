@@ -126,6 +126,7 @@ fn parse_unary_expression(parser: &mut Parser) -> Result<Expression> {
             // For now, represent logical not as a function call
             Ok(Expression::FunctionCall {
                 name: "not".to_string(),
+                type_args: vec![],
                 args: vec![expr],
             })
         }

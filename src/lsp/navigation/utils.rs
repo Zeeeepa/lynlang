@@ -29,7 +29,7 @@ pub fn find_symbol_at_position(content: &str, position: Position) -> Option<Stri
         if ch.is_alphanumeric() || ch == '_' || ch == '.' || (start == 1 && ch == '@') {
             start -= 1;
             // If we hit @, stop (don't go before it)
-            if start == 0 && chars.get(0) == Some(&'@') {
+            if start == 0 && chars.first() == Some(&'@') {
                 break;
             }
         } else {
@@ -91,24 +91,20 @@ pub fn is_word_boundary_char(line: &str, byte_pos: usize) -> bool {
 /// Find a word in a line, respecting word boundaries
 pub fn find_word_in_line(line: &str, word: &str) -> Option<usize> {
     let mut search_pos = 0;
-    loop {
-        if let Some(pos) = line[search_pos..].find(word) {
-            let actual_pos = search_pos + pos;
+    while let Some(pos) = line[search_pos..].find(word) {
+        let actual_pos = search_pos + pos;
 
-            // Check word boundaries
-            let before_ok =
-                actual_pos == 0 || is_word_boundary_char(line, actual_pos.saturating_sub(1));
-            let end_pos = actual_pos + word.len();
-            let after_ok = end_pos >= line.len() || is_word_boundary_char(line, end_pos);
+        // Check word boundaries
+        let before_ok =
+            actual_pos == 0 || is_word_boundary_char(line, actual_pos.saturating_sub(1));
+        let end_pos = actual_pos + word.len();
+        let after_ok = end_pos >= line.len() || is_word_boundary_char(line, end_pos);
 
-            if before_ok && after_ok {
-                return Some(actual_pos);
-            }
-
-            search_pos = actual_pos + 1;
-        } else {
-            break;
+        if before_ok && after_ok {
+            return Some(actual_pos);
         }
+
+        search_pos = actual_pos + 1;
     }
     None
 }

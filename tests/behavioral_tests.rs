@@ -468,3 +468,348 @@ fn test_string_interpolation_output() {
         result.stdout
     );
 }
+
+// ============================================================================
+// VARIABLE DECLARATION TESTS - All 6 documented forms
+// ============================================================================
+
+/// Test immutable variable with type inference: x = 10
+#[test]
+fn test_variable_immutable_inferred() {
+    let source = r#"
+        main = () i32 {
+            x = 42
+            x == 42 ?
+                | true { return 0 }
+                | false { return 1 }
+        }
+    "#;
+
+    let result = run_expecting_success(source);
+    assert_eq!(result.exit_code, 0, "Immutable inferred variable failed");
+}
+
+/// Test immutable variable with explicit type: x: i32 = 10
+#[test]
+fn test_variable_immutable_explicit_type() {
+    let source = r#"
+        main = () i32 {
+            x: i64 = 100
+            x == 100 ?
+                | true { return 0 }
+                | false { return 1 }
+        }
+    "#;
+
+    let result = run_expecting_success(source);
+    assert_eq!(result.exit_code, 0, "Immutable explicit type variable failed");
+}
+
+/// Test mutable variable with inference: x ::= 10
+#[test]
+fn test_variable_mutable_inferred() {
+    let source = r#"
+        main = () i32 {
+            x ::= 5
+            x = x + 10
+            x == 15 ?
+                | true { return 0 }
+                | false { return 1 }
+        }
+    "#;
+
+    let result = run_expecting_success(source);
+    assert_eq!(result.exit_code, 0, "Mutable inferred variable failed");
+}
+
+/// Test mutable variable with explicit type: x:: i32 = 10
+#[test]
+fn test_variable_mutable_explicit() {
+    let source = r#"
+        main = () i32 {
+            x:: i32 = 20
+            x = x * 2
+            x == 40 ?
+                | true { return 0 }
+                | false { return 1 }
+        }
+    "#;
+
+    let result = run_expecting_success(source);
+    assert_eq!(result.exit_code, 0, "Mutable explicit type variable failed");
+}
+
+// ============================================================================
+// UFC (UNIFORM FUNCTION CALL) TESTS
+// ============================================================================
+
+/// Test basic UFC - function called as method
+#[test]
+fn test_ufc_basic() {
+    let source = r#"
+        double = (n: i32) i32 {
+            return n * 2
+        }
+
+        main = () i32 {
+            // Traditional call
+            a = double(5)
+            // UFC call
+            b = 5.double()
+
+            (a == 10) ?
+                | true {
+                    (b == 10) ?
+                        | true { return 0 }
+                        | false { return 2 }
+                }
+                | false { return 1 }
+        }
+    "#;
+
+    let result = run_expecting_success(source);
+    assert_eq!(result.exit_code, 0, "UFC basic call failed");
+}
+
+/// Test UFC chaining - multiple UFC calls in sequence
+#[test]
+fn test_ufc_chaining() {
+    let source = r#"
+        double = (n: i32) i32 { return n * 2 }
+        add_one = (n: i32) i32 { return n + 1 }
+
+        main = () i32 {
+            // Chain: 5.double() = 10, 10.add_one() = 11, 11.double() = 22
+            result = 5.double().add_one().double()
+            result == 22 ?
+                | true { return 0 }
+                | false { return 1 }
+        }
+    "#;
+
+    let result = run_expecting_success(source);
+    assert_eq!(result.exit_code, 0, "UFC chaining failed");
+}
+
+// ============================================================================
+// FLOAT ARITHMETIC TESTS
+// ============================================================================
+
+/// Test f64 basic arithmetic via function parameters
+#[test]
+fn test_float64_arithmetic() {
+    let source = r#"
+        add_floats = (a: f64, b: f64) f64 {
+            return a + b
+        }
+
+        main = () i32 {
+            sum = add_floats(10.5, 2.5)
+
+            // Check sum is approximately 13.0
+            (sum > 12.9) ?
+                | true {
+                    (sum < 13.1) ?
+                        | true { return 0 }
+                        | false { return 2 }
+                }
+                | false { return 1 }
+        }
+    "#;
+
+    let result = run_expecting_success(source);
+    assert_eq!(result.exit_code, 0, "Float64 arithmetic failed");
+}
+
+// ============================================================================
+// COMPARISON OPERATOR TESTS
+// ============================================================================
+
+/// Test less than operator
+#[test]
+fn test_comparison_less_than() {
+    let source = r#"
+        main = () i32 {
+            (5 < 10) ?
+                | true { return 0 }
+                | false { return 1 }
+        }
+    "#;
+
+    let result = run_expecting_success(source);
+    assert_eq!(result.exit_code, 0, "Less than comparison failed");
+}
+
+/// Test greater than operator
+#[test]
+fn test_comparison_greater_than() {
+    let source = r#"
+        main = () i32 {
+            (10 > 5) ?
+                | true { return 0 }
+                | false { return 1 }
+        }
+    "#;
+
+    let result = run_expecting_success(source);
+    assert_eq!(result.exit_code, 0, "Greater than comparison failed");
+}
+
+/// Test not equal operator
+#[test]
+fn test_comparison_not_equal() {
+    let source = r#"
+        main = () i32 {
+            (5 != 10) ?
+                | true { return 0 }
+                | false { return 1 }
+        }
+    "#;
+
+    let result = run_expecting_success(source);
+    assert_eq!(result.exit_code, 0, "Not equal comparison failed");
+}
+
+/// Test less than or equal
+#[test]
+fn test_comparison_less_equal() {
+    let source = r#"
+        main = () i32 {
+            a = 5
+            b = 5
+            c = 3
+            // Both should be true: 5 <= 5 and 3 <= 5
+            (a <= b) ?
+                | true {
+                    (c <= a) ?
+                        | true { return 0 }
+                        | false { return 2 }
+                }
+                | false { return 1 }
+        }
+    "#;
+
+    let result = run_expecting_success(source);
+    assert_eq!(result.exit_code, 0, "Less than or equal comparison failed");
+}
+
+/// Test greater than or equal
+#[test]
+fn test_comparison_greater_equal() {
+    let source = r#"
+        main = () i32 {
+            a = 10
+            b = 10
+            c = 15
+            // Both should be true: 10 >= 10 and 15 >= 10
+            (a >= b) ?
+                | true {
+                    (c >= a) ?
+                        | true { return 0 }
+                        | false { return 2 }
+                }
+                | false { return 1 }
+        }
+    "#;
+
+    let result = run_expecting_success(source);
+    assert_eq!(result.exit_code, 0, "Greater than or equal comparison failed");
+}
+
+// ============================================================================
+// LOOP TESTS
+// ============================================================================
+
+/// Test basic loop with break
+#[test]
+fn test_loop_with_break() {
+    let source = r#"
+        main = () i32 {
+            counter ::= 0
+            loop(() {
+                counter = counter + 1
+                (counter >= 5) ? { break }
+            })
+            counter == 5 ?
+                | true { return 0 }
+                | false { return 1 }
+        }
+    "#;
+
+    let result = run_expecting_success(source);
+    assert_eq!(result.exit_code, 0, "Loop with break failed");
+}
+
+/// Test loop with counter accumulation
+#[test]
+fn test_loop_counter() {
+    let source = r#"
+        main = () i32 {
+            count ::= 0
+            loop(() {
+                count = count + 1
+                (count == 10) ? { break }
+            })
+            // Should have counted to 10
+            count == 10 ?
+                | true { return 0 }
+                | false { return 1 }
+        }
+    "#;
+
+    let result = run_expecting_success(source);
+    assert_eq!(result.exit_code, 0, "Loop counter failed");
+}
+
+// ============================================================================
+// ENUM TESTS
+// ============================================================================
+
+/// Test simple enum without payload
+#[test]
+fn test_simple_enum() {
+    let source = r#"
+        Status: Active, Inactive, Banned
+
+        main = () i32 {
+            s = Status.Active
+            s ?
+                | .Active { return 0 }
+                | .Inactive { return 1 }
+                | .Banned { return 2 }
+        }
+    "#;
+
+    let result = run_expecting_success(source);
+    assert_eq!(result.exit_code, 0, "Simple enum pattern matching failed");
+}
+
+/// Test enum with multiple variants
+#[test]
+fn test_enum_multiple_branches() {
+    let source = r#"
+        Color: Red, Green, Blue
+
+        get_code = (c: Color) i32 {
+            c ?
+                | .Red { return 1 }
+                | .Green { return 2 }
+                | .Blue { return 3 }
+        }
+
+        main = () i32 {
+            r = get_code(Color.Red)
+            g = get_code(Color.Green)
+            b = get_code(Color.Blue)
+
+            // r=1, g=2, b=3, sum=6
+            sum = r + g + b
+            sum == 6 ?
+                | true { return 0 }
+                | false { return 1 }
+        }
+    "#;
+
+    let result = run_expecting_success(source);
+    assert_eq!(result.exit_code, 0, "Enum multiple branches failed");
+}

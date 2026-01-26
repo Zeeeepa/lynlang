@@ -9,6 +9,12 @@ pub struct ModuleResolver {
     exports: HashMap<String, HashSet<String>>,
 }
 
+impl Default for ModuleResolver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ModuleResolver {
     pub fn new() -> Self {
         ModuleResolver {
@@ -123,9 +129,10 @@ impl ModuleResolver {
     /// Note: We no longer rewrite function names because:
     /// 1. The codegen handles module.function patterns directly (e.g., io.println)
     /// 2. The typechecker registers functions with the original names
+    #[allow(clippy::only_used_in_recursion)]
     fn resolve_expression(&self, expr: &mut Expression) -> Result<(), String> {
         match expr {
-            Expression::FunctionCall { name: _, args } => {
+            Expression::FunctionCall { name: _, args, .. } => {
                 // Don't rewrite function names - codegen handles qualified names directly
                 // Just resolve arguments
                 for arg in args {

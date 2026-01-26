@@ -46,13 +46,12 @@ pub fn parse_interpolated_string(_parser: &mut Parser, input: String) -> Result<
             // Parse the interpolated expression
             let mut expr_str = String::new();
 
-            while let Some(ch) = chars.next() {
+            for ch in chars.by_ref() {
                 if ch == '\x02' {
                     // Found interpolation end marker
                     break;
-                } else {
-                    expr_str.push(ch);
                 }
+                expr_str.push(ch);
             }
 
             // Parse the expression string

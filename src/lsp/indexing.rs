@@ -18,7 +18,7 @@ pub fn index_workspace_files_recursive(path: &Path, symbols: &mut HashMap<String
         for entry in entries.flatten() {
             let entry_path = entry.path();
 
-            if entry_path.is_file() && entry_path.extension().map_or(false, |e| e == "zen") {
+            if entry_path.is_file() && entry_path.extension().is_some_and(|e| e == "zen") {
                 if let Ok(content) = fs::read_to_string(&entry_path) {
                     let file_path_str = entry_path.to_string_lossy();
                     let file_symbols = extract_symbols_static(&content, Some(&file_path_str));
@@ -56,7 +56,7 @@ pub fn index_stdlib_directory(path: &Path, symbols: &mut HashMap<String, SymbolI
         for entry in entries.flatten() {
             let entry_path = entry.path();
 
-            if entry_path.is_file() && entry_path.extension().map_or(false, |e| e == "zen") {
+            if entry_path.is_file() && entry_path.extension().is_some_and(|e| e == "zen") {
                 if let Ok(content) = fs::read_to_string(&entry_path) {
                     let file_path_str = entry_path.to_string_lossy();
                     let file_symbols = extract_symbols_static(&content, Some(&file_path_str));
@@ -86,16 +86,11 @@ pub fn find_stdlib_path() -> Option<std::path::PathBuf> {
     }
 
     // Try relative paths
-    let stdlib_paths = [
+    [
         std::path::PathBuf::from("./stdlib"),
         std::path::PathBuf::from("../stdlib"),
         std::path::PathBuf::from("../../stdlib"),
-    ];
-
-    for stdlib_path in stdlib_paths {
-        if stdlib_path.exists() {
-            return Some(stdlib_path);
-        }
-    }
-    None
+    ]
+    .into_iter()
+    .find(|p| p.exists())
 }

@@ -1,5 +1,5 @@
 use super::core::Parser;
-use crate::ast::AstType;
+use crate::ast::{AstType, primitive_from_str};
 use crate::error::Result;
 use crate::lexer::Token;
 use crate::well_known::well_known;
@@ -17,20 +17,14 @@ impl<'a> Parser<'a> {
                     type_name = format!("{}.{}", type_name, member);
                 }
 
+                // Check for primitive types using centralized lookup
+                if let Some(prim_type) = primitive_from_str(&type_name) {
+                    return Ok(prim_type);
+                }
+
+                // Handle special cases not in PRIMITIVE_TYPE_MAP
                 match type_name.as_str() {
-                    "i8" => Ok(AstType::I8),
-                    "i16" => Ok(AstType::I16),
-                    "i32" => Ok(AstType::I32),
-                    "i64" => Ok(AstType::I64),
-                    "u8" => Ok(AstType::U8),
-                    "u16" => Ok(AstType::U16),
-                    "u32" => Ok(AstType::U32),
-                    "u64" => Ok(AstType::U64),
-                    "usize" => Ok(AstType::Usize),
-                    "f32" => Ok(AstType::F32),
-                    "f64" => Ok(AstType::F64),
-                    "bool" => Ok(AstType::Bool),
-                    "StringLiteral" | "StaticString" => Ok(AstType::StaticString), // User-facing: string literals (compile-time, no allocator)
+                    "StringLiteral" => Ok(AstType::StaticString), // Alias for StaticString
                     // String is a struct type - return as Generic to be resolved later
                     // IMPORTANT: Do NOT call resolve_string_struct_type() here as it causes
                     // circular dependency with stdlib_types() OnceLock initialization
@@ -38,7 +32,6 @@ impl<'a> Parser<'a> {
                         name: "String".to_string(),
                         type_args: vec![],
                     }),
-                    "void" => Ok(AstType::Void),
                     "ptr" => Ok(AstType::ptr(AstType::Void)),
                     // Well-known pointer types (Ptr, MutPtr, RawPtr)
                     _ if well_known().is_ptr(&type_name) => {
@@ -57,73 +50,8 @@ impl<'a> Parser<'a> {
                             Err(self.syntax_error(format!("{} type requires type argument: {}<T>", type_name, type_name)))
                         }
                     }
-                    "Vec" => {
-                        // Vec<T> - Generic vector type OR Vec<T, size> - fixed-size array
-                        if !self.try_consume_operator("<") {
-                            return Err(self.syntax_error("Vec type requires type arguments: Vec<T, size>"));
-                        }
-
-                        // Parse element type
-                        let element_type = self.parse_type()?;
-
-                        // Check if it's Vec<T> (generic) or Vec<T, size> (fixed-size)
-                        if self.try_consume_operator(">") {
-                            // Vec<T> - generic vector, treat as user-defined generic type
-                            return Ok(AstType::Generic {
-                                name: "Vec".to_string(),
-                                type_args: vec![element_type],
-                            });
-                        }
-
-                        // Expect comma for Vec<T, size>
-                        if !self.try_consume_symbol(',') {
-                            return Err(self.syntax_error("Expected '>' or ',' in Vec type"));
-                        }
-
-                        // Parse size (must be integer literal)
-                        let size = match &self.current_token {
-                            Token::Integer(size_str) => {
-                                size_str.parse::<usize>().map_err(|_| {
-                                    self.syntax_error(format!("Invalid Vec size: {}", size_str))
-                                })?
-                            }
-                            _ => {
-                                return Err(self.syntax_error("Expected integer literal for Vec size"));
-                            }
-                        };
-                        self.next_token();
-
-                        self.expect_operator(">")?;
-
-                        Ok(AstType::Vec {
-                            element_type: Box::new(element_type),
-                            size,
-                        })
-                    }
-                    "DynVec" => {
-                        // DynVec<T> or DynVec<T1, T2, ...> - Dynamic vector with optional mixed types
-                        if !self.try_consume_operator("<") {
-                            return Err(self.syntax_error(
-                                "DynVec type requires type arguments: DynVec<T> or DynVec<T1, T2, ...>"
-                            ));
-                        }
-                        let mut element_types = Vec::new();
-
-                        loop {
-                            element_types.push(self.parse_type()?);
-
-                            if self.try_consume_operator(">") {
-                                break;
-                            } else if !self.try_consume_symbol(',') {
-                                return Err(self.syntax_error("Expected ',' or '>' in DynVec type arguments"));
-                            }
-                        }
-
-                        Ok(AstType::DynVec {
-                            element_types,
-                            allocator_type: None, // Allocator is specified at construction time
-                        })
-                    }
+                    // Vec<T> and DynVec<T> are stdlib generic types, not special AST types
+                    // They fall through to the generic type handling below
                     "str" | "string" => {
                         // Provide helpful error for common mistake
                         Err(self.syntax_error(
@@ -183,8 +111,8 @@ impl<'a> Parser<'a> {
                         _ => Err(self.syntax_error("Expected integer literal for array size")),
                     }
                 } else if self.try_consume_symbol(']') {
-                    // Dynamic array [T]
-                    Ok(AstType::Array(Box::new(element_type)))
+                    // Slice type [T] - pointer + length
+                    Ok(AstType::Slice(Box::new(element_type)))
                 } else {
                     Err(self.syntax_error("Expected ']' or ';' in array type"))
                 }

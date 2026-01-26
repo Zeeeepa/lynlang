@@ -65,8 +65,8 @@ impl StdlibResolver {
         }
 
         // Remove @std prefix
-        let path = if module_path.starts_with("@std.") {
-            &module_path[5..] // Remove "@std."
+        let path = if let Some(stripped) = module_path.strip_prefix("@std.") {
+            stripped
         } else if module_path == "@std" {
             return None; // @std itself doesn't resolve to a file
         } else {
@@ -220,11 +220,7 @@ impl StdlibResolver {
                 if let std::path::Component::Normal(name) = component {
                     if let Some(name_str) = name.to_str() {
                         // Remove .zen extension if present
-                        let name = if name_str.ends_with(".zen") {
-                            &name_str[..name_str.len() - 4]
-                        } else {
-                            name_str
-                        };
+                        let name = name_str.strip_suffix(".zen").unwrap_or(name_str);
 
                         // Skip "mod" files - they represent the directory
                         if name != "mod" {

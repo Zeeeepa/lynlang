@@ -9,23 +9,31 @@ use inkwell::{
 use std::collections::HashMap;
 
 impl<'ctx> LLVMCompiler<'ctx> {
+    /// Convert primitive AstType to LLVM BasicTypeEnum
+    /// Returns None for non-primitive types
+    fn primitive_to_llvm_basic(&self, type_: &AstType) -> Option<BasicTypeEnum<'ctx>> {
+        Some(match type_ {
+            AstType::I8 | AstType::U8 => self.context.i8_type().into(),
+            AstType::I16 | AstType::U16 => self.context.i16_type().into(),
+            AstType::I32 | AstType::U32 => self.context.i32_type().into(),
+            AstType::I64 | AstType::U64 | AstType::Usize => self.context.i64_type().into(),
+            AstType::F32 => self.context.f32_type().into(),
+            AstType::F64 => self.context.f64_type().into(),
+            AstType::Bool => self.context.bool_type().into(),
+            AstType::StaticLiteral | AstType::StaticString => {
+                self.context.ptr_type(AddressSpace::default()).into()
+            }
+            _ => return None,
+        })
+    }
+
     pub fn to_llvm_type(&mut self, type_: &AstType) -> Result<Type<'ctx>, CompileError> {
+        // Handle primitive types first using centralized helper
+        if let Some(basic) = self.primitive_to_llvm_basic(type_) {
+            return Ok(Type::Basic(basic));
+        }
+
         let result = match type_ {
-            AstType::I8 => Ok(Type::Basic(self.context.i8_type().into())),
-            AstType::I16 => Ok(Type::Basic(self.context.i16_type().into())),
-            AstType::I32 => Ok(Type::Basic(self.context.i32_type().into())),
-            AstType::I64 => Ok(Type::Basic(self.context.i64_type().into())),
-            AstType::U8 => Ok(Type::Basic(self.context.i8_type().into())),
-            AstType::U16 => Ok(Type::Basic(self.context.i16_type().into())),
-            AstType::U32 => Ok(Type::Basic(self.context.i32_type().into())),
-            AstType::U64 => Ok(Type::Basic(self.context.i64_type().into())),
-            AstType::Usize => Ok(Type::Basic(self.context.i64_type().into())), // usize as i64 on 64-bit systems
-            AstType::F32 => Ok(Type::Basic(self.context.f32_type().into())),
-            AstType::F64 => Ok(Type::Basic(self.context.f64_type().into())),
-            AstType::Bool => Ok(Type::Basic(self.context.bool_type().into())),
-            AstType::StaticLiteral | AstType::StaticString => Ok(Type::Basic(
-                self.context.ptr_type(AddressSpace::default()).into(),
-            )),
             // Note: String structs are now handled by the normal AstType::Struct branch below
             // since String is registered in struct_types via register_builtin_enums()
             AstType::Void => Ok(Type::Void),
@@ -60,11 +68,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 })?;
                 Ok(Type::Struct(struct_info.llvm_type))
             }
-            AstType::Array(inner) => {
+            AstType::Slice(inner) => {
+                // Slice [T] is a fat pointer: (ptr to data, length)
+                // For now, represent as pointer to element type
                 let inner_type = self.to_llvm_type(inner)?;
                 match inner_type {
-                    Type::Basic(basic_type) => Ok(Type::Basic(basic_type)), // Dynamic array (pointer)
-                    _ => Ok(Type::Basic(self.context.i8_type().array_type(0).into())), // Default to array of bytes
+                    Type::Basic(_) => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
+                    _ => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
                 }
             }
             AstType::FixedArray { element_type, size } => {
@@ -206,85 +216,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 );
                 Ok(Type::Struct(range_struct))
             }
-            AstType::Vec { element_type, size } => {
-                // Vec<T, size> - Fixed-size vector as struct containing array and length
-                let elem_llvm_type = self.to_llvm_type(element_type)?;
-                match elem_llvm_type {
-                    Type::Basic(basic_type) => {
-                        // Create struct: { [T; size], usize }
-                        let array_type = basic_type.array_type(*size as u32);
-                        let len_type = self.context.i64_type(); // Use i64 for length
-                        let vec_struct = self.context.struct_type(
-                            &[
-                                array_type.into(), // data: [T; size]
-                                len_type.into(),   // len: usize (current length)
-                            ],
-                            false,
-                        );
-                        Ok(Type::Struct(vec_struct))
-                    }
-                    Type::Struct(struct_type) => {
-                        // Handle struct element types properly
-                        let array_type = struct_type.array_type(*size as u32);
-                        let len_type = self.context.i64_type(); // Use i64 for length
-                        let vec_struct = self.context.struct_type(
-                            &[
-                                array_type.into(), // data: [T; size] where T is a struct
-                                len_type.into(),   // len: usize (current length)
-                            ],
-                            false,
-                        );
-                        Ok(Type::Struct(vec_struct))
-                    }
-                    _ => {
-                        // Fallback for other types (should not normally reach here)
-                        let array_type = self.context.i8_type().array_type(*size as u32);
-                        let len_type = self.context.i64_type();
-                        let vec_struct = self
-                            .context
-                            .struct_type(&[array_type.into(), len_type.into()], false);
-                        Ok(Type::Struct(vec_struct))
-                    }
-                }
-            }
-            AstType::DynVec {
-                element_types,
-                allocator_type: _,
-            } => {
-                // DynVec<T> - Dynamic vector as struct containing pointer, length, and capacity
-                // For mixed variant types, use a union or tagged union approach
-                if element_types.len() == 1 {
-                    // Single type DynVec: { ptr, len, capacity }
-                    let ptr_type = self.context.ptr_type(AddressSpace::default());
-                    let len_type = self.context.i64_type();
-                    let cap_type = self.context.i64_type();
-                    let dynvec_struct = self.context.struct_type(
-                        &[
-                            ptr_type.into(), // data: Ptr<T>
-                            len_type.into(), // len: usize
-                            cap_type.into(), // capacity: usize
-                        ],
-                        false,
-                    );
-                    Ok(Type::Struct(dynvec_struct))
-                } else {
-                    // Mixed variant DynVec: { ptr, len, capacity, discriminants }
-                    let ptr_type = self.context.ptr_type(AddressSpace::default());
-                    let len_type = self.context.i64_type();
-                    let cap_type = self.context.i64_type();
-                    let discriminant_ptr = self.context.ptr_type(AddressSpace::default()); // Pointer to discriminant array
-                    let dynvec_struct = self.context.struct_type(
-                        &[
-                            ptr_type.into(),         // data: Ptr<union>
-                            len_type.into(),         // len: usize
-                            cap_type.into(),         // capacity: usize
-                            discriminant_ptr.into(), // discriminants: Ptr<u8> for variant tracking
-                        ],
-                        false,
-                    );
-                    Ok(Type::Struct(dynvec_struct))
-                }
-            }
+            // Vec<T>, DynVec<T>, HashMap<K,V> etc. are stdlib Generic types
+            // They're handled by the Generic branch below, resolved from stdlib struct definitions
             AstType::Generic { name, type_args } => {
                 if name.is_empty() {
                     return Ok(Type::Basic(self.context.i32_type().into()));
@@ -345,12 +278,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 {
                     // Check if it's an enum type that was parsed as Generic
                     Ok(Type::Struct(enum_info.llvm_type))
-                } else if name == "DynVec" && type_args.len() == 1 {
-                    let dynvec_type = AstType::DynVec {
-                        element_types: type_args.clone(),
-                        allocator_type: None,
-                    };
-                    self.to_llvm_type(&dynvec_type)
+                } else if (name == "Vec" || name == "DynVec") && !type_args.is_empty() {
+                    // Vec<T> and DynVec<T> are stdlib structs: { ptr, len, capacity, allocator }
+                    let ptr_type = self.context.ptr_type(AddressSpace::default());
+                    let len_type = self.context.i64_type();
+                    let vec_struct = self.context.struct_type(
+                        &[
+                            ptr_type.into(), // data: Ptr<T>
+                            len_type.into(), // len: usize
+                            len_type.into(), // capacity: usize
+                            ptr_type.into(), // allocator: Allocator (pointer)
+                        ],
+                        false,
+                    );
+                    Ok(Type::Struct(vec_struct))
                 } else if type_args
                     .iter()
                     .any(|t| matches!(t, AstType::Generic { .. }))
@@ -386,6 +327,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // It's represented as an i64 in LLVM (storing module identifier)
                 Ok(Type::Basic(self.context.i64_type().into()))
             }
+            // Catch-all: primitives are handled by primitive_to_llvm_basic() above
+            // This should never be reached for valid code
+            _ => Err(CompileError::UnsupportedFeature(
+                format!("Unhandled type in LLVM conversion: {:?}", type_),
+                self.get_current_span(),
+            ))
         };
         result
     }
@@ -418,23 +365,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let mut fields = HashMap::new();
 
         for (index, field) in struct_def.fields.iter().enumerate() {
-            let llvm_type = match &field.type_ {
-                AstType::I8 => self.context.i8_type().as_basic_type_enum(),
-                AstType::I16 => self.context.i16_type().as_basic_type_enum(),
-                AstType::I32 => self.context.i32_type().as_basic_type_enum(),
-                AstType::I64 => self.context.i64_type().as_basic_type_enum(),
-                AstType::U8 => self.context.i8_type().as_basic_type_enum(),
-                AstType::U16 => self.context.i16_type().as_basic_type_enum(),
-                AstType::U32 => self.context.i32_type().as_basic_type_enum(),
-                AstType::U64 => self.context.i64_type().as_basic_type_enum(),
-                AstType::Usize => self.context.i64_type().as_basic_type_enum(),
-                AstType::F32 => self.context.f32_type().as_basic_type_enum(),
-                AstType::F64 => self.context.f64_type().as_basic_type_enum(),
-                AstType::Bool => self.context.bool_type().as_basic_type_enum(),
-                AstType::StaticLiteral | AstType::StaticString => self
-                    .context
-                    .ptr_type(AddressSpace::default())
-                    .as_basic_type_enum(),
+            // Use centralized primitive-to-LLVM conversion
+            let llvm_type = if let Some(basic) = self.primitive_to_llvm_basic(&field.type_) {
+                basic
+            } else {
+                match &field.type_ {
                 AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => self
                     .context
                     .ptr_type(AddressSpace::default())
@@ -492,6 +427,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         None,
                     ))
                 }
+            }
             };
 
             field_types.push(llvm_type);
@@ -544,18 +480,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
             if let Some(payload_type) = &variant.payload {
                 if !matches!(payload_type, AstType::Void) {
                     has_payloads = true;
-                    let payload_size = match payload_type {
-                        AstType::I8 | AstType::U8 | AstType::Bool => 8,
-                        AstType::I16 | AstType::U16 => 16,
-                        AstType::I32 | AstType::U32 | AstType::F32 => 32,
-                        AstType::I64 | AstType::U64 | AstType::F64 | AstType::Usize => 64,
-                        AstType::StaticLiteral | AstType::StaticString => 64,
-                        AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => 64,
-                        t if t.is_ptr_type() => 64,
-                        AstType::Struct { .. } | AstType::Generic { .. } => 64,
+                    // Use centralized bit_size for numeric types, otherwise default to 64 bits
+                    let payload_size = crate::ast::bit_size(payload_type).unwrap_or(match payload_type {
+                        AstType::Bool => 8,  // Bool stored as 1 byte in LLVM
                         AstType::Void => 0,
-                        _ => 64,
-                    };
+                        _ => 64,  // Pointers, strings, structs, generics are 64-bit
+                    });
                     max_payload_size = max_payload_size.max(payload_size);
                 }
             }

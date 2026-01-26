@@ -26,8 +26,9 @@ impl<'ctx> Compiler<'ctx> {
     /// Core compilation pipeline - shared by compile_llvm and get_module
     #[allow(dead_code)]
     fn run_pipeline(&self, program: &Program) -> Result<LLVMCompiler<'ctx>> {
-        // Process module imports
-        let processed_program = self.process_imports(program)?;
+        // Process module imports (this loads stdlib modules)
+        let mut module_system = ModuleSystem::new();
+        let processed_program = self.process_imports_with_system(program, &mut module_system)?;
 
         // Execute comptime blocks and expressions
         let processed_program = self.execute_comptime(processed_program)?;
@@ -36,12 +37,18 @@ impl<'ctx> Compiler<'ctx> {
         let processed_program = self.resolve_self_types(processed_program)?;
 
         // Type check the program and get TypeContext
+        // Pass loaded stdlib modules to TypeChecker so it can extract type info
         let mut typechecker = TypeChecker::new();
+        typechecker.with_stdlib_modules(module_system.get_modules());
         let type_ctx = typechecker.check_program(&processed_program)?;
 
         // Monomorphize the program to resolve all generic types
-        let mut monomorphizer = Monomorphizer::new();
+        // Monomorphizer uses TypeContext for type lookups
+        let mut monomorphizer = Monomorphizer::new(type_ctx);
         let monomorphized_program = monomorphizer.monomorphize_program(&processed_program)?;
+
+        // Get TypeContext back from monomorphizer (possibly updated with new instantiations)
+        let type_ctx = monomorphizer.into_type_context();
 
         // Pass TypeContext to codegen so it can look up types instead of re-inferring
         let mut llvm_compiler = LLVMCompiler::new(self.context, type_ctx);
@@ -81,6 +88,11 @@ impl<'ctx> Compiler<'ctx> {
     #[allow(dead_code)]
     fn process_imports(&self, program: &Program) -> Result<Program> {
         let mut module_system = ModuleSystem::new();
+        self.process_imports_with_system(program, &mut module_system)
+    }
+
+    /// Process module imports with a provided ModuleSystem (allows reuse)
+    fn process_imports_with_system(&self, program: &Program, module_system: &mut ModuleSystem) -> Result<Program> {
         let mut resolver = ModuleResolver::new();
 
         // Process all module imports
@@ -276,13 +288,14 @@ impl<'ctx> Compiler<'ctx> {
                 op,
                 right: Box::new(self.process_expression_comptime(*right, interpreter)?),
             }),
-            Expression::FunctionCall { name, args } => {
+            Expression::FunctionCall { name, type_args, args } => {
                 let mut processed_args = Vec::new();
                 for arg in args {
                     processed_args.push(self.process_expression_comptime(arg, interpreter)?);
                 }
                 Ok(Expression::FunctionCall {
-                    name,
+                    name: name.clone(),
+                    type_args: type_args.clone(),
                     args: processed_args,
                 })
             }
@@ -394,8 +407,8 @@ impl<'ctx> Compiler<'ctx> {
             }
         };
 
-        // Try to monomorphize
-        let mut monomorphizer = Monomorphizer::new();
+        // Try to monomorphize (uses TypeContext for type lookups)
+        let mut monomorphizer = Monomorphizer::new(type_ctx);
         let monomorphized_program = match monomorphizer.monomorphize_program(&processed_program) {
             Ok(p) => p,
             Err(err) => {
@@ -403,6 +416,9 @@ impl<'ctx> Compiler<'ctx> {
                 return errors; // Can't continue without monomorphization
             }
         };
+
+        // Get TypeContext back from monomorphizer
+        let type_ctx = monomorphizer.into_type_context();
 
         // Try to compile to LLVM
         let mut llvm_compiler = LLVMCompiler::new(self.context, type_ctx);

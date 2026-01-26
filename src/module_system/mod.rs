@@ -17,6 +17,12 @@ pub struct ModuleSystem {
     cwd: PathBuf,
 }
 
+impl Default for ModuleSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ModuleSystem {
     pub fn new() -> Self {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -202,7 +208,7 @@ impl ModuleSystem {
 
             // Also try as a directory with mod.zen
             let mod_path = search_path
-                .join(&module_path.replace('.', "/"))
+                .join(module_path.replace('.', "/"))
                 .join("mod.zen");
             if mod_path.exists() {
                 return Ok(mod_path);
@@ -225,7 +231,7 @@ impl ModuleSystem {
         let mut merged = main_program;
 
         // Add all declarations from imported modules
-        for (_path, module) in &self.modules {
+        for module in self.modules.values() {
             for decl in &module.declarations {
                 // Skip duplicate imports
                 if !matches!(decl, Declaration::ModuleImport { .. }) {

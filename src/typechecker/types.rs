@@ -1,85 +1,58 @@
-use crate::ast::AstType;
+use crate::ast::{AstType, NUMERIC_TYPES, INTEGER_TYPES, FLOAT_TYPES, SIGNED_INT_TYPES, UNSIGNED_INT_TYPES};
+use crate::ast::primitives::bit_size as primitive_bit_size;
 use crate::stdlib_types::StdlibTypeRegistry;
 
 /// Helper functions for working with types
 impl AstType {
     /// Check if this type is numeric (integer or float)
     pub fn is_numeric(&self) -> bool {
-        matches!(
-            self,
-            AstType::I8
-                | AstType::I16
-                | AstType::I32
-                | AstType::I64
-                | AstType::U8
-                | AstType::U16
-                | AstType::U32
-                | AstType::U64
-                | AstType::Usize
-                | AstType::F32
-                | AstType::F64
-        )
+        NUMERIC_TYPES.contains(self)
     }
 
     /// Check if this type is an integer type
     pub fn is_integer(&self) -> bool {
-        matches!(
-            self,
-            AstType::I8
-                | AstType::I16
-                | AstType::I32
-                | AstType::I64
-                | AstType::U8
-                | AstType::U16
-                | AstType::U32
-                | AstType::U64
-                | AstType::Usize
-        )
+        INTEGER_TYPES.contains(self)
     }
 
     /// Check if this type is a floating-point type
     pub fn is_float(&self) -> bool {
-        matches!(self, AstType::F32 | AstType::F64)
+        FLOAT_TYPES.contains(self)
     }
 
     /// Check if this type is a signed integer
     #[allow(dead_code)]
     pub fn is_signed_integer(&self) -> bool {
-        matches!(
-            self,
-            AstType::I8 | AstType::I16 | AstType::I32 | AstType::I64
-        )
+        SIGNED_INT_TYPES.contains(self)
     }
 
     /// Check if this type is an unsigned integer
     pub fn is_unsigned_integer(&self) -> bool {
-        matches!(
-            self,
-            AstType::U8 | AstType::U16 | AstType::U32 | AstType::U64 | AstType::Usize
-        )
+        UNSIGNED_INT_TYPES.contains(self)
     }
 
     /// Get the size of the type in bits
     pub fn bit_size(&self) -> Option<usize> {
-        match self {
-            AstType::I8 | AstType::U8 => Some(8),
-            AstType::I16 | AstType::U16 => Some(16),
-            AstType::I32 | AstType::U32 | AstType::F32 => Some(32),
-            AstType::I64 | AstType::U64 | AstType::F64 | AstType::Usize => Some(64), // usize is 64-bit on 64-bit platforms
-            AstType::Bool => Some(1),
-            _ => None,
+        // Use centralized bit_size for numeric types
+        if let Some(size) = primitive_bit_size(self) {
+            return Some(size as usize);
         }
+        // Handle Bool separately (not in primitive_bit_size)
+        if matches!(self, AstType::Bool) {
+            return Some(1);
+        }
+        None
     }
 
     /// Get a default value for initialization
     #[allow(dead_code)]
     pub fn default_value(&self) -> String {
+        if self.is_integer() {
+            return "0".to_string();
+        }
+        if self.is_float() {
+            return "0.0".to_string();
+        }
         match self {
-            AstType::I8 | AstType::I16 | AstType::I32 | AstType::I64 => "0".to_string(),
-            AstType::U8 | AstType::U16 | AstType::U32 | AstType::U64 | AstType::Usize => {
-                "0".to_string()
-            }
-            AstType::F32 | AstType::F64 => "0.0".to_string(),
             AstType::Bool => "false".to_string(),
             AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => "\"\"".to_string(),
             t if t.is_ptr_type() => "null".to_string(),

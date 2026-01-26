@@ -398,9 +398,7 @@ fn split_method_chain(receiver: &str) -> Vec<String> {
                 current.push(ch);
             }
             ')' if !in_string => {
-                if paren_depth > 0 {
-                    paren_depth -= 1;
-                }
+                paren_depth = paren_depth.saturating_sub(1);
                 current.push(ch);
             }
             '.' if !in_string && paren_depth == 0 => {
@@ -432,7 +430,7 @@ pub fn find_self_type_in_enclosing_function(content: &str, position: Position) -
         if let Some(self_pos) = line.find("self:") {
             let after_self = &line[self_pos + 5..];
             let type_end = after_self
-                .find(|c| c == ',' || c == ')')
+                .find([',', ')'])
                 .unwrap_or(after_self.len());
             let self_type = after_self[..type_end].trim();
             if !self_type.is_empty() {
@@ -583,7 +581,7 @@ pub fn infer_function_return_types(
     use crate::ast::Declaration;
 
     // Try AST first (most accurate)
-    for (_uri, doc) in all_docs {
+    for doc in all_docs.values() {
         if let Some(ast) = &doc.ast {
             for decl in ast {
                 if let Declaration::Function(func) = decl {
@@ -600,7 +598,7 @@ pub fn infer_function_return_types(
     }
 
     // Fallback: parse from source code if AST unavailable (e.g., parse errors)
-    for (_uri, doc) in all_docs {
+    for doc in all_docs.values() {
         let result = parse_function_from_source(&doc.content, func_name);
         if result.0.is_some() && result.1.is_some() {
             return result;

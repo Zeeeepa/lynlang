@@ -53,12 +53,8 @@ fn position_to_byte_offset(content: &str, target_line: usize, target_char: usize
         }
     }
 
-    // Handle position at end of file or beyond
-    if current_line == target_line && current_char == target_char {
-        content.len()
-    } else {
-        content.len() // Clamp to content length
-    }
+    // Clamp to content length for positions at end of file or beyond
+    content.len()
 }
 
 /// Apply a text edit to document content, handling LSP Range positions
@@ -575,10 +571,7 @@ impl ZenLanguageServer {
         uri: Url,
         diagnostics: Vec<Diagnostic>,
     ) -> Result<(), Box<dyn Error>> {
-        // Publishing diagnostics
-        for (_i, _diag) in diagnostics.iter().enumerate() {
-            // Diagnostic logged
-        }
+        // Publishing diagnostics (previously logged individually)
 
         let params = PublishDiagnosticsParams {
             uri,

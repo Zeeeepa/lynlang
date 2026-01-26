@@ -13,7 +13,7 @@ pub fn compile_function_call<'ctx>(
     expr: &Expression,
 ) -> Result<BasicValueEnum<'ctx>, CompileError> {
     match expr {
-        Expression::FunctionCall { name, args } => {
+        Expression::FunctionCall { name, args, .. } => {
             function_calls::compile_function_call(compiler, name, args)
         }
         _ => Err(CompileError::InternalError(
@@ -31,8 +31,9 @@ pub fn compile_method_call<'ctx>(
         Expression::MethodCall {
             object,
             method,
+            type_args,
             args,
-        } => compiler.compile_method_call(object, method, args),
+        } => compiler.compile_method_call_with_type_args(object, method, type_args, args),
         _ => Err(CompileError::InternalError(
             format!("Expected MethodCall, got {:?}", expr),
             None,

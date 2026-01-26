@@ -26,20 +26,13 @@ pub(crate) fn generate_instantiated_name(base_name: &str, type_args: &[AstType])
 
 /// Convert an AstType to a string suitable for name mangling
 pub(crate) fn type_to_string(ast_type: &AstType) -> String {
+    // Use centralized primitive name lookup first
+    if let Some(name) = ast_type.primitive_name() {
+        return name.to_string();
+    }
+
     match ast_type {
-        AstType::I8 => "i8".to_string(),
-        AstType::I16 => "i16".to_string(),
-        AstType::I32 => "i32".to_string(),
-        AstType::I64 => "i64".to_string(),
-        AstType::U8 => "u8".to_string(),
-        AstType::U16 => "u16".to_string(),
-        AstType::U32 => "u32".to_string(),
-        AstType::U64 => "u64".to_string(),
-        AstType::F32 => "f32".to_string(),
-        AstType::F64 => "f64".to_string(),
-        AstType::Bool => "bool".to_string(),
         AstType::Struct { name, .. } if StdlibTypeRegistry::is_string_type(name) => "string".to_string(),
-        AstType::Void => "void".to_string(),
         t if t.is_ptr_type() => {
             if let Some(inner) = t.ptr_inner() {
                 format!("ptr_{}", type_to_string(inner))
@@ -47,7 +40,7 @@ pub(crate) fn type_to_string(ast_type: &AstType) -> String {
                 "ptr".to_string()
             }
         }
-        AstType::Array(inner) => format!("arr_{}", type_to_string(inner)),
+        AstType::Slice(inner) => format!("slice_{}", type_to_string(inner)),
         AstType::Generic { name, type_args } => {
             if type_args.is_empty() {
                 name.clone()
@@ -56,6 +49,7 @@ pub(crate) fn type_to_string(ast_type: &AstType) -> String {
                 format!("{}_{}", name, args.join("_"))
             }
         }
+        AstType::Struct { name, .. } => name.clone(),
         _ => "unknown".to_string(),
     }
 }
@@ -70,6 +64,12 @@ pub struct GenericInstance {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeSubstitution {
     pub mappings: HashMap<String, AstType>,
+}
+
+impl Default for TypeSubstitution {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TypeSubstitution {
@@ -109,7 +109,7 @@ impl TypeSubstitution {
                     ast_type.clone()
                 }
             }
-            AstType::Array(inner) => AstType::Array(Box::new(self.apply(inner))),
+            AstType::Slice(inner) => AstType::Slice(Box::new(self.apply(inner))),
             // Option and Result are now Generic types - handled in Generic match above
             AstType::Ref(inner) => AstType::Ref(Box::new(self.apply(inner))),
             AstType::Function { args, return_type } => AstType::Function {

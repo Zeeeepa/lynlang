@@ -92,9 +92,9 @@ impl ComptimeValue {
             ComptimeValue::String(_) => crate::ast::resolve_string_struct_type(),
             ComptimeValue::Array(v) => {
                 if v.is_empty() {
-                    AstType::Array(Box::new(AstType::Void))
+                    AstType::Slice(Box::new(AstType::Void))
                 } else {
-                    AstType::Array(Box::new(v[0].get_type()))
+                    AstType::Slice(Box::new(v[0].get_type()))
                 }
             }
             ComptimeValue::Struct { name, .. } => AstType::Struct {
@@ -431,7 +431,7 @@ impl ComptimeInterpreter {
                 self.evaluate_binary_op(left_val, op, right_val)
             }
 
-            Expression::FunctionCall { name, args } => self.evaluate_function_call(name, args),
+            Expression::FunctionCall { name, args, .. } => self.evaluate_function_call(name, args),
 
             Expression::ArrayLiteral(elements) => {
                 let values: Result<Vec<_>> = elements

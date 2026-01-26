@@ -1,56 +1,73 @@
 use super::GenericInstance;
-use crate::ast::{AstType, EnumDefinition, Function, StructDefinition, TypeParameter};
+use crate::ast::{AstType, Declaration, EnumDefinition, Function, Program, StructDefinition, TypeParameter};
 use crate::error::CompileError;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
-pub struct TypeEnvironment {
-    generic_functions: HashMap<String, Function>,
-    generic_structs: HashMap<String, StructDefinition>,
-    generic_enums: HashMap<String, EnumDefinition>,
+/// TypeEnvironment queries generic types from a Program instead of duplicating storage.
+/// This eliminates duplication - the Program is the single source of truth.
+#[derive(Debug)]
+pub struct TypeEnvironment<'prog> {
+    /// Reference to the Program containing generic type definitions
+    program: &'prog Program,
+    /// Index mapping: type name -> index in program.declarations for fast lookup
+    generic_indices: HashMap<String, usize>,
     #[allow(dead_code)] // instantiated_types reserved for future use
     instantiated_types: HashMap<String, Vec<GenericInstance>>,
 }
 
-impl TypeEnvironment {
-    pub fn new() -> Self {
+impl<'prog> TypeEnvironment<'prog> {
+    /// Create a new TypeEnvironment that queries the given Program for generic types
+    pub fn new(program: &'prog Program) -> Self {
+        let mut generic_indices = HashMap::new();
+        
+        // Build index of generic types for fast lookup
+        for (idx, decl) in program.declarations.iter().enumerate() {
+            let name = match decl {
+                Declaration::Function(func) if !func.type_params.is_empty() => Some(&func.name),
+                Declaration::Struct(struct_def) if !struct_def.type_params.is_empty() => Some(&struct_def.name),
+                Declaration::Enum(enum_def) if !enum_def.type_params.is_empty() => Some(&enum_def.name),
+                _ => None,
+            };
+            if let Some(name) = name {
+                generic_indices.insert(name.clone(), idx);
+            }
+        }
+        
         Self {
-            generic_functions: HashMap::new(),
-            generic_structs: HashMap::new(),
-            generic_enums: HashMap::new(),
+            program,
+            generic_indices,
             instantiated_types: HashMap::new(),
         }
     }
 
-    pub fn register_generic_function(&mut self, func: Function) {
-        if !func.type_params.is_empty() {
-            self.generic_functions.insert(func.name.clone(), func);
-        }
-    }
-
-    pub fn register_generic_struct(&mut self, struct_def: StructDefinition) {
-        if !struct_def.type_params.is_empty() {
-            self.generic_structs
-                .insert(struct_def.name.clone(), struct_def);
-        }
-    }
-
-    pub fn register_generic_enum(&mut self, enum_def: EnumDefinition) {
-        if !enum_def.type_params.is_empty() {
-            self.generic_enums.insert(enum_def.name.clone(), enum_def);
-        }
-    }
-
+    /// Get a generic function by name (queries Program, doesn't store duplicates)
     pub fn get_generic_function(&self, name: &str) -> Option<&Function> {
-        self.generic_functions.get(name)
+        self.generic_indices.get(name).and_then(|&idx| {
+            match &self.program.declarations[idx] {
+                Declaration::Function(func) if !func.type_params.is_empty() => Some(func),
+                _ => None,
+            }
+        })
     }
 
+    /// Get a generic struct by name (queries Program, doesn't store duplicates)
     pub fn get_generic_struct(&self, name: &str) -> Option<&StructDefinition> {
-        self.generic_structs.get(name)
+        self.generic_indices.get(name).and_then(|&idx| {
+            match &self.program.declarations[idx] {
+                Declaration::Struct(struct_def) if !struct_def.type_params.is_empty() => Some(struct_def),
+                _ => None,
+            }
+        })
     }
 
+    /// Get a generic enum by name (queries Program, doesn't store duplicates)
     pub fn get_generic_enum(&self, name: &str) -> Option<&EnumDefinition> {
-        self.generic_enums.get(name)
+        self.generic_indices.get(name).and_then(|&idx| {
+            match &self.program.declarations[idx] {
+                Declaration::Enum(enum_def) if !enum_def.type_params.is_empty() => Some(enum_def),
+                _ => None,
+            }
+        })
     }
 
     #[allow(dead_code)] // validate_type_args is public API for future use

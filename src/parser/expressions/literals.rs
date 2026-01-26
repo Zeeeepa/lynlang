@@ -2,7 +2,7 @@
 
 #![allow(dead_code)]
 
-use crate::ast::Expression;
+use crate::ast::{AstType, Expression};
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
 use crate::parser::core::Parser;
@@ -134,49 +134,45 @@ pub fn parse_special_identifier_with_ufc(parser: &mut Parser, name: &str) -> Res
         _ => Expression::Identifier(name.to_string()),
     };
 
-    loop {
-        match &parser.current_token {
-            Token::Symbol('.') => {
-                parser.next_token();
+    while let Token::Symbol('.') = &parser.current_token {
+        parser.next_token();
 
-                let member = match &parser.current_token {
-                    Token::Identifier(name) => name.clone(),
-                    _ => {
-                        return Err(CompileError::SyntaxError(
-                            "Expected identifier after '.'".to_string(),
-                            Some(parser.current_span.clone()),
-                        ));
-                    }
-                };
-                parser.next_token();
-
-                // Check for generic type arguments like sizeof<i32>
-                let method_name = if parser.current_token == Token::Operator("<".to_string()) {
-                    // Parse generic type arguments and append to method name
-                    let type_args = parse_generic_type_args_to_string(parser)?;
-                    format!("{}<{}>", member, type_args)
-                } else {
-                    member
-                };
-
-                if parser.current_token == Token::Symbol('(') {
-                    return super::calls::parse_call_expression_with_object(parser, expr, method_name);
-                } else {
-                    expr = Expression::MemberAccess {
-                        object: Box::new(expr),
-                        member: method_name,
-                    };
-                }
+        let member = match &parser.current_token {
+            Token::Identifier(name) => name.clone(),
+            _ => {
+                return Err(CompileError::SyntaxError(
+                    "Expected identifier after '.'".to_string(),
+                    Some(parser.current_span.clone()),
+                ));
             }
-            _ => break,
+        };
+        parser.next_token();
+
+        // Check for generic type arguments like sizeof<i32>
+        let method_name = if parser.current_token == Token::Operator("<".to_string()) {
+            // Parse generic type arguments and append to method name
+            let type_args = parse_generic_type_args_to_string(parser)?;
+            format!("{}<{}>", member, type_args)
+        } else {
+            member
+        };
+
+        if parser.current_token == Token::Symbol('(') {
+            return super::calls::parse_call_expression_with_object(parser, expr, method_name);
+        } else {
+            expr = Expression::MemberAccess {
+                object: Box::new(expr),
+                member: method_name,
+            };
         }
     }
 
     Ok(expr)
 }
 
-pub fn parse_generic_type_args_to_string(parser: &mut Parser) -> Result<String> {
-    parser.next_token();
+/// Parse generic type arguments like `<i32, String>` and return as Vec<AstType>
+pub fn parse_generic_type_args(parser: &mut Parser) -> Result<Vec<AstType>> {
+    parser.next_token(); // consume '<'
     let mut type_args = Vec::new();
 
     loop {
@@ -184,8 +180,8 @@ pub fn parse_generic_type_args_to_string(parser: &mut Parser) -> Result<String> 
 
         if parser.current_token == Token::Symbol(',') {
             parser.next_token();
-        } else if parser.current_token == Token::Operator(">".to_string()) {
-            parser.next_token();
+        } else if parser.try_consume_operator(">") {
+            // Handles >> for nested generics
             break;
         } else {
             return Err(CompileError::SyntaxError(
@@ -195,6 +191,13 @@ pub fn parse_generic_type_args_to_string(parser: &mut Parser) -> Result<String> 
         }
     }
 
+    Ok(type_args)
+}
+
+/// Parse generic type arguments and return as string (legacy - prefer parse_generic_type_args)
+/// TODO: Remove this once all callers use parse_generic_type_args
+pub fn parse_generic_type_args_to_string(parser: &mut Parser) -> Result<String> {
+    let type_args = parse_generic_type_args(parser)?;
     let type_args_str = type_args
         .iter()
         .map(|t| format!("{}", t))

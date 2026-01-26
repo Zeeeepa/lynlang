@@ -1,7 +1,7 @@
 // Loop syntax is simplified - only conditional and infinite loops are supported.
 // Range and iterator loops have been removed in favor of functional iteration.
 use super::core::Parser;
-use super::statements_guard::check_declaration_keyword_guard;
+use super::statements_guard::{check_declaration_keyword_guard, check_statement_keyword_guard};
 use crate::ast::{Declaration, Expression, Program, Statement, VariableDeclarationType};
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
@@ -689,12 +689,10 @@ impl<'a> Parser<'a> {
                 // Might be impl block or method
                 let impl_saved = self.save_state();
                 let type_name = self.parse_type_name_with_generics()?;
-                if self.try_consume_symbol('.') {
-                    if self.is_keyword("impl") {
-                        self.next_token();
-                        self.expect_operator("=")?;
-                        return Ok(vec![Declaration::ImplBlock(self.parse_impl_block(type_name)?)]);
-                    }
+                if self.try_consume_symbol('.') && self.is_keyword("impl") {
+                    self.next_token();
+                    self.expect_operator("=")?;
+                    return Ok(vec![Declaration::ImplBlock(self.parse_impl_block(type_name)?)]);
                 }
                 // Restore and try other patterns
                 self.restore_state(impl_saved);
@@ -746,184 +744,13 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_statement(&mut self) -> Result<Statement> {
+        // Check for common keywords from other languages and provide helpful error messages
+        if let Some(err) = check_statement_keyword_guard(&self.current_token, &self.current_span) {
+            return err.map(|_| unreachable!());
+        }
+
         match &self.current_token {
-            // ================================================================
-            // HELPFUL GUARDS FOR COMMON PATTERNS FROM OTHER LANGUAGES
-            // ================================================================
-            Token::Identifier(id) if id == "const" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'const'. Use '=' for immutable bindings (x = 5) or 'mut' for mutable (x ::= 5)"
-                ));
-            }
-            Token::Identifier(id) if id == "let" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'let'. Use '=' for immutable bindings (x = 5) or '::=' for mutable (x ::= 5)"
-                ));
-            }
-            Token::Identifier(id) if id == "var" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'var'. Use '=' for immutable bindings (x = 5) or '::=' for mutable (x ::= 5)"
-                ));
-            }
-            Token::Identifier(id) if id == "if" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'if'. Use '?' for conditionals: condition ? { true_branch } or value ? | pattern => result"
-                ));
-            }
-            Token::Identifier(id) if id == "else" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'else'. Use pattern matching with '?': condition ? | true => a | false => b"
-                ));
-            }
-            Token::Identifier(id) if id == "while" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'while'. Use 'loop condition { }' for conditional loops"
-                ));
-            }
-            Token::Identifier(id) if id == "for" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'for' loops. Use functional iteration: collection.each((item) { ... })"
-                ));
-            }
-            Token::Identifier(id) if id == "fn" || id == "func" || id == "function" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'fn'/'func'/'function'. Define functions as: name = (params) ReturnType { body }"
-                ));
-            }
-            Token::Identifier(id) if id == "match" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'match'. Use '?' for pattern matching: value ? | pattern => result"
-                ));
-            }
-            Token::Identifier(id) if id == "switch" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'switch'. Use '?' for pattern matching: value ? | pattern => result"
-                ));
-            }
-            Token::Identifier(id) if id == "case" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'case'. Use '?' pattern matching with '|': value ? | pattern => result"
-                ));
-            }
-            Token::Identifier(id) if id == "def" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'def'. Define functions as: name = (params) ReturnType { body }"
-                ));
-            }
-            Token::Identifier(id) if id == "new" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'new'. Create instances with: Type { field: value } or Type.init()"
-                ));
-            }
-            Token::Identifier(id) if id == "try" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'try/catch'. Use '?' for error handling: result ? | .Ok(v) => v | .Err(e) => handle(e)"
-                ));
-            }
-            Token::Identifier(id) if id == "catch" || id == "except" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'catch/except'. Use '?' pattern matching for error handling"
-                ));
-            }
-            Token::Identifier(id) if id == "throw" || id == "raise" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'throw/raise'. Return error types: return .Err(error)"
-                ));
-            }
-            Token::Identifier(id) if id == "async" || id == "await" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'async/await'. Use the async runtime: task.spawn(() { ... })"
-                ));
-            }
-            Token::Identifier(id) if id == "yield" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'yield'. Use iterators or callbacks for lazy evaluation"
-                ));
-            }
-            Token::Identifier(id) if id == "null" || id == "nil" || id == "nullptr" || id == "None" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'null/nil/None'. Use Option type: .Some(value) or .None"
-                ));
-            }
-            Token::Identifier(id) if id == "this" => {
-                return Err(self.syntax_error(
-                    "Zen uses '@this' instead of 'this' for self-reference in methods"
-                ));
-            }
-            // Note: 'self' is allowed as a regular identifier/parameter name in Zen
-            // It's commonly used as a method parameter: method = (self: Type) { ... }
-            Token::Identifier(id) if id == "static" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'static'. Top-level bindings are module-scoped. Use 'comptime' for compile-time values"
-                ));
-            }
-            Token::Identifier(id) if id == "private" || id == "protected" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'private/protected'. Use 'pub' for public visibility, otherwise items are module-private"
-                ));
-            }
-            Token::Identifier(id) if id == "public" => {
-                return Err(self.syntax_error(
-                    "Zen uses 'pub' instead of 'public' for visibility"
-                ));
-            }
-            Token::Identifier(id) if id == "extends" || id == "inherits" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use inheritance. Use composition and traits: Type.implements(Trait, { ... })"
-                ));
-            }
-            Token::Identifier(id) if id == "super" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'super'. Use composition instead of inheritance"
-                ));
-            }
-            Token::Identifier(id) if id == "abstract" || id == "virtual" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'abstract/virtual'. Define traits for polymorphism"
-                ));
-            }
-            Token::Identifier(id) if id == "final" || id == "sealed" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'final/sealed'. Types are not inheritable by default"
-                ));
-            }
-            Token::Identifier(id) if id == "package" || id == "module" || id == "mod" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'package/module/mod'. Files are modules. Import with: name = @std.module"
-                ));
-            }
-            Token::Identifier(id) if id == "from" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'from'. Import modules as: { a, b } = @std.module"
-                ));
-            }
-            Token::Identifier(id) if id == "do" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'do'. Use 'loop { }' for loops or blocks directly"
-                ));
-            }
-            Token::Identifier(id) if id == "goto" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't support 'goto'. Use structured control flow with loops and pattern matching"
-                ));
-            }
-            Token::Identifier(id) if id == "lambda" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'lambda'. Define closures as: (params) { body } or (params) ReturnType { body }"
-                ));
-            }
-            Token::Identifier(id) if id == "typeof" || id == "instanceof" => {
-                return Err(self.syntax_error(
-                    "Zen doesn't use 'typeof/instanceof'. Use pattern matching: value ? | Type(v) => ..."
-                ));
-            }
-            Token::Identifier(id) if id == "sizeof" => {
-                return Err(self.syntax_error(
-                    "Zen uses @builtin.sizeof(Type) for size information"
-                ));
-            }
-            // ================================================================
-            // Check for specific keywords first before generic identifier
+            // Check for specific Zen keywords before generic identifier
             Token::Identifier(id) if id == "return" => {
                 let span = Some(self.current_span.clone());
                 self.next_token();
@@ -946,7 +773,8 @@ impl<'a> Parser<'a> {
             Token::Identifier(id) if id == "break" => {
                 let span = Some(self.current_span.clone());
                 self.next_token();
-                let label = self.current_identifier().map(|name| { self.next_token(); name });
+                let label = self.current_identifier();
+                if label.is_some() { self.next_token(); }
                 self.skip_optional_semicolon();
                 Ok(Statement::Break { label, span })
             }
@@ -964,7 +792,8 @@ impl<'a> Parser<'a> {
             Token::Identifier(id) if id == "continue" => {
                 let span = Some(self.current_span.clone());
                 self.next_token();
-                let label = self.current_identifier().map(|name| { self.next_token(); name });
+                let label = self.current_identifier();
+                if label.is_some() { self.next_token(); }
                 self.skip_optional_semicolon();
                 Ok(Statement::Continue { label, span })
             }
@@ -1264,11 +1093,12 @@ impl<'a> Parser<'a> {
 
             // Check for imports in comptime blocks (not allowed)
             if let Statement::VariableDeclaration {
-                initializer, name, ..
+                initializer: Some(expr),
+                name,
+                ..
             } = &stmt
             {
-                if let Some(expr) = initializer {
-                    let is_import = match expr {
+                let is_import = match expr {
                         Expression::MemberAccess { object, .. } => {
                             if let Expression::Identifier(id) = &**object {
                                 id.starts_with("@std") || id == "@std"
@@ -1283,15 +1113,14 @@ impl<'a> Parser<'a> {
                         _ => false,
                     };
 
-                    if is_import {
-                        return Err(CompileError::SyntaxError(
-                            format!(
-                                "Import '{}' not allowed inside comptime block. Imports must be at module level.",
-                                name
-                            ),
-                            Some(self.current_span.clone()),
-                        ));
-                    }
+                if is_import {
+                    return Err(CompileError::SyntaxError(
+                        format!(
+                            "Import '{}' not allowed inside comptime block. Imports must be at module level.",
+                            name
+                        ),
+                        Some(self.current_span.clone()),
+                    ));
                 }
             }
 

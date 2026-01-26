@@ -123,14 +123,8 @@ pub fn parse_vec_constructor(parser: &mut Parser) -> Result<Expression> {
     };
     parser.next_token();
 
-    // Expect '>'
-    if parser.current_token != Token::Operator(">".to_string()) {
-        return Err(CompileError::SyntaxError(
-            "Expected '>' after Vec size".to_string(),
-            Some(parser.current_span.clone()),
-        ));
-    }
-    parser.next_token();
+    // Expect '>' (handles >> for nested generics)
+    parser.expect_operator(">")?;
 
     // Expect '()'
     if parser.current_token != Token::Symbol('(') {
@@ -187,7 +181,8 @@ pub fn parse_dynvec_constructor(parser: &mut Parser) -> Result<Expression> {
     loop {
         element_types.push(parser.parse_type()?);
 
-        if parser.current_token == Token::Operator(">".to_string()) {
+        // Handle >> for nested generics
+        if parser.try_consume_operator(">") {
             break;
         } else if parser.current_token == Token::Symbol(',') {
             parser.next_token();
@@ -198,15 +193,6 @@ pub fn parse_dynvec_constructor(parser: &mut Parser) -> Result<Expression> {
             ));
         }
     }
-
-    // Expect '>'
-    if parser.current_token != Token::Operator(">".to_string()) {
-        return Err(CompileError::SyntaxError(
-            "Expected '>' after DynVec type arguments".to_string(),
-            Some(parser.current_span.clone()),
-        ));
-    }
-    parser.next_token();
 
     // Expect '('
     if parser.current_token != Token::Symbol('(') {
@@ -259,14 +245,8 @@ pub fn parse_array_constructor(parser: &mut Parser) -> Result<Expression> {
     // Parse element type - this could be nested like Option<i32>
     let element_type = parser.parse_type()?;
 
-    // Expect '>'
-    if parser.current_token != Token::Operator(">".to_string()) {
-        return Err(CompileError::SyntaxError(
-            "Expected '>' after Array element type".to_string(),
-            Some(parser.current_span.clone()),
-        ));
-    }
-    parser.next_token();
+    // Expect '>' (handles >> for nested generics)
+    parser.expect_operator(">")?;
 
     // Expect '('
     if parser.current_token != Token::Symbol('(') {

@@ -30,7 +30,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             // Handle &expr.method() - compile the method call and return its result
             // This is commonly used with .ref() which returns a pointer
-            Expression::MethodCall { object, method, args } => {
+            Expression::MethodCall { object, method, args, .. } => {
                 // Compile the method call - for .ref() this returns a pointer
                 let result = self.compile_method_call(object, method, args)?;
                 // The result should already be a pointer value

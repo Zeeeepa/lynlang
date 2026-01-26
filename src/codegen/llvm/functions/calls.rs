@@ -74,14 +74,9 @@ fn compile_and_convert_args<'ctx>(
         }
         compiled_args.push(val);
     }
-    let span = compiler.get_current_span();
     compiled_args
         .iter()
-        .map(|arg| {
-            BasicMetadataValueEnum::try_from(*arg).map_err(|_| {
-                CompileError::InternalError("Failed to convert argument to metadata".to_string(), span.clone())
-            })
-        })
+        .map(|arg| Ok(BasicMetadataValueEnum::from(*arg)))
         .collect()
 }
 
@@ -362,20 +357,22 @@ fn parse_cast_target_type(expr: &ast::Expression, span: Option<crate::error::Spa
             span.clone(),
         ));
     };
-    match name.as_str() {
-        "i8" => Ok(AstType::I8),
-        "i16" => Ok(AstType::I16),
-        "i32" => Ok(AstType::I32),
-        "i64" => Ok(AstType::I64),
-        "u8" => Ok(AstType::U8),
-        "u16" => Ok(AstType::U16),
-        "u32" => Ok(AstType::U32),
-        "u64" => Ok(AstType::U64),
-        "usize" => Ok(AstType::Usize),
-        "f32" => Ok(AstType::F32),
-        "f64" => Ok(AstType::F64),
-        _ => Err(CompileError::TypeError(
-            format!("cast() target type '{}' is not a valid primitive type", name),
+    
+    // Use the centralized type parser instead of manual matching
+    match crate::parser::parse_type_from_string(name) {
+        Ok(ast_type) => {
+            // Only allow numeric primitive types for cast()
+            if ast_type.is_numeric() {
+                Ok(ast_type)
+            } else {
+                Err(CompileError::TypeError(
+                    format!("cast() target type '{}' is not a valid numeric type", name),
+                    span,
+                ))
+            }
+        }
+        Err(e) => Err(CompileError::TypeError(
+            format!("cast() target type '{}' is not a valid type: {}", name, e),
             span,
         )),
     }

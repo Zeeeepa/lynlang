@@ -44,6 +44,12 @@ pub struct MethodInfo {
     pub return_type: AstType,
 }
 
+impl Default for BehaviorResolver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BehaviorResolver {
     pub fn new() -> Self {
         let mut behaviors = HashMap::new();
@@ -194,6 +200,7 @@ impl BehaviorResolver {
     }
 
     /// Replace Self type with concrete type in AST type
+    #[allow(clippy::only_used_in_recursion)]
     fn replace_self_type(&self, ast_type: &AstType, concrete_type: &str) -> AstType {
         match ast_type {
             AstType::Generic { name, type_args: _ } if name == "Self" => {
@@ -225,8 +232,8 @@ impl BehaviorResolver {
                 }
             }
             // Option and Result are now Generic types - handled in Generic match above
-            AstType::Array(element) => {
-                AstType::Array(Box::new(self.replace_self_type(element, concrete_type)))
+            AstType::Slice(element) => {
+                AstType::Slice(Box::new(self.replace_self_type(element, concrete_type)))
             }
             AstType::FixedArray { element_type, size } => AstType::FixedArray {
                 element_type: Box::new(self.replace_self_type(element_type, concrete_type)),
@@ -326,14 +333,12 @@ impl BehaviorResolver {
                 for impl_method in &trait_impl.methods {
                     if impl_method.name == required_method.name {
                         // Check that the method signatures match
-                        if let Err(e) = self.check_method_signature(
+                        self.check_method_signature(
                             &trait_impl.type_name,
                             &trait_impl.trait_name,
                             required_method,
                             impl_method,
-                        ) {
-                            return Err(e);
-                        }
+                        )?;
                         found = true;
                         break;
                     }
