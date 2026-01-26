@@ -2,9 +2,8 @@
 
 use crate::ast::{AstType, Expression};
 use crate::error::Result;
-use crate::typechecker::{EnumInfo, TypeChecker};
+use crate::typechecker::TypeChecker;
 use crate::well_known::well_known;
-use std::collections::HashMap;
 
 /// Infer the type of an enum literal (e.g., .Some(x), .None)
 pub fn infer_enum_literal_type(
@@ -64,15 +63,19 @@ pub fn infer_enum_literal_type(
 }
 
 /// Infer the type of an enum variant (e.g., Option.Some, Result.Ok)
+/// This handles the `EnumName.Variant(payload)` syntax and infers generic type args from payload
 pub fn infer_enum_variant_type(
+    checker: &mut TypeChecker,
     enum_name: &str,
     variant: &str,
-    enums: &HashMap<String, EnumInfo>,
+    payload: &Option<Box<Expression>>,
 ) -> Result<AstType> {
     let wk = well_known();
+
+    // Resolve the enum type name
     let enum_type_name = if enum_name.is_empty() {
         let mut found_enum = None;
-        for (name, info) in enums {
+        for (name, info) in &checker.enums {
             for (var_name, _) in &info.variants {
                 if var_name == variant {
                     found_enum = Some(name.clone());
@@ -92,7 +95,64 @@ pub fn infer_enum_variant_type(
         enum_name.to_string()
     };
 
-    if let Some(enum_info) = enums.get(&enum_type_name) {
+    // For well-known generic enums (Option, Result), infer type args from payload
+    // This is the same logic as infer_enum_literal_type but for qualified syntax
+    if wk.is_option(&enum_type_name) {
+        if wk.is_some(variant) {
+            let inner_type = if let Some(p) = payload {
+                checker.infer_expression_type(p)?
+            } else {
+                AstType::Void
+            };
+            return Ok(AstType::Generic {
+                name: enum_type_name,
+                type_args: vec![inner_type],
+            });
+        } else if wk.is_none(variant) {
+            // None variant - type must be inferred from context
+            return Ok(AstType::Generic {
+                name: enum_type_name,
+                type_args: vec![AstType::Generic {
+                    name: "T".to_string(),
+                    type_args: vec![],
+                }],
+            });
+        }
+    }
+
+    if wk.is_result(&enum_type_name) {
+        if wk.is_ok(variant) {
+            let ok_type = if let Some(p) = payload {
+                checker.infer_expression_type(p)?
+            } else {
+                AstType::Void
+            };
+            return Ok(AstType::Generic {
+                name: enum_type_name,
+                type_args: vec![ok_type, crate::ast::resolve_string_struct_type()],
+            });
+        } else if wk.is_err(variant) {
+            let err_type = if let Some(p) = payload {
+                checker.infer_expression_type(p)?
+            } else {
+                AstType::Void
+            };
+            return Ok(AstType::Generic {
+                name: enum_type_name,
+                type_args: vec![
+                    AstType::Generic {
+                        name: "T".to_string(),
+                        type_args: vec![],
+                    },
+                    err_type,
+                ],
+            });
+        }
+    }
+
+    // For user-defined enums, return as Enum type
+    // Note: Generic user-defined enums would need type_params in EnumInfo to work properly
+    if let Some(enum_info) = checker.enums.get(&enum_type_name) {
         let variants = enum_info
             .variants
             .iter()
@@ -101,42 +161,34 @@ pub fn infer_enum_variant_type(
                 payload: payload.clone(),
             })
             .collect();
-        Ok(AstType::Enum {
+        return Ok(AstType::Enum {
             name: enum_type_name,
             variants,
-        })
-    } else {
-        // If enum_type_name contains generic syntax, parse it as a type
-        if enum_type_name.contains('<') {
-            match crate::parser::parse_type_from_string(&enum_type_name) {
-                Ok(parsed_type) => {
-                    // Handle parsed types
-                    match &parsed_type {
-                        AstType::Generic { name: base_name, type_args } => {
-                            // Handle pointer types specially
-                            if wk.is_immutable_ptr(base_name) && type_args.len() == 1 {
-                                return Ok(AstType::ptr(type_args[0].clone()));
-                            } else if wk.is_mutable_ptr(base_name) && type_args.len() == 1 {
-                                return Ok(AstType::mut_ptr(type_args[0].clone()));
-                            } else if wk.is_raw_ptr(base_name) && type_args.len() == 1 {
-                                return Ok(AstType::raw_ptr(type_args[0].clone()));
-                            }
-                            // Return the parsed generic type
-                            return Ok(parsed_type);
-                        }
-                        // If it parsed to something else, return it
-                        _ => return Ok(parsed_type),
+        });
+    }
+
+    // If enum_type_name contains generic syntax, parse it as a type
+    if enum_type_name.contains('<') {
+        if let Ok(parsed_type) = crate::parser::parse_type_from_string(&enum_type_name) {
+            match &parsed_type {
+                AstType::Generic { name: base_name, type_args } => {
+                    // Handle pointer types specially
+                    if wk.is_immutable_ptr(base_name) && type_args.len() == 1 {
+                        return Ok(AstType::ptr(type_args[0].clone()));
+                    } else if wk.is_mutable_ptr(base_name) && type_args.len() == 1 {
+                        return Ok(AstType::mut_ptr(type_args[0].clone()));
+                    } else if wk.is_raw_ptr(base_name) && type_args.len() == 1 {
+                        return Ok(AstType::raw_ptr(type_args[0].clone()));
                     }
+                    return Ok(parsed_type);
                 }
-                Err(_) => {
-                    // If parsing fails, fall through to generic with empty args
-                }
+                _ => return Ok(parsed_type),
             }
         }
-
-        Ok(AstType::Generic {
-            name: enum_type_name,
-            type_args: vec![],
-        })
     }
+
+    Ok(AstType::Generic {
+        name: enum_type_name,
+        type_args: vec![],
+    })
 }

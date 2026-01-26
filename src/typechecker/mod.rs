@@ -591,8 +591,8 @@ impl TypeChecker {
             Expression::EnumVariant {
                 enum_name,
                 variant,
-                payload: _,
-            } => inference::infer_enum_variant_type(enum_name, variant, &self.enums),
+                payload,
+            } => inference::infer_enum_variant_type(self, enum_name, variant, payload),
             Expression::StringLength(_) => Ok(AstType::I64),
             Expression::MethodCall {
                 object,
