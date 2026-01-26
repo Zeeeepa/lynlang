@@ -2,11 +2,44 @@ use crate::ast::AstType;
 use crate::stdlib_types::StdlibTypeRegistry;
 use crate::well_known::well_known;
 
+/// Check if a name looks like a type parameter (single uppercase letter or short uppercase name)
+fn is_type_parameter_name(name: &str) -> bool {
+    // Type parameters are typically single uppercase letters (T, U, V, K, V)
+    // or short uppercase names (Self)
+    if name.is_empty() {
+        return false;
+    }
+    // Single uppercase letter is definitely a type parameter
+    if name.len() == 1 && name.chars().next().map_or(false, |c| c.is_uppercase()) {
+        return true;
+    }
+    // "Self" is a special type parameter
+    if name == "Self" || name.starts_with("Self_") {
+        return true;
+    }
+    false
+}
+
 /// Check if two types are compatible (for assignment, parameter passing, etc.)
 pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
     // Exact match is always compatible
     if std::mem::discriminant(expected) == std::mem::discriminant(actual) {
         return true;
+    }
+
+    // Generic type parameters (like T, U, etc.) are compatible with any type
+    // This allows return type checking in generic functions before instantiation
+    if let AstType::Generic { name, type_args } = expected {
+        // A bare type parameter (no type_args) is compatible with any type
+        if type_args.is_empty() && is_type_parameter_name(name) {
+            return true;
+        }
+    }
+    // Also check if actual is a type parameter (for symmetry)
+    if let AstType::Generic { name, type_args } = actual {
+        if type_args.is_empty() && is_type_parameter_name(name) {
+            return true;
+        }
     }
 
     // Check for numeric compatibility with implicit conversions

@@ -35,6 +35,8 @@ pub struct TypeChecker {
     module_imports: HashMap<String, String>,
     current_impl_type: Option<String>,
     current_span: Option<Span>,
+    /// Expected return type for the current function being checked
+    current_function_return_type: Option<AstType>,
     pub well_known: WellKnownTypes,
     // Cache of loaded stdlib modules for type lookup
     stdlib_modules: HashMap<String, Program>,
@@ -138,6 +140,7 @@ impl TypeChecker {
             module_imports: HashMap::new(),
             current_impl_type: None,
             current_span: None,
+            current_function_return_type: None,
             well_known: WellKnownTypes::new(),
             stdlib_modules: HashMap::new(),
             stdlib_methods: HashMap::new(),
@@ -296,6 +299,16 @@ impl TypeChecker {
 
     pub fn get_current_span(&self) -> Option<Span> {
         self.current_span.clone()
+    }
+
+    /// Set the expected return type for the current function being checked
+    pub fn set_function_return_type(&mut self, return_type: Option<AstType>) {
+        self.current_function_return_type = return_type;
+    }
+
+    /// Get the expected return type for the current function
+    pub fn get_function_return_type(&self) -> Option<&AstType> {
+        self.current_function_return_type.as_ref()
     }
 
     pub fn infer_expression_type(&mut self, expr: &Expression) -> Result<AstType> {
@@ -1386,8 +1399,38 @@ mod tests {
     fn test_generic_function() {
         let input = "
             identity<T> = (x: T) T { return x }
-            main: () void = {
+            main = () void {
                 a = identity<i32>(42)
+            }
+        ";
+        let result = check_program(input);
+        if let Err(ref e) = result {
+            eprintln!("Error: {:?}", e);
+        }
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_return_type_mismatch() {
+        // Function returns i32 but declares string return type
+        let input = "
+            bad_return = () string {
+                return 42
+            }
+        ";
+        let result = check_program(input);
+        assert!(result.is_err());
+        if let Err(CompileError::TypeError(msg, _)) = result {
+            assert!(msg.contains("Return type mismatch"));
+        }
+    }
+
+    #[test]
+    fn test_return_type_correct() {
+        // Function returns correct type
+        let input = "
+            good_return = () i32 {
+                return 42
             }
         ";
         assert!(check_program(input).is_ok());

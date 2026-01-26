@@ -3,6 +3,7 @@
 use crate::ast::{AstType, LoopKind, Statement};
 use crate::error::{CompileError, Result};
 use crate::typechecker::TypeChecker;
+use super::validation::types_compatible;
 
 /// Type check a statement
 pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Result<()> {
@@ -170,8 +171,20 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
         }
         Statement::Return { expr, span } => {
             checker.set_current_span(span.clone());
-            let _return_type = checker.infer_expression_type(expr)?;
-            // TODO: Check against function return type
+            let return_type = checker.infer_expression_type(expr)?;
+
+            // Check that return type matches expected function return type
+            if let Some(expected) = checker.get_function_return_type() {
+                if !types_compatible(&return_type, expected) {
+                    return Err(CompileError::TypeError(
+                        format!(
+                            "Return type mismatch: expected {:?}, got {:?}",
+                            expected, return_type
+                        ),
+                        span.clone(),
+                    ));
+                }
+            }
         }
         Statement::Expression { expr, span } => {
             checker.set_current_span(span.clone());
@@ -214,12 +227,37 @@ pub fn check_statement(checker: &mut TypeChecker, statement: &Statement) -> Resu
             }
             checker.exit_scope();
         }
-        Statement::PointerAssignment { pointer, value, .. } => {
+        Statement::PointerAssignment { pointer, value, span } => {
+            checker.set_current_span(span.clone());
             // For array indexing like arr[i] = value
             // The pointer expression should be a pointer type
-            let _pointer_type = checker.infer_expression_type(pointer)?;
-            let _value_type = checker.infer_expression_type(value)?;
-            // TODO: Type check that value is compatible with the pointed-to type
+            let pointer_type = checker.infer_expression_type(pointer)?;
+            let value_type = checker.infer_expression_type(value)?;
+
+            // Type check that value is compatible with the pointed-to type
+            if let Some(inner_type) = pointer_type.ptr_inner() {
+                if !types_compatible(inner_type, &value_type) {
+                    return Err(CompileError::TypeError(
+                        format!(
+                            "Pointer assignment type mismatch: pointer points to {:?}, but value is {:?}",
+                            inner_type, value_type
+                        ),
+                        span.clone(),
+                    ));
+                }
+            }
+            // If pointer is an array index, check element type compatibility
+            else if let AstType::FixedArray { element_type, .. } = &pointer_type {
+                if !types_compatible(element_type, &value_type) {
+                    return Err(CompileError::TypeError(
+                        format!(
+                            "Array assignment type mismatch: array elements are {:?}, but value is {:?}",
+                            element_type, value_type
+                        ),
+                        span.clone(),
+                    ));
+                }
+            }
         }
         Statement::DestructuringImport { names, .. } => {
             // Handle destructuring imports: { io, math } = @std

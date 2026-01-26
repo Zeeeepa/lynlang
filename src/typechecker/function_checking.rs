@@ -8,6 +8,9 @@ use crate::typechecker::TypeChecker;
 pub fn check_function(checker: &mut TypeChecker, function: &Function) -> Result<()> {
     checker.enter_scope();
 
+    // Set the expected return type for this function
+    checker.set_function_return_type(Some(function.return_type.clone()));
+
     // Add function parameters to scope
     // TODO: Parse and handle mutable parameters (:: syntax)
     // For now, all parameters are immutable
@@ -48,6 +51,9 @@ pub fn check_function(checker: &mut TypeChecker, function: &Function) -> Result<
     for statement in &function.body {
         super::statement_checking::check_statement(checker, statement)?;
     }
+
+    // Clear the expected return type
+    checker.set_function_return_type(None);
 
     checker.exit_scope();
     Ok(())
